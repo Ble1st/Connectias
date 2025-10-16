@@ -16,10 +16,12 @@ class PluginSecurityManager {
         return try {
             val jarFile = JarFile(pluginFile)
             val manifest = jarFile.manifest
-            val entries = manifest.entries
+            val entries = manifest?.entries
             
             // Check if plugin is signed
-            val hasSignature = entries.any { it.value.attributes.containsKey("Digest") }
+            val hasSignature = entries?.any { entry -> 
+                entry.value.containsKey("Digest-Algorithms") 
+            } ?: false
             
             if (!hasSignature) {
                 return SignatureVerificationResult(

@@ -157,7 +157,7 @@ class PluginValidator {
             }
             
             if (dangerousFiles.isNotEmpty()) {
-                errors.add(ValidationError("Dangerous file paths found: ${dangerousFiles.joinToString()}")
+                errors.add(ValidationError("Dangerous file paths found: ${dangerousFiles.joinToString()}"))
             }
             
             // Check for suspicious files
@@ -166,7 +166,7 @@ class PluginValidator {
             }
             
             if (suspiciousFiles.isNotEmpty()) {
-                warnings.add(ValidationWarning("Native binaries found: ${suspiciousFiles.joinToString()}")
+                warnings.add(ValidationWarning("Native binaries found: ${suspiciousFiles.joinToString()}"))
             }
             
             jarFile.close()

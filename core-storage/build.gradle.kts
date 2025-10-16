@@ -30,6 +30,8 @@ dependencies {
     implementation(libs.security.crypto)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    implementation(libs.timber)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
     kapt(libs.room.compiler)
     kapt(libs.hilt.compiler)
 }

@@ -35,10 +35,17 @@ class DatabaseCorruptionHandler(
     fun isDatabaseCorrupted(pluginId: String): Boolean {
         return try {
             val tableName = pluginId.replace(Regex("[^a-zA-Z0-9_]"), "_")
-            database.openHelper.readableDatabase.rawQuery(
+            val cursor = database.openHelper.readableDatabase.rawQuery(
                 "SELECT COUNT(*) FROM plugin_data_$tableName LIMIT 1",
-                emptyArray()
-            ).use { true }
+                null
+            )
+            cursor.use { 
+                if (it.moveToFirst()) {
+                    it.getInt(0) >= 0
+                } else {
+                    true
+                }
+            }
             false
         } catch (e: Exception) {
             Timber.w(e, "Database corruption check failed")

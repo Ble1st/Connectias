@@ -2,7 +2,7 @@ package com.ble1st.connectias.network
 
 import kotlinx.serialization.Serializable
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.json
+import retrofit2.converter.kotlinx.serialization.KotlinSerializationConverterFactory
 import retrofit2.http.GET
 import retrofit2.http.Path
 import kotlinx.serialization.json.Json

@@ -4,7 +4,9 @@ import com.ble1st.connectias.api.StorageService
 import com.ble1st.connectias.storage.database.PluginDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import android.content.ContentValues
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.serializer
 import timber.log.Timber
 import kotlin.reflect.KClass
 
@@ -32,15 +34,18 @@ class PluginStorageService(
             VALUES (?, ?, ?, ?, ?)
         """.trimIndent()
         
-        database.openHelper.writableDatabase.execSQL(
-            query,
-            arrayOf(
-                sanitizedKey,
-                sanitizedValue,
-                sanitizedValue.toByteArray().size,
-                System.currentTimeMillis(),
-                System.currentTimeMillis()
-            )
+        val contentValues = ContentValues().apply {
+            put("key", sanitizedKey)
+            put("value", sanitizedValue)
+            put("value_size_bytes", sanitizedValue.toByteArray().size)
+            put("created_at", System.currentTimeMillis())
+            put("updated_at", System.currentTimeMillis())
+        }
+        database.openHelper.writableDatabase.insertWithOnConflict(
+            "plugin_data_$tableName",
+            null,
+            contentValues,
+            android.database.sqlite.SQLiteDatabase.CONFLICT_REPLACE
         )
         
         quotaManager.updateUsage(pluginId)
@@ -62,12 +67,14 @@ class PluginStorageService(
         }
     }
     
+    @OptIn(kotlinx.serialization.InternalSerializationApi::class)
     override suspend fun putObject(key: String, value: Any) {
         val sanitizedKey = sanitizer.sanitizeKey(key)
         
         // JSON-Serialisierung mit Type-Checking
         val json = try {
-            Json.encodeToString(value)
+            val serializer = value::class.serializer()
+            Json.encodeToString(serializer, value)
         } catch (e: Exception) {
             throw IllegalArgumentException("Object cannot be serialized: ${e.message}")
         }
@@ -78,10 +85,12 @@ class PluginStorageService(
         putString(sanitizedKey, json)
     }
     
-    override suspend fun <T> getObject(key: String, type: KClass<T>): T? {
+    @OptIn(kotlinx.serialization.InternalSerializationApi::class)
+    override suspend fun <T : Any> getObject(key: String, type: KClass<T>): T? {
         val json = getString(key) ?: return null
         return try {
-            Json.decodeFromString(type.java, json)
+            val serializer = type.serializer()
+            Json.decodeFromString(serializer, json)
         } catch (e: Exception) {
             Timber.e("Failed to deserialize object: ${e.message}")
             null
@@ -91,8 +100,9 @@ class PluginStorageService(
     override suspend fun remove(key: String) = withContext(Dispatchers.IO) {
         val sanitizedKey = sanitizer.sanitizeKey(key)
         
-        database.openHelper.writableDatabase.execSQL(
-            "DELETE FROM plugin_data_$tableName WHERE key = ?",
+        database.openHelper.writableDatabase.delete(
+            "plugin_data_$tableName",
+            "key = ?",
             arrayOf(sanitizedKey)
         )
         

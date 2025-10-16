@@ -9,6 +9,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
 import java.net.InetAddress
 import java.net.URL
 import kotlin.system.measureTimeMillis
@@ -53,7 +54,7 @@ class PluginNetworkService(
         }
         
         val requestBody = okhttp3.RequestBody.create(
-            okhttp3.MediaType.get("application/json; charset=utf-8"),
+            "application/json; charset=utf-8".toMediaType(),
             body
         )
         
@@ -88,10 +89,10 @@ class PluginNetworkService(
                 val address = InetAddress.getByName(host)
                 val reachable = address.isReachable(5000)
                 if (!reachable) {
-                    return PingResult(host, 0, false)
+                    return@withContext PingResult(host, 0, false)
                 }
             } catch (e: Exception) {
-                return PingResult(host, 0, false)
+                return@withContext PingResult(host, 0, false)
             }
         }
         

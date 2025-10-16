@@ -1,7 +1,0 @@
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/StorageService.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/SystemInfoService.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/PluginContext.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/NetworkService.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/PluginLogger.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/IPlugin.kt
-/home/gerd/AndroidStudioProjects/Connectias/core-api/src/main/java/com/ble1st/connectias/api/PluginInfo.kt

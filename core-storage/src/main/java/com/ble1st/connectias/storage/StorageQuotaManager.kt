@@ -36,14 +36,14 @@ class StorageQuotaManager(
         val tableName = pluginId.replace(Regex("[^a-zA-Z0-9_]"), "_")
         val cursor = database.openHelper.readableDatabase.rawQuery(
             "SELECT COUNT(*), SUM(value_size_bytes) FROM plugin_data_$tableName",
-            emptyArray()
+            null
         )
         
-        val usage = cursor.use {
-            if (it.moveToFirst()) {
+        val usage = cursor.use { c ->
+            if (c.moveToFirst()) {
                 StorageUsage(
-                    entryCount = it.getInt(0),
-                    totalSizeBytes = it.getLong(1)
+                    entryCount = c.getInt(0),
+                    totalSizeBytes = c.getLong(1)
                 )
             } else {
                 StorageUsage(0, 0)

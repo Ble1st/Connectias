@@ -4,7 +4,9 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
-import com.ble1st.connectias.R
+import android.R as AndroidR
+import com.ble1st.connectias.storage.MonitoringAlert
+import com.ble1st.connectias.storage.AlertSeverity
 
 class CoreNotificationHandler(
     private val context: Context,
@@ -56,7 +58,7 @@ class CoreNotificationHandler(
     
     fun sendPluginAlert(pluginId: String, alert: MonitoringAlert) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
-            .setSmallIcon(R.drawable.ic_warning)
+            .setSmallIcon(AndroidR.drawable.ic_dialog_alert)
             .setContentTitle("Plugin-Warnung: $pluginId")
             .setContentText(alert.message)
             .setPriority(getSeverityPriority(alert.severity))
@@ -69,7 +71,7 @@ class CoreNotificationHandler(
     
     fun sendPluginCrashNotification(pluginId: String, error: Throwable, crashReport: String) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_CRASHES)
-            .setSmallIcon(R.drawable.ic_crash)
+            .setSmallIcon(AndroidR.drawable.ic_dialog_alert)
             .setContentTitle("Plugin abgestürzt: $pluginId")
             .setContentText("Fehler: ${error.message}")
             .setStyle(NotificationCompat.BigTextStyle()
@@ -84,7 +86,7 @@ class CoreNotificationHandler(
     
     fun sendNetworkOfflineNotification(pluginId: String) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID_ALERTS)
-            .setSmallIcon(R.drawable.ic_network_offline)
+            .setSmallIcon(AndroidR.drawable.ic_dialog_alert)
             .setContentTitle("Netzwerk nicht verfügbar")
             .setContentText("Plugin $pluginId benötigt Internetzugriff")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
