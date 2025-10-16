@@ -13,8 +13,8 @@ public class PluginSecurityPolicy extends SecurityManager {
     private final String pluginId;
     
     public PluginSecurityPolicy(PluginInfo plugin) {
-        this.pluginId = plugin.id;
-        this.allowedPermissions = Set.copyOf(plugin.permissions);
+        this.pluginId = plugin.getId();
+        this.allowedPermissions = Set.copyOf(plugin.getPermissions());
     }
     
     @Override

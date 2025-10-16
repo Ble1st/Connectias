@@ -52,7 +52,7 @@ class PluginDatabaseManager(
         Timber.i("Deleted table for plugin: $pluginId")
     }
     
-    fun getDatabase(): PluginDatabase = database
+    fun getPluginDatabase(): PluginDatabase = database
     
     private fun sanitizeTableName(pluginId: String): String {
         // Nur alphanumerische Zeichen und Underscore erlauben

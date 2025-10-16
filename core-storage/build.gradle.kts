@@ -31,7 +31,7 @@ dependencies {
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
     implementation(libs.timber)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation(libs.kotlinx.coroutines.android)
     kapt(libs.room.compiler)
     kapt(libs.hilt.compiler)
 }

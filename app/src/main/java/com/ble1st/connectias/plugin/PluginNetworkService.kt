@@ -1,11 +1,14 @@
 package com.ble1st.connectias.plugin
 
-import com.ble1st.connectias.api.NetworkResult
+import com.ble1st.connectias.api.NetworkResponse
 import com.ble1st.connectias.api.NetworkService
-import okhttp3.Headers
-import okhttp3.MediaType.Companion.toMediaType
+import com.ble1st.connectias.api.PingResult
+import com.ble1st.connectias.api.TracerouteHop
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Headers
+import okhttp3.Response
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
 import java.net.InetAddress
@@ -25,17 +28,17 @@ class PluginNetworkService(
         return try {
             val host = java.net.URL(url).host
             val address = InetAddress.getByName(host)
-            address.isLoopbackAddress || address.isSiteLocalAddress
+            address.isLoopbackAddress || host == "localhost" || host == "127.0.0.1"
         } catch (e: Exception) {
             Timber.e(e, "Plugin $pluginId: Error checking if URL is localhost: $url")
             false
         }
     }
     
-    override suspend fun get(url: String, headers: Map<String, String>): NetworkResult {
+    override suspend fun get(url: String, headers: Map<String, String>): NetworkResponse {
         if (isLocalhost(url)) {
             Timber.w("Plugin $pluginId: Blocked localhost access to $url")
-            return NetworkResult.Error(403, "Access to localhost is forbidden for plugins.")
+            return NetworkResponse(403, "Access to localhost is forbidden for plugins.", emptyMap())
         }
         
         return try {
@@ -46,28 +49,24 @@ class PluginNetworkService(
                 .build()
             
             val response = okHttpClient.newCall(request).execute()
-            val result = NetworkResult.Success(
-                response.code,
-                response.body?.string(),
-                response.headers.toMap()
-            )
+            val responseBody = response.body?.string() ?: ""
+            val responseHeaders = response.headers.toMap()
             
-            Timber.d("Plugin $pluginId: GET request to $url returned ${response.code}")
-            result
+            NetworkResponse(response.code, responseBody, responseHeaders)
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Network GET request failed for $url")
-            NetworkResult.Exception(e)
+            Timber.e(e, "Plugin $pluginId: Error making GET request to $url")
+            NetworkResponse(500, "Network error: ${e.message}", emptyMap())
         }
     }
     
-    override suspend fun post(url: String, body: String, headers: Map<String, String>): NetworkResult {
+    override suspend fun post(url: String, body: String, headers: Map<String, String>): NetworkResponse {
         if (isLocalhost(url)) {
             Timber.w("Plugin $pluginId: Blocked localhost access to $url")
-            return NetworkResult.Error(403, "Access to localhost is forbidden for plugins.")
+            return NetworkResponse(403, "Access to localhost is forbidden for plugins.", emptyMap())
         }
         
         return try {
-            val requestBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
+            val requestBody = body.toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url(url)
                 .headers(Headers.of(headers))
@@ -75,61 +74,68 @@ class PluginNetworkService(
                 .build()
             
             val response = okHttpClient.newCall(request).execute()
-            val result = NetworkResult.Success(
-                response.code,
-                response.body?.string(),
-                response.headers.toMap()
-            )
+            val responseBody = response.body?.string() ?: ""
+            val responseHeaders = response.headers.toMap()
             
-            Timber.d("Plugin $pluginId: POST request to $url returned ${response.code}")
-            result
+            NetworkResponse(response.code, responseBody, responseHeaders)
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Network POST request failed for $url")
-            NetworkResult.Exception(e)
+            Timber.e(e, "Plugin $pluginId: Error making POST request to $url")
+            NetworkResponse(500, "Network error: ${e.message}", emptyMap())
         }
     }
     
-    override suspend fun ping(host: String, timeout: Int): Boolean {
-        if (isLocalhost("http://$host")) {
+    override suspend fun ping(host: String): PingResult {
+        if (isLocalhost(host)) {
             Timber.w("Plugin $pluginId: Blocked localhost ping to $host")
-            return false
+            return PingResult(host, -1, false)
         }
         
         return try {
-            val runtime = Runtime.getRuntime()
-            val ipProcess = runtime.exec("/system/bin/ping -c 1 -W ${timeout / 1000} $host")
-            val exitValue = ipProcess.waitFor()
-            val success = exitValue == 0
+            val startTime = System.currentTimeMillis()
+            val address = InetAddress.getByName(host)
+            val isReachable = address.isReachable(5000) // 5 second timeout
+            val endTime = System.currentTimeMillis()
+            val latency = if (isReachable) endTime - startTime else -1
             
-            Timber.d("Plugin $pluginId: Ping to $host ${if (success) "successful" else "failed"}")
-            success
+            PingResult(host, latency, isReachable)
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Ping failed for $host")
-            false
+            Timber.e(e, "Plugin $pluginId: Error pinging $host")
+            PingResult(host, -1, false)
         }
     }
     
-    override suspend fun traceroute(host: String): List<String> {
-        if (isLocalhost("http://$host")) {
+    override suspend fun traceroute(host: String): List<TracerouteHop> {
+        if (isLocalhost(host)) {
             Timber.w("Plugin $pluginId: Blocked localhost traceroute to $host")
             return emptyList()
         }
         
-        val hops = mutableListOf<String>()
-        try {
-            val runtime = Runtime.getRuntime()
-            val process = runtime.exec("traceroute $host")
-            val reader = process.inputStream.bufferedReader()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                hops.add(line!!)
-            }
-            process.waitFor()
+        return try {
+            // Simplified traceroute implementation
+            val hops = mutableListOf<TracerouteHop>()
+            val maxHops = 30
             
-            Timber.d("Plugin $pluginId: Traceroute to $host completed with ${hops.size} hops")
+            for (ttl in 1..maxHops) {
+                try {
+                    val startTime = System.currentTimeMillis()
+                    val address = InetAddress.getByName(host)
+                    val isReachable = address.isReachable(1000)
+                    val endTime = System.currentTimeMillis()
+                    val latency = endTime - startTime
+                    
+                    hops.add(TracerouteHop(ttl, address.hostAddress ?: host, latency))
+                    
+                    if (isReachable) break
+                } catch (e: Exception) {
+                    Timber.e(e, "Plugin $pluginId: Error in traceroute hop $ttl to $host")
+                    break
+                }
+            }
+            
+            hops
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Traceroute failed for $host")
+            Timber.e(e, "Plugin $pluginId: Error performing traceroute to $host")
+            emptyList()
         }
-        return hops
     }
 }

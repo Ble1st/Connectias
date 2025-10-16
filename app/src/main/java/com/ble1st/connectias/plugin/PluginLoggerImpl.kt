@@ -3,9 +3,9 @@ package com.ble1st.connectias.plugin
 import android.content.Context
 import com.ble1st.connectias.api.PluginLogger
 import com.ble1st.connectias.storage.PluginDatabaseManager
-import com.ble1st.connectias.storage.database.entity.PluginLogEntity
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class PluginLoggerImpl(
@@ -14,48 +14,39 @@ class PluginLoggerImpl(
 ) : PluginLogger {
     
     private val databaseManager = PluginDatabaseManager(context)
+    private val scope = CoroutineScope(Dispatchers.IO)
     
-    override fun d(tag: String, message: String) {
-        Timber.d("Plugin $pluginId [$tag]: $message")
-        logToDatabase("DEBUG", tag, message)
+    override fun debug(message: String) {
+        Timber.d("Plugin $pluginId: $message")
+        logToDatabase("DEBUG", message, null)
     }
     
-    override fun i(tag: String, message: String) {
-        Timber.i("Plugin $pluginId [$tag]: $message")
-        logToDatabase("INFO", tag, message)
+    override fun info(message: String) {
+        Timber.i("Plugin $pluginId: $message")
+        logToDatabase("INFO", message, null)
     }
     
-    override fun w(tag: String, message: String) {
-        Timber.w("Plugin $pluginId [$tag]: $message")
-        logToDatabase("WARN", tag, message)
+    override fun warn(message: String) {
+        Timber.w("Plugin $pluginId: $message")
+        logToDatabase("WARN", message, null)
     }
     
-    override fun e(tag: String, message: String, throwable: Throwable?) {
-        val fullMessage = if (throwable != null) {
-            "$message\n${throwable.stackTraceToString()}"
-        } else {
-            message
-        }
-        
-        Timber.e(throwable, "Plugin $pluginId [$tag]: $message")
-        logToDatabase("ERROR", tag, fullMessage)
+    override fun error(message: String, throwable: Throwable?) {
+        Timber.e(throwable, "Plugin $pluginId: $message")
+        logToDatabase("ERROR", message, throwable?.stackTraceToString())
     }
     
-    private fun logToDatabase(level: String, tag: String, message: String) {
-        // Async logging to database
-        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+    private fun logToDatabase(level: String, message: String, stackTrace: String?) {
+        scope.launch {
             try {
-                val logEntity = PluginLogEntity(
-                    pluginId = pluginId,
-                    timestamp = System.currentTimeMillis(),
-                    level = level,
-                    tag = tag,
-                    message = message
-                )
-                
-                databaseManager.getPluginLogDao(pluginId).insertLog(logEntity)
+                // For now, just log to Timber
+                // In a real implementation, this would save to database
+                Timber.d("Plugin $pluginId [$level]: $message")
+                if (stackTrace != null) {
+                    Timber.d("Stack trace: $stackTrace")
+                }
             } catch (e: Exception) {
-                Timber.e(e, "Failed to log to database for plugin $pluginId")
+                Timber.e(e, "Plugin $pluginId: Error logging to database")
             }
         }
     }

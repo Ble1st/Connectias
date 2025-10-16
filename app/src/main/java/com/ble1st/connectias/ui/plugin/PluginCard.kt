@@ -3,6 +3,8 @@ package com.ble1st.connectias.ui.plugin
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -73,7 +75,7 @@ fun PluginCard(
                 )
                 
                 Icon(
-                    Icons.Default.PowerSettingsNew,
+                    Icons.Filled.PowerSettingsNew,
                     contentDescription = "Status",
                     tint = if (plugin.enabled) 
                         MaterialTheme.colorScheme.primary 

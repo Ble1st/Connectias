@@ -33,7 +33,7 @@ class PluginSecurityManager {
             
             // Verify signature
             val certFactory = CertificateFactory.getInstance("X.509")
-            val certs = jarFile.entries.asSequence()
+            val certs = jarFile.entries().asSequence()
                 .filter { it.name.endsWith(".DSA") || it.name.endsWith(".RSA") }
                 .mapNotNull { entry ->
                     try {
@@ -113,7 +113,7 @@ class PluginSecurityManager {
             
             // 4. Check for required files
             val jarFile = JarFile(pluginFile)
-            val entries = jarFile.entries.asSequence().map { it.name }.toSet()
+            val entries = jarFile.entries().asSequence().map { it.name }.toSet()
             
             if (!entries.contains("plugin.json")) {
                 errors.add(ValidationError("plugin.json manifest is missing"))

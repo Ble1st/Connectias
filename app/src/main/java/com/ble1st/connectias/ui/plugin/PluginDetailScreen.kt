@@ -7,6 +7,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,12 +45,12 @@ fun PluginDetailScreen(
                 title = { Text(plugin.name) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Zurück")
                     }
                 },
                 actions = {
                     IconButton(onClick = { onDeletePlugin(plugin.id) }) {
-                        Icon(Icons.Default.Delete, contentDescription = "Löschen")
+                        Icon(Icons.Filled.Delete, contentDescription = "Löschen")
                     }
                 }
             )

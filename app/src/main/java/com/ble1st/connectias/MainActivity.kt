@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Plugins
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,6 +35,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import android.net.Uri
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -113,10 +116,10 @@ enum class AppDestinations(
     val label: String,
     val icon: ImageVector,
 ) {
-    HOME("Home", Icons.Default.Home),
-    PLUGINS("Plugins", Icons.Default.Plugins),
-    FAVORITES("Favorites", Icons.Default.Favorite),
-    PROFILE("Profile", Icons.Default.AccountBox),
+    HOME("Home", Icons.Filled.Home),
+    PLUGINS("Plugins", Icons.Filled.Plugins),
+    FAVORITES("Favorites", Icons.Filled.Favorite),
+    PROFILE("Profile", Icons.Filled.AccountBox),
 }
 
 @Composable

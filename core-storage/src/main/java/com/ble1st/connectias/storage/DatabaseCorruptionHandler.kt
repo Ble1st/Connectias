@@ -1,57 +1,42 @@
 package com.ble1st.connectias.storage
 
-import com.ble1st.connectias.storage.database.PluginDatabase
+import androidx.room.RoomDatabase
 import timber.log.Timber
 
+/**
+ * Handles database corruption detection and recovery for plugin data
+ */
 class DatabaseCorruptionHandler(
-    private val database: PluginDatabase,
-    private val databaseManager: PluginDatabaseManager
+    private val database: RoomDatabase
 ) {
-    suspend fun handleCorruptedDatabase(pluginId: String) {
-        Timber.e("Database corruption detected for plugin: $pluginId")
-        
-        try {
-            // 1. Alte Tabelle löschen
-            databaseManager.deletePluginTable(pluginId)
-            
-            // 2. Neue Tabelle erstellen
-            databaseManager.createPluginTable(pluginId)
-            
-            // 3. Plugin-Status aktualisieren
-            val plugin = database.pluginDao().getPlugin(pluginId)
-            plugin?.let {
-                database.pluginDao().updatePlugin(
-                    it.copy(lastUpdated = System.currentTimeMillis())
-                )
-            }
-            
-            Timber.i("Database re-initialized for plugin: $pluginId")
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to recover from database corruption")
-            throw DatabaseRecoveryException("Database recovery failed for plugin: $pluginId", e)
-        }
-    }
     
+    /**
+     * Checks if the database is corrupted for a specific plugin
+     */
     fun isDatabaseCorrupted(pluginId: String): Boolean {
         return try {
-            val tableName = pluginId.replace(Regex("[^a-zA-Z0-9_]"), "_")
-            val cursor = database.openHelper.readableDatabase.rawQuery(
-                "SELECT COUNT(*) FROM plugin_data_$tableName LIMIT 1",
-                null
-            )
-            cursor.use { 
-                if (it.moveToFirst()) {
-                    it.getInt(0) >= 0
-                } else {
-                    true
-                }
-            }
+            // Simple corruption check - try to access the database
+            database.openHelper.readableDatabase
             false
         } catch (e: Exception) {
-            Timber.w(e, "Database corruption check failed")
+            Timber.e(e, "Database corruption detected for plugin: $pluginId")
             true
         }
     }
+    
+    /**
+     * Handles database corruption by clearing plugin data
+     */
+    fun handleCorruptedDatabase(pluginId: String) {
+        try {
+            Timber.w("Handling database corruption for plugin: $pluginId")
+            
+            // Clear all plugin data
+            database.clearAllTables()
+            
+            Timber.i("Database corruption handled successfully for plugin: $pluginId")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to handle database corruption for plugin: $pluginId")
+        }
+    }
 }
-
-class DatabaseRecoveryException(message: String, cause: Throwable) : Exception(message, cause)

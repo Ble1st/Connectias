@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.MediaType.Companion.toMediaType
 import java.net.InetAddress
@@ -53,10 +54,7 @@ class PluginNetworkService(
             throw SecurityException("Access to localhost is forbidden for plugins")
         }
         
-        val requestBody = okhttp3.RequestBody.create(
-            "application/json; charset=utf-8".toMediaType(),
-            body
-        )
+        val requestBody = body.toRequestBody("application/json; charset=utf-8".toMediaType())
         
         val request = Request.Builder()
             .url(url)

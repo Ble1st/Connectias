@@ -105,7 +105,7 @@ class PluginValidator {
         
         try {
             val jarFile = JarFile(dexFile)
-            val dexEntries = jarFile.entries.asSequence()
+            val dexEntries = jarFile.entries().asSequence()
                 .filter { it.name.endsWith(".dex") }
                 .toList()
             
@@ -144,7 +144,7 @@ class PluginValidator {
         
         try {
             val jarFile = JarFile(pluginFile)
-            val entries = jarFile.entries.asSequence().map { it.name }.toSet()
+            val entries = jarFile.entries().asSequence().map { it.name }.toSet()
             
             // Check for required files
             if (!entries.contains("plugin.json")) {
@@ -202,7 +202,7 @@ class PluginValidator {
         
         try {
             val jarFile = JarFile(pluginFile)
-            val dexEntries = jarFile.entries.asSequence()
+            val dexEntries = jarFile.entries().asSequence()
                 .filter { it.name.endsWith(".dex") }
                 .toList()
             

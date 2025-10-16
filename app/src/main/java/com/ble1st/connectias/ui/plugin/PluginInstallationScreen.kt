@@ -8,6 +8,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +38,7 @@ fun PluginInstallationScreen(
                 title = { Text("Plugin Installation") },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Zurück")
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Zurück")
                     }
                 }
             )
@@ -88,7 +90,7 @@ fun PluginInstallationScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.CheckCircle,
+                                        Icons.Filled.CheckCircle,
                                         contentDescription = "Valid",
                                         tint = MaterialTheme.colorScheme.primary
                                     )
@@ -101,7 +103,7 @@ fun PluginInstallationScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            Icons.Default.Error,
+                                            Icons.Filled.Error,
                                             contentDescription = "Error",
                                             tint = MaterialTheme.colorScheme.error
                                         )
@@ -119,7 +121,7 @@ fun PluginInstallationScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.Warning,
+                                        Icons.Filled.Warning,
                                         contentDescription = "Warning",
                                         tint = MaterialTheme.colorScheme.tertiary
                                     )
@@ -153,7 +155,7 @@ fun PluginInstallationScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            Icons.Default.CheckCircle,
+                                            Icons.Filled.CheckCircle,
                                             contentDescription = "Valid Signature",
                                             tint = MaterialTheme.colorScheme.primary
                                         )
@@ -165,7 +167,7 @@ fun PluginInstallationScreen(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Icon(
-                                            Icons.Default.Error,
+                                            Icons.Filled.Error,
                                             contentDescription = "Invalid Signature",
                                             tint = MaterialTheme.colorScheme.error
                                         )
@@ -181,7 +183,7 @@ fun PluginInstallationScreen(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.Warning,
+                                        Icons.Filled.Warning,
                                         contentDescription = "Unsigned",
                                         tint = MaterialTheme.colorScheme.tertiary
                                     )

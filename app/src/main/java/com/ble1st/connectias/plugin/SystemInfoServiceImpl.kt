@@ -1,88 +1,137 @@
 package com.ble1st.connectias.plugin
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.BatteryManager
 import android.os.Build
 import com.ble1st.connectias.api.SystemInfoService
+import com.ble1st.connectias.api.DeviceInfo
+import com.ble1st.connectias.api.CpuInfo
+import com.ble1st.connectias.api.MemoryInfo
+import com.ble1st.connectias.api.NetworkInfo
 import timber.log.Timber
+import java.net.NetworkInterface
+import java.util.Collections
 
 class SystemInfoServiceImpl(
     private val context: Context,
     private val pluginId: String
 ) : SystemInfoService {
     
-    override fun getBatteryLevel(): Int {
+    override fun getDeviceInfo(): DeviceInfo {
         return try {
-            val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-            val batteryLevel = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-            Timber.d("Plugin $pluginId: Retrieved battery level: $batteryLevel%")
-            batteryLevel
+            DeviceInfo(
+                manufacturer = Build.MANUFACTURER,
+                model = Build.MODEL,
+                androidVersion = Build.VERSION.RELEASE,
+                sdkVersion = Build.VERSION.SDK_INT,
+                architecture = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+            )
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get battery level")
-            0
+            Timber.e(e, "Plugin $pluginId: Error getting device info")
+            DeviceInfo("unknown", "unknown", "unknown", 0, "unknown")
         }
     }
     
-    override fun getDeviceModel(): String {
-        return try {
-            val model = "${Build.MANUFACTURER} ${Build.MODEL}"
-            Timber.d("Plugin $pluginId: Retrieved device model: $model")
-            model
-        } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get device model")
-            "Unknown Device"
-        }
-    }
-    
-    override fun getAndroidVersion(): String {
-        return try {
-            val version = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
-            Timber.d("Plugin $pluginId: Retrieved Android version: $version")
-            version
-        } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get Android version")
-            "Unknown Version"
-        }
-    }
-    
-    override fun getTotalMemory(): Long {
+    override fun getCpuInfo(): CpuInfo {
         return try {
             val runtime = Runtime.getRuntime()
-            val totalMemory = runtime.totalMemory()
-            Timber.d("Plugin $pluginId: Retrieved total memory: ${totalMemory / (1024 * 1024)} MB")
-            totalMemory
-        } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get total memory")
-            0L
-        }
-    }
-    
-    override fun getAvailableMemory(): Long {
-        return try {
-            val runtime = Runtime.getRuntime()
-            val freeMemory = runtime.freeMemory()
-            Timber.d("Plugin $pluginId: Retrieved available memory: ${freeMemory / (1024 * 1024)} MB")
-            freeMemory
-        } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get available memory")
-            0L
-        }
-    }
-    
-    override fun getCpuUsage(): Float {
-        return try {
-            // Vereinfachte CPU-Usage-Berechnung
-            // In einer echten Implementierung würde man /proc/stat lesen
-            val runtime = Runtime.getRuntime()
-            val usedMemory = runtime.totalMemory() - runtime.freeMemory()
-            val totalMemory = runtime.totalMemory()
-            val cpuUsage = (usedMemory.toFloat() / totalMemory.toFloat()) * 100f
+            val cores = runtime.availableProcessors()
             
-            Timber.d("Plugin $pluginId: Retrieved CPU usage: ${cpuUsage.toInt()}%")
-            cpuUsage
+            CpuInfo(
+                cores = cores,
+                maxFrequency = 0L, // Not easily accessible without native code
+                currentFrequency = 0L, // Not easily accessible without native code
+                architecture = Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown"
+            )
         } catch (e: Exception) {
-            Timber.e(e, "Plugin $pluginId: Failed to get CPU usage")
-            0f
+            Timber.e(e, "Plugin $pluginId: Error getting CPU info")
+            CpuInfo(0, 0L, 0L, "unknown")
+        }
+    }
+    
+    override fun getMemoryInfo(): MemoryInfo {
+        return try {
+            val runtime = Runtime.getRuntime()
+            val totalMemory = runtime.totalMemory()
+            val freeMemory = runtime.freeMemory()
+            val usedMemory = totalMemory - freeMemory
+            
+            MemoryInfo(
+                totalMemory = totalMemory,
+                availableMemory = freeMemory,
+                usedMemory = usedMemory
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Plugin $pluginId: Error getting memory info")
+            MemoryInfo(0L, 0L, 0L)
+        }
+    }
+    
+    override fun getNetworkInfo(): NetworkInfo {
+        return try {
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val network = connectivityManager.activeNetwork
+            val capabilities = connectivityManager.getNetworkCapabilities(network)
+            
+            val isConnected = capabilities != null
+            val connectionType = when {
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> "WiFi"
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true -> "Cellular"
+                capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> "Ethernet"
+                else -> "Unknown"
+            }
+            
+            val ipAddress = getLocalIpAddress()
+            val macAddress = getMacAddress()
+            
+            NetworkInfo(
+                isConnected = isConnected,
+                connectionType = connectionType,
+                ipAddress = ipAddress,
+                macAddress = macAddress
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Plugin $pluginId: Error getting network info")
+            NetworkInfo(false, "Unknown", null, null)
+        }
+    }
+    
+    private fun getLocalIpAddress(): String? {
+        return try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            for (networkInterface in Collections.list(interfaces)) {
+                val addresses = networkInterface.inetAddresses
+                for (address in Collections.list(addresses)) {
+                    if (!address.isLoopbackAddress && address.isSiteLocalAddress) {
+                        return address.hostAddress
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Timber.e(e, "Plugin $pluginId: Error getting IP address")
+            null
+        }
+    }
+    
+    private fun getMacAddress(): String? {
+        return try {
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            for (networkInterface in Collections.list(interfaces)) {
+                if (networkInterface.name.equals("wlan0", ignoreCase = true)) {
+                    val macBytes = networkInterface.hardwareAddress
+                    if (macBytes != null) {
+                        val macString = macBytes.joinToString(":") { "%02x".format(it) }
+                        return macString
+                    }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Timber.e(e, "Plugin $pluginId: Error getting MAC address")
+            null
         }
     }
 }

@@ -1,16 +1,16 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml:2:13-83
-INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml:2:13-83
+ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml:2:13-83
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml:2:13-83
 	package
-		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml
 	xmlns:android
-		ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml:2:23-81
+		ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml:2:23-81
 uses-sdk
-INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml reason: use-sdk injection requested
-INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml
-INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml reason: use-sdk injection requested
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml
 	android:targetSdkVersion
-		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml
 	android:minSdkVersion
-		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8449434310136159710.xml
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-security/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest8854112490950325615.xml

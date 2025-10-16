@@ -26,6 +26,5 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.retrofit)
     implementation(libs.kotlinx.serialization.json)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
-    implementation("com.squareup.retrofit2:converter-kotlinx-serialization:2.12.0")
+    implementation(libs.kotlinx.coroutines.android)
 }

@@ -102,7 +102,7 @@ class PluginLoader(
         }
     }
     
-    fun reloadPlugin(pluginId: String): Result<LoadedPlugin> {
+    suspend fun reloadPlugin(pluginId: String): Result<LoadedPlugin> {
         val plugin = loadedPlugins[pluginId] ?: return Result.failure(Exception("Plugin not found: $pluginId"))
         val pluginFile = File(plugin.installPath, "plugin.zip")
         

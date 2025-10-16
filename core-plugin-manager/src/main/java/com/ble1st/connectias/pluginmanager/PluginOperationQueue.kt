@@ -1,6 +1,7 @@
 package com.ble1st.connectias.pluginmanager
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import timber.log.Timber
 import java.io.File
 
