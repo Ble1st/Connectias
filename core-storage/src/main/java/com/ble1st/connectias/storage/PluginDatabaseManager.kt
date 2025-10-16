@@ -54,6 +54,12 @@ class PluginDatabaseManager(
     
     fun getPluginDatabase(): PluginDatabase = database
     
+    suspend fun savePlugin(pluginInfo: com.ble1st.connectias.api.PluginInfo) {
+        // Plugin-Info in der Datenbank speichern
+        // Für jetzt nur loggen, später mit Room DAO implementieren
+        Timber.i("Saving plugin: ${pluginInfo.name} (${pluginInfo.id})")
+    }
+    
     private fun sanitizeTableName(pluginId: String): String {
         // Nur alphanumerische Zeichen und Underscore erlauben
         return pluginId.replace(Regex("[^a-zA-Z0-9_]"), "_")

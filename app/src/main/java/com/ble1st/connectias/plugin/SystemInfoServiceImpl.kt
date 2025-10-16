@@ -3,7 +3,6 @@ package com.ble1st.connectias.plugin
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
-import android.os.BatteryManager
 import android.os.Build
 import com.ble1st.connectias.api.SystemInfoService
 import com.ble1st.connectias.api.DeviceInfo

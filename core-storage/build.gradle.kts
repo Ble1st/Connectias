@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.kotlin.android")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
-    id("kotlin-kapt")
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -18,9 +18,15 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
-    kotlinOptions {
-        jvmTarget = "11"
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
+        }
     }
+}
+
+hilt {
+    enableAggregatingTask = false
 }
 
 dependencies {
@@ -32,6 +38,7 @@ dependencies {
     implementation(libs.room.ktx)
     implementation(libs.timber)
     implementation(libs.kotlinx.coroutines.android)
-    kapt(libs.room.compiler)
-    kapt(libs.hilt.compiler)
+    implementation(libs.javapoet)
+    ksp(libs.room.compiler)
+    ksp(libs.hilt.compiler)
 }

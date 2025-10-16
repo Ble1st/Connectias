@@ -1,1 +1,1 @@
-{"room-compiler-2.8.2.jar (androidx.room:room-compiler:2.8.2)":"INCREMENTAL_AP","hilt-compiler-2.57.2.jar (com.google.dagger:hilt-compiler:2.57.2)":"INCREMENTAL_AP","dagger-compiler-2.57.2.jar (com.google.dagger:dagger-compiler:2.57.2)":"INCREMENTAL_AP"}
+{"room-compiler-2.8.2.jar (androidx.room:room-compiler:2.8.2)":"KSP_PROCESSOR","hilt-compiler-2.54.jar (com.google.dagger:hilt-compiler:2.54)":"KSP_PROCESSOR","dagger-compiler-2.54.jar (com.google.dagger:dagger-compiler:2.54)":"KSP_PROCESSOR"}

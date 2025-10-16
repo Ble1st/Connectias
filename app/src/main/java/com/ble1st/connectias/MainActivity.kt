@@ -8,11 +8,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Plugins
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -34,8 +32,14 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
 import android.net.Uri
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ble1st.connectias.ui.plugin.PluginInstallationViewModel
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import timber.log.Timber
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -54,16 +58,41 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun ConnectiasApp() {
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-    val context = LocalContext.current
-    val pluginManager = remember { PluginManager(context) }
+    val pluginViewModel: PluginInstallationViewModel = viewModel()
+    val pluginUiState by pluginViewModel.uiState.collectAsState()
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     // File picker für Plugin-Installation
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let { pluginUri ->
+            Timber.d("MainActivity: Plugin file selected: $pluginUri")
             // Plugin installieren
-            // TODO: Implement plugin installation
+            pluginViewModel.installPlugin(pluginUri)
+        } ?: run {
+            Timber.w("MainActivity: No file selected")
+        }
+    }
+    
+    // Feedback anzeigen
+    LaunchedEffect(pluginUiState.installResult, pluginUiState.error) {
+        pluginUiState.installResult?.let {
+            Timber.i("MainActivity: Plugin installation result: $it")
+            snackbarHostState.showSnackbar(
+                message = "✅ Plugin erfolgreich installiert!",
+                withDismissAction = true
+            )
+            pluginViewModel.clearError()
+        }
+        pluginUiState.error?.let { error ->
+            Timber.e("MainActivity: Plugin installation error: $error")
+            snackbarHostState.showSnackbar(
+                message = "❌ Fehler: $error",
+                withDismissAction = true
+            )
+            pluginViewModel.clearError()
         }
     }
 
@@ -84,7 +113,10 @@ fun ConnectiasApp() {
             }
         }
     ) {
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        ) { innerPadding ->
             when (currentDestination) {
                 AppDestinations.HOME -> Greeting(
                     name = "Android",
@@ -117,7 +149,7 @@ enum class AppDestinations(
     val icon: ImageVector,
 ) {
     HOME("Home", Icons.Filled.Home),
-    PLUGINS("Plugins", Icons.Filled.Plugins),
+    PLUGINS("Plugins", Icons.Filled.Extension),
     FAVORITES("Favorites", Icons.Filled.Favorite),
     PROFILE("Profile", Icons.Filled.AccountBox),
 }

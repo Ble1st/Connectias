@@ -3,8 +3,6 @@ package com.ble1st.connectias.pluginmanager
 import android.content.Context
 import com.ble1st.connectias.api.PluginPermission
 import com.ble1st.connectias.storage.PluginDatabaseManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 class PluginPermissionManager(

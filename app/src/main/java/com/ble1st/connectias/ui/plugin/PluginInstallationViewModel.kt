@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.ble1st.connectias.api.PluginInfo
 import com.ble1st.connectias.plugin.PluginManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,19 +23,31 @@ class PluginInstallationViewModel @Inject constructor(
     val uiState: StateFlow<PluginInstallationUiState> = _uiState.asStateFlow()
     
     fun installPlugin(pluginUri: Uri) {
+        Timber.d("PluginInstallationViewModel: Starting plugin installation")
+        Timber.d("PluginInstallationViewModel: URI = $pluginUri")
+        
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isInstalling = true, error = null)
             
             try {
+                Timber.d("PluginInstallationViewModel: Calling pluginManager.installPlugin()")
                 val result = pluginManager.installPlugin(pluginUri)
+                
                 result.fold(
                     onSuccess = { pluginInfo ->
+                        Timber.i("PluginInstallationViewModel: Plugin installation successful")
+                        Timber.i("PluginInstallationViewModel: Plugin ID = ${pluginInfo.id}")
+                        Timber.i("PluginInstallationViewModel: Plugin Name = ${pluginInfo.name}")
+                        
                         _uiState.value = _uiState.value.copy(
                             isInstalling = false,
                             installResult = "Success"
                         )
                     },
                     onFailure = { exception ->
+                        Timber.e("PluginInstallationViewModel: Plugin installation failed")
+                        Timber.e(exception, "PluginInstallationViewModel: Error = ${exception.message}")
+                        
                         _uiState.value = _uiState.value.copy(
                             isInstalling = false,
                             error = exception.message ?: "Unknown error occurred"
@@ -44,6 +55,9 @@ class PluginInstallationViewModel @Inject constructor(
                     }
                 )
             } catch (e: Exception) {
+                Timber.e("PluginInstallationViewModel: Unexpected exception during installation")
+                Timber.e(e, "PluginInstallationViewModel: Exception = ${e.message}")
+                
                 _uiState.value = _uiState.value.copy(
                     isInstalling = false,
                     error = e.message ?: "Unknown error occurred"

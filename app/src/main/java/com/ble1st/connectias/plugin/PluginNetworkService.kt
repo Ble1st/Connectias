@@ -42,9 +42,11 @@ class PluginNetworkService(
         }
         
         return try {
+            val headersBuilder = Headers.Builder()
+            headers.forEach { (key, value) -> headersBuilder.add(key, value) }
             val request = Request.Builder()
                 .url(url)
-                .headers(Headers.of(headers))
+                .headers(headersBuilder.build())
                 .get()
                 .build()
             
@@ -67,9 +69,11 @@ class PluginNetworkService(
         
         return try {
             val requestBody = body.toRequestBody("application/json".toMediaType())
+            val headersBuilder = Headers.Builder()
+            headers.forEach { (key, value) -> headersBuilder.add(key, value) }
             val request = Request.Builder()
                 .url(url)
-                .headers(Headers.of(headers))
+                .headers(headersBuilder.build())
                 .post(requestBody)
                 .build()
             

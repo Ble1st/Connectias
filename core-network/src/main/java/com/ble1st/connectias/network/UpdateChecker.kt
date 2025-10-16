@@ -4,7 +4,6 @@ import kotlinx.serialization.Serializable
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Path
-import kotlinx.serialization.json.Json
 
 class UpdateChecker(
     private val retrofit: Retrofit

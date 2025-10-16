@@ -5,8 +5,6 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
 import android.R as AndroidR
-import com.ble1st.connectias.storage.MonitoringAlert
-import com.ble1st.connectias.storage.AlertSeverity
 
 class CoreNotificationHandler(
     private val context: Context,

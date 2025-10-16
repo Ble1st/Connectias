@@ -10,7 +10,6 @@ import com.ble1st.connectias.api.MemoryInfo
 import com.ble1st.connectias.api.NetworkInfo
 import com.ble1st.connectias.api.SystemInfoService
 import java.io.File
-import java.net.InetAddress
 import java.net.NetworkInterface
 
 class SystemInfoServiceImpl(
