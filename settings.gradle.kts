@@ -21,4 +21,9 @@ dependencyResolutionManagement {
 
 rootProject.name = "Connectias"
 include(":app")
+include(":core-api")
+include(":core-security")
+include(":core-storage")
+include(":core-network")
+include(":core-plugin-manager")
  

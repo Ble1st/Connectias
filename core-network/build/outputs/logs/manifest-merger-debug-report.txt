@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml:2:13-83
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml:2:13-83
+	package
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml
+	xmlns:android
+		ADDED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml:2:23-81
+uses-sdk
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml reason: use-sdk injection requested
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml
+INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml
+	android:targetSdkVersion
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml
+	android:minSdkVersion
+		INJECTED from /home/gerd/AndroidStudioProjects/Connectias/core-network/build/intermediates/tmp/ProcessLibraryManifest/debug/tempAndroidManifest1542436605720063507.xml
