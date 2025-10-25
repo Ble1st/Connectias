@@ -3,10 +3,17 @@ use connectias_api::{Plugin, PluginInfo, PluginContext, PluginError};
 use std::collections::HashMap;
 use std::time::Duration;
 
+#[cfg(feature = "advanced_fuel_metering")]
+mod fuel_meter;
+#[cfg(feature = "advanced_fuel_metering")]
+use fuel_meter::{AdvancedFuelMeter, InstructionType};
+
 /// WASM Runtime mit erweiterten Security-Features
 pub struct WasmRuntime {
     engine: Engine,
     resource_limits: ResourceLimits,
+    #[cfg(feature = "advanced_fuel_metering")]
+    fuel_meter: Option<AdvancedFuelMeter>,
 }
 
 /// Resource-Limits für WASM-Plugins
@@ -54,17 +61,21 @@ impl WasmRuntime {
         Ok(Self { 
             engine,
             resource_limits: ResourceLimits::default(),
+            #[cfg(feature = "advanced_fuel_metering")]
+            fuel_meter: None,
         })
     }
 
     /// Lädt ein WASM-Plugin mit Resource-Limits
-    pub fn load_plugin(&self, wasm_bytes: &[u8]) -> Result<WasmPlugin, anyhow::Error> {
+    pub fn load_plugin(&self, wasm_bytes: &[u8], plugin_id: String) -> Result<WasmPlugin, anyhow::Error> {
         let module = Module::new(&self.engine, wasm_bytes)?;
         
         Ok(WasmPlugin {
             module,
             engine: self.engine.clone(),
             resource_limits: self.resource_limits.clone(),
+            #[cfg(feature = "advanced_fuel_metering")]
+            fuel_meter: Some(AdvancedFuelMeter::new(plugin_id.clone())),
             store: None, // Wird bei init() erstellt
         })
     }
@@ -80,6 +91,8 @@ pub struct WasmPlugin {
     module: Module,
     engine: Engine,
     resource_limits: ResourceLimits,
+    #[cfg(feature = "advanced_fuel_metering")]
+    fuel_meter: Option<AdvancedFuelMeter>,
     store: Option<Store<()>>,
 }
 
@@ -92,6 +105,14 @@ impl WasmPlugin {
         if self.resource_limits.max_fuel > 0 {
             store.set_fuel(self.resource_limits.max_fuel)
                 .map_err(|e| PluginError::ExecutionFailed(format!("Failed to set fuel: {}", e)))?;
+        }
+        
+        // Advanced fuel metering setup
+        #[cfg(feature = "advanced_fuel_metering")]
+        if let Some(ref _fuel_meter) = self.fuel_meter {
+            // Fuel metering integration would be handled by the WASM runtime
+            // when executing instructions. The fuel_meter tracks consumption
+            // through the consume_fuel method calls.
         }
         
         Ok(store)
@@ -231,8 +252,20 @@ impl Plugin for WasmPlugin {
             return Err(PluginError::ExecutionFailed("Plugin not initialized".to_string()));
         }
         
-        // Für jetzt verwenden wir eine einfache Implementierung
-        // In einer echten Implementierung würde man hier den Store verwenden
+        // Advanced fuel metering - track execution
+        #[cfg(feature = "advanced_fuel_metering")]
+        if let Some(ref fuel_meter) = self.fuel_meter {
+            // Track CPU operation
+            fuel_meter.consume_fuel(InstructionType::Call, 1)
+                .map_err(|_| PluginError::ExecutionFailed("Fuel exhausted during execution".to_string()))?;
+            
+            // Track memory operations based on args size
+            let memory_ops = args.values().map(|v| v.len()).sum::<usize>() as u64;
+            if memory_ops > 0 {
+                fuel_meter.consume_fuel(InstructionType::MemoryAccess, memory_ops)
+                    .map_err(|_| PluginError::ExecutionFailed("Fuel exhausted during memory operations".to_string()))?;
+            }
+        }
         
         // Command und Args serialisieren
         let input = serde_json::json!({
@@ -279,6 +312,13 @@ impl Plugin for WasmPlugin {
             // Store wird automatisch dropped
         }
         
+        // Generate final fuel report if fuel meter exists
+        #[cfg(feature = "advanced_fuel_metering")]
+        if let Some(fuel_meter) = &self.fuel_meter {
+            let _report = fuel_meter.generate_report();
+            // Note: Logging would be handled by the calling application
+        }
+        
         // Resource-Limits zurücksetzen
         self.resource_limits = ResourceLimits::default();
         
@@ -287,4 +327,10 @@ impl Plugin for WasmPlugin {
     }
 }
 
-//ich diene der aktualisierung wala
+impl WasmPlugin {
+    /// Get fuel report for this plugin
+    #[cfg(feature = "advanced_fuel_metering")]
+    pub fn get_fuel_report(&self) -> Option<fuel_meter::FuelReport> {
+        self.fuel_meter.as_ref().map(|meter| meter.generate_report())
+    }
+}

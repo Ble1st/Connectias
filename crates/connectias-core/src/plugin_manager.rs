@@ -278,32 +278,53 @@ impl PluginManager {
         })
     }
 
+    /// Lädt ein Plugin aus einer ZIP-Datei
+    ///
+    /// Führt folgende Schritte durch:
+    /// 1. RASP Environment Check - Sicherheitsprüfung
+    /// 2. Signature Verification - Plugin-Signatur prüfen
+    /// 3. Plugin Structure Validation - Plugin-Struktur validieren
+    /// 4. Plugin Extraction - Plugin in Plugin-Verzeichnis extrahieren
+    /// 5. Plugin Loading - Plugin in WASM Runtime laden
+    ///
+    /// # Parameters
+    /// - `zip_path`: Pfad zur Plugin-ZIP-Datei
+    ///
+    /// # Returns
+    /// - `Ok(plugin_id)`: Plugin-ID bei erfolgreichem Laden
+    /// - `Err(String)`: Fehler beim Laden
+    ///
+    /// # Security
+    /// - RASP Protection aktiviert
+    /// - Plugin-Signatur wird verifiziert
+    /// - Plugin-Struktur wird validiert
+    /// - Resource-Limits werden gesetzt
     pub async fn load_plugin(&self, zip_path: &Path) -> Result<String, String> {
         let start_time = std::time::Instant::now();
 
-        // 1. RASP Environment Check
+        // 1. RASP Environment Check: Prüfe auf Root, Debugger, Emulator, etc.
         self.rasp_protection.check_environment()
             .map_err(|e| e.to_string())?;
 
-        // 2. Verify signature
+        // 2. Verify signature: Prüfe Plugin-Signatur
         self.signature_verifier.verify_plugin(zip_path)
             .map_err(|e| e.to_string())?;
 
-        // 3. Validate plugin structure
+        // 3. Validate plugin structure: Prüfe Plugin-Struktur und Dependencies
         let plugin_info = self.validator.validate_plugin_zip(zip_path)
             .map_err(|e| e.to_string())?;
 
-        // 3. Extract plugin to plugins directory
+        // 4. Extract plugin to plugins directory: Extrahiere Plugin in Plugin-Verzeichnis
         let plugin_install_dir = self.plugin_dir.join(&plugin_info.id);
         self.extract_plugin(zip_path, &plugin_install_dir)
             .map_err(|e| e.to_string())?;
 
-        // 4. Detect plugin type and load
+        // 5. Detect plugin type and load: Lade Plugin basierend auf Typ
         let plugin = self.load_plugin_by_type(&plugin_install_dir, &plugin_info)
             .await
             .map_err(|e| e.to_string())?;
 
-        // 5. Create PluginContext with Services
+        // 6. Create PluginContext with Services: Erstelle Plugin-Kontext mit Services
         let context = PluginContext {
             plugin_id: plugin_info.id.clone(),
             storage: Arc::new(StorageServiceImpl::new(
@@ -325,19 +346,24 @@ impl PluginManager {
             system_info: Arc::new(SystemInfoImpl::new()),
         };
         
-        // 6. Initialize plugin with context
+        // 7. Initialize plugin with context: Initialisiere Plugin mit Kontext
         let mut plugin = plugin;
         plugin.init(context)
             .map_err(|e| format!("Plugin initialization failed: {}", e))?;
         
-        // 7. Record load time
+        // 8. Record load time: Aufzeichnen der Ladezeit
         let load_time = start_time.elapsed();
         self.metrics_collector.record_load_time(&plugin_info.id, load_time).await;
         
-        // 8. Set memory limit
+        // 9. Set memory limit: Setze Memory-Limit für Plugin
         self.memory_manager.set_limit(&plugin_info.id, 100 * 1024 * 1024).await; // 100MB
         
+        // 10. Store plugin in registry: Speichere Plugin in Registry
         let mut plugins = self.plugins.write().await;
+        // TOCTOU Fix: Atomic check-and-insert to prevent race conditions and duplicate IDs
+        if plugins.contains_key(&plugin_info.id) {
+            return Err(format!("Plugin with ID {} already loaded", plugin_info.id));
+        }
         plugins.insert(plugin_info.id.clone(), plugin);
 
         Ok(plugin_info.id)

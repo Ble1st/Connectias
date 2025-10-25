@@ -3,6 +3,10 @@ name = "connectias-wasm"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = ["advanced_fuel_metering"]
+advanced_fuel_metering = []
+
 [dependencies]
 wasmtime = "25.0"
 tokio = { workspace = true }

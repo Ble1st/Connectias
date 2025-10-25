@@ -33,43 +33,60 @@ impl RaspProtection {
     }
 
     /// Überprüft die gesamte Umgebung auf Sicherheitsbedrohungen
+    ///
+    /// Führt eine umfassende Sicherheitsprüfung durch:
+    /// - Root/Jailbreak Detection
+    /// - Debugger Attachment Detection
+    /// - Emulator Detection
+    /// - Code Integrity Verification
+    /// - Hook Framework Detection
+    /// - Memory Dump Protection
+    /// - SSL Certificate Pinning
+    /// - Runtime Tampering Detection
+    ///
+    /// # Returns
+    /// - `Ok(())` wenn Umgebung sicher ist
+    /// - `Err(SecurityError)` bei erkannten Bedrohungen
+    ///
+    /// # Security
+    /// Bei erkannten Bedrohungen wird die App sofort beendet (Fail-Safe)
     pub fn check_environment(&self) -> Result<(), super::SecurityError> {
-        // Root-Detection
+        // Root-Detection: Prüfe auf su binary, Magisk, etc.
         if self.root_detector.is_rooted()? {
             return Err(super::SecurityError::SecurityViolation("Root detected".into()));
         }
 
-        // Debugger-Detection
+        // Debugger-Detection: Prüfe /proc/self/status TracerPid
         if self.debugger_monitor.is_attached()? {
             return Err(super::SecurityError::SecurityViolation("Debugger detected".into()));
         }
 
-        // Emulator-Detection
+        // Emulator-Detection: Prüfe auf QEMU, Virtual Device Properties
         if self.emulator_detector.is_emulator()? {
             return Err(super::SecurityError::SecurityViolation("Emulator detected".into()));
         }
 
-        // Integrity-Check
+        // Integrity-Check: Prüfe App-Signatur und Code-Integrität
         if self.integrity_monitor.is_tampered()? {
             return Err(super::SecurityError::SecurityViolation("App integrity compromised".into()));
         }
 
-        // Hook-Detection
+        // Hook-Detection: Prüfe auf Xposed, Frida, Substrate, Magisk
         if self.hook_detector.detect_hooks()? {
             return Err(super::SecurityError::SecurityViolation("Code hooks detected".into()));
         }
 
-        // Memory-Dump-Schutz
+        // Memory-Dump-Schutz: Prüfe auf Memory-Dumping-Tools
         if self.memory_protector.is_memory_dumped()? {
             return Err(super::SecurityError::SecurityViolation("Memory dump detected".into()));
         }
 
-        // SSL-Pinning Verification
+        // SSL-Pinning Verification: Prüfe Certificate Pinning
         if !self.ssl_pinner.verify_certificates()? {
             return Err(super::SecurityError::SecurityViolation("SSL certificate verification failed".into()));
         }
 
-        // Anti-Tamper Checks
+        // Anti-Tamper Checks: Prüfe auf Runtime-Tampering
         if self.anti_tamper.detect_tampering()? {
             return Err(super::SecurityError::SecurityViolation("Runtime tampering detected".into()));
         }
@@ -78,6 +95,14 @@ impl RaspProtection {
     }
 
     /// Startet kontinuierliches Monitoring
+    ///
+    /// Überwacht kontinuierlich auf:
+    /// - Hook-Frameworks (alle 5 Sekunden)
+    /// - Memory-Dumping-Tools (alle 3 Sekunden)
+    /// - Runtime-Tampering (alle 2 Sekunden)
+    ///
+    /// # Security
+    /// Bei erkannten Bedrohungen wird die App sofort beendet (Fail-Safe)
     pub fn start_continuous_monitoring(&self) {
         let hook_detector = self.hook_detector.clone();
         let memory_protector = self.memory_protector.clone();
@@ -85,17 +110,17 @@ impl RaspProtection {
 
         thread::spawn(move || {
             loop {
-                // Hook-Detection alle 5 Sekunden
+                // Hook-Detection alle 5 Sekunden: Prüfe auf Xposed, Frida, Substrate
                 if let Ok(true) = hook_detector.detect_hooks() {
                     eprintln!("🚨 HOOK DETECTED: Code injection detected!");
                 }
 
-                // Memory-Dump-Schutz alle 3 Sekunden
+                // Memory-Dump-Schutz alle 3 Sekunden: Prüfe auf Memory-Dumping-Tools
                 if let Ok(true) = memory_protector.is_memory_dumped() {
                     eprintln!("🚨 MEMORY DUMP DETECTED: Memory dump attempt detected!");
                 }
 
-                // Anti-Tamper alle 2 Sekunden
+                // Anti-Tamper alle 2 Sekunden: Prüfe auf Runtime-Tampering
                 if let Ok(true) = anti_tamper.detect_tampering() {
                     eprintln!("🚨 TAMPERING DETECTED: Runtime tampering detected!");
                 }

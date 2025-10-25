@@ -1,0 +1,77 @@
+site_name: Connectias Documentation
+site_description: Secure, Multi-Platform Plugin System
+site_author: Connectias Team
+site_url: https://connectias.github.io/connectias
+
+repo_name: connectias/connectias
+repo_url: https://github.com/connectias/connectias
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    primary: blue
+    accent: light blue
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - tables
+  - footnotes
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+  - git-revision-date-localized:
+      enable_creation_date: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+    - First Plugin: getting-started/first-plugin.md
+  - Architecture:
+    - System Overview: architecture/system-overview.md
+    - Plugin Lifecycle: architecture/plugin-lifecycle.md
+    - Security Architecture: architecture/security-architecture.md
+    - FFI Bridge: architecture/ffi-bridge.md
+    - Fuel Metering Analytics: architecture/fuel-metering-analytics.md
+  - API Reference:
+    - Rust API: api/rust-api.md
+  - Security:
+    - Security Guidelines: security/security-guidelines.md
+  - Guides:
+    - Plugin Development: guides/plugin-development.md
+    - Troubleshooting: guides/troubleshooting.md
+  - Testing:
+    - Test Matrix: testing/test-matrix.md
+    - Performance Baseline: testing/performance_baseline.md
+  - Maintenance:
+    - Rollback Procedure: maintenance/rollback-procedure.md
