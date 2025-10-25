@@ -1,0 +1,29 @@
+[package]
+name = "connectias-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+connectias-api = { path = "../connectias-api" }
+connectias-security = { path = "../connectias-security" }
+connectias-storage = { path = "../connectias-storage" }
+connectias-wasm = { path = "../connectias-wasm" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+chrono = "0.4"
+uuid = { version = "1.0", features = ["v4"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+num_cpus = "1.0"
+async-trait = "0.1"
+zip = "0.6"
+log = "0.4"
+hex = "0.4"
+
+[dev-dependencies]
+tempfile = "3"
+

@@ -1,0 +1,3 @@
+src/plugin_manager.rs:    python_runtime: PythonRuntime,
+src/plugin_manager.rs:            python_runtime: PythonRuntime::new_with_security(
+src/plugin_manager.rs:            let plugin = self.python_runtime.load_plugin(&py_path)?;

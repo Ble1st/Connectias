@@ -1,0 +1,14 @@
+[package]
+name = "connectias-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+wasmtime = "25.0"
+tokio = { workspace = true }
+connectias-api = { path = "../connectias-api" }
+thiserror = { workspace = true }
+anyhow = "1.0"
+serde = { workspace = true }
+serde_json = { workspace = true }
+

@@ -1,0 +1,13 @@
+{
+  "id": "com.example.wasm-hello",
+  "name": "WASM Hello Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "Simple WASM plugin that greets users",
+  "min_core_version": "1.0.0",
+  "max_core_version": null,
+  "permissions": ["Storage"],
+  "entry_point": "plugin.wasm",
+  "dependencies": null
+}
+

@@ -1,0 +1,38 @@
+[package]
+name = "connectias-security"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rsa = "0.9"
+sha2 = { version = "0.10", features = ["oid"] }
+rand = "0.8"
+base64 = "0.22"
+serde = { workspace = true }
+thiserror = { workspace = true }
+zip = "0.6"
+tempfile = "3.8"
+url = "2.5"
+tokio = { workspace = true }
+tracing = { workspace = true }
+chrono = { version = "0.4", features = ["serde"] }
+serde_json = { workspace = true }
+connectias-api = { path = "../connectias-api" }
+log = "0.4"
+async-trait = "0.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+futures = "0.3"
+tempfile = { workspace = true }
+assert_matches = { workspace = true }
+rstest = { workspace = true }
+rstest_reuse = { workspace = true }
+test-log = { workspace = true }
+zip = "0.6"
+serde_json = { workspace = true }
+
+[[bench]]
+name = "security_benchmarks"
+harness = false
+

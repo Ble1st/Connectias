@@ -1,0 +1,24 @@
+[package]
+name = "connectias-storage"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { version = "0.8.1", features = ["runtime-tokio-rustls", "sqlite"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+connectias-api = { path = "../connectias-api" }
+aes-gcm = "0.10"
+rand = "0.8"
+generic-array = "1.0"
+base64 = "0.22"
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }
+assert_matches = { workspace = true }
+rstest = { workspace = true }
+rstest_reuse = { workspace = true }
+test-log = { workspace = true }

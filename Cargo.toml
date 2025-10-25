@@ -1,0 +1,35 @@
+[workspace]
+members = [
+    "crates/connectias-core",
+    "crates/connectias-api",
+    "crates/connectias-security",
+    "crates/connectias-storage",
+    "crates/connectias-wasm", "rust",
+]
+resolver = "2"
+
+[workspace.dependencies]
+tokio = { version = "1.42", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0"
+thiserror = "2.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Testing Dependencies
+tokio-test = "0.4"
+mockall = "0.12"
+mockito = "1.2"
+proptest = "1.4"
+criterion = "0.5"
+tempfile = "3.8"
+assert_matches = "1.5"
+rstest = "0.18"
+rstest_reuse = "0.6"
+testcontainers = "0.15"
+test-log = "0.2"
+
+# Code Coverage
+tarpaulin = "0.27"
+

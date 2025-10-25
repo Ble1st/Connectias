@@ -1,0 +1,92 @@
+# CodeRabbit Konfiguration für Connectias Security Module
+# Spezielle Konfiguration für das Sicherheitsmodul
+
+language: de
+review_style: security_focused
+
+# Sicherheits-spezifische Einstellungen
+security:
+  enabled: true
+  critical_level: "high"
+  focus_areas:
+    - "plugin_sandboxing"
+    - "signature_verification"
+    - "rasp_protection"
+    - "threat_detection"
+    - "zero_trust_architecture"
+    - "encryption"
+    - "secure_communication"
+    - "input_validation"
+    - "secure_storage"
+  
+  # Sicherheitsregeln für Connectias
+  custom_rules:
+    - "plugin_isolation"
+    - "secure_plugin_loading"
+    - "threat_detection"
+    - "integrity_checks"
+    - "secure_storage"
+    - "rasp_protection"
+    - "zero_trust_verification"
+
+# Datei-spezifische Einstellungen
+file_settings:
+  "**/*.rs":
+    focus_areas:
+      - "security"
+      - "performance"
+      - "error_handling"
+      - "memory_safety"
+      - "thread_safety"
+    security_level: "critical"
+    custom_rules:
+      - "rust_security_best_practices"
+      - "plugin_sandboxing"
+      - "zero_trust_architecture"
+      - "rasp_protection"
+      - "secure_crypto_implementation"
+
+# Review-Einstellungen für Sicherheitskomponenten
+review:
+  detailed_review:
+    - "src/lib.rs"
+    - "src/rasp.rs"
+    - "src/sandbox.rs"
+    - "src/signature.rs"
+    - "src/threat_detection.rs"
+    - "src/zero_trust.rs"
+    - "src/validator.rs"
+    - "src/network.rs"
+  
+  security_critical:
+    - "src/rasp.rs"
+    - "src/sandbox.rs"
+    - "src/signature.rs"
+    - "src/threat_detection.rs"
+    - "src/zero_trust.rs"
+    - "src/validator.rs"
+  
+  performance_critical:
+    - "src/network.rs"
+    - "benches/security_benchmarks.rs"
+
+# Kommentar-Einstellungen
+comments:
+  language: "de"
+  style: "security_detailed"
+  include_suggestions: true
+  include_explanations: true
+  include_security_notes: true
+  include_performance_notes: true
+  security_focus: true
+  threat_analysis: true
+  vulnerability_assessment: true
+
+# Benachrichtigungen
+notifications:
+  enabled: true
+  security_alerts: true
+  performance_alerts: true
+  quality_alerts: true
+  threat_alerts: true
+  vulnerability_alerts: true
