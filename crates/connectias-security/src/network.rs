@@ -362,4 +362,3 @@ mod tests {
         assert!(!rate_limiter.check_rate_limit("https://api.example.com"));
     }
 }
-

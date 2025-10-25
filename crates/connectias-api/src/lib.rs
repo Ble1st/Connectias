@@ -377,3 +377,52 @@ pub struct MemoryInfo {
 // PluginError ist bereits in error.rs definiert und wird hier re-exportiert
 pub use error::PluginError;
 
+// =========================================================================
+// ENHANCED PLUGIN API SERVICES (Simplified for dyn compatibility)
+// =========================================================================
+
+/// Plugin Connection Information
+#[derive(Debug, Clone)]
+pub struct PluginConnectionInfo {
+    pub plugin_id: String,
+    pub is_active: bool,
+    pub connected_at: std::time::SystemTime,
+    pub last_heartbeat: std::time::SystemTime,
+    pub message_count: u64,
+}
+
+/// Plugin Performance Metrics
+#[derive(Debug, Clone)]
+pub struct PluginMetrics {
+    pub total_executions: u64,
+    pub average_execution_time: std::time::Duration,
+    pub memory_usage: u64,
+    pub error_count: u64,
+    pub last_execution: Option<std::time::SystemTime>,
+}
+
+/// Plugin Events für Event-driven Architecture
+#[derive(Debug, Clone)]
+pub enum PluginEvent {
+    /// Plugin wurde gestartet
+    Started,
+    /// Plugin wurde gestoppt
+    Stopped,
+    /// Plugin Error aufgetreten
+    Error { error: String },
+    /// Plugin Performance-Warning
+    PerformanceWarning { metric: String, value: f64 },
+    /// Plugin Permission geändert
+    PermissionChanged { permission: String, granted: bool },
+}
+
+/// Plugin Health Status
+#[derive(Debug, Clone)]
+pub enum PluginHealth {
+    /// Plugin ist gesund
+    Healthy,
+    /// Plugin hat Warnungen
+    Warning { message: String },
+    /// Plugin ist ungesund
+    Unhealthy { error: String },
+}

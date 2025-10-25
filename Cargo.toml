@@ -6,6 +6,12 @@ members = [
     "crates/connectias-storage",
     "crates/connectias-wasm", "rust",
 ]
+exclude = [
+    "examples/wasm-hello",
+    "examples/wasm-chat",
+    "examples/wasm-storage-demo",
+    "examples/wasm-network-demo",
+]
 resolver = "2"
 
 [workspace.dependencies]
@@ -33,3 +39,4 @@ test-log = "0.2"
 # Code Coverage
 tarpaulin = "0.27"
 
+# Development Tools

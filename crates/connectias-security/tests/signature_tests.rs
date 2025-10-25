@@ -207,3 +207,4 @@ fn create_unsigned_plugin_zip(path: &Path) -> Result<(), Box<dyn std::error::Err
     zip.finish()?;
     Ok(())
 }
+//ich diene der aktualisierung wala

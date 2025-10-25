@@ -1,51 +1,48 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::alloc::{alloc, dealloc, Layout};
-use std::ptr;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
-// Global allocator für WASM Memory Management
-static mut HEAP: [u8; 1024 * 1024] = [0; 1024 * 1024]; // 1MB Heap
-static HEAP_PTR: AtomicUsize = AtomicUsize::new(0);
+// Verwende wee_alloc als globaler Allocator für WASM
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 /// Allokiert Memory im WASM-Heap mit Alignment
 #[no_mangle]
-pub extern "C" fn alloc(size: i32) -> i32 {
+pub extern "C" fn wasm_alloc(size: i32) -> i32 {
     if size <= 0 {
         return 0;
     }
     
     let size = size as usize;
-    const ALIGNMENT: usize = 8;
+    let layout = match std::alloc::Layout::from_size_align(size, 8) {
+        Ok(layout) => layout,
+        Err(_) => return 0,
+    };
     
-    loop {
-        let current = HEAP_PTR.load(Ordering::SeqCst);
-        // Runde auf Alignment auf
-        let aligned_ptr = (current + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT;
-        
-        if aligned_ptr + size > HEAP.len() {
-            return 0; // Out of memory
+    unsafe {
+        let ptr = std::alloc::alloc(layout);
+        if ptr.is_null() {
+            0
+        } else {
+            ptr as i32
         }
-        
-        // Atomares Compare-and-Swap für thread-safe Allokation
-        if HEAP_PTR.compare_exchange(
-            current,
-            aligned_ptr + size,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        ).is_ok() {
-            return aligned_ptr as i32;
-        }
-        // Bei Konflikt erneut versuchen
     }
 }
 
 /// Gibt Memory im WASM-Heap frei
 #[no_mangle]
-pub extern "C" fn free(_ptr: i32, _size: i32) {
-    // Hinweis: Dieser Bump-Allocator unterstützt kein echtes Freeing
-    // Memory wird nur bei Programm-Ende freigegeben
-    log::warn!("free() called on bump allocator - memory not reclaimed");
+pub extern "C" fn wasm_free(ptr: i32, size: i32) {
+    if ptr == 0 || size <= 0 {
+        return;
+    }
+    
+    let size = size as usize;
+    let layout = match std::alloc::Layout::from_size_align(size, 8) {
+        Ok(layout) => layout,
+        Err(_) => return,
+    };
+    
+    unsafe {
+        std::alloc::dealloc(ptr as *mut u8, layout);
+    }
 }
 
 /// Plugin-Info für WASM-Plugin
@@ -83,7 +80,7 @@ pub extern "C" fn plugin_get_info() -> (i32, i32) {
     let json_bytes = json.as_bytes();
     
     // Allokiere Memory und kopiere JSON
-    let ptr = alloc(json_bytes.len() as i32);
+    let ptr = wasm_alloc(json_bytes.len() as i32);
     if ptr == 0 {
         return (0, 0); // Out of memory
     }
@@ -91,8 +88,10 @@ pub extern "C" fn plugin_get_info() -> (i32, i32) {
     // Validiere Bounds vor unsafe copy
     let ptr_usize = ptr as usize;
     if let Some(end) = ptr_usize.checked_add(json_bytes.len()) {
-        if end > HEAP.len() {
-            return (0, 0); // Bounds check failed
+        unsafe {
+            if end > HEAP.len() {
+                return (0, 0); // Bounds check failed
+            }
         }
     } else {
         return (0, 0); // Overflow
@@ -108,7 +107,7 @@ pub extern "C" fn plugin_get_info() -> (i32, i32) {
 /// Plugin-Init Funktion für Custom API
 #[no_mangle]
 pub extern "C" fn plugin_init(context_ptr: i32, context_len: i32) -> i32 {
-    let context_str = unsafe {
+    let _context_str = unsafe {
         std::str::from_utf8(std::slice::from_raw_parts(
             HEAP.as_ptr().add(context_ptr as usize), 
             context_len as usize
@@ -139,8 +138,10 @@ pub extern "C" fn plugin_execute(input_ptr: i32, input_len: i32) -> (i32, i32) {
         return (0, 0);
     }
     if let Some(end) = (input_ptr as usize).checked_add(input_len as usize) {
-        if end > HEAP.len() {
-            return (0, 0);
+        unsafe {
+            if end > HEAP.len() {
+                return (0, 0);
+            }
         }
     } else {
         return (0, 0);
@@ -156,7 +157,8 @@ pub extern "C" fn plugin_execute(input_ptr: i32, input_len: i32) -> (i32, i32) {
     // Parse input JSON
     let input: serde_json::Value = serde_json::from_str(input_str).unwrap_or(serde_json::Value::Null);
     let command = input["command"].as_str().unwrap_or("");
-    let args = input["args"].as_object().unwrap_or(&serde_json::Map::new());
+    let empty_map = serde_json::Map::new();
+    let args = input["args"].as_object().unwrap_or(&empty_map);
     
     let result = match command {
         "hello" => {
@@ -206,7 +208,7 @@ pub extern "C" fn plugin_execute(input_ptr: i32, input_len: i32) -> (i32, i32) {
     let result_bytes = result_json.as_bytes();
     
     // Allokiere Memory für Result
-    let ptr = alloc(result_bytes.len() as i32);
+    let ptr = wasm_alloc(result_bytes.len() as i32);
     if ptr == 0 {
         return (0, 0); // Out of memory
     }
@@ -214,8 +216,10 @@ pub extern "C" fn plugin_execute(input_ptr: i32, input_len: i32) -> (i32, i32) {
     // Validiere Bounds vor unsafe copy
     let ptr_usize = ptr as usize;
     if let Some(end) = ptr_usize.checked_add(result_bytes.len()) {
-        if end > HEAP.len() {
-            return (0, 0);
+        unsafe {
+            if end > HEAP.len() {
+                return (0, 0);
+            }
         }
     } else {
         return (0, 0);
@@ -241,4 +245,3 @@ pub extern "C" fn plugin_cleanup() -> i32 {
     
     0 // Success
 }
-

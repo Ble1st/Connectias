@@ -1,0 +1,15 @@
+{
+  "id": "com.connectias.wasm-chat-simple",
+  "name": "WASM Chat Simple Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "Einfaches Chat-Plugin für Inter-Plugin-Kommunikation",
+  "min_core_version": "1.0.0",
+  "max_core_version": null,
+  "permissions": [
+    "message:send",
+    "message:receive"
+  ],
+  "entry_point": "plugin.wasm",
+  "dependencies": null
+}

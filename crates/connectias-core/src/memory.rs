@@ -241,4 +241,3 @@ impl<T> Drop for ResourceWrapper<T> {
         });
     }
 }
-

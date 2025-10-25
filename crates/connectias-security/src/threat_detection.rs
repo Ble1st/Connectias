@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use crate::SecurityError;
 
@@ -9,13 +10,15 @@ use crate::SecurityError;
 /// Advanced Threat Detection System
 /// 
 /// Implements ML-based anomaly detection, pattern-based threat detection,
-/// automated threat response, and threat intelligence integration.
+/// automated threat response, threat intelligence integration, and rate limiting.
 #[derive(Clone)]
 pub struct ThreatDetectionSystem {
     anomaly_detector: Arc<AnomalyDetector>,
     pattern_detector: Arc<PatternDetector>,
     threat_intelligence: Arc<ThreatIntelligence>,
     response_automation: Arc<ResponseAutomation>,
+    rate_limiter: Arc<RateLimiter>,
+    behavioral_analyzer: Arc<BehavioralAnalyzer>,
     threat_history: Arc<RwLock<HashMap<String, Vec<ThreatEvent>>>>,
 }
 
@@ -85,6 +88,8 @@ impl ThreatDetectionSystem {
             pattern_detector: Arc::new(PatternDetector::new()),
             threat_intelligence: Arc::new(ThreatIntelligence::new()),
             response_automation: Arc::new(ResponseAutomation::new()),
+            rate_limiter: Arc::new(RateLimiter::new()),
+            behavioral_analyzer: Arc::new(BehavioralAnalyzer::new()),
             threat_history: Arc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -114,24 +119,36 @@ impl ThreatDetectionSystem {
 
     /// Analysiert Plugin-Verhalten auf Bedrohungen
     pub async fn analyze(&self, plugin_id: &str, operation: &str, context: &HashMap<String, String>) -> Result<ThreatAssessment, SecurityError> {
+        // Rate-Limiting prüfen
+        if !self.rate_limiter.check_rate_limit(plugin_id, operation).await? {
+            return Err(SecurityError::SecurityViolation("Rate limit exceeded".to_string()));
+        }
+
         // Sammle alle Detector-Ergebnisse
         let anomaly_score = self.anomaly_detector.detect_anomaly(plugin_id, operation, context).await?;
         let pattern_matches = self.pattern_detector.detect_patterns(operation, context).await?;
         let intelligence_score = self.threat_intelligence.check_indicators(operation, context).await?;
+        let behavioral_score = self.behavioral_analyzer.analyze_behavior(plugin_id, operation, context).await?;
         
         // Verwende gemeinsame Logik für Assessment-Erstellung
-        self.compute_threat_assessment(plugin_id, operation, context, anomaly_score, pattern_matches, intelligence_score).await
+        self.compute_threat_assessment(plugin_id, operation, context, anomaly_score, pattern_matches, intelligence_score, behavioral_score).await
     }
 
     /// Analyze plugin behavior for threats
     pub async fn analyze_behavior(&self, plugin_id: &str, operation: &str, context: &HashMap<String, String>) -> Result<ThreatAssessment, SecurityError> {
+        // Rate-Limiting prüfen
+        if !self.rate_limiter.check_rate_limit(plugin_id, operation).await? {
+            return Err(SecurityError::SecurityViolation("Rate limit exceeded".to_string()));
+        }
+
         // Sammle alle Detector-Ergebnisse
         let anomaly_score = self.anomaly_detector.detect_anomaly(plugin_id, operation, context).await?;
         let pattern_matches = self.pattern_detector.detect_patterns(operation, context).await?;
         let intelligence_score = self.threat_intelligence.check_indicators(operation, context).await?;
+        let behavioral_score = self.behavioral_analyzer.analyze_behavior(plugin_id, operation, context).await?;
         
         // Verwende gemeinsame Logik für Assessment-Erstellung
-        let assessment = self.compute_threat_assessment(plugin_id, operation, context, anomaly_score, pattern_matches, intelligence_score).await?;
+        let assessment = self.compute_threat_assessment(plugin_id, operation, context, anomaly_score, pattern_matches, intelligence_score, behavioral_score).await?;
         
         // Zusätzliche Verarbeitung für analyze_behavior
         if assessment.threat_score > 0.4 {
@@ -154,10 +171,11 @@ impl ThreatDetectionSystem {
         anomaly_score: f64,
         pattern_matches: Vec<String>,
         intelligence_score: f64,
+        behavioral_score: f64,
     ) -> Result<ThreatAssessment, SecurityError> {
-        // Berechne Threat Score
+        // Berechne Threat Score mit erweiterten Komponenten
         let pattern_score = pattern_matches.len() as f64 * 0.3;
-        let threat_score = (anomaly_score + pattern_score + intelligence_score) / 3.0;
+        let threat_score = (anomaly_score + pattern_score + intelligence_score + behavioral_score) / 4.0;
         
         // Bestimme Severity
         let severity = match threat_score {
@@ -466,4 +484,220 @@ pub struct ThreatReport {
     pub recommendations: Vec<String>,
 }
 
+/// Rate Limiter für API-Call-Limiting
+pub struct RateLimiter {
+    limits: Arc<RwLock<HashMap<String, RateLimit>>>,
+}
 
+#[derive(Debug, Clone)]
+pub struct RateLimit {
+    pub requests: VecDeque<Instant>,
+    pub max_requests: u32,
+    pub window_duration: Duration,
+}
+
+impl RateLimiter {
+    pub fn new() -> Self {
+        Self {
+            limits: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub async fn check_rate_limit(&self, plugin_id: &str, operation: &str) -> Result<bool, SecurityError> {
+        let key = format!("{}:{}", plugin_id, operation);
+        let now = Instant::now();
+        
+        let mut limits = self.limits.write().await;
+        let limit = limits.entry(key.clone()).or_insert_with(|| RateLimit {
+            requests: VecDeque::new(),
+            max_requests: 100, // 100 requests
+            window_duration: Duration::from_secs(60), // per minute
+        });
+
+        // Entferne alte Requests außerhalb des Zeitfensters
+        while let Some(&old_request) = limit.requests.front() {
+            if now.duration_since(old_request) > limit.window_duration {
+                limit.requests.pop_front();
+            } else {
+                break;
+            }
+        }
+
+        // Prüfe ob Limit überschritten
+        if limit.requests.len() >= limit.max_requests as usize {
+            return Ok(false);
+        }
+
+        // Füge neuen Request hinzu
+        limit.requests.push_back(now);
+        Ok(true)
+    }
+
+    pub async fn set_rate_limit(&self, plugin_id: &str, operation: &str, max_requests: u32, window_duration: Duration) {
+        let key = format!("{}:{}", plugin_id, operation);
+        let mut limits = self.limits.write().await;
+        limits.insert(key, RateLimit {
+            requests: VecDeque::new(),
+            max_requests,
+            window_duration,
+        });
+    }
+}
+
+/// Behavioral Analyzer für erweiterte Verhaltensanalyse
+pub struct BehavioralAnalyzer {
+    behavior_profiles: Arc<RwLock<HashMap<String, BehaviorProfile>>>,
+    baseline_metrics: Arc<RwLock<HashMap<String, BaselineMetrics>>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BehaviorProfile {
+    pub plugin_id: String,
+    pub normal_operations: HashMap<String, f64>,
+    pub normal_frequency: HashMap<String, f64>,
+    pub normal_timing: HashMap<String, Duration>,
+    pub suspicious_patterns: Vec<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BaselineMetrics {
+    pub avg_execution_time: Duration,
+    pub avg_memory_usage: usize,
+    pub avg_cpu_usage: f64,
+    pub operation_frequency: HashMap<String, f64>,
+    pub error_rate: f64,
+}
+
+impl BehavioralAnalyzer {
+    pub fn new() -> Self {
+        Self {
+            behavior_profiles: Arc::new(RwLock::new(HashMap::new())),
+            baseline_metrics: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
+    pub async fn analyze_behavior(&self, plugin_id: &str, operation: &str, context: &HashMap<String, String>) -> Result<f64, SecurityError> {
+        let profiles = self.behavior_profiles.read().await;
+        let baselines = self.baseline_metrics.read().await;
+        
+        let profile = profiles.get(plugin_id);
+        let baseline = baselines.get(plugin_id);
+        
+        let mut anomaly_score: f64 = 0.0;
+        
+        // Prüfe auf ungewöhnliche Operationen
+        if let Some(profile) = profile {
+            if !profile.normal_operations.contains_key(operation) {
+                anomaly_score += 0.3; // Neue Operation
+            }
+        }
+        
+        // Prüfe auf ungewöhnliche Frequenz
+        if let Some(baseline) = baseline {
+            if let Some(expected_freq) = baseline.operation_frequency.get(operation) {
+                if let Some(actual_freq_str) = context.get("frequency") {
+                    if let Ok(actual_freq) = actual_freq_str.parse::<f64>() {
+                        let freq_ratio = actual_freq / expected_freq;
+                        if freq_ratio > 2.0 {
+                            anomaly_score += 0.4; // Zu hohe Frequenz
+                        } else if freq_ratio < 0.1 {
+                            anomaly_score += 0.2; // Zu niedrige Frequenz
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Prüfe auf verdächtige Patterns
+        if let Some(profile) = profile {
+            for pattern in &profile.suspicious_patterns {
+                if operation.contains(pattern) {
+                    anomaly_score += 0.5;
+                }
+            }
+        }
+        
+        // Prüfe auf ungewöhnliche Timing
+        if let Some(timing_str) = context.get("execution_time") {
+            if let Ok(execution_time_ms) = timing_str.parse::<u64>() {
+                let execution_time = Duration::from_millis(execution_time_ms);
+                if let Some(baseline) = baseline {
+                    if execution_time > baseline.avg_execution_time * 3 {
+                        anomaly_score += 0.3; // Ungewöhnlich lange Ausführung
+                    }
+                }
+            }
+        }
+        
+        Ok(anomaly_score.min(1.0)) // Cap bei 1.0
+    }
+
+    pub async fn update_behavior_profile(&self, plugin_id: &str, operation: &str, frequency: f64, execution_time: Duration) {
+        let mut profiles = self.behavior_profiles.write().await;
+        let profile = profiles.entry(plugin_id.to_string()).or_insert_with(|| BehaviorProfile {
+            plugin_id: plugin_id.to_string(),
+            normal_operations: HashMap::new(),
+            normal_frequency: HashMap::new(),
+            normal_timing: HashMap::new(),
+            suspicious_patterns: Vec::new(),
+        });
+        
+        profile.normal_operations.insert(operation.to_string(), 1.0);
+        profile.normal_frequency.insert(operation.to_string(), frequency);
+        profile.normal_timing.insert(operation.to_string(), execution_time);
+    }
+
+    pub async fn add_suspicious_pattern(&self, plugin_id: &str, pattern: String) {
+        let mut profiles = self.behavior_profiles.write().await;
+        if let Some(profile) = profiles.get_mut(plugin_id) {
+            profile.suspicious_patterns.push(pattern);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_rate_limiter() {
+        let rate_limiter = RateLimiter::new();
+        
+        // Test normal rate limiting
+        assert!(rate_limiter.check_rate_limit("plugin1", "operation1").await.unwrap());
+        assert!(rate_limiter.check_rate_limit("plugin1", "operation1").await.unwrap());
+        
+        // Set very restrictive limit
+        rate_limiter.set_rate_limit("plugin1", "operation1", 1, Duration::from_secs(60)).await;
+        
+        // First request should pass
+        assert!(rate_limiter.check_rate_limit("plugin1", "operation1").await.unwrap());
+        
+        // Second request should fail
+        assert!(!rate_limiter.check_rate_limit("plugin1", "operation1").await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_behavioral_analyzer() {
+        let analyzer = BehavioralAnalyzer::new();
+        
+        let mut context = HashMap::new();
+        context.insert("frequency".to_string(), "10.0".to_string());
+        context.insert("execution_time".to_string(), "1000".to_string());
+        
+        let score = analyzer.analyze_behavior("plugin1", "test_operation", &context).await.unwrap();
+        assert!(score >= 0.0 && score <= 1.0);
+    }
+
+    #[tokio::test]
+    async fn test_threat_detection_system() {
+        let system = ThreatDetectionSystem::new();
+        
+        let mut context = HashMap::new();
+        context.insert("test".to_string(), "value".to_string());
+        
+        let assessment = system.analyze("plugin1", "test_operation", &context).await.unwrap();
+        assert_eq!(assessment.plugin_id, "plugin1");
+        assert!(assessment.threat_score >= 0.0 && assessment.threat_score <= 1.0);
+    }
+}

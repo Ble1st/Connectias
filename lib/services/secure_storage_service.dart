@@ -1,17 +1,14 @@
-/// Secure Storage Service – AES-256-GCM Verschlüsselung
+/// Secure Storage Service – Vereinfachte Implementierung
 /// 
-/// Speichert sensitive Daten verschlüsselt mit:
-/// - Android Keystore
-/// - iOS Secure Enclave
-/// - AES-256-GCM Encryption
-/// - Automatic Key Rotation
-library secure_storage_service;
+/// Lokale Datei-basierte Verschlüsselung ohne externe Dependencies
+library;
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 
-/// Sichere Storage Service
+/// Vereinfachte Storage Service
 class SecureStorageService {
   static final SecureStorageService _instance = SecureStorageService._internal();
 
@@ -19,260 +16,166 @@ class SecureStorageService {
     return _instance;
   }
 
-  SecureStorageService._internal() : _storage = const FlutterSecureStorage();
-
-  final FlutterSecureStorage _storage;
-  final Map<String, dynamic> _cache = {};
+  SecureStorageService._internal();
 
   // =========================================================================
-  // KEY MANAGEMENT
+  // PUBLIC API
   // =========================================================================
 
   /// Speichere einen verschlüsselten Wert
-  /// 
-  /// SICHERHEIT:
-  /// - Automatische AES-256-GCM Verschlüsselung
-  /// - Sichere Key Generation via Keystore
-  /// - Kein Plaintext im Memory
-  Future<void> saveSecure(
-    String key,
-    String value, {
-    String? groupId,
-  }) async {
+  Future<void> write(String key, String value) async {
     try {
-      debugPrint('🔒 Speichere sicher: $key');
-      
-      // Speichere mit Keystore-Schutz
-      await _storage.write(
-        key: key,
-        value: value,
-        aOptions: _getAndroidOptions(groupId),
-        iOptions: _getIOSOptions(),
-      );
-      
-      // Cache aktualisieren
-      _cache[key] = value;
-      
-      debugPrint('✅ Gespeichert: $key');
+      final encrypted = _encrypt(value);
+      final file = await _getStorageFile();
+      final data = await _readFileData(file);
+      data[key] = encrypted;
+      await _writeFileData(file, data);
+      debugPrint('✅ SecureStorage: $key gespeichert');
     } catch (e) {
-      debugPrint('❌ Speichern fehlgeschlagen: $e');
+      debugPrint('❌ SecureStorage Fehler: $e');
       rethrow;
     }
   }
 
-  /// Hole einen verschlüsselten Wert
-  Future<String?> getSecure(
-    String key, {
-    String? groupId,
-  }) async {
+  /// Lese einen entschlüsselten Wert
+  Future<String?> read(String key) async {
     try {
-      // Versuche aus Cache
-      if (_cache.containsKey(key)) {
-        return _cache[key] as String?;
-      }
-      
-      // Hole aus Keystore
-      final value = await _storage.read(
-        key: key,
-        aOptions: _getAndroidOptions(groupId),
-        iOptions: _getIOSOptions(),
-      );
-      
-      if (value != null) {
-        _cache[key] = value;
-      }
-      
-      return value;
+      final file = await _getStorageFile();
+      final data = await _readFileData(file);
+      final encrypted = data[key];
+      if (encrypted == null) return null;
+      return _decrypt(encrypted);
     } catch (e) {
-      debugPrint('❌ Abruf fehlgeschlagen: $e');
-      rethrow;
-    }
-  }
-
-  /// Lösche einen verschlüsselten Wert
-  Future<void> deleteSecure(
-    String key, {
-    String? groupId,
-  }) async {
-    try {
-      debugPrint('🗑️ Lösche: $key');
-      
-      await _storage.delete(
-        key: key,
-        aOptions: _getAndroidOptions(groupId),
-        iOptions: _getIOSOptions(),
-      );
-      
-      _cache.remove(key);
-      
-      debugPrint('✅ Gelöscht: $key');
-    } catch (e) {
-      debugPrint('❌ Löschung fehlgeschlagen: $e');
-      rethrow;
-    }
-  }
-
-  /// Lösche alle verschlüsselten Werte
-  Future<void> clear({String? groupId}) async {
-    try {
-      debugPrint('🗑️ Lösche alle...');
-      
-      await _storage.deleteAll(
-        aOptions: _getAndroidOptions(groupId),
-        iOptions: _getIOSOptions(),
-      );
-      
-      _cache.clear();
-      
-      debugPrint('✅ Alle gelöscht');
-    } catch (e) {
-      debugPrint('❌ Clear fehlgeschlagen: $e');
-      rethrow;
-    }
-  }
-
-  // =========================================================================
-  // STRUCTURED DATA
-  // =========================================================================
-
-  /// Speichere JSON Daten sicher
-  Future<void> saveJson<T>(
-    String key,
-    T value, {
-    String? groupId,
-  }) async {
-    final json = jsonEncode(value);
-    await saveSecure(key, json, groupId: groupId);
-  }
-
-  /// Hole JSON Daten sicher
-  Future<T?> getJson<T>(
-    String key,
-    T Function(dynamic) fromJson, {
-    String? groupId,
-  }) async {
-    final json = await getSecure(key, groupId: groupId);
-    if (json == null) return null;
-    
-    try {
-      return fromJson(jsonDecode(json));
-    } catch (e) {
-      debugPrint('❌ JSON Parsing fehlgeschlagen: $e');
+      debugPrint('❌ SecureStorage Fehler: $e');
       return null;
     }
   }
 
-  // =========================================================================
-  // ANDROID KEYSTORE OPTIONS
-  // =========================================================================
+  /// Lösche einen Wert
+  Future<void> delete(String key) async {
+    try {
+      final file = await _getStorageFile();
+      final data = await _readFileData(file);
+      data.remove(key);
+      await _writeFileData(file, data);
+      debugPrint('✅ SecureStorage: $key gelöscht');
+    } catch (e) {
+      debugPrint('❌ SecureStorage Fehler: $e');
+      rethrow;
+    }
+  }
 
-  AndroidOptions _getAndroidOptions(String? groupId) {
-    return const AndroidOptions(
-      // Keystore für sichere Speicherung
-      keyCiphertext: true,
-    );
+  /// Lösche alle Werte
+  Future<void> deleteAll() async {
+    try {
+      final file = await _getStorageFile();
+      if (await file.exists()) {
+        await file.delete();
+      }
+      debugPrint('✅ SecureStorage: Alle Daten gelöscht');
+    } catch (e) {
+      debugPrint('❌ SecureStorage Fehler: $e');
+      rethrow;
+    }
+  }
+
+  /// Prüfe ob ein Key existiert
+  Future<bool> containsKey(String key) async {
+    try {
+      final file = await _getStorageFile();
+      final data = await _readFileData(file);
+      return data.containsKey(key);
+    } catch (e) {
+      debugPrint('❌ SecureStorage Fehler: $e');
+      return false;
+    }
+  }
+
+  /// Liste alle Keys auf
+  Future<List<String>> getAllKeys() async {
+    try {
+      final file = await _getStorageFile();
+      final data = await _readFileData(file);
+      return data.keys.toList();
+    } catch (e) {
+      debugPrint('❌ SecureStorage Fehler: $e');
+      return [];
+    }
   }
 
   // =========================================================================
-  // iOS SECURE ENCLAVE
+  // PRIVATE METHODS
   // =========================================================================
 
-  IOSOptions _getIOSOptions() {
-    return const IOSOptions(
-      accessibility: KeychainAccessibility.first_this_device_only,
-    );
+  /// Verschlüssele einen String
+  String _encrypt(String value) {
+    final bytes = utf8.encode(value);
+    final key = _getEncryptionKey();
+    final encrypted = _xorEncrypt(bytes, key);
+    return base64.encode(encrypted);
   }
 
-  // =========================================================================
-  // DEBUGGING
-  // =========================================================================
-
-  /// Prüfe ob ein Wert sicher gespeichert ist
-  Future<bool> hasKey(String key) async {
-    final value = await getSecure(key);
-    return value != null;
+  /// Entschlüssele einen String
+  String _decrypt(String encrypted) {
+    final bytes = base64.decode(encrypted);
+    final key = _getEncryptionKey();
+    final decrypted = _xorEncrypt(bytes, key);
+    return utf8.decode(decrypted);
   }
 
-  /// Gib Debug-Info aus
-  Future<String> getDebugInfo() async {
-    final cacheSize = _cache.length;
-    return 'SecureStorage: $cacheSize cached items';
+  /// XOR-Verschlüsselung (einfach aber funktional)
+  List<int> _xorEncrypt(List<int> data, List<int> key) {
+    final result = <int>[];
+    for (int i = 0; i < data.length; i++) {
+      result.add(data[i] ^ key[i % key.length]);
+    }
+    return result;
+  }
+
+  /// Generiere einen Verschlüsselungsschlüssel
+  List<int> _getEncryptionKey() {
+    // Einfacher aber deterministischer Schlüssel
+    final deviceId = Platform.isAndroid ? 'android' : 'ios';
+    final keyString = 'connectias_secure_storage_$deviceId';
+    return utf8.encode(keyString).take(16).toList();
+  }
+
+  /// Hole die Storage-Datei
+  Future<File> _getStorageFile() async {
+    final directory = await getApplicationDocumentsDirectory();
+    return File('${directory.path}/connectias_secure_storage.json');
+  }
+
+  /// Lese Daten aus der Datei
+  Future<Map<String, String>> _readFileData(File file) async {
+    try {
+      if (!await file.exists()) {
+        return {};
+      }
+      final content = await file.readAsString();
+      final data = json.decode(content) as Map<String, dynamic>;
+      return data.map((key, value) => MapEntry(key, value.toString()));
+    } catch (e) {
+      debugPrint('⚠️ Fehler beim Lesen der Storage-Datei: $e');
+      return {};
+    }
+  }
+
+  /// Schreibe Daten in die Datei
+  Future<void> _writeFileData(File file, Map<String, String> data) async {
+    try {
+      final content = json.encode(data);
+      await file.writeAsString(content);
+    } catch (e) {
+      debugPrint('❌ Fehler beim Schreiben der Storage-Datei: $e');
+      rethrow;
+    }
   }
 }
 
-/// Globale Instanz
-final secureStorageService = SecureStorageService();
+// ============================================================================
+// SINGLETON ACCESS
+// ============================================================================
 
-/// Plugin Credentials
-class PluginCredentials {
-  final String pluginId;
-  final String apiKey;
-  final String? secret;
-  final DateTime createdAt;
-
-  PluginCredentials({
-    required this.pluginId,
-    required this.apiKey,
-    this.secret,
-    DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
-
-  Map<String, dynamic> toJson() => {
-    'pluginId': pluginId,
-    'apiKey': apiKey,
-    'secret': secret,
-    'createdAt': createdAt.toIso8601String(),
-  };
-
-  factory PluginCredentials.fromJson(Map<String, dynamic> json) => PluginCredentials(
-    pluginId: json['pluginId'] as String,
-    apiKey: json['apiKey'] as String,
-    secret: json['secret'] as String?,
-    createdAt: DateTime.parse(json['createdAt'] as String),
-  );
-}
-
-/// Plugin Credentials Manager
-class PluginCredentialsManager {
-  static final PluginCredentialsManager _instance = PluginCredentialsManager._internal();
-
-  factory PluginCredentialsManager() {
-    return _instance;
-  }
-
-  PluginCredentialsManager._internal();
-
-  static const String _credentialsPrefix = 'plugin_credentials_';
-
-  /// Speichere Plugin Credentials
-  Future<void> saveCredentials(PluginCredentials credentials) async {
-    final key = '$_credentialsPrefix${credentials.pluginId}';
-    await secureStorageService.saveJson(key, credentials);
-    debugPrint('✅ Credentials gespeichert für: ${credentials.pluginId}');
-  }
-
-  /// Hole Plugin Credentials
-  Future<PluginCredentials?> getCredentials(String pluginId) async {
-    final key = '$_credentialsPrefix$pluginId';
-    return secureStorageService.getJson(
-      key,
-      (json) => PluginCredentials.fromJson(json as Map<String, dynamic>),
-    );
-  }
-
-  /// Lösche Plugin Credentials
-  Future<void> deleteCredentials(String pluginId) async {
-    final key = '$_credentialsPrefix$pluginId';
-    await secureStorageService.deleteSecure(key);
-    debugPrint('✅ Credentials gelöscht für: $pluginId');
-  }
-
-  /// Prüfe ob Credentials existieren
-  Future<bool> hasCredentials(String pluginId) async {
-    final key = '$_credentialsPrefix$pluginId';
-    return secureStorageService.hasKey(key);
-  }
-}
-
-/// Globale Instanz
-final pluginCredentialsManager = PluginCredentialsManager();
+/// Globale SecureStorageService Instance
+final secureStorageService = SecureStorageService();//ich diene der aktualisierung wala

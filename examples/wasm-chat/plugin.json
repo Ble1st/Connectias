@@ -1,0 +1,17 @@
+{
+  "id": "com.connectias.wasm-chat",
+  "name": "WASM Chat Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "Chat-Plugin mit Inter-Plugin-Kommunikation über Message Broker",
+  "min_core_version": "1.0.0",
+  "max_core_version": null,
+  "permissions": [
+    "message:send",
+    "message:receive",
+    "storage:read",
+    "storage:write"
+  ],
+  "entry_point": "plugin.wasm",
+  "dependencies": null
+}

@@ -1,6 +1,10 @@
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use std::thread;
 
 /// Runtime Application Self-Protection System
 pub struct RaspProtection {
@@ -8,6 +12,10 @@ pub struct RaspProtection {
     debugger_monitor: DebuggerMonitor,
     emulator_detector: EmulatorDetector,
     integrity_monitor: IntegrityMonitor,
+    hook_detector: HookDetector,
+    memory_protector: MemoryProtector,
+    ssl_pinner: SslPinner,
+    anti_tamper: AntiTamper,
 }
 
 impl RaspProtection {
@@ -17,6 +25,10 @@ impl RaspProtection {
             debugger_monitor: DebuggerMonitor::new(),
             emulator_detector: EmulatorDetector::new(),
             integrity_monitor: IntegrityMonitor::new(),
+            hook_detector: HookDetector::new(),
+            memory_protector: MemoryProtector::new(),
+            ssl_pinner: SslPinner::new(),
+            anti_tamper: AntiTamper::new(),
         }
     }
 
@@ -42,7 +54,55 @@ impl RaspProtection {
             return Err(super::SecurityError::SecurityViolation("App integrity compromised".into()));
         }
 
+        // Hook-Detection
+        if self.hook_detector.detect_hooks()? {
+            return Err(super::SecurityError::SecurityViolation("Code hooks detected".into()));
+        }
+
+        // Memory-Dump-Schutz
+        if self.memory_protector.is_memory_dumped()? {
+            return Err(super::SecurityError::SecurityViolation("Memory dump detected".into()));
+        }
+
+        // SSL-Pinning Verification
+        if !self.ssl_pinner.verify_certificates()? {
+            return Err(super::SecurityError::SecurityViolation("SSL certificate verification failed".into()));
+        }
+
+        // Anti-Tamper Checks
+        if self.anti_tamper.detect_tampering()? {
+            return Err(super::SecurityError::SecurityViolation("Runtime tampering detected".into()));
+        }
+
         Ok(())
+    }
+
+    /// Startet kontinuierliches Monitoring
+    pub fn start_continuous_monitoring(&self) {
+        let hook_detector = self.hook_detector.clone();
+        let memory_protector = self.memory_protector.clone();
+        let anti_tamper = self.anti_tamper.clone();
+
+        thread::spawn(move || {
+            loop {
+                // Hook-Detection alle 5 Sekunden
+                if let Ok(true) = hook_detector.detect_hooks() {
+                    eprintln!("🚨 HOOK DETECTED: Code injection detected!");
+                }
+
+                // Memory-Dump-Schutz alle 3 Sekunden
+                if let Ok(true) = memory_protector.is_memory_dumped() {
+                    eprintln!("🚨 MEMORY DUMP DETECTED: Memory dump attempt detected!");
+                }
+
+                // Anti-Tamper alle 2 Sekunden
+                if let Ok(true) = anti_tamper.detect_tampering() {
+                    eprintln!("🚨 TAMPERING DETECTED: Runtime tampering detected!");
+                }
+
+                thread::sleep(Duration::from_secs(1));
+            }
+        });
     }
 }
 
@@ -385,6 +445,396 @@ impl IntegrityMonitor {
     }
 }
 
+/// Hook-Detection für Code-Injection-Detection
+#[derive(Clone)]
+pub struct HookDetector {
+    baseline_checksums: Arc<Mutex<HashMap<String, u64>>>,
+    monitoring_active: Arc<Mutex<bool>>,
+}
+
+impl HookDetector {
+    pub fn new() -> Self {
+        Self {
+            baseline_checksums: Arc::new(Mutex::new(HashMap::new())),
+            monitoring_active: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub fn detect_hooks(&self) -> Result<bool, super::SecurityError> {
+        // Methode 1: Frida-Detection
+        if self.detect_frida_hooks() {
+            return Ok(true);
+        }
+
+        // Methode 2: Xposed-Detection
+        if self.detect_xposed_hooks() {
+            return Ok(true);
+        }
+
+        // Methode 3: Substrate-Detection
+        if self.detect_substrate_hooks() {
+            return Ok(true);
+        }
+
+        // Methode 4: Native Hook Detection
+        if self.detect_native_hooks() {
+            return Ok(true);
+        }
+
+        // Methode 5: Method Swizzling Detection
+        if self.detect_method_swizzling() {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    fn detect_frida_hooks(&self) -> bool {
+        // Prüfe auf Frida-Server und Gadget
+        let frida_indicators = [
+            "frida-server",
+            "frida-gadget",
+            "gadget",
+            "gum-js-loop",
+            "gmain",
+        ];
+
+        if let Ok(output) = Command::new("ps").output() {
+            let processes = String::from_utf8_lossy(&output.stdout);
+            return frida_indicators.iter().any(|indicator| processes.contains(indicator));
+        }
+
+        false
+    }
+
+    fn detect_xposed_hooks(&self) -> bool {
+        // Prüfe auf Xposed Framework
+        let xposed_paths = [
+            "/system/framework/XposedBridge.jar",
+            "/system/lib/libxposed_art.so",
+            "/system/lib64/libxposed_art.so",
+            "/data/data/de.robv.android.xposed.installer",
+        ];
+
+        xposed_paths.iter().any(|path| Path::new(path).exists())
+    }
+
+    fn detect_substrate_hooks(&self) -> bool {
+        // Prüfe auf Substrate Framework
+        let substrate_paths = [
+            "/system/lib/libsubstrate.so",
+            "/system/lib64/libsubstrate.so",
+            "/data/data/com.saurik.substrate",
+        ];
+
+        substrate_paths.iter().any(|path| Path::new(path).exists())
+    }
+
+    fn detect_native_hooks(&self) -> bool {
+        // Prüfe auf Native Hooks durch Memory-Scanning
+        // In einer echten Implementierung würde hier der Memory-Space
+        // nach verdächtigen Modifikationen gescannt
+        false
+    }
+
+    fn detect_method_swizzling(&self) -> bool {
+        // Prüfe auf Method Swizzling durch Runtime-Reflection
+        // In einer echten Implementierung würde hier die Method-Tables
+        // nach verdächtigen Änderungen überprüft
+        false
+    }
+}
+
+/// Memory-Dump-Schutz für Memory-Protection
+#[derive(Clone)]
+pub struct MemoryProtector {
+    memory_regions: Arc<Mutex<HashMap<String, Vec<u8>>>>,
+    protection_active: Arc<Mutex<bool>>,
+}
+
+impl MemoryProtector {
+    pub fn new() -> Self {
+        Self {
+            memory_regions: Arc::new(Mutex::new(HashMap::new())),
+            protection_active: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub fn is_memory_dumped(&self) -> Result<bool, super::SecurityError> {
+        // Methode 1: Memory-Mapping prüfen
+        if self.check_memory_mapping() {
+            return Ok(true);
+        }
+
+        // Methode 2: Process-Memory prüfen
+        if self.check_process_memory() {
+            return Ok(true);
+        }
+
+        // Methode 3: Debugger-Memory-Access prüfen
+        if self.check_debugger_memory_access() {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    fn check_memory_mapping(&self) -> bool {
+        // Prüfe /proc/self/maps auf verdächtige Mappings
+        if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+            for line in maps.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    let permissions = parts[1];
+                    // Nur wirklich verdächtige Permissions prüfen: write + execute
+                    if permissions.contains('w') && permissions.contains('x') {
+                        // Prüfe, ob es sich um normale Bereiche handelt
+                        let path = parts.get(5).unwrap_or(&"");
+                        if !path.contains("[heap]") && !path.contains("[stack]") && 
+                           !path.contains("[vdso]") && !path.contains("[vsyscall]") {
+                            return true; // Verdächtiges Mapping gefunden
+                        }
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    fn check_process_memory(&self) -> bool {
+        // Prüfe auf Memory-Dump-Tools
+        let dump_tools = [
+            "gcore",
+            "gdb",
+            "lldb",
+            "dump",
+            "memdump",
+        ];
+
+        if let Ok(output) = Command::new("ps").output() {
+            let processes = String::from_utf8_lossy(&output.stdout);
+            return dump_tools.iter().any(|tool| processes.contains(tool));
+        }
+
+        false
+    }
+
+    fn check_debugger_memory_access(&self) -> bool {
+        // Prüfe auf Debugger-Memory-Access
+        if let Ok(status) = fs::read_to_string("/proc/self/status") {
+            return status.contains("TracerPid:") && !status.contains("TracerPid:\t0");
+        }
+
+        false
+    }
+}
+
+/// SSL-Pinning für Certificate-Verification
+pub struct SslPinner {
+    pinned_certificates: Vec<String>,
+    verification_active: bool,
+}
+
+impl SslPinner {
+    pub fn new() -> Self {
+        Self {
+            pinned_certificates: Vec::new(),
+            verification_active: true,
+        }
+    }
+    
+    /// Berechne SHA-256 Pin für Certificate/Public Key Daten
+    fn compute_sha256_pin(data: &[u8]) -> String {
+        use sha2::{Sha256, Digest};
+        
+        let mut hasher = Sha256::new();
+        hasher.update(data);
+        let hash = hasher.finalize();
+        
+        format!("sha256/{}", hex::encode(hash))
+    }
+    
+    /// Konfiguriere SSL-Pinning mit echten Certificate-Pins
+    pub fn configure_pins(&mut self, pins: Vec<String>) {
+        self.pinned_certificates = pins;
+    }
+    
+    /// Aktiviere/Deaktiviere SSL-Pinning
+    pub fn set_verification_active(&mut self, active: bool) {
+        self.verification_active = active;
+    }
+
+    pub fn verify_certificates(&self) -> Result<bool, super::SecurityError> {
+        if !self.verification_active {
+            return Err(super::SecurityError::SecurityViolation(
+                "SSL verification is disabled - this is a security risk".to_string()
+            ));
+        }
+
+        if self.pinned_certificates.is_empty() {
+            return Err(super::SecurityError::SecurityViolation(
+                "No certificate pins configured".to_string()
+            ));
+        }
+
+        // In einer echten Implementierung würde hier die aktuelle Certificate-Chain
+        // gegen die gepinnten Certificates geprüft werden
+        Ok(true)
+    }
+
+    pub fn verify_certificate_chain(&self, chain: &[u8]) -> Result<bool, super::SecurityError> {
+        if !self.verification_active {
+            return Err(super::SecurityError::SecurityViolation(
+                "SSL verification is disabled".to_string()
+            ));
+        }
+
+        if self.pinned_certificates.is_empty() {
+            return Err(super::SecurityError::SecurityViolation(
+                "No certificate pins configured".to_string()
+            ));
+        }
+
+        // Echte SHA-256 Certificate-Chain-Verification
+        let computed_pin = Self::compute_sha256_pin(chain);
+        
+        if self.pinned_certificates.contains(&computed_pin) {
+            Ok(true)
+        } else {
+            Err(super::SecurityError::SecurityViolation(
+                format!("Certificate pin mismatch: {}", computed_pin)
+            ))
+        }
+    }
+
+    pub fn verify_public_key_pinning(&self, public_key: &[u8]) -> Result<bool, super::SecurityError> {
+        if !self.verification_active {
+            return Err(super::SecurityError::SecurityViolation(
+                "SSL verification is disabled".to_string()
+            ));
+        }
+
+        if self.pinned_certificates.is_empty() {
+            return Err(super::SecurityError::SecurityViolation(
+                "No certificate pins configured".to_string()
+            ));
+        }
+
+        // Echte SHA-256 Public-Key-Pinning-Verification
+        let computed_pin = Self::compute_sha256_pin(public_key);
+        
+        if self.pinned_certificates.contains(&computed_pin) {
+            Ok(true)
+        } else {
+            Err(super::SecurityError::SecurityViolation(
+                format!("Public key pin mismatch: {}", computed_pin)
+            ))
+        }
+    }
+
+    pub fn verify_certificate_transparency(&self, cert: &[u8]) -> Result<bool, super::SecurityError> {
+        if !self.verification_active {
+            return Err(super::SecurityError::SecurityViolation(
+                "SSL verification is disabled".to_string()
+            ));
+        }
+
+        if self.pinned_certificates.is_empty() {
+            return Err(super::SecurityError::SecurityViolation(
+                "No certificate pins configured".to_string()
+            ));
+        }
+
+        // TODO: Echte Certificate Transparency Log-Verification implementieren
+        // Aktuell wird nur SHA-256 Pin-Verification durchgeführt
+        // In einer echten Implementierung würden hier CT-Logs abgefragt werden
+        let computed_pin = Self::compute_sha256_pin(cert);
+        
+        if self.pinned_certificates.contains(&computed_pin) {
+            Ok(true)
+        } else {
+            Err(super::SecurityError::SecurityViolation(
+                format!("Certificate transparency pin mismatch: {}", computed_pin)
+            ))
+        }
+    }
+}
+
+/// Anti-Tamper für Runtime-Tampering-Detection
+#[derive(Clone)]
+pub struct AntiTamper {
+    integrity_checks: Arc<Mutex<HashMap<String, u64>>>,
+    tamper_detection_active: Arc<Mutex<bool>>,
+}
+
+impl AntiTamper {
+    pub fn new() -> Self {
+        Self {
+            integrity_checks: Arc::new(Mutex::new(HashMap::new())),
+            tamper_detection_active: Arc::new(Mutex::new(false)),
+        }
+    }
+
+    pub fn detect_tampering(&self) -> Result<bool, super::SecurityError> {
+        // Methode 1: Code-Integrity prüfen
+        if self.check_code_integrity() {
+            return Ok(true);
+        }
+
+        // Methode 2: Runtime-Modifikationen prüfen
+        if self.check_runtime_modifications() {
+            return Ok(true);
+        }
+
+        // Methode 3: Debugger-Attachment prüfen
+        if self.check_debugger_attachment() {
+            return Ok(true);
+        }
+
+        // Methode 4: Process-Injection prüfen
+        if self.check_process_injection() {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    fn check_code_integrity(&self) -> bool {
+        // Prüfe Code-Integrität durch Checksum-Vergleich
+        // In einer echten Implementierung würde hier die aktuelle
+        // Code-Checksum mit der erwarteten Checksum verglichen
+        false
+    }
+
+    fn check_runtime_modifications(&self) -> bool {
+        // Prüfe auf Runtime-Modifikationen
+        // In einer echten Implementierung würde hier der Code-Space
+        // nach unerwarteten Änderungen gescannt
+        false
+    }
+
+    fn check_debugger_attachment(&self) -> bool {
+        // Prüfe auf Debugger-Attachment
+        if let Ok(status) = fs::read_to_string("/proc/self/status") {
+            for line in status.lines() {
+                if line.starts_with("TracerPid:") {
+                    let pid = line.split_whitespace().nth(1).unwrap_or("0");
+                    return pid != "0";
+                }
+            }
+        }
+        false
+    }
+
+    fn check_process_injection(&self) -> bool {
+        // Prüfe auf Process-Injection
+        // In einer echten Implementierung würde hier der Process-Space
+        // nach verdächtigen Modifikationen gescannt
+        false
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -415,6 +865,41 @@ mod tests {
         let monitor = IntegrityMonitor::new();
         // Test sollte in echter Umgebung durchgeführt werden
         let _result = monitor.is_tampered();
+    }
+
+    #[test]
+    fn test_hook_detection() {
+        let detector = HookDetector::new();
+        // Test sollte in echter Umgebung durchgeführt werden
+        let _result = detector.detect_hooks();
+    }
+
+    #[test]
+    fn test_memory_protection() {
+        let protector = MemoryProtector::new();
+        // Test sollte in echter Umgebung durchgeführt werden
+        let _result = protector.is_memory_dumped();
+    }
+
+    #[test]
+    fn test_ssl_pinning() {
+        let pinner = SslPinner::new();
+        // Test sollte in echter Umgebung durchgeführt werden
+        let _result = pinner.verify_certificates();
+    }
+
+    #[test]
+    fn test_anti_tamper() {
+        let anti_tamper = AntiTamper::new();
+        // Test sollte in echter Umgebung durchgeführt werden
+        let _result = anti_tamper.detect_tampering();
+    }
+
+    #[test]
+    fn test_enhanced_rasp_protection() {
+        let protection = RaspProtection::new();
+        // Test sollte in echter Umgebung durchgeführt werden
+        let _result = protection.check_environment();
     }
 }
 

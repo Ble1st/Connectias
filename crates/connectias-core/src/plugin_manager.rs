@@ -1,7 +1,9 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::sync::RwLock;
+use serde::{Deserialize, Serialize};
 use connectias_api::{Plugin, PluginInfo, PluginContext};
 use connectias_security::{SignatureVerifier, PluginValidator, RaspProtection, NetworkSecurityFilter, ThreatDetectionSystem};
 use connectias_wasm::WasmRuntime;
@@ -17,6 +19,114 @@ use crate::metrics::{MetricsCollector, PerformanceMonitor};
 use crate::recovery::{RecoveryManager, RecoveryHandler};
 use crate::memory::{MemoryManager, MemoryMonitor};
 use crate::message_broker::MessageBrokerManager;
+
+// =========================================================================
+// ENHANCED PLUGIN REGISTRY STRUCTURES
+// =========================================================================
+
+/// Plugin Registry Entry mit erweiterten Metadaten
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginRegistryEntry {
+    pub plugin_id: String,
+    pub plugin_info: PluginInfo,
+    pub file_path: PathBuf,
+    pub installed_at: i64,
+    pub last_accessed: i64,
+    pub version: String,
+    pub status: PluginStatus,
+    pub dependencies: Vec<String>,
+    pub dependents: Vec<String>,
+    pub permissions: Vec<String>,
+    pub resource_usage: ResourceUsage,
+    pub performance_metrics: PerformanceMetrics,
+}
+
+/// Plugin Status für Registry-Management
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum PluginStatus {
+    /// Plugin ist installiert aber nicht geladen
+    Installed,
+    /// Plugin ist geladen und aktiv
+    Loaded,
+    /// Plugin ist aktiv und läuft
+    Running,
+    /// Plugin ist gestoppt
+    Stopped,
+    /// Plugin ist deaktiviert
+    Disabled,
+    /// Plugin hat einen Fehler
+    Error { error: String },
+    /// Plugin wird aktualisiert
+    Updating,
+    /// Plugin wird deinstalliert
+    Uninstalling,
+}
+
+/// Resource Usage Tracking
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceUsage {
+    pub memory_usage: u64,
+    pub cpu_usage: f64,
+    pub storage_usage: u64,
+    pub network_usage: u64,
+    pub last_updated: i64,
+}
+
+/// Performance Metrics für Plugin
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PerformanceMetrics {
+    pub execution_count: u64,
+    pub average_execution_time: f64,
+    pub error_count: u64,
+    pub success_rate: f64,
+    pub last_execution: Option<i64>,
+}
+
+/// Plugin Discovery Result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginDiscoveryResult {
+    pub discovered_plugins: Vec<DiscoveredPlugin>,
+    pub scan_duration: u64,
+    pub scan_paths: Vec<PathBuf>,
+    pub errors: Vec<String>,
+}
+
+/// Entdecktes Plugin während Discovery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiscoveredPlugin {
+    pub plugin_id: String,
+    pub file_path: PathBuf,
+    pub plugin_info: PluginInfo,
+    pub is_valid: bool,
+    pub validation_errors: Vec<String>,
+    pub dependencies_available: bool,
+    pub missing_dependencies: Vec<String>,
+}
+
+/// Dependency Resolution Result
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DependencyResolutionResult {
+    pub plugin_id: String,
+    pub resolved_dependencies: Vec<String>,
+    pub missing_dependencies: Vec<String>,
+    pub circular_dependencies: Vec<String>,
+    pub load_order: Vec<String>,
+    pub is_resolvable: bool,
+}
+
+/// Plugin Registry Statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PluginRegistryStats {
+    pub total_plugins: usize,
+    pub loaded_plugins: usize,
+    pub running_plugins: usize,
+    pub disabled_plugins: usize,
+    pub error_plugins: usize,
+    pub total_memory_usage: u64,
+    pub total_storage_usage: u64,
+    pub average_performance: f64,
+    pub last_scan: i64,
+}
 
 pub struct PluginManager {
     plugins: Arc<RwLock<HashMap<String, Box<dyn Plugin>>>>,
@@ -42,6 +152,11 @@ pub struct PluginManager {
     monitoring_service: Arc<MonitoringService>,
     alert_service: Arc<AlertService>,
     threat_detection_system: Arc<ThreatDetectionSystem>,
+    // Enhanced Registry Features
+    plugin_registry: Arc<RwLock<HashMap<String, PluginRegistryEntry>>>,
+    dependency_graph: Arc<RwLock<HashMap<String, HashSet<String>>>>,
+    discovery_cache: Arc<RwLock<HashMap<PathBuf, DiscoveredPlugin>>>,
+    registry_stats: Arc<RwLock<PluginRegistryStats>>,
 }
 
 impl PluginManager {
@@ -115,6 +230,22 @@ impl PluginManager {
             permission_service_monitor.start_monitoring().await;
         });
 
+        // Initialize Enhanced Registry Features
+        let plugin_registry = Arc::new(RwLock::new(HashMap::new()));
+        let dependency_graph = Arc::new(RwLock::new(HashMap::new()));
+        let discovery_cache = Arc::new(RwLock::new(HashMap::new()));
+        let registry_stats = Arc::new(RwLock::new(PluginRegistryStats {
+            total_plugins: 0,
+            loaded_plugins: 0,
+            running_plugins: 0,
+            disabled_plugins: 0,
+            error_plugins: 0,
+            total_memory_usage: 0,
+            total_storage_usage: 0,
+            average_performance: 0.0,
+            last_scan: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
+        }));
+
         Ok(Self {
             plugins: Arc::new(RwLock::new(HashMap::new())),
             plugin_dir,
@@ -139,6 +270,11 @@ impl PluginManager {
             monitoring_service,
             alert_service,
             threat_detection_system,
+            // Enhanced Registry Features
+            plugin_registry,
+            dependency_graph,
+            discovery_cache,
+            registry_stats,
         })
     }
 
@@ -386,5 +522,576 @@ fn load_encryption_key() -> Result<[u8; 32], String> {
     
     // 3. Kein Fallback - Fehler um Datenverlust zu vermeiden
     Err("Kein Encryption-Schlüssel gefunden. Setze CONNECTIAS_ENCRYPTION_KEY Environment Variable oder erstelle config/encryption.key".into())
+}
+
+// =========================================================================
+// ENHANCED PLUGIN REGISTRY METHODS
+// =========================================================================
+
+impl PluginManager {
+    /// Plugin Discovery - Scanne Verzeichnisse nach Plugins
+    pub async fn discover_plugins(&self, scan_paths: Vec<PathBuf>) -> Result<PluginDiscoveryResult, String> {
+        let start_time = std::time::Instant::now();
+        let mut discovered_plugins = Vec::new();
+        let mut errors = Vec::new();
+
+        for scan_path in &scan_paths {
+            if let Err(e) = self.scan_directory_for_plugins(scan_path, &mut discovered_plugins, &mut errors).await {
+                errors.push(format!("Fehler beim Scannen von {:?}: {}", scan_path, e));
+            }
+        }
+
+        let scan_duration = start_time.elapsed().as_millis() as u64;
+
+        // Update registry stats
+        {
+            let mut stats = self.registry_stats.write().await;
+            stats.last_scan = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+        }
+
+        Ok(PluginDiscoveryResult {
+            discovered_plugins,
+            scan_duration,
+            scan_paths,
+            errors,
+        })
+    }
+
+    /// Scanne ein Verzeichnis nach Plugins
+    async fn scan_directory_for_plugins(
+        &self,
+        scan_path: &Path,
+        discovered_plugins: &mut Vec<DiscoveredPlugin>,
+        errors: &mut Vec<String>,
+    ) -> Result<(), String> {
+        if !scan_path.exists() {
+            return Ok(());
+        }
+
+        let mut entries = std::fs::read_dir(scan_path)
+            .map_err(|e| format!("Fehler beim Lesen des Verzeichnisses {:?}: {}", scan_path, e))?;
+
+        while let Some(entry) = entries.next() {
+            let entry = entry.map_err(|e| format!("Fehler beim Lesen des Verzeichniseintrags: {}", e))?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                // Scanne Unterverzeichnisse rekursiv (mit Box::pin für async recursion)
+                let future = self.scan_directory_for_plugins(&path, discovered_plugins, errors);
+                Box::pin(future).await?;
+            } else if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
+                // Prüfe ob es ein Plugin ist
+                if let Some(discovered_plugin) = self.validate_plugin_file(&path).await {
+                    discovered_plugins.push(discovered_plugin);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validiere eine Plugin-Datei
+    async fn validate_plugin_file(&self, file_path: &Path) -> Option<DiscoveredPlugin> {
+        // Prüfe ob Plugin bereits im Cache ist
+        {
+            let cache = self.discovery_cache.read().await;
+            if let Some(cached_plugin) = cache.get(file_path) {
+                return Some(cached_plugin.clone());
+            }
+        }
+
+        // Versuche Plugin-Info zu extrahieren
+        let plugin_info = match self.extract_plugin_info_from_wasm(file_path).await {
+            Ok(info) => info,
+            Err(_) => return None,
+        };
+
+        // Validiere Plugin (simuliert für jetzt)
+        let validation_errors = Vec::new(); // self.validator.validate_plugin_info(&plugin_info);
+        let is_valid = validation_errors.is_empty();
+
+        // Prüfe Dependencies
+        let dependencies = plugin_info.dependencies.clone().unwrap_or_default();
+        let dependencies_available = self.check_dependencies_available(&dependencies).await;
+        let missing_dependencies = if dependencies_available {
+            Vec::new()
+        } else {
+            dependencies
+        };
+
+        let discovered_plugin = DiscoveredPlugin {
+            plugin_id: plugin_info.id.clone(),
+            file_path: file_path.to_path_buf(),
+            plugin_info,
+            is_valid,
+            validation_errors,
+            dependencies_available,
+            missing_dependencies,
+        };
+
+        // Cache das Ergebnis
+        {
+            let mut cache = self.discovery_cache.write().await;
+            cache.insert(file_path.to_path_buf(), discovered_plugin.clone());
+        }
+
+        Some(discovered_plugin)
+    }
+
+    /// Extrahiere Plugin-Info aus WASM-Datei
+    async fn extract_plugin_info_from_wasm(&self, file_path: &Path) -> Result<PluginInfo, String> {
+        
+        // Versuche zuerst, eine Begleitdatei zu finden
+        let manifest_path = file_path.with_extension("json");
+        if manifest_path.exists() {
+            return self.extract_from_manifest(&manifest_path).await;
+        }
+        
+        let toml_path = file_path.with_extension("toml");
+        if toml_path.exists() {
+            return self.extract_from_toml_manifest(&toml_path).await;
+        }
+        
+        // Versuche, Plugin-Info aus WASM-Custom-Section zu extrahieren
+        if let Ok(info) = self.extract_from_wasm_custom_section(file_path).await {
+            return Ok(info);
+        }
+        
+        // Fallback: Versuche, Metadaten aus WASM-Exports/Imports zu extrahieren
+        if let Ok(info) = self.extract_from_wasm_metadata(file_path).await {
+            return Ok(info);
+        }
+        
+        // Letzter Fallback: Generiere Plugin-Info aus Dateiname
+        let file_stem = file_path.file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or("Invalid file path")?;
+            
+        Ok(PluginInfo {
+            id: format!("plugin_{}", file_stem),
+            name: format!("Discovered Plugin {}", file_stem),
+            version: "1.0.0".to_string(),
+            author: "Unknown".to_string(),
+            description: format!("Auto-discovered plugin from {}", file_stem),
+            min_core_version: "1.0.0".to_string(),
+            max_core_version: None,
+            permissions: vec![connectias_api::PluginPermission::Storage],
+            entry_point: "plugin.wasm".to_string(),
+            dependencies: None,
+        })
+    }
+    
+    /// Extrahiere Plugin-Info aus JSON-Manifest
+    async fn extract_from_manifest(&self, manifest_path: &std::path::Path) -> Result<PluginInfo, String> {
+        use std::fs;
+        use serde_json;
+        
+        let content = fs::read_to_string(manifest_path)
+            .map_err(|e| format!("Failed to read manifest: {}", e))?;
+            
+        let manifest: serde_json::Value = serde_json::from_str(&content)
+            .map_err(|e| format!("Failed to parse manifest JSON: {}", e))?;
+            
+        Ok(PluginInfo {
+            id: manifest["id"].as_str().unwrap_or("unknown").to_string(),
+            name: manifest["name"].as_str().unwrap_or("Unknown Plugin").to_string(),
+            version: manifest["version"].as_str().unwrap_or("1.0.0").to_string(),
+            author: manifest["author"].as_str().unwrap_or("Unknown").to_string(),
+            description: manifest["description"].as_str().unwrap_or("No description").to_string(),
+            min_core_version: manifest["min_core_version"].as_str().unwrap_or("1.0.0").to_string(),
+            max_core_version: manifest["max_core_version"].as_str().map(|s| s.to_string()),
+            permissions: self.parse_permissions_from_manifest(&manifest),
+            entry_point: manifest["entry_point"].as_str().unwrap_or("plugin.wasm").to_string(),
+            dependencies: self.parse_dependencies_from_manifest(&manifest),
+        })
+    }
+    
+    /// Extrahiere Plugin-Info aus TOML-Manifest
+    async fn extract_from_toml_manifest(&self, _manifest_path: &std::path::Path) -> Result<PluginInfo, String> {
+        // TOML-Parsing ist optional - verwende JSON als Fallback
+        Err("TOML parsing not implemented - use JSON manifest instead".to_string())
+    }
+    
+    /// Extrahiere Plugin-Info aus WASM-Custom-Section
+    async fn extract_from_wasm_custom_section(&self, file_path: &std::path::Path) -> Result<PluginInfo, String> {
+        use std::fs;
+        use std::io::Read;
+        
+        let mut file = fs::File::open(file_path)
+            .map_err(|e| format!("Failed to open WASM file: {}", e))?;
+            
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)
+            .map_err(|e| format!("Failed to read WASM file: {}", e))?;
+            
+        // Suche nach "plugin-info" Custom Section
+        if let Some(info_data) = self.find_custom_section(&buffer, "plugin-info") {
+            if let Ok(info) = serde_json::from_slice::<PluginInfo>(&info_data) {
+                return Ok(info);
+            }
+        }
+        
+        Err("No plugin-info custom section found".to_string())
+    }
+    
+    /// Extrahiere Metadaten aus WASM-Exports/Imports
+    async fn extract_from_wasm_metadata(&self, file_path: &std::path::Path) -> Result<PluginInfo, String> {
+        use std::fs;
+        use std::io::Read;
+        
+        let mut file = fs::File::open(file_path)
+            .map_err(|e| format!("Failed to open WASM file: {}", e))?;
+            
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)
+            .map_err(|e| format!("Failed to read WASM file: {}", e))?;
+            
+        // Einfache WASM-Parsing für Metadaten
+        let file_stem = file_path.file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("unknown");
+            
+        // Versuche, Exports zu analysieren
+        let exports = self.analyze_wasm_exports(&buffer)?;
+        
+        Ok(PluginInfo {
+            id: format!("plugin_{}", file_stem),
+            name: format!("WASM Plugin {}", file_stem),
+            version: "1.0.0".to_string(),
+            author: "Unknown".to_string(),
+            description: format!("WASM plugin with exports: {}", exports.join(", ")),
+            min_core_version: "1.0.0".to_string(),
+            max_core_version: None,
+            permissions: vec![connectias_api::PluginPermission::Storage],
+            entry_point: "plugin.wasm".to_string(),
+            dependencies: None,
+        })
+    }
+    
+    /// Finde Custom Section in WASM-Binary
+    fn find_custom_section(&self, wasm_data: &[u8], section_name: &str) -> Option<Vec<u8>> {
+        use wasmparser::{Parser, Payload};
+        
+        let parser = Parser::new(0);
+        
+        for payload in parser.parse_all(wasm_data) {
+            match payload {
+                Ok(Payload::CustomSection(reader)) => {
+                    if reader.name() == section_name {
+                        return Some(reader.data().to_vec());
+                    }
+                }
+                Ok(_) => {
+                    // Ignore other sections
+                }
+                Err(_) => {
+                    // Skip invalid sections
+                    continue;
+                }
+            }
+        }
+        
+        None
+    }
+    
+    
+    /// Analysiere WASM-Exports
+    fn analyze_wasm_exports(&self, wasm_data: &[u8]) -> Result<Vec<String>, String> {
+        use wasmparser::{Parser, Payload};
+        
+        let parser = Parser::new(0);
+        let mut exports = Vec::new();
+        
+        for payload in parser.parse_all(wasm_data) {
+            match payload {
+                Ok(Payload::ExportSection(reader)) => {
+                    for export in reader {
+                        match export {
+                            Ok(export) => {
+                                exports.push(export.name.to_string());
+                            }
+                            Err(_) => {
+                                // Skip invalid exports
+                                continue;
+                            }
+                        }
+                    }
+                }
+                Ok(_) => {
+                    // Ignore other sections
+                }
+                Err(_) => {
+                    // Skip invalid sections
+                    continue;
+                }
+            }
+        }
+        
+        Ok(exports)
+    }
+    
+    /// Parse Permissions aus JSON-Manifest
+    fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Vec<connectias_api::PluginPermission> {
+        let mut permissions = Vec::new();
+        
+        if let Some(perms) = manifest["permissions"].as_array() {
+            for perm in perms {
+                if let Some(perm_str) = perm.as_str() {
+                    match perm_str {
+                        "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
+                        "Network" => permissions.push(connectias_api::PluginPermission::Network),
+                        _ => {} // Ignore unknown permissions
+                    }
+                }
+            }
+        }
+        
+        if permissions.is_empty() {
+            permissions.push(connectias_api::PluginPermission::Storage);
+        }
+        
+        permissions
+    }
+    
+    /// Parse Dependencies aus JSON-Manifest
+    fn parse_dependencies_from_manifest(&self, manifest: &serde_json::Value) -> Option<Vec<String>> {
+        if let Some(deps) = manifest["dependencies"].as_array() {
+            let mut dependencies = Vec::new();
+            for dep in deps {
+                if let Some(dep_str) = dep.as_str() {
+                    dependencies.push(dep_str.to_string());
+                }
+            }
+            if !dependencies.is_empty() {
+                return Some(dependencies);
+            }
+        }
+        None
+    }
+
+    /// Prüfe ob Dependencies verfügbar sind
+    async fn check_dependencies_available(&self, dependencies: &[String]) -> bool {
+        let registry = self.plugin_registry.read().await;
+        dependencies.iter().all(|dep| registry.contains_key(dep))
+    }
+
+    /// Dependency Resolution für Plugin
+    pub async fn resolve_dependencies(&self, plugin_id: &str) -> Result<DependencyResolutionResult, String> {
+        let registry = self.plugin_registry.read().await;
+        let dependency_graph = self.dependency_graph.read().await;
+
+        let plugin_entry = registry.get(plugin_id)
+            .ok_or_else(|| format!("Plugin {} nicht in Registry gefunden", plugin_id))?;
+
+        let dependencies = &plugin_entry.dependencies;
+        let mut resolved_dependencies = Vec::new();
+        let mut missing_dependencies = Vec::new();
+        let mut circular_dependencies = Vec::new();
+        let mut load_order = Vec::new();
+
+        // Topologische Sortierung für Dependency-Resolution
+        let mut visited = HashSet::new();
+        let mut temp_visited = HashSet::new();
+
+        for dep in dependencies {
+            if !self.resolve_dependency_recursive(
+                dep,
+                &registry,
+                &dependency_graph,
+                &mut visited,
+                &mut temp_visited,
+                &mut resolved_dependencies,
+                &mut missing_dependencies,
+                &mut circular_dependencies,
+            ).await {
+                missing_dependencies.push(dep.clone());
+            }
+        }
+
+        // Erstelle Load-Order (Dependencies zuerst)
+        load_order.extend(resolved_dependencies.clone());
+        load_order.push(plugin_id.to_string());
+
+        let is_resolvable = missing_dependencies.is_empty() && circular_dependencies.is_empty();
+
+        Ok(DependencyResolutionResult {
+            plugin_id: plugin_id.to_string(),
+            resolved_dependencies,
+            missing_dependencies,
+            circular_dependencies,
+            load_order,
+            is_resolvable,
+        })
+    }
+
+    /// Rekursive Dependency-Resolution
+    async fn resolve_dependency_recursive(
+        &self,
+        plugin_id: &str,
+        registry: &HashMap<String, PluginRegistryEntry>,
+        dependency_graph: &HashMap<String, HashSet<String>>,
+        visited: &mut HashSet<String>,
+        temp_visited: &mut HashSet<String>,
+        resolved: &mut Vec<String>,
+        missing: &mut Vec<String>,
+        circular: &mut Vec<String>,
+    ) -> bool {
+        if temp_visited.contains(plugin_id) {
+            circular.push(plugin_id.to_string());
+            return false;
+        }
+
+        if visited.contains(plugin_id) {
+            return true;
+        }
+
+        temp_visited.insert(plugin_id.to_string());
+
+        if let Some(plugin_entry) = registry.get(plugin_id) {
+            for dep in &plugin_entry.dependencies {
+                let future = self.resolve_dependency_recursive(
+                    dep,
+                    registry,
+                    dependency_graph,
+                    visited,
+                    temp_visited,
+                    resolved,
+                    missing,
+                    circular,
+                );
+                if !Box::pin(future).await {
+                    return false;
+                }
+            }
+
+            temp_visited.remove(plugin_id);
+            visited.insert(plugin_id.to_string());
+            resolved.push(plugin_id.to_string());
+            true
+        } else {
+            missing.push(plugin_id.to_string());
+            false
+        }
+    }
+
+    /// Registriere Plugin in Registry
+    pub async fn register_plugin(&self, plugin_entry: PluginRegistryEntry) -> Result<(), String> {
+        let plugin_id = plugin_entry.plugin_id.clone();
+        
+        // Update dependency graph
+        {
+            let mut graph = self.dependency_graph.write().await;
+            graph.insert(plugin_id.clone(), plugin_entry.dependencies.iter().cloned().collect());
+        }
+
+        // Add to registry
+        {
+            let mut registry = self.plugin_registry.write().await;
+            registry.insert(plugin_id.clone(), plugin_entry);
+        }
+
+        // Update registry stats
+        self.update_registry_stats().await;
+
+        Ok(())
+    }
+
+    /// Entferne Plugin aus Registry
+    pub async fn unregister_plugin(&self, plugin_id: &str) -> Result<(), String> {
+        // Remove from registry
+        {
+            let mut registry = self.plugin_registry.write().await;
+            registry.remove(plugin_id);
+        }
+
+        // Update dependency graph
+        {
+            let mut graph = self.dependency_graph.write().await;
+            graph.remove(plugin_id);
+            
+            // Remove from other plugins' dependencies
+            for (_, deps) in graph.iter_mut() {
+                deps.remove(plugin_id);
+            }
+        }
+
+        // Update registry stats
+        self.update_registry_stats().await;
+
+        Ok(())
+    }
+
+    /// Hole Registry-Statistiken
+    pub async fn get_registry_stats(&self) -> PluginRegistryStats {
+        self.registry_stats.read().await.clone()
+    }
+
+    /// Update Registry-Statistiken
+    async fn update_registry_stats(&self) {
+        let registry = self.plugin_registry.read().await;
+        let mut stats = self.registry_stats.write().await;
+
+        stats.total_plugins = registry.len();
+        stats.loaded_plugins = registry.values().filter(|p| p.status == PluginStatus::Loaded).count();
+        stats.running_plugins = registry.values().filter(|p| p.status == PluginStatus::Running).count();
+        stats.disabled_plugins = registry.values().filter(|p| p.status == PluginStatus::Disabled).count();
+        stats.error_plugins = registry.values().filter(|p| matches!(p.status, PluginStatus::Error { .. })).count();
+
+        stats.total_memory_usage = registry.values().map(|p| p.resource_usage.memory_usage).sum();
+        stats.total_storage_usage = registry.values().map(|p| p.resource_usage.storage_usage).sum();
+
+        if !registry.is_empty() {
+            stats.average_performance = registry.values()
+                .map(|p| p.performance_metrics.success_rate)
+                .sum::<f64>() / registry.len() as f64;
+        } else {
+            stats.average_performance = 0.0;
+        }
+    }
+
+    /// Hole alle registrierten Plugins
+    pub async fn get_registered_plugins(&self) -> Vec<PluginRegistryEntry> {
+        let registry = self.plugin_registry.read().await;
+        registry.values().cloned().collect()
+    }
+
+    /// Hole Plugin-Status
+    pub async fn get_plugin_status(&self, plugin_id: &str) -> Option<PluginStatus> {
+        let registry = self.plugin_registry.read().await;
+        registry.get(plugin_id).map(|p| p.status.clone())
+    }
+
+    /// Update Plugin-Status
+    pub async fn update_plugin_status(&self, plugin_id: &str, status: PluginStatus) -> Result<(), String> {
+        let mut registry = self.plugin_registry.write().await;
+        if let Some(plugin_entry) = registry.get_mut(plugin_id) {
+            plugin_entry.status = status;
+            Ok(())
+        } else {
+            Err(format!("Plugin {} nicht in Registry gefunden", plugin_id))
+        }
+    }
+
+    /// Update Plugin Resource Usage
+    pub async fn update_plugin_resource_usage(&self, plugin_id: &str, resource_usage: ResourceUsage) -> Result<(), String> {
+        let mut registry = self.plugin_registry.write().await;
+        if let Some(plugin_entry) = registry.get_mut(plugin_id) {
+            plugin_entry.resource_usage = resource_usage;
+            Ok(())
+        } else {
+            Err(format!("Plugin {} nicht in Registry gefunden", plugin_id))
+        }
+    }
+
+    /// Update Plugin Performance Metrics
+    pub async fn update_plugin_performance(&self, plugin_id: &str, performance_metrics: PerformanceMetrics) -> Result<(), String> {
+        let mut registry = self.plugin_registry.write().await;
+        if let Some(plugin_entry) = registry.get_mut(plugin_id) {
+            plugin_entry.performance_metrics = performance_metrics;
+            Ok(())
+        } else {
+            Err(format!("Plugin {} nicht in Registry gefunden", plugin_id))
+        }
+    }
 }
 

@@ -23,7 +23,9 @@ async-trait = "0.1"
 zip = "0.6"
 log = "0.4"
 hex = "0.4"
+wasmparser = "0.121"
 
 [dev-dependencies]
 tempfile = "3"
 
+# Connectias Core Dependencies

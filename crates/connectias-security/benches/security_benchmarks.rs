@@ -153,4 +153,3 @@ criterion_group!(
     benchmark_security_operations
 );
 criterion_main!(benches);
-

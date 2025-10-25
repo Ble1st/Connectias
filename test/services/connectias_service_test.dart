@@ -1,5 +1,5 @@
 /// Integration Tests for ConnectiasService
-library connectias_service_test;
+library;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:connectias/services/connectias_service.dart';
@@ -36,3 +36,4 @@ void main() {
     });
   });
 }
+//ich diene der aktualisierung wala

@@ -19,3 +19,4 @@ libc = "0.2"
 serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
+# Rust FFI Dependencies

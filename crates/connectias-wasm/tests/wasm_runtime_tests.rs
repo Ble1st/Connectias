@@ -325,3 +325,4 @@ fn test_wasm_plugin_resource_limits_customization() {
     assert!(true); // Private field, cannot access
     assert!(true); // Private field, cannot access
 }
+//ich diene der aktualisierung wala

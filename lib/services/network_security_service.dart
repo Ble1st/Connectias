@@ -5,7 +5,7 @@
 /// - Certificate Pinning (SPKI)
 /// - HTTPS only
 /// - Security Policy Enforcement
-library network_security_service;
+library;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -41,7 +41,7 @@ class SecureHttpClient extends http.BaseClient {
       throw Exception('❌ Nur HTTPS erlaubt! Schema: ${uri.scheme}');
     }
 
-    debugPrint('🔒 Sichere Request vorbereitet: ${request.method} ${uri}');
+    debugPrint('🔒 Sichere Request vorbereitet: ${request.method} $uri');
 
     // 2. Hole Policy
     final policy = policies[uri.host];
@@ -185,3 +185,4 @@ class SecurityPolicies {
     // );
   }
 }
+//ich diene der aktualisierung wala

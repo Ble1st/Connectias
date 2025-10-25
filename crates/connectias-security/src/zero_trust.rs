@@ -655,4 +655,3 @@ impl ZeroTrustArchitecture {
         }
     }
 }
-

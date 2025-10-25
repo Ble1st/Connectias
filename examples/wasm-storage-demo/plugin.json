@@ -1,0 +1,16 @@
+{
+  "id": "com.connectias.wasm-storage-demo",
+  "name": "WASM Storage Demo Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "Storage Service Demo mit verschlüsselter Datenspeicherung",
+  "min_core_version": "1.0.0",
+  "max_core_version": null,
+  "permissions": [
+    "storage:read",
+    "storage:write",
+    "system:info"
+  ],
+  "entry_point": "plugin.wasm",
+  "dependencies": null
+}

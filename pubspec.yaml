@@ -32,12 +32,12 @@ dependencies:
     sdk: flutter
   provider: ^6.1.0
   ffi: ^2.1.0
-  flutter_secure_storage: ^4.2.1
+  # flutter_secure_storage: ^4.2.1  # Entfernt wegen Namespace-Problemen
   encrypt: ^5.0.3
   crypto: ^3.0.3
   http: ^1.1.0
   device_info_plus: ^12.2.0
-  flutter_jailbreak_detection: ^1.10.0
+  # flutter_jailbreak_detection: ^1.10.0  # Entfernt wegen Namespace-Problemen
   path_provider: ^2.1.0
   uuid: ^4.2.0
   file_picker: ^8.1.4

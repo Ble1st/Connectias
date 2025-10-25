@@ -1,7 +1,10 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use std::path::{Path, PathBuf};
+use std::fs;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 pub struct InputSanitizer;
 
@@ -53,14 +56,20 @@ pub struct PluginSandbox {
     plugin_id: String,
     resource_quota: ResourceQuotaManager,
     input_sanitizer: InputSanitizer,
+    filesystem_controller: FilesystemController,
+    network_controller: NetworkController,
+    access_policies: AccessPolicies,
 }
 
 impl PluginSandbox {
     pub fn new(plugin_id: String) -> Self {
         Self {
-            plugin_id,
+            plugin_id: plugin_id.clone(),
             resource_quota: ResourceQuotaManager::new(),
             input_sanitizer: InputSanitizer::new(),
+            filesystem_controller: FilesystemController::new(plugin_id.clone()),
+            network_controller: NetworkController::new(plugin_id.clone()),
+            access_policies: AccessPolicies::new(plugin_id),
         }
     }
 
@@ -77,8 +86,26 @@ impl PluginSandbox {
             .map(|(k, v)| (self.input_sanitizer.sanitize_input(&k), self.input_sanitizer.sanitize_input(&v)))
             .collect();
 
+        // Filesystem-Access prüfen
+        if let Some(file_path) = sanitized_args.get("file_path") {
+            self.filesystem_controller.check_file_access(file_path)
+                .map_err(|e| SandboxError::SecurityViolation(format!("Filesystem access denied: {}", e)))?;
+        }
+
+        // Network-Access prüfen
+        if let Some(url) = sanitized_args.get("url") {
+            self.network_controller.check_network_access(url)
+                .map_err(|e| SandboxError::SecurityViolation(format!("Network access denied: {}", e)))?;
+        }
+
         // Plugin-Ausführung (vereinfacht)
         Ok(format!("Executed: {} with args: {:?}", sanitized_command, sanitized_args))
+    }
+
+    /// Konfiguriert Sandbox-Policies für ein Plugin
+    pub fn configure_policies(&self, policies: AccessPolicies) -> Result<(), SandboxError> {
+        // Policies werden in der echten Implementierung hier gesetzt
+        Ok(())
     }
 }
 
@@ -472,3 +499,296 @@ mod tests {
     }
 }
 
+/// Filesystem Controller für Plugin-Filesystem-Access-Control
+pub struct FilesystemController {
+    plugin_id: String,
+    allowed_paths: HashSet<PathBuf>,
+    denied_paths: HashSet<PathBuf>,
+    read_only_paths: HashSet<PathBuf>,
+}
+
+impl FilesystemController {
+    pub fn new(plugin_id: String) -> Self {
+        let mut allowed_paths = HashSet::new();
+        let mut denied_paths = HashSet::new();
+        let mut read_only_paths = HashSet::new();
+
+        // Standard erlaubte Pfade für Plugins
+        allowed_paths.insert(PathBuf::from("/tmp/plugins"));
+        allowed_paths.insert(PathBuf::from("/data/plugins"));
+        allowed_paths.insert(PathBuf::from("/sdcard/plugins"));
+
+        // Standard verweigerte Pfade
+        denied_paths.insert(PathBuf::from("/system"));
+        denied_paths.insert(PathBuf::from("/data/system"));
+        denied_paths.insert(PathBuf::from("/data/data"));
+        denied_paths.insert(PathBuf::from("/proc"));
+        denied_paths.insert(PathBuf::from("/sys"));
+
+        // Read-only Pfade
+        read_only_paths.insert(PathBuf::from("/data/readonly"));
+
+        Self {
+            plugin_id,
+            allowed_paths,
+            denied_paths,
+            read_only_paths,
+        }
+    }
+
+    pub fn check_file_access(&self, file_path: &str) -> Result<(), String> {
+        let path = PathBuf::from(file_path);
+
+        // Prüfe auf verweigerte Pfade
+        for denied_path in &self.denied_paths {
+            if path.starts_with(denied_path) {
+                return Err(format!("Access denied to restricted path: {}", file_path));
+            }
+        }
+
+        // Prüfe auf erlaubte Pfade
+        let is_allowed = self.allowed_paths.iter().any(|allowed_path| path.starts_with(allowed_path));
+        if !is_allowed {
+            return Err(format!("Access denied to path not in allowed list: {}", file_path));
+        }
+
+        // Prüfe auf Read-Only-Pfade
+        for read_only_path in &self.read_only_paths {
+            if path.starts_with(read_only_path) {
+                // In einer echten Implementierung würde hier geprüft, ob es ein Write-Operation ist
+                return Err(format!("Write access denied to read-only path: {}", file_path));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn add_allowed_path(&mut self, path: PathBuf) {
+        self.allowed_paths.insert(path);
+    }
+
+    pub fn add_denied_path(&mut self, path: PathBuf) {
+        self.denied_paths.insert(path);
+    }
+
+    pub fn add_read_only_path(&mut self, path: PathBuf) {
+        self.read_only_paths.insert(path);
+    }
+}
+
+/// Network Controller für Plugin-Network-Access-Control
+pub struct NetworkController {
+    plugin_id: String,
+    allowed_domains: HashSet<String>,
+    denied_domains: HashSet<String>,
+    allowed_ips: HashSet<IpAddr>,
+    denied_ips: HashSet<IpAddr>,
+    allowed_ports: HashSet<u16>,
+    denied_ports: HashSet<u16>,
+}
+
+impl NetworkController {
+    pub fn new(plugin_id: String) -> Self {
+        let mut allowed_domains = HashSet::new();
+        let mut denied_domains = HashSet::new();
+        let mut allowed_ips = HashSet::new();
+        let mut denied_ips = HashSet::new();
+        let mut allowed_ports = HashSet::new();
+        let mut denied_ports = HashSet::new();
+
+        // Standard erlaubte Domains
+        allowed_domains.insert("api.connectias.com".to_string());
+        allowed_domains.insert("cdn.connectias.com".to_string());
+
+        // Standard verweigerte Domains
+        denied_domains.insert("malicious-site.com".to_string());
+        denied_domains.insert("phishing-site.com".to_string());
+
+        // Standard erlaubte IPs
+        allowed_ips.insert(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8))); // Google DNS
+        allowed_ips.insert(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1))); // Cloudflare DNS
+
+        // Standard verweigerte IPs
+        denied_ips.insert(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))); // Localhost
+
+        // Standard erlaubte Ports
+        allowed_ports.insert(80);  // HTTP
+        allowed_ports.insert(443); // HTTPS
+        allowed_ports.insert(53);  // DNS
+
+        // Standard verweigerte Ports
+        denied_ports.insert(22);   // SSH
+        denied_ports.insert(23);   // Telnet
+        denied_ports.insert(25);   // SMTP
+        denied_ports.insert(135);  // RPC
+        denied_ports.insert(139);  // NetBIOS
+        denied_ports.insert(445);  // SMB
+
+        Self {
+            plugin_id,
+            allowed_domains,
+            denied_domains,
+            allowed_ips,
+            denied_ips,
+            allowed_ports,
+            denied_ports,
+        }
+    }
+
+    pub fn check_network_access(&self, url: &str) -> Result<(), String> {
+        // Parse URL (vereinfacht)
+        if let Some(domain) = self.extract_domain(url) {
+            // Prüfe auf verweigerte Domains
+            if self.denied_domains.contains(&domain) {
+                return Err(format!("Access denied to blocked domain: {}", domain));
+            }
+
+            // Prüfe auf erlaubte Domains
+            if !self.allowed_domains.contains(&domain) {
+                return Err(format!("Access denied to domain not in allowed list: {}", domain));
+            }
+        }
+
+        // Prüfe Port (vereinfacht)
+        if let Some(port) = self.extract_port(url) {
+            if self.denied_ports.contains(&port) {
+                return Err(format!("Access denied to blocked port: {}", port));
+            }
+
+            if !self.allowed_ports.contains(&port) {
+                return Err(format!("Access denied to port not in allowed list: {}", port));
+            }
+        }
+
+        Ok(())
+    }
+
+    fn extract_domain(&self, url: &str) -> Option<String> {
+        // Vereinfachte Domain-Extraktion
+        if let Some(start) = url.find("://") {
+            let after_protocol = &url[start + 3..];
+            if let Some(end) = after_protocol.find('/') {
+                let domain = &after_protocol[..end];
+                if let Some(colon) = domain.find(':') {
+                    return Some(domain[..colon].to_string());
+                }
+                return Some(domain.to_string());
+            }
+        }
+        None
+    }
+
+    fn extract_port(&self, url: &str) -> Option<u16> {
+        // Vereinfachte Port-Extraktion
+        if let Some(start) = url.find("://") {
+            let after_protocol = &url[start + 3..];
+            if let Some(end) = after_protocol.find('/') {
+                let domain_port = &after_protocol[..end];
+                if let Some(colon) = domain_port.find(':') {
+                    if let Ok(port) = domain_port[colon + 1..].parse::<u16>() {
+                        return Some(port);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    pub fn add_allowed_domain(&mut self, domain: String) {
+        self.allowed_domains.insert(domain);
+    }
+
+    pub fn add_denied_domain(&mut self, domain: String) {
+        self.denied_domains.insert(domain);
+    }
+
+    pub fn add_allowed_ip(&mut self, ip: IpAddr) {
+        self.allowed_ips.insert(ip);
+    }
+
+    pub fn add_denied_ip(&mut self, ip: IpAddr) {
+        self.denied_ips.insert(ip);
+    }
+
+    pub fn add_allowed_port(&mut self, port: u16) {
+        self.allowed_ports.insert(port);
+    }
+
+    pub fn add_denied_port(&mut self, port: u16) {
+        self.denied_ports.insert(port);
+    }
+}
+
+/// Access Policies für Plugin-Berechtigungen
+pub struct AccessPolicies {
+    plugin_id: String,
+    filesystem_policy: FilesystemPolicy,
+    network_policy: NetworkPolicy,
+    resource_policy: ResourcePolicy,
+}
+
+#[derive(Debug, Clone)]
+pub struct FilesystemPolicy {
+    pub read_allowed: bool,
+    pub write_allowed: bool,
+    pub execute_allowed: bool,
+    pub allowed_extensions: HashSet<String>,
+    pub max_file_size: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct NetworkPolicy {
+    pub http_allowed: bool,
+    pub https_allowed: bool,
+    pub dns_allowed: bool,
+    pub max_connections: u32,
+    pub timeout_seconds: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ResourcePolicy {
+    pub max_memory_mb: usize,
+    pub max_cpu_percent: f64,
+    pub max_storage_mb: usize,
+    pub max_execution_time_seconds: u32,
+}
+
+impl AccessPolicies {
+    pub fn new(plugin_id: String) -> Self {
+        Self {
+            plugin_id,
+            filesystem_policy: FilesystemPolicy {
+                read_allowed: true,
+                write_allowed: false,
+                execute_allowed: false,
+                allowed_extensions: HashSet::from(["txt".to_string(), "json".to_string(), "xml".to_string()]),
+                max_file_size: 1024 * 1024, // 1MB
+            },
+            network_policy: NetworkPolicy {
+                http_allowed: false,
+                https_allowed: true,
+                dns_allowed: true,
+                max_connections: 10,
+                timeout_seconds: 30,
+            },
+            resource_policy: ResourcePolicy {
+                max_memory_mb: 100,
+                max_cpu_percent: 75.0,
+                max_storage_mb: 10,
+                max_execution_time_seconds: 30,
+            },
+        }
+    }
+
+    pub fn get_filesystem_policy(&self) -> &FilesystemPolicy {
+        &self.filesystem_policy
+    }
+
+    pub fn get_network_policy(&self) -> &NetworkPolicy {
+        &self.network_policy
+    }
+
+    pub fn get_resource_policy(&self) -> &ResourcePolicy {
+        &self.resource_policy
+    }
+}

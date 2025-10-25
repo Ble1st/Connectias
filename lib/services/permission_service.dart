@@ -1,7 +1,7 @@
 /// Permission Service – Granulare Plugin-Berechtigungen
 /// 
 /// Verwaltet RBAC (Role-Based Access Control) und Audit-Logs
-library permission_service;
+library;
 
 import 'package:flutter/foundation.dart';
 
@@ -251,3 +251,4 @@ class PermissionAuditEvent {
 
 /// Globale Instanz
 final permissionService = PermissionService();
+//ich diene der aktualisierung wala

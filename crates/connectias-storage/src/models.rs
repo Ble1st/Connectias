@@ -124,4 +124,3 @@ pub struct PluginAlertEntity {
     pub timestamp: i64,
     pub is_read: bool,
 }
-

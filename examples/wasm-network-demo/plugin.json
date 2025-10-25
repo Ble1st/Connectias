@@ -1,0 +1,16 @@
+{
+  "id": "com.connectias.wasm-network-demo",
+  "name": "WASM Network Demo Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "Network Service Demo mit HTTP/HTTPS Requests und Security-Filter",
+  "min_core_version": "1.0.0",
+  "max_core_version": null,
+  "permissions": [
+    "network:https",
+    "network:http",
+    "system:info"
+  ],
+  "entry_point": "plugin.wasm",
+  "dependencies": null
+}

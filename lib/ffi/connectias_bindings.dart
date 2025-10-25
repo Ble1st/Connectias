@@ -3,7 +3,7 @@
 /// Sichere FFI-Schnittstelle zur connectias_ffi.so Library
 /// 
 /// SICHERHEIT:
-library connectias_bindings;
+library;
 
 import 'dart:ffi' as ffi;
 import 'dart:io';
@@ -410,3 +410,4 @@ Future<RaspStatus> getRaspStatus() async {
     tamper: await raspCheckTamper(),
   );
 }
+//ich diene der aktualisierung wala

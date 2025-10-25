@@ -287,3 +287,4 @@ impl Plugin for WasmPlugin {
     }
 }
 
+//ich diene der aktualisierung wala

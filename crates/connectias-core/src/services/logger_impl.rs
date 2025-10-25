@@ -45,4 +45,3 @@ impl Logger for LoggerImpl {
         let _ = self.log_to_db("ERROR", msg);
     }
 }
-
