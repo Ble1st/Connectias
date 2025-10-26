@@ -4,7 +4,6 @@
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../services/connectias_service.dart';
 
 /// Settings Screen für App-Konfiguration
@@ -267,7 +266,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       value: value,
       onChanged: onChanged,
       secondary: Icon(icon),
-      activeColor: Theme.of(context).colorScheme.primary,
+      activeThumbColor: Theme.of(context).colorScheme.primary,
     );
   }
 
