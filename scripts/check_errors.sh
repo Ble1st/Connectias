@@ -135,9 +135,9 @@ if command -v flutter &> /dev/null; then
         } >> "$OUTPUT_FILE"
         
         # Zähle Fehler
-        local error_count=$(grep -ciE "(error|warning|info)" "$DART_ANALYZE_OUTPUT" || echo "0")
+        error_count=$(grep -ciE "(error|warning|info)" "$DART_ANALYZE_OUTPUT" || echo "0")
         if [ "$error_count" -gt 0 ]; then
-            local category=$(categorize_error "$(head -20 "$DART_ANALYZE_OUTPUT")")
+            category=$(categorize_error "$(head -20 "$DART_ANALYZE_OUTPUT")")
             case "$category" in
                 CRITICAL) ((CRITICAL_ERRORS+=error_count)) ;;
                 HIGH) ((HIGH_ERRORS+=error_count)) ;;
@@ -169,7 +169,7 @@ if command -v flutter &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        local failed_tests=$(grep -ciE "(failed|exception|error)" "$DART_TEST_OUTPUT" || echo "0")
+        failed_tests=$(grep -ciE "(failed|exception|error)" "$DART_TEST_OUTPUT" || echo "0")
         if [ "$failed_tests" -gt 0 ]; then
             ((HIGH_ERRORS+=failed_tests))
         fi
@@ -234,7 +234,7 @@ if command -v cargo &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        local compile_errors=$(grep -ciE "(error\[|error:|failed to compile)" "$RUST_CHECK_OUTPUT" || echo "0")
+        compile_errors=$(grep -ciE "(error\[|error:|failed to compile)" "$RUST_CHECK_OUTPUT" || echo "0")
         if [ "$compile_errors" -gt 0 ]; then
             ((HIGH_ERRORS+=compile_errors))
         fi
@@ -263,7 +263,7 @@ if command -v cargo &> /dev/null; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            local clippy_warnings=$(grep -ciE "(warning:|clippy::)" "$RUST_CLIPPY_OUTPUT" || echo "0")
+            clippy_warnings=$(grep -ciE "(warning:|clippy::)" "$RUST_CLIPPY_OUTPUT" || echo "0")
             if [ "$clippy_warnings" -gt 0 ]; then
                 ((MEDIUM_ERRORS+=clippy_warnings))
             fi
@@ -296,7 +296,7 @@ if command -v cargo &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        local test_failures=$(grep -ciE "(test.*FAILED|panicked|assertion failed)" "$RUST_TEST_OUTPUT" || echo "0")
+        test_failures=$(grep -ciE "(test.*FAILED|panicked|assertion failed)" "$RUST_TEST_OUTPUT" || echo "0")
         if [ "$test_failures" -gt 0 ]; then
             ((HIGH_ERRORS+=test_failures))
         fi
@@ -353,7 +353,7 @@ if command -v cargo-audit &> /dev/null || command -v cargo &> /dev/null && cargo
             echo ""
         } >> "$OUTPUT_FILE"
         
-        local vulnerabilities=$(grep -ciE "(vulnerability|CVE-|advisory)" "$RUST_AUDIT_OUTPUT" || echo "0")
+        vulnerabilities=$(grep -ciE "(vulnerability|CVE-|advisory)" "$RUST_AUDIT_OUTPUT" || echo "0")
         if [ "$vulnerabilities" -gt 0 ]; then
             ((CRITICAL_ERRORS+=vulnerabilities))
         fi
@@ -401,7 +401,7 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            local build_errors=$(grep -ciE "(error|failed|FAILURE)" "$ANDROID_BUILD_OUTPUT" || echo "0")
+            build_errors=$(grep -ciE "(error|failed|FAILURE)" "$ANDROID_BUILD_OUTPUT" || echo "0")
             if [ "$build_errors" -gt 0 ]; then
                 ((HIGH_ERRORS+=build_errors))
             fi
@@ -428,7 +428,7 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            local lint_issues=$(grep -ciE "(error|warning|issue)" "$ANDROID_LINT_OUTPUT" || echo "0")
+            lint_issues=$(grep -ciE "(error|warning|issue)" "$ANDROID_LINT_OUTPUT" || echo "0")
             if [ "$lint_issues" -gt 0 ]; then
                 ((MEDIUM_ERRORS+=lint_issues))
             fi
@@ -455,7 +455,7 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            local test_failures=$(grep -ciE "(failed|FAILURE|error)" "$ANDROID_TEST_OUTPUT" || echo "0")
+            test_failures=$(grep -ciE "(failed|FAILURE|error)" "$ANDROID_TEST_OUTPUT" || echo "0")
             if [ "$test_failures" -gt 0 ]; then
                 ((HIGH_ERRORS+=test_failures))
             fi
