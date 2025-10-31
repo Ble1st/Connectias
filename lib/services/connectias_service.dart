@@ -1,5 +1,5 @@
 /// Connectias Service – High-Level Dart API
-/// 
+///
 /// Sichere Wrapper um FFI Bridge mit automatischem Cleanup,
 /// Error Handling, und Lifecycle Management.
 library;
@@ -9,12 +9,12 @@ import '../ffi/connectias_bindings.dart' as ffi;
 import '../models/plugin_model.dart';
 
 /// Connectias Plugin Manager Service
-/// 
+///
 /// Beispiel:
 /// ```dart
 /// final service = ConnectiasService();
 /// await service.init();
-/// 
+///
 /// try {
 ///   final pluginId = await service.loadPlugin('/path/to/plugin.wasm');
 ///   final result = await service.executePlugin(pluginId, 'myCommand', {});
@@ -49,21 +49,21 @@ class ConnectiasService extends ChangeNotifier {
 
     try {
       debugPrint('🚀 Initialisiere ConnectiasService...');
-      
+
       // Initialisiere FFI Bridge
       await ffi.init();
-      
+
       // Hole Version
       final version = ffi.getVersion();
       debugPrint('✅ FFI Version: $version');
-      
+
       // Hole System Info
       final systemInfo = ffi.getSystemInfo();
       debugPrint('✅ System Info: $systemInfo');
-      
+
       // Prüfe RASP auf Sicherheitsbedrohungen
       await _checkSecurity();
-      
+
       _initialized = true;
       debugPrint('✅ ConnectiasService initialisiert');
       notifyListeners();
@@ -78,14 +78,11 @@ class ConnectiasService extends ChangeNotifier {
     try {
       final status = await ffi.getRaspStatus();
       debugPrint('🛡️ RASP Status: $status');
-      
+
       if (status.isCompromised) {
-        throw ConnectiasSecurityException(
-          'Gerät ist kompromittiert!',
-          status,
-        );
+        throw ConnectiasSecurityException('Gerät ist kompromittiert!', status);
       }
-      
+
       if (status.isSuspicious) {
         debugPrint('⚠️ WARNUNG: Verdächtige Aktivitäten erkannt!');
       }
@@ -98,7 +95,9 @@ class ConnectiasService extends ChangeNotifier {
   /// Prüfe ob initialisiert
   void _requireInitialized() {
     if (!_initialized) {
-      throw StateError('ConnectiasService nicht initialisiert. Rufe init() auf!');
+      throw StateError(
+        'ConnectiasService nicht initialisiert. Rufe init() auf!',
+      );
     }
   }
 
@@ -212,7 +211,7 @@ class ConnectiasService extends ChangeNotifier {
   /// Hole Plugins als PluginModel Liste
   Future<List<PluginModel>> fetchPlugins() async {
     _requireInitialized();
-    
+
     final pluginIds = await listPlugins();
     return pluginIds.map((id) {
       final metadata = getPluginMetadata(id);
@@ -308,7 +307,8 @@ class ConnectiasService extends ChangeNotifier {
   /// - Network Service Integration
   /// - Permission Service Integration
   /// - Monitoring Service Integration
-  Future<String> loadPluginWithServices(String pluginPath, {
+  Future<String> loadPluginWithServices(
+    String pluginPath, {
     required List<String> permissions,
     Map<String, dynamic>? config,
   }) async {
@@ -323,22 +323,21 @@ class ConnectiasService extends ChangeNotifier {
     try {
       // 1. Permission Service: Berechtigungen prüfen
       await _validatePermissions(permissions);
-      
+
       // 2. Plugin laden
       final pluginId = await _loadPluginInternal(pluginPath);
-      
+
       // 3. Services initialisieren
       await _initializePluginServices(pluginId, permissions, config);
-      
+
       // 4. Monitoring starten
       await _startPluginMonitoring(pluginId);
-      
+
       _loadedPlugins.add(pluginId);
       notifyListeners();
-      
+
       debugPrint('✅ Plugin mit Services geladen: $pluginId');
       return pluginId;
-      
     } catch (e) {
       debugPrint('❌ Plugin-Loading mit Services fehlgeschlagen: $e');
       throw ConnectiasException('Plugin-Loading fehlgeschlagen: $e');
@@ -396,7 +395,6 @@ class ConnectiasService extends ChangeNotifier {
 
       debugPrint('✅ Plugin mit Services ausgeführt: $pluginId');
       return {'result': result};
-
     } catch (e) {
       debugPrint('❌ Plugin-Ausführung mit Services fehlgeschlagen: $e');
       throw ConnectiasException('Plugin-Ausführung fehlgeschlagen: $e');
@@ -418,14 +416,18 @@ class ConnectiasService extends ChangeNotifier {
           pluginId: 'demo-plugin-1',
           description: 'Suspicious network activity detected',
           severity: 'medium',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 5)).toIso8601String(),
+          timestamp: DateTime.now()
+              .subtract(const Duration(minutes: 5))
+              .toIso8601String(),
           indicators: ['network_anomaly', 'high_frequency'],
         ),
         ThreatEvent(
           pluginId: 'demo-plugin-2',
           description: 'Resource abuse detected',
           severity: 'high',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 15)).toIso8601String(),
+          timestamp: DateTime.now()
+              .subtract(const Duration(minutes: 15))
+              .toIso8601String(),
           indicators: ['cpu_abuse', 'memory_leak'],
         ),
       ];
@@ -469,7 +471,9 @@ class ConnectiasService extends ChangeNotifier {
       return securityInfo;
     } catch (e) {
       debugPrint('❌ Plugin Security Info-Abruf fehlgeschlagen: $e');
-      throw ConnectiasException('Plugin Security Info-Abruf fehlgeschlagen: $e');
+      throw ConnectiasException(
+        'Plugin Security Info-Abruf fehlgeschlagen: $e',
+      );
     }
   }
 
@@ -500,7 +504,9 @@ class ConnectiasService extends ChangeNotifier {
   }
 
   /// Hole Plugin-Statistiken mit Service-Details
-  Future<Map<String, dynamic>> getPluginStatsWithServices(String pluginId) async {
+  Future<Map<String, dynamic>> getPluginStatsWithServices(
+    String pluginId,
+  ) async {
     if (!_initialized) {
       throw ConnectiasException('Service nicht initialisiert');
     }
@@ -536,7 +542,6 @@ class ConnectiasService extends ChangeNotifier {
 
       debugPrint('✅ Plugin-Statistiken mit Services abgerufen: $pluginId');
       return stats;
-
     } catch (e) {
       debugPrint('❌ Plugin-Statistiken-Abruf fehlgeschlagen: $e');
       throw ConnectiasException('Plugin-Statistiken-Abruf fehlgeschlagen: $e');
@@ -550,15 +555,17 @@ class ConnectiasService extends ChangeNotifier {
   /// Validiere Plugin-Berechtigungen
   Future<void> _validatePermissions(List<String> permissions) async {
     debugPrint('🔐 Validiere Berechtigungen: $permissions');
-    
+
     // Hier würde die echte Permission-Validierung stattfinden
     // Für jetzt simulieren wir die Validierung
     for (final permission in permissions) {
       if (permission.startsWith('system:')) {
-        throw ConnectiasException('System-Berechtigungen nicht erlaubt: $permission');
+        throw ConnectiasException(
+          'System-Berechtigungen nicht erlaubt: $permission',
+        );
       }
     }
-    
+
     debugPrint('✅ Berechtigungen validiert');
   }
 
@@ -569,78 +576,80 @@ class ConnectiasService extends ChangeNotifier {
     Map<String, dynamic>? config,
   ) async {
     debugPrint('🔧 Initialisiere Services für Plugin: $pluginId');
-    
+
     // 1. Storage Service initialisieren
-    if (permissions.contains('storage:read') || permissions.contains('storage:write')) {
+    if (permissions.contains('storage:read') ||
+        permissions.contains('storage:write')) {
       await _initializeStorageService(pluginId, config);
     }
-    
+
     // 2. Network Service initialisieren
-    if (permissions.contains('network:https') || permissions.contains('network:http')) {
+    if (permissions.contains('network:https') ||
+        permissions.contains('network:http')) {
       await _initializeNetworkService(pluginId, config);
     }
-    
+
     // 3. Monitoring Service initialisieren
     await _initializeMonitoringService(pluginId);
-    
+
     debugPrint('✅ Services für Plugin initialisiert: $pluginId');
   }
 
   /// Starte Plugin-Monitoring
   Future<void> _startPluginMonitoring(String pluginId) async {
     debugPrint('📊 Starte Monitoring für Plugin: $pluginId');
-    
+
     // Hier würde das echte Monitoring gestartet werden
     // Für jetzt simulieren wir das Monitoring
     _pluginMetadata[pluginId] = {
       'loadedAt': DateTime.now().toIso8601String(),
       'monitoringActive': true,
     };
-    
+
     debugPrint('✅ Monitoring für Plugin gestartet: $pluginId');
   }
 
   /// Bereite Storage Service vor
   Future<void> _prepareStorageService(String pluginId) async {
     debugPrint('💾 Bereite Storage Service vor: $pluginId');
-    
+
     // Hier würde der Storage Service vorbereitet werden
     // Für jetzt simulieren wir die Vorbereitung
     await Future.delayed(const Duration(milliseconds: 10));
-    
+
     debugPrint('✅ Storage Service vorbereitet: $pluginId');
   }
 
   /// Bereite Network Service vor
   Future<void> _prepareNetworkService(String pluginId) async {
     debugPrint('🌐 Bereite Network Service vor: $pluginId');
-    
+
     // Hier würde der Network Service vorbereitet werden
     // Für jetzt simulieren wir die Vorbereitung
     await Future.delayed(const Duration(milliseconds: 10));
-    
+
     debugPrint('✅ Network Service vorbereitet: $pluginId');
   }
 
   /// Räume Storage Service auf
   Future<void> _cleanupStorageService(String pluginId) async {
     debugPrint('🧹 Räume Storage Service auf: $pluginId');
-    
+
     // Hier würde der Storage Service aufgeräumt werden
     // Für jetzt simulieren wir das Cleanup
     await Future.delayed(const Duration(milliseconds: 5));
-    
+
     debugPrint('✅ Storage Service aufgeräumt: $pluginId');
   }
 
   /// Räume Network Service auf
   Future<void> _cleanupNetworkService(String pluginId) async {
     debugPrint('🧹 Räume Network Service auf: $pluginId');
-    
+
     // Hier würde der Network Service aufgeräumt werden
     // Für jetzt simulieren wir das Cleanup
     await Future.delayed(const Duration(milliseconds: 5));
-    
+
     debugPrint('✅ Network Service aufgeräumt: $pluginId');
   }
 
@@ -651,30 +660,32 @@ class ConnectiasService extends ChangeNotifier {
     Duration executionTime,
   ) async {
     debugPrint('📈 Zeichne Performance-Metriken auf: $pluginId');
-    
+
     // Hier würden die echten Performance-Metriken aufgezeichnet werden
     // Für jetzt simulieren wir das Recording
-    final metrics = _pluginMetadata[pluginId]?['metrics'] ?? <String, dynamic>{};
+    final metrics =
+        _pluginMetadata[pluginId]?['metrics'] ?? <String, dynamic>{};
     metrics[command] = {
       'executionTime': executionTime.inMilliseconds,
       'timestamp': DateTime.now().toIso8601String(),
     };
-    
+
     if (_pluginMetadata[pluginId] != null) {
       _pluginMetadata[pluginId]!['metrics'] = metrics;
     }
-    
+
     debugPrint('✅ Performance-Metriken aufgezeichnet: $pluginId');
   }
 
   /// Hole Performance-Metriken
   Future<Map<String, dynamic>> _getPerformanceMetrics(String pluginId) async {
     debugPrint('📊 Hole Performance-Metriken: $pluginId');
-    
+
     // Hier würden die echten Performance-Metriken abgerufen werden
     // Für jetzt simulieren wir die Metriken
-    final metrics = _pluginMetadata[pluginId]?['metrics'] ?? <String, dynamic>{};
-    
+    final metrics =
+        _pluginMetadata[pluginId]?['metrics'] ?? <String, dynamic>{};
+
     return {
       'totalExecutions': metrics.length,
       'averageExecutionTime': 100, // Simulierte Durchschnittszeit
@@ -685,7 +696,7 @@ class ConnectiasService extends ChangeNotifier {
   /// Hole Storage-Statistiken
   Future<Map<String, dynamic>> _getStorageStats(String pluginId) async {
     debugPrint('💾 Hole Storage-Statistiken: $pluginId');
-    
+
     // Hier würden die echten Storage-Statistiken abgerufen werden
     // Für jetzt simulieren wir die Statistiken
     return {
@@ -699,7 +710,7 @@ class ConnectiasService extends ChangeNotifier {
   /// Hole Network-Statistiken
   Future<Map<String, dynamic>> _getNetworkStats(String pluginId) async {
     debugPrint('🌐 Hole Network-Statistiken: $pluginId');
-    
+
     // Hier würden die echten Network-Statistiken abgerufen werden
     // Für jetzt simulieren wir die Statistiken
     return {
@@ -713,7 +724,7 @@ class ConnectiasService extends ChangeNotifier {
   /// Hole Permission-Status
   Future<Map<String, dynamic>> _getPermissionStatus(String pluginId) async {
     debugPrint('🔐 Hole Permission-Status: $pluginId');
-    
+
     // Hier würde der echte Permission-Status abgerufen werden
     // Für jetzt simulieren wir den Status
     return {
@@ -729,11 +740,11 @@ class ConnectiasService extends ChangeNotifier {
     Map<String, dynamic>? config,
   ) async {
     debugPrint('💾 Initialisiere Storage Service: $pluginId');
-    
+
     // Hier würde der echte Storage Service initialisiert werden
     // Für jetzt simulieren wir die Initialisierung
     await Future.delayed(const Duration(milliseconds: 20));
-    
+
     debugPrint('✅ Storage Service initialisiert: $pluginId');
   }
 
@@ -743,22 +754,22 @@ class ConnectiasService extends ChangeNotifier {
     Map<String, dynamic>? config,
   ) async {
     debugPrint('🌐 Initialisiere Network Service: $pluginId');
-    
+
     // Hier würde der echte Network Service initialisiert werden
     // Für jetzt simulieren wir die Initialisierung
     await Future.delayed(const Duration(milliseconds: 20));
-    
+
     debugPrint('✅ Network Service initialisiert: $pluginId');
   }
 
   /// Initialisiere Monitoring Service
   Future<void> _initializeMonitoringService(String pluginId) async {
     debugPrint('📊 Initialisiere Monitoring Service: $pluginId');
-    
+
     // Hier würde der echte Monitoring Service initialisiert werden
     // Für jetzt simulieren wir die Initialisierung
     await Future.delayed(const Duration(milliseconds: 10));
-    
+
     debugPrint('✅ Monitoring Service initialisiert: $pluginId');
   }
 
@@ -774,7 +785,9 @@ class ConnectiasService extends ChangeNotifier {
     Map<String, dynamic> args,
   ) async {
     // Konvertiere Map<String, dynamic> zu Map<String, String>
-    final stringArgs = args.map((key, value) => MapEntry(key, value.toString()));
+    final stringArgs = args.map(
+      (key, value) => MapEntry(key, value.toString()),
+    );
     return await ffi.executePlugin(pluginId, command, stringArgs);
   }
 }
@@ -804,7 +817,8 @@ class RaspCheckResult {
   bool get isSuspicious => !isSafe && !isCompromised;
 
   @override
-  String toString() => 'RaspCheckResult(root: $root, debugger: $debugger, emulator: $emulator, tamper: $tamper)';
+  String toString() =>
+      'RaspCheckResult(root: $root, debugger: $debugger, emulator: $emulator, tamper: $tamper)';
 }
 
 /// Exception für Connectias Fehler
@@ -815,7 +829,8 @@ class ConnectiasException implements Exception {
   ConnectiasException(this.message, [this.originalError]);
 
   @override
-  String toString() => 'ConnectiasException: $message${originalError != null ? '\nCause: $originalError' : ''}';
+  String toString() =>
+      'ConnectiasException: $message${originalError != null ? '\nCause: $originalError' : ''}';
 }
 
 /// Exception für Security Violations
@@ -826,7 +841,8 @@ class ConnectiasSecurityException implements Exception {
   ConnectiasSecurityException(this.message, [this.raspStatus]);
 
   @override
-  String toString() => 'ConnectiasSecurityException: $message${raspStatus != null ? '\nStatus: $raspStatus' : ''}';
+  String toString() =>
+      'ConnectiasSecurityException: $message${raspStatus != null ? '\nStatus: $raspStatus' : ''}';
 }
 
 // Data Models für erweiterte Security-Features

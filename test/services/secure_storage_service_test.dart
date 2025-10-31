@@ -37,9 +37,9 @@ void main() {
     test('Save and retrieve JSON', () async {
       final data = {'test': 'value', 'number': 42};
       await service.saveJson('json_key', data);
-      final retrieved = await service.getJson(
+      final retrieved = await service.getJson<Map<String, dynamic>>(
         'json_key',
-        (json) => json as Map<String, dynamic>,
+        (json) => json,
       );
       expect(retrieved?['test'], 'value');
     });
@@ -53,4 +53,3 @@ void main() {
     });
   });
 }
-//ich diene der aktualisierung wala

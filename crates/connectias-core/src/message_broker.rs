@@ -203,16 +203,16 @@ impl MessageBroker {
         let (broadcast_sender, _) = broadcast::channel(1000);
         Self {
             // PERF: Optimierte Capacity-basierte Initialisierung
-            subscribers: Arc::new(RwLock::new(crate::hashmap_with_capacity!(50))),
-            message_queue: Arc::new(Mutex::new(VecDeque::new())),
-            message_history: Arc::new(RwLock::new(crate::hashmap_with_capacity!(100))),
+            subscribers: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(50))),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(100))),
             max_history_size: 1000,
-            plugin_connections: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
-            message_filters: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
-            rate_limits: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
+            plugin_connections: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(30))),
+            message_filters: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(10))),
+            rate_limits: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(30))),
             broadcast_sender: Arc::new(broadcast_sender),
-            is_running: Arc::new(Mutex::new(false)),
-            pending_requests: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(10))),
             ipc_transport: None,
             process_mode: ProcessMode::SingleProcess,
         }
@@ -596,6 +596,55 @@ impl MessageBrokerManager {
             // Keine Permissions = keine Kommunikation
             false
         }
+    }
+    
+    /// Erweitere MessageBrokerManager um IPC-Transport
+    /// FIX BUG 3: Erstelle neue MessageBroker-Instanz statt Clone, da Clone Arc-Felder
+    /// shallow-copied werden und State teilt. Builder-Pattern braucht isolierte Instanz.
+    pub fn with_ipc_transport(mut self, transport: Arc<dyn IPCTransport>) -> Self {
+        // FIX BUG 3: Clone würde Arc-Felder shallow-copieren - verwende stattdessen
+        // neuen MessageBroker mit gleichen Settings aber neuem State
+        let old_broker = self.broker.as_ref();
+        let new_broker = MessageBroker {
+            subscribers: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(HashMap::new())),
+            max_history_size: old_broker.max_history_size,
+            plugin_connections: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_filters: Arc::new(TokioRwLock::new(HashMap::new())),
+            rate_limits: Arc::new(TokioRwLock::new(HashMap::new())),
+            broadcast_sender: old_broker.broadcast_sender.clone(), // Broadcast kann geteilt werden
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(HashMap::new())),
+            ipc_transport: Some(transport),
+            process_mode: ProcessMode::MultiProcess, // IPC bedeutet MultiProcess
+        };
+        self.broker = Arc::new(new_broker);
+        self
+    }
+    
+    /// Setzt Process Mode für MessageBrokerManager
+    /// FIX BUG 3: Erstelle neue MessageBroker-Instanz statt Clone
+    pub fn with_mode(mut self, mode: ProcessMode) -> Self {
+        // FIX BUG 3: Clone würde Arc-Felder shallow-copieren - verwende stattdessen
+        // neuen MessageBroker mit gleichen Settings aber neuem State
+        let old_broker = self.broker.as_ref();
+        let new_broker = MessageBroker {
+            subscribers: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(HashMap::new())),
+            max_history_size: old_broker.max_history_size,
+            plugin_connections: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_filters: Arc::new(TokioRwLock::new(HashMap::new())),
+            rate_limits: Arc::new(TokioRwLock::new(HashMap::new())),
+            broadcast_sender: old_broker.broadcast_sender.clone(), // Broadcast kann geteilt werden
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(HashMap::new())),
+            ipc_transport: old_broker.ipc_transport.clone(),
+            process_mode: mode,
+        };
+        self.broker = Arc::new(new_broker);
+        self
     }
 
     /// Publiziert eine Message mit Permission-Check

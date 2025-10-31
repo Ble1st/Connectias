@@ -14,4 +14,3 @@ pub use permission_service::{PermissionService, PermissionError};
 pub use monitoring_service::{MonitoringService, MonitoringError, EnhancedPluginMetrics};
 pub use alert_service::{AlertService, AlertError, SecurityAlert, SecurityEvent, AlertType, AlertSeverity, NotificationChannel};
 
-//ich diene der aktualisierung wala

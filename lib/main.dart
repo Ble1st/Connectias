@@ -11,7 +11,7 @@ void main() {
 }
 
 /// Connectias Haupt-App
-/// 
+///
 /// Sichere Plugin-Plattform mit RASP-Schutz und Sandbox-Isolation
 class ConnectiasApp extends StatelessWidget {
   const ConnectiasApp({super.key});
@@ -26,10 +26,7 @@ class ConnectiasApp extends StatelessWidget {
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 2,
-        ),
+        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 2),
       ),
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -37,10 +34,7 @@ class ConnectiasApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 2,
-        ),
+        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 2),
       ),
       home: const ConnectiasHomePage(),
     );
@@ -126,7 +120,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
   late TabController _tabController;
   Timer? _refreshTimer;
   bool _isLoading = false;
-  
+
   // Dashboard Data
   int _totalPlugins = 0;
   int _activePlugins = 0;
@@ -159,13 +153,13 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
 
   Future<void> _loadDashboardData() async {
     if (_isLoading) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       // Simuliere Dashboard-Daten
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       setState(() {
         _totalPlugins = 5;
         _activePlugins = 3;
@@ -223,7 +217,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
             ],
           ),
         ),
-        
+
         // Tab Content
         Expanded(
           child: TabBarView(
@@ -324,11 +318,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
             children: [
               Row(
                 children: [
-                  Icon(
-                    Icons.security,
-                    size: 32,
-                    color: Colors.white,
-                  ),
+                  Icon(Icons.security, size: 32, color: Colors.white),
                   const SizedBox(width: 12),
                   const Text(
                     'Connectias',
@@ -353,17 +343,22 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
               const SizedBox(height: 8),
               const Text(
                 'Sichere Plugin-Plattform mit RASP-Schutz',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.white70),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  _buildStatusIndicator('System', _securityStatus, _securityColor),
+                  _buildStatusIndicator(
+                    'System',
+                    _securityStatus,
+                    _securityColor,
+                  ),
                   const SizedBox(width: 16),
-                  _buildStatusIndicator('Performance', '${(_systemPerformance * 100).toInt()}%', Colors.blue),
+                  _buildStatusIndicator(
+                    'Performance',
+                    '${(_systemPerformance * 100).toInt()}%',
+                    Colors.blue,
+                  ),
                 ],
               ),
             ],
@@ -386,10 +381,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
           Container(
             width: 8,
             height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 8),
           Text(
@@ -544,13 +536,29 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildHealthMetric('CPU Usage', _systemMetrics['cpu_usage'] ?? 0.0, Colors.red),
+            _buildHealthMetric(
+              'CPU Usage',
+              _systemMetrics['cpu_usage'] ?? 0.0,
+              Colors.red,
+            ),
             const SizedBox(height: 8),
-            _buildHealthMetric('Memory Usage', _systemMetrics['memory_usage'] ?? 0.0, Colors.blue),
+            _buildHealthMetric(
+              'Memory Usage',
+              _systemMetrics['memory_usage'] ?? 0.0,
+              Colors.blue,
+            ),
             const SizedBox(height: 8),
-            _buildHealthMetric('Network Activity', _systemMetrics['network_activity'] ?? 0.0, Colors.green),
+            _buildHealthMetric(
+              'Network Activity',
+              _systemMetrics['network_activity'] ?? 0.0,
+              Colors.green,
+            ),
             const SizedBox(height: 8),
-            _buildHealthMetric('Storage Used', _systemMetrics['storage_used'] ?? 0.0, Colors.orange),
+            _buildHealthMetric(
+              'Storage Used',
+              _systemMetrics['storage_used'] ?? 0.0,
+              Colors.orange,
+            ),
           ],
         ),
       ),
@@ -563,10 +571,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label),
-            Text('${value.toStringAsFixed(1)}%'),
-          ],
+          children: [Text(label), Text('${value.toStringAsFixed(1)}%')],
         ),
         const SizedBox(height: 4),
         LinearProgressIndicator(
@@ -651,13 +656,29 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            _buildResourceChart('CPU', _systemMetrics['cpu_usage'] ?? 0.0, Colors.red),
+            _buildResourceChart(
+              'CPU',
+              _systemMetrics['cpu_usage'] ?? 0.0,
+              Colors.red,
+            ),
             const SizedBox(height: 12),
-            _buildResourceChart('Memory', _systemMetrics['memory_usage'] ?? 0.0, Colors.blue),
+            _buildResourceChart(
+              'Memory',
+              _systemMetrics['memory_usage'] ?? 0.0,
+              Colors.blue,
+            ),
             const SizedBox(height: 12),
-            _buildResourceChart('Network', _systemMetrics['network_activity'] ?? 0.0, Colors.green),
+            _buildResourceChart(
+              'Network',
+              _systemMetrics['network_activity'] ?? 0.0,
+              Colors.green,
+            ),
             const SizedBox(height: 12),
-            _buildResourceChart('Storage', _systemMetrics['storage_used'] ?? 0.0, Colors.orange),
+            _buildResourceChart(
+              'Storage',
+              _systemMetrics['storage_used'] ?? 0.0,
+              Colors.orange,
+            ),
           ],
         ),
       ),
@@ -670,10 +691,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(label),
-            Text('${value.toStringAsFixed(1)}%'),
-          ],
+          children: [Text(label), Text('${value.toStringAsFixed(1)}%')],
         ),
         const SizedBox(height: 8),
         Container(
@@ -738,7 +756,9 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
             if (_recentActivity.isEmpty)
               const Text('No recent activity')
             else
-              ..._recentActivity.map((activity) => _buildActivityItem(activity)),
+              ..._recentActivity.map(
+                (activity) => _buildActivityItem(activity),
+              ),
           ],
         ),
       ),
@@ -750,11 +770,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(
-            activity['icon'],
-            color: activity['color'],
-            size: 20,
-          ),
+          Icon(activity['icon'], color: activity['color'], size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -766,10 +782,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
                 ),
                 Text(
                   _formatTimestamp(activity['timestamp']),
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -818,7 +831,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
   String _formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inMinutes < 60) {
@@ -839,110 +852,107 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
     );
   }
 
-         Widget _buildStatCard(
-           BuildContext context,
-           String title,
-           String value,
-           IconData icon,
-           Color color, {
-           String? subtitle,
-         }) {
-           return ConnectiasAnimations.animatedCard(
-             child: Padding(
-               padding: const EdgeInsets.all(16),
-               child: Column(
-                 children: [
-                   ConnectiasAnimations.pulsing(
-                     child: Icon(icon, color: color, size: 32),
-                   ),
-                   const SizedBox(height: 8),
-                   Text(
-                     title,
-                     style: const TextStyle(fontWeight: FontWeight.w500),
-                     textAlign: TextAlign.center,
-                   ),
-                   const SizedBox(height: 4),
-                  // Prüfe ob value numerisch ist
-                  double.tryParse(value) != null
-                      ? ConnectiasAnimations.animateValue<double>(
-                          begin: 0.0,
-                          end: double.parse(value),
-                          duration: const Duration(milliseconds: 800),
-                          builder: (context, animatedValue, child) {
-                            return Text(
-                              animatedValue.toStringAsFixed(0),
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: color,
-                              ),
-                            );
-                          },
-                        )
-                      : Text(
-                          value,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: color,
-                          ),
+  Widget _buildStatCard(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+    Color color, {
+    String? subtitle,
+  }) {
+    return ConnectiasAnimations.animatedCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            ConnectiasAnimations.pulsing(
+              child: Icon(icon, color: color, size: 32),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            // Prüfe ob value numerisch ist
+            double.tryParse(value) != null
+                ? ConnectiasAnimations.animateValue<double>(
+                    begin: 0.0,
+                    end: double.parse(value),
+                    duration: const Duration(milliseconds: 800),
+                    builder: (context, animatedValue, child) {
+                      return Text(
+                        animatedValue.toStringAsFixed(0),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: color,
                         ),
-                   if (subtitle != null) ...[
-                     const SizedBox(height: 4),
-                     Text(
-                       subtitle,
-                       style: TextStyle(
-                         fontSize: 12,
-                         color: Colors.grey[600],
-                       ),
-                       textAlign: TextAlign.center,
-                     ),
-                   ],
-                 ],
-               ),
-             ),
-           );
-         }
+                      );
+                    },
+                  )
+                : Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
-         Widget _buildActionCard(
-           BuildContext context,
-           String title,
-           String subtitle,
-           IconData icon,
-           Color color,
-           VoidCallback onTap,
-         ) {
-           return ConnectiasAnimations.animatedButton(
-             onPressed: onTap,
-             child: ConnectiasAnimations.animatedCard(
-               child: Padding(
-                 padding: const EdgeInsets.all(16),
-                 child: Column(
-                   children: [
-                     ConnectiasAnimations.rotating(
-                       child: Icon(icon, size: 32, color: color),
-                     ),
-                     const SizedBox(height: 8),
-                     Text(
-                       title,
-                       style: const TextStyle(fontWeight: FontWeight.bold),
-                       textAlign: TextAlign.center,
-                     ),
-                     const SizedBox(height: 4),
-                     Text(
-                       subtitle,
-                       style: TextStyle(
-                         fontSize: 12,
-                         color: Theme.of(context).colorScheme.onSurfaceVariant,
-                       ),
-                       textAlign: TextAlign.center,
-                     ),
-                   ],
-                 ),
-               ),
-             ),
-           );
-         }
+  Widget _buildActionCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return ConnectiasAnimations.animatedButton(
+      onPressed: onTap,
+      child: ConnectiasAnimations.animatedCard(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              ConnectiasAnimations.rotating(
+                child: Icon(icon, size: 32, color: color),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildMetricCard(
     String title,
@@ -968,10 +978,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, color: color),
               textAlign: TextAlign.center,
             ),
           ],
@@ -984,7 +991,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
 /// System Performance Chart Widget
 class SystemPerformanceChart extends StatefulWidget {
   const SystemPerformanceChart({super.key});
-  
+
   @override
   State<SystemPerformanceChart> createState() => _SystemPerformanceChartState();
 }
@@ -992,60 +999,61 @@ class SystemPerformanceChart extends StatefulWidget {
 class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
   List<FlSpot> _systemData = [];
   Timer? _updateTimer;
-  
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
     _startPeriodicUpdates();
   }
-  
+
   @override
   void dispose() {
     _updateTimer?.cancel();
     super.dispose();
   }
-  
+
   void _loadInitialData() {
     // Lade historische System-Daten (letzte 12 Stunden)
     _generateSampleData();
   }
-  
+
   void _startPeriodicUpdates() {
     _updateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
       _updateChartData();
     });
   }
-  
+
   void _generateSampleData() {
     // Generiere Sample-System-Daten für Demo
     final now = DateTime.now();
     _systemData = List.generate(12, (index) {
       final time = now.subtract(Duration(hours: 11 - index));
       final hour = time.hour;
-      final system = 40 + (hour * 3) + (index % 4) * 8; // Simuliere System-Performance
+      final system =
+          40 + (hour * 3) + (index % 4) * 8; // Simuliere System-Performance
       return FlSpot(index.toDouble(), system.toDouble());
     });
   }
-  
+
   void _updateChartData() {
     if (!mounted) return;
-    
+
     setState(() {
       // Verschiebe alle Daten um eine Position nach links
       _systemData.removeAt(0);
-      
+
       // Füge neue Daten am Ende hinzu
       final now = DateTime.now();
       final hour = now.hour;
       final minute = now.minute;
-      
+
       final newSystem = 40 + (hour * 3) + (minute % 30) * 2;
-      
+
       _systemData.add(FlSpot(11, newSystem.toDouble()));
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -1055,10 +1063,7 @@ class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
         children: [
           const Text(
             'System Performance (12h)',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -1070,16 +1075,10 @@ class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
                   horizontalInterval: 20,
                   verticalInterval: 2,
                   getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey[300]!,
-                      strokeWidth: 1,
-                    );
+                    return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
                   },
                   getDrawingVerticalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey[300]!,
-                      strokeWidth: 1,
-                    );
+                    return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
                   },
                 ),
                 titlesData: FlTitlesData(
@@ -1102,9 +1101,9 @@ class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
                       reservedSize: 30,
                       interval: 3,
                       getTitlesWidget: (value, meta) {
-                        final hour = DateTime.now().subtract(
-                          Duration(hours: 11 - value.toInt()),
-                        ).hour;
+                        final hour = DateTime.now()
+                            .subtract(Duration(hours: 11 - value.toInt()))
+                            .hour;
                         return Text(
                           '${hour.toString().padLeft(2, '0')}:00',
                           style: const TextStyle(fontSize: 10),
@@ -1137,7 +1136,7 @@ class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.purple.withOpacity(0.1),
+                      color: Colors.purple.withValues(alpha: 0.1),
                     ),
                   ),
                 ],

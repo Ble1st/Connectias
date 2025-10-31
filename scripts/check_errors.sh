@@ -135,8 +135,8 @@ if command -v flutter &> /dev/null; then
         } >> "$OUTPUT_FILE"
         
         # Zähle Fehler
-        error_count=$(grep -ciE "(error|warning|info)" "$DART_ANALYZE_OUTPUT" || echo "0")
-        if [ "$error_count" -gt 0 ]; then
+        error_count=$(grep -ciE "(error|warning|info)" "$DART_ANALYZE_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+        if [ -n "$error_count" ] && [ "$error_count" -gt 0 ] 2>/dev/null; then
             category=$(categorize_error "$(head -20 "$DART_ANALYZE_OUTPUT")")
             case "$category" in
                 CRITICAL) ((CRITICAL_ERRORS+=error_count)) ;;
@@ -169,8 +169,8 @@ if command -v flutter &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        failed_tests=$(grep -ciE "(failed|exception|error)" "$DART_TEST_OUTPUT" || echo "0")
-        if [ "$failed_tests" -gt 0 ]; then
+        failed_tests=$(grep -ciE "(failed|exception|error)" "$DART_TEST_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+        if [ -n "$failed_tests" ] && [ "$failed_tests" -gt 0 ] 2>/dev/null; then
             ((HIGH_ERRORS+=failed_tests))
         fi
     fi
@@ -234,8 +234,8 @@ if command -v cargo &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        compile_errors=$(grep -ciE "(error\[|error:|failed to compile)" "$RUST_CHECK_OUTPUT" || echo "0")
-        if [ "$compile_errors" -gt 0 ]; then
+        compile_errors=$(grep -ciE "(error\[|error:|failed to compile)" "$RUST_CHECK_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+        if [ -n "$compile_errors" ] && [ "$compile_errors" -gt 0 ] 2>/dev/null; then
             ((HIGH_ERRORS+=compile_errors))
         fi
     fi
@@ -263,8 +263,8 @@ if command -v cargo &> /dev/null; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            clippy_warnings=$(grep -ciE "(warning:|clippy::)" "$RUST_CLIPPY_OUTPUT" || echo "0")
-            if [ "$clippy_warnings" -gt 0 ]; then
+            clippy_warnings=$(grep -ciE "(warning:|clippy::)" "$RUST_CLIPPY_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+            if [ -n "$clippy_warnings" ] && [ "$clippy_warnings" -gt 0 ] 2>/dev/null; then
                 ((MEDIUM_ERRORS+=clippy_warnings))
             fi
         fi
@@ -296,8 +296,8 @@ if command -v cargo &> /dev/null; then
             echo ""
         } >> "$OUTPUT_FILE"
         
-        test_failures=$(grep -ciE "(test.*FAILED|panicked|assertion failed)" "$RUST_TEST_OUTPUT" || echo "0")
-        if [ "$test_failures" -gt 0 ]; then
+        test_failures=$(grep -ciE "(test.*FAILED|panicked|assertion failed)" "$RUST_TEST_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+        if [ -n "$test_failures" ] && [ "$test_failures" -gt 0 ] 2>/dev/null; then
             ((HIGH_ERRORS+=test_failures))
         fi
     fi
@@ -353,8 +353,8 @@ if command -v cargo-audit &> /dev/null || command -v cargo &> /dev/null && cargo
             echo ""
         } >> "$OUTPUT_FILE"
         
-        vulnerabilities=$(grep -ciE "(vulnerability|CVE-|advisory)" "$RUST_AUDIT_OUTPUT" || echo "0")
-        if [ "$vulnerabilities" -gt 0 ]; then
+        vulnerabilities=$(grep -ciE "(vulnerability|CVE-|advisory)" "$RUST_AUDIT_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+        if [ -n "$vulnerabilities" ] && [ "$vulnerabilities" -gt 0 ] 2>/dev/null; then
             ((CRITICAL_ERRORS+=vulnerabilities))
         fi
     fi
@@ -401,8 +401,8 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            build_errors=$(grep -ciE "(error|failed|FAILURE)" "$ANDROID_BUILD_OUTPUT" || echo "0")
-            if [ "$build_errors" -gt 0 ]; then
+            build_errors=$(grep -ciE "(error|failed|FAILURE)" "$ANDROID_BUILD_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+            if [ -n "$build_errors" ] && [ "$build_errors" -gt 0 ] 2>/dev/null; then
                 ((HIGH_ERRORS+=build_errors))
             fi
         fi
@@ -428,8 +428,8 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            lint_issues=$(grep -ciE "(error|warning|issue)" "$ANDROID_LINT_OUTPUT" || echo "0")
-            if [ "$lint_issues" -gt 0 ]; then
+            lint_issues=$(grep -ciE "(error|warning|issue)" "$ANDROID_LINT_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+            if [ -n "$lint_issues" ] && [ "$lint_issues" -gt 0 ] 2>/dev/null; then
                 ((MEDIUM_ERRORS+=lint_issues))
             fi
         fi
@@ -455,8 +455,8 @@ if [ -d "$PROJECT_ROOT/android" ]; then
                 echo ""
             } >> "$OUTPUT_FILE"
             
-            test_failures=$(grep -ciE "(failed|FAILURE|error)" "$ANDROID_TEST_OUTPUT" || echo "0")
-            if [ "$test_failures" -gt 0 ]; then
+            test_failures=$(grep -ciE "(failed|FAILURE|error)" "$ANDROID_TEST_OUTPUT" 2>/dev/null | head -1 | tr -d '[:space:]' || echo "0")
+            if [ -n "$test_failures" ] && [ "$test_failures" -gt 0 ] 2>/dev/null; then
                 ((HIGH_ERRORS+=test_failures))
             fi
         fi

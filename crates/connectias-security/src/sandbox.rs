@@ -2,9 +2,10 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use std::path::{Path, PathBuf};
-use std::fs;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::path::{PathBuf};
+use std::net::{IpAddr, Ipv4Addr};
+use regex::Regex;
+use unicode_normalization::UnicodeNormalization;
 
 pub struct InputSanitizer;
 
@@ -211,59 +212,77 @@ impl ResourceQuotaManager {
     }
 
     /// Prüft und erzwingt Resource Limits
+    /// SECURITY FIX: Atomare Operationen verhindern Race Conditions zwischen Limits und Usage
     pub fn check_and_enforce(&self, plugin_id: &str) -> Result<(), super::SecurityError> {
+        // SECURITY FIX: Verwende kombinierten Lock für Limits + Usage um Race Conditions zu vermeiden
+        // Lese beide Maps in einem einzigen kritischen Abschnitt
         let limits = {
             let limits_map = self.limits.lock()
-            .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
+                .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
             limits_map.get(plugin_id).cloned().unwrap_or_default()
         };
-
+        
+        // Halte usage lock für gesamten Check (verhindert Race Conditions)
         let mut usage_map = self.usage.lock()
             .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
+        
+        // Atomarer Check: Hole Usage-Werte atomar
         let usage = usage_map.entry(plugin_id.to_string()).or_default();
-
+        let memory_used = usage.memory_used;
+        let cpu_usage = usage.cpu_usage;
+        let storage_used = usage.storage_used;
+        let network_requests = usage.network_requests;
+        let execution_time = usage.execution_time;
+        let last_network_reset = usage.last_network_reset;
+        
+        // Atomare Checks mit atomar geholten Werten (verhindert TOCTOU Race Conditions)
+        
         // Memory-Limit prüfen
-        if usage.memory_used > limits.max_memory {
+        if memory_used > limits.max_memory {
             return Err(super::SecurityError::SecurityViolation(
                 format!("Memory limit exceeded: {} bytes used, {} bytes limit", 
-                    usage.memory_used, limits.max_memory)
+                    memory_used, limits.max_memory)
             ));
         }
 
         // CPU-Limit prüfen
-        if usage.cpu_usage > limits.max_cpu_percent {
+        if cpu_usage > limits.max_cpu_percent {
             return Err(super::SecurityError::SecurityViolation(
                 format!("CPU limit exceeded: {}% used, {}% limit", 
-                    usage.cpu_usage, limits.max_cpu_percent)
+                    cpu_usage, limits.max_cpu_percent)
             ));
         }
 
         // Storage-Limit prüfen
-        if usage.storage_used > limits.max_storage {
+        if storage_used > limits.max_storage {
             return Err(super::SecurityError::SecurityViolation(
                 format!("Storage limit exceeded: {} bytes used, {} bytes limit", 
-                    usage.storage_used, limits.max_storage)
+                    storage_used, limits.max_storage)
             ));
         }
 
-        // Network-Rate-Limit prüfen
-        if usage.last_network_reset.elapsed() > Duration::from_secs(60) {
+        // Network-Rate-Limit prüfen (atomar mit Time-Check)
+        let now = Instant::now();
+        let network_reset_needed = last_network_reset.elapsed() > Duration::from_secs(60);
+        if network_reset_needed {
             usage.network_requests = 0;
-            usage.last_network_reset = Instant::now();
+            usage.last_network_reset = now;
         }
 
-        if usage.network_requests >= limits.max_network_req_per_min {
+        // Prüfe Network-Rate-Limit mit aktualisiertem Wert
+        let current_network_requests = if network_reset_needed { 0 } else { network_requests };
+        if current_network_requests >= limits.max_network_req_per_min {
             return Err(super::SecurityError::SecurityViolation(
                 format!("Network rate limit exceeded: {} requests, {} limit", 
-                    usage.network_requests, limits.max_network_req_per_min)
+                    current_network_requests, limits.max_network_req_per_min)
             ));
         }
 
         // Execution-Time-Limit prüfen
-        if usage.execution_time > limits.max_execution_time {
+        if execution_time > limits.max_execution_time {
             return Err(super::SecurityError::SecurityViolation(
                 format!("Execution time limit exceeded: {:?} used, {:?} limit", 
-                    usage.execution_time, limits.max_execution_time)
+                    execution_time, limits.max_execution_time)
             ));
         }
 
@@ -295,30 +314,42 @@ impl ResourceQuotaManager {
     }
 
     /// Registriert einen Network-Request
+    /// SECURITY FIX: Atomare Rate-Limit-Prüfung verhindert Race Conditions
     pub fn register_network_request(&self, plugin_id: &str) -> Result<(), super::SecurityError> {
-        let mut usage_map = self.usage.lock()
-            .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
-        let usage = usage_map.entry(plugin_id.to_string()).or_default();
-        
-        // Rate-Limit prüfen
-        if usage.last_network_reset.elapsed() > Duration::from_secs(60) {
-            usage.network_requests = 0;
-            usage.last_network_reset = Instant::now();
-        }
-
-        let limits = {
+        // SECURITY FIX: Atomare Sequenz: Hole Limits + Usage atomar
+        let (limits, should_increment) = {
             let limits_map = self.limits.lock()
-            .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
-            limits_map.get(plugin_id).cloned().unwrap_or_default()
+                .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
+            let limits = limits_map.get(plugin_id).cloned().unwrap_or_default();
+            
+            let mut usage_map = self.usage.lock()
+                .map_err(|e| super::SecurityError::SecurityViolation(format!("Lock acquisition failed: {}", e)))?;
+            let usage = usage_map.entry(plugin_id.to_string()).or_default();
+            
+            // Atomare Rate-Limit-Prüfung
+            let now = Instant::now();
+            if usage.last_network_reset.elapsed() > Duration::from_secs(60) {
+                usage.network_requests = 0;
+                usage.last_network_reset = now;
+            }
+
+            let current_requests = usage.network_requests;
+            let should_increment = current_requests < limits.max_network_req_per_min;
+            
+            if should_increment {
+                usage.network_requests += 1;
+            }
+            
+            (limits, should_increment)
         };
 
-        if usage.network_requests >= limits.max_network_req_per_min {
+        if !should_increment {
             return Err(super::SecurityError::SecurityViolation(
-                "Network rate limit exceeded".to_string()
+                format!("Network rate limit exceeded: {} requests, {} limit", 
+                    limits.max_network_req_per_min, limits.max_network_req_per_min)
             ));
         }
 
-        usage.network_requests += 1;
         Ok(())
     }
 
@@ -412,26 +443,100 @@ impl ResourceMonitor {
 
 impl InputSanitizer {
     /// Validiert Input auf gefährliche Patterns und gibt Fehler zurück
-    /// Verwendet strikte Validierung - bei Verdacht wird Fehler zurückgegeben
+    /// Verwendet Whitelist-basierte Validierung mit Unicode-Normalisierung
     pub fn sanitize_string(input: &str) -> Result<String, super::SecurityError> {
-        // SQL Injection patterns
-        let sql_patterns = ["'", "\"", ";", "--", "/*", "*/", "xp_", "sp_"];
-        for pattern in &sql_patterns {
-            if input.contains(pattern) {
+        // Schritt 1: Unicode-Normalisierung (NFC) um Encoding-Bypasses zu verhindern
+        // Konvertiere zu NFC (Canonical Composition)
+        let normalized: String = input.chars().nfc().collect();
+        
+        // Schritt 2: Whitelist-basierte Validierung für erlaubte Zeichen
+        // Erlaubt: alphanumerisch, Leerzeichen, Bindestrich, Unterstrich, Punkt, @
+        let allowed_pattern = Regex::new(r"^[a-zA-Z0-9\s\-_.@]+$")
+            .map_err(|_| super::SecurityError::SecurityViolation("Regex compilation failed".to_string()))?;
+        
+        if !allowed_pattern.is_match(&normalized) {
+            return Err(super::SecurityError::SecurityViolation(
+                "Input contains disallowed characters".to_string()
+            ));
+        }
+        
+        // Schritt 3: Blacklist für bekannte gefährliche Patterns (zusätzliche Sicherheit)
+        let dangerous_patterns = [
+            "SELECT", "INSERT", "UPDATE", "DELETE", "DROP", "CREATE", "ALTER",
+            "UNION", "EXEC", "EXECUTE", "xp_", "sp_", "--", "/*", "*/",
+            "javascript:", "onerror=", "onload=", "<script", "</script>",
+        ];
+        
+        let input_upper = normalized.to_uppercase();
+        for pattern in &dangerous_patterns {
+            if input_upper.contains(&pattern.to_uppercase()) {
                 return Err(super::SecurityError::SecurityViolation(
                     format!("Dangerous pattern detected: {}", pattern)
                 ));
             }
         }
-
-        // Path traversal patterns
-        if input.contains("..") || input.contains("./") || input.contains("\\") {
+        
+        // Schritt 4: Längen-Limitierung (verhindert Buffer-Overflow-Angriffe)
+        const MAX_INPUT_LENGTH: usize = 4096;
+        if normalized.len() > MAX_INPUT_LENGTH {
             return Err(super::SecurityError::SecurityViolation(
-                "Path traversal detected".to_string()
+                format!("Input too long: {} (max {})", normalized.len(), MAX_INPUT_LENGTH)
             ));
         }
-
-        Ok(input.to_string())
+        
+        // Schritt 5: Path-Traversal-Prüfung für ".." Pattern
+        // HINWEIS: Path-Traversal-Prüfungen für `/`, `\`, `/etc/`, etc. sind redundant,
+        // da die Regex-Whitelist (Schritt 2) bereits alle Slashes und Backslashes blockiert.
+        // Nur ".." könnte durch zwei aufeinanderfolgende Punkte entstehen, die durch die Regex erlaubt sind.
+        // Daher prüfen wir explizit auf ".." als zusätzliche Sicherheitsschicht.
+        if normalized.contains("..") {
+            return Err(super::SecurityError::SecurityViolation(
+                "Path traversal pattern detected: '..' not allowed".to_string()
+            ));
+        }
+        
+        Ok(normalized)
+    }
+    
+    /// Validiert JSON-Input mit Schema-Validierung
+    pub fn sanitize_json(input: &str) -> Result<serde_json::Value, super::SecurityError> {
+        // Schritt 1: Längen-Limitierung
+        const MAX_JSON_LENGTH: usize = 1024 * 1024; // 1MB
+        if input.len() > MAX_JSON_LENGTH {
+            return Err(super::SecurityError::SecurityViolation(
+                format!("JSON input too long: {} bytes (max {} bytes)", input.len(), MAX_JSON_LENGTH)
+            ));
+        }
+        
+        // Schritt 2: Parse JSON mit Tiefenlimitierung
+        // Manuelles Parsing - serde_json hat standardmäßig Recursion-Limit
+        let value: serde_json::Value = serde_json::from_str(input)
+            .map_err(|e| super::SecurityError::SecurityViolation(
+                format!("Invalid JSON: {}", e)
+            ))?;
+        
+        // Schritt 3: Prüfe JSON-Tiefe (verhindert Deep-Nesting DoS)
+        const MAX_JSON_DEPTH: usize = 32;
+        if Self::json_depth(&value) > MAX_JSON_DEPTH {
+            return Err(super::SecurityError::SecurityViolation(
+                format!("JSON depth too deep: {} (max {})", Self::json_depth(&value), MAX_JSON_DEPTH)
+            ));
+        }
+        
+        Ok(value)
+    }
+    
+    /// Berechnet maximale Tiefe eines JSON-Werts
+    fn json_depth(value: &serde_json::Value) -> usize {
+        match value {
+            serde_json::Value::Object(map) => {
+                1 + map.values().map(Self::json_depth).max().unwrap_or(0)
+            }
+            serde_json::Value::Array(arr) => {
+                1 + arr.iter().map(Self::json_depth).max().unwrap_or(0)
+            }
+            _ => 1,
+        }
     }
 
     pub fn sanitize_args(args: &HashMap<String, String>) -> Result<HashMap<String, String>, super::SecurityError> {

@@ -218,4 +218,3 @@ fn test_encryption_service_key_export() {
         .expect("Failed to decode base64 key");
     assert_eq!(decoded_key.len(), 32);
 }
-//ich diene der aktualisierung wala

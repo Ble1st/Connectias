@@ -1,7 +1,7 @@
 /// Connectias FFI Bindings – Dart ↔ Rust Bridge
-/// 
+///
 /// Sichere FFI-Schnittstelle zur connectias_ffi.so Library
-/// 
+///
 /// SICHERHEIT:
 library;
 
@@ -34,7 +34,9 @@ ffi.DynamicLibrary _loadNativeLib() {
   } else if (Platform.isWindows) {
     return ffi.DynamicLibrary.open('connectias_ffi.dll');
   } else {
-    throw UnsupportedError('Platform ${Platform.operatingSystem} nicht unterstützt');
+    throw UnsupportedError(
+      'Platform ${Platform.operatingSystem} nicht unterstützt',
+    );
   }
 }
 
@@ -55,30 +57,29 @@ typedef _GetSystemInfoNative = ffi.Pointer<ffi.Char> Function();
 typedef _GetSystemInfoDart = ffi.Pointer<ffi.Char> Function();
 
 /// connectias_load_plugin(const char* path) -> const char*
-typedef _LoadPluginNative = ffi.Pointer<ffi.Char> Function(
-  ffi.Pointer<ffi.Char>,
-);
-typedef _LoadPluginDart = ffi.Pointer<ffi.Char> Function(
-  ffi.Pointer<ffi.Char>,
-);
+typedef _LoadPluginNative =
+    ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>);
+typedef _LoadPluginDart = ffi.Pointer<ffi.Char> Function(ffi.Pointer<ffi.Char>);
 
 /// connectias_unload_plugin(const char* id) -> i32
 typedef _UnloadPluginNative = ffi.Int32 Function(ffi.Pointer<ffi.Char>);
 typedef _UnloadPluginDart = int Function(ffi.Pointer<ffi.Char>);
 
 /// connectias_execute_plugin(id, cmd, args, output) -> i32
-typedef _ExecutePluginNative = ffi.Int32 Function(
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Pointer<ffi.Char>>,
-);
-typedef _ExecutePluginDart = int Function(
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Char>,
-  ffi.Pointer<ffi.Pointer<ffi.Char>>,
-);
+typedef _ExecutePluginNative =
+    ffi.Int32 Function(
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+    );
+typedef _ExecutePluginDart =
+    int Function(
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Char>,
+      ffi.Pointer<ffi.Pointer<ffi.Char>>,
+    );
 
 /// connectias_list_plugins() -> const char*
 typedef _ListPluginsNative = ffi.Pointer<ffi.Char> Function();
@@ -116,20 +117,60 @@ typedef _FreeStringDart = void Function(ffi.Pointer<ffi.Char>);
 // FUNCTION LOOKUPS
 // ============================================================================
 
-final _init = _nativeLib.lookupFunction<_InitNative, _InitDart>('connectias_init');
-final _version = _nativeLib.lookupFunction<_VersionNative, _VersionDart>('connectias_version');
-final _getSystemInfo = _nativeLib.lookupFunction<_GetSystemInfoNative, _GetSystemInfoDart>('connectias_get_system_info');
-final _loadPlugin = _nativeLib.lookupFunction<_LoadPluginNative, _LoadPluginDart>('connectias_load_plugin');
-final _unloadPlugin = _nativeLib.lookupFunction<_UnloadPluginNative, _UnloadPluginDart>('connectias_unload_plugin');
-final _executePlugin = _nativeLib.lookupFunction<_ExecutePluginNative, _ExecutePluginDart>('connectias_execute_plugin');
-final _listPlugins = _nativeLib.lookupFunction<_ListPluginsNative, _ListPluginsDart>('connectias_list_plugins');
-final _raspCheckEnv = _nativeLib.lookupFunction<_RaspCheckEnvNative, _RaspCheckEnvDart>('connectias_rasp_check_environment');
-final _raspCheckRoot = _nativeLib.lookupFunction<_RaspCheckRootNative, _RaspCheckRootDart>('connectias_rasp_check_root');
-final _raspCheckDebugger = _nativeLib.lookupFunction<_RaspCheckDebuggerNative, _RaspCheckDebuggerDart>('connectias_rasp_check_debugger');
-final _raspCheckEmulator = _nativeLib.lookupFunction<_RaspCheckEmulatorNative, _RaspCheckEmulatorDart>('connectias_rasp_check_emulator');
-final _raspCheckTamper = _nativeLib.lookupFunction<_RaspCheckTamperNative, _RaspCheckTamperDart>('connectias_rasp_check_tamper');
-final _getLastError = _nativeLib.lookupFunction<_GetLastErrorNative, _GetLastErrorDart>('connectias_get_last_error');
-final _freeString = _nativeLib.lookupFunction<_FreeStringNative, _FreeStringDart>('connectias_free_string');
+final _init = _nativeLib.lookupFunction<_InitNative, _InitDart>(
+  'connectias_init',
+);
+final _version = _nativeLib.lookupFunction<_VersionNative, _VersionDart>(
+  'connectias_version',
+);
+final _getSystemInfo = _nativeLib
+    .lookupFunction<_GetSystemInfoNative, _GetSystemInfoDart>(
+      'connectias_get_system_info',
+    );
+final _loadPlugin = _nativeLib
+    .lookupFunction<_LoadPluginNative, _LoadPluginDart>(
+      'connectias_load_plugin',
+    );
+final _unloadPlugin = _nativeLib
+    .lookupFunction<_UnloadPluginNative, _UnloadPluginDart>(
+      'connectias_unload_plugin',
+    );
+final _executePlugin = _nativeLib
+    .lookupFunction<_ExecutePluginNative, _ExecutePluginDart>(
+      'connectias_execute_plugin',
+    );
+final _listPlugins = _nativeLib
+    .lookupFunction<_ListPluginsNative, _ListPluginsDart>(
+      'connectias_list_plugins',
+    );
+final _raspCheckEnv = _nativeLib
+    .lookupFunction<_RaspCheckEnvNative, _RaspCheckEnvDart>(
+      'connectias_rasp_check_environment',
+    );
+final _raspCheckRoot = _nativeLib
+    .lookupFunction<_RaspCheckRootNative, _RaspCheckRootDart>(
+      'connectias_rasp_check_root',
+    );
+final _raspCheckDebugger = _nativeLib
+    .lookupFunction<_RaspCheckDebuggerNative, _RaspCheckDebuggerDart>(
+      'connectias_rasp_check_debugger',
+    );
+final _raspCheckEmulator = _nativeLib
+    .lookupFunction<_RaspCheckEmulatorNative, _RaspCheckEmulatorDart>(
+      'connectias_rasp_check_emulator',
+    );
+final _raspCheckTamper = _nativeLib
+    .lookupFunction<_RaspCheckTamperNative, _RaspCheckTamperDart>(
+      'connectias_rasp_check_tamper',
+    );
+final _getLastError = _nativeLib
+    .lookupFunction<_GetLastErrorNative, _GetLastErrorDart>(
+      'connectias_get_last_error',
+    );
+final _freeString = _nativeLib
+    .lookupFunction<_FreeStringNative, _FreeStringDart>(
+      'connectias_free_string',
+    );
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -203,7 +244,7 @@ class ConnectiasFFIException implements Exception {
 // ============================================================================
 
 /// Initialisiere die FFI Bridge
-/// 
+///
 /// MUSS einmalig vor anderen Funktionen aufgerufen werden
 Future<void> init() async {
   final result = _init();
@@ -229,7 +270,7 @@ String getSystemInfo() {
 }
 
 /// Lade ein Plugin
-/// 
+///
 /// @param pluginPath Pfad zum Plugin WASM File
 /// @return Plugin-ID
 /// @throws ConnectiasFFIException bei Fehler
@@ -250,7 +291,7 @@ Future<String> loadPlugin(String pluginPath) async {
 }
 
 /// Entlade ein Plugin
-/// 
+///
 /// @param pluginId Eindeutige Plugin-ID
 /// @throws ConnectiasFFIException bei Fehler
 Future<void> unloadPlugin(String pluginId) async {
@@ -266,7 +307,7 @@ Future<void> unloadPlugin(String pluginId) async {
 }
 
 /// Führe ein Plugin aus
-/// 
+///
 /// @param pluginId Eindeutige Plugin-ID
 /// @param command Command Name
 /// @param argsJson JSON mit Arguments
@@ -279,26 +320,26 @@ Future<String> executePlugin(
 ) async {
   final idPtr = _stringToUtf8(pluginId);
   final cmdPtr = _stringToUtf8(command);
-  
+
   // Konvertiere Map zu JSON
   final argsJson = args.entries.map((e) => '"${e.key}":"${e.value}"').join(',');
   final argsJsonStr = '{$argsJson}';
   final argsPtr = _stringToUtf8(argsJsonStr);
-  
+
   try {
     // Allokiere Output Pointer
     final outputPtr = ffi_pkg.malloc<ffi.Pointer<ffi.Char>>();
-    
+
     final result = _executePlugin(idPtr, cmdPtr, argsPtr, outputPtr);
     if (result != FFIErrorCode.success) {
       ffi_pkg.malloc.free(outputPtr);
       throw ConnectiasFFIException(result, getLastError());
     }
-    
+
     final output = _utf8ToString(outputPtr.value);
     freeString(outputPtr.value);
     ffi_pkg.malloc.free(outputPtr);
-    
+
     return output;
   } finally {
     ffi_pkg.malloc.free(idPtr);
@@ -308,17 +349,17 @@ Future<String> executePlugin(
 }
 
 /// Liste alle geladenen Plugins auf
-/// 
+///
 /// @return JSON Array mit Plugin-Informationen
 Future<List<String>> listPlugins() async {
   final jsonPtr = _listPlugins();
   if (jsonPtr == ffi.nullptr) {
     return [];
   }
-  
+
   try {
-    final jsonStr = _utf8ToString(jsonPtr);
     // Parse JSON (vereinfacht)
+    // jsonStr wurde entfernt, da nicht verwendet
     final plugins = <String>[];
     // TODO: Proper JSON parsing
     return plugins;
@@ -332,37 +373,37 @@ Future<List<String>> listPlugins() async {
 // ============================================================================
 
 /// Führe vollständigen RASP-Security Check durch
-/// 
+///
 /// KRITISCH: Bei Rückgabe > 0 MUSS die App sofort beendet werden!
-/// 
+///
 /// @return 0 = sicher, > 0 = gefährdet, < 0 = Fehler
 Future<int> raspCheckEnvironment() async {
   return _raspCheckEnv();
 }
 
 /// Prüfe auf Root/Super-User Zugriff
-/// 
+///
 /// @return 0 = safe, 1 = suspicious, 2 = compromised
 Future<int> raspCheckRoot() async {
   return _raspCheckRoot();
 }
 
 /// Prüfe auf Debugger
-/// 
+///
 /// @return 0 = safe, 1 = suspicious, 2 = compromised
 Future<int> raspCheckDebugger() async {
   return _raspCheckDebugger();
 }
 
 /// Prüfe auf Emulator/Virtualisierung
-/// 
+///
 /// @return 0 = safe, 1 = suspicious, 2 = compromised
 Future<int> raspCheckEmulator() async {
   return _raspCheckEmulator();
 }
 
 /// Prüfe auf Tamper/Manipulation
-/// 
+///
 /// @return 0 = safe, 1 = suspicious, 2 = compromised
 Future<int> raspCheckTamper() async {
   return _raspCheckTamper();
@@ -384,12 +425,14 @@ class RaspStatus {
 
   bool get isSafe => root == 0 && debugger == 0 && emulator == 0 && tamper == 0;
 
-  bool get isCompromised => root == 2 || debugger == 2 || emulator == 2 || tamper == 2;
+  bool get isCompromised =>
+      root == 2 || debugger == 2 || emulator == 2 || tamper == 2;
 
   bool get isSuspicious => !isSafe && !isCompromised;
 
   @override
-  String toString() => '''
+  String toString() =>
+      '''
 RaspStatus(
   root: $root,
   debugger: $debugger,
@@ -410,4 +453,3 @@ Future<RaspStatus> getRaspStatus() async {
     tamper: await raspCheckTamper(),
   );
 }
-//ich diene der aktualisierung wala

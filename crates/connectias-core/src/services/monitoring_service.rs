@@ -346,12 +346,26 @@ impl MonitoringServiceTrait for MonitoringService {
                 })
             })
         } else {
-            // Wir sind nicht in async Runtime - block_on ist direkt möglich
-            let rt = tokio::runtime::Handle::current();
-            rt.block_on(async {
+            // Wir sind nicht in async Runtime - erstelle neuen Runtime
+            // SECURITY FIX: Handle::current() würde paniken - erstelle stattdessen neuen Runtime
+            let rt = match tokio::runtime::Runtime::new() {
+                Ok(runtime) => runtime,
+                Err(e) => {
+                    return Err(Box::new(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("Failed to create Tokio runtime: {}", e)
+                    )) as Box<dyn std::error::Error + Send + Sync>);
+                }
+            };
+            
+            let result = rt.block_on(async {
                 self.increase_sampling_rate(plugin_id, factor).await
                     .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-            })
+            });
+            
+            // Runtime droppen nach Verwendung
+            drop(rt);
+            result
         }
     }
 }
@@ -452,4 +466,3 @@ mod tests {
         assert!(!monitored.contains(&plugin_id.to_string()));
     }
 }
-//ich diene der aktualisierung wala

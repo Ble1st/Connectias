@@ -33,10 +33,15 @@ pub extern "C" fn connectias_get_last_error() -> *const c_char {
             Ok(mut error) => {
                 match error.take() {
                     Some(msg) => {
-                        match CString::new(msg) {
-                            Ok(cs) => cs.into_raw() as *const c_char,
-                            Err(_) => {
-                                log::error!("🔴 KRITISCH: Ungültige UTF-8 in Fehler!");
+                        // FIX BUG 2: allocate_cstring gibt Result<*mut c_char, i32> zurück
+                        // Bei Fehler (Err(i32)) dürfen wir NICHT den Integer als Pointer casten
+                        // Funktion muss *const c_char zurückgeben, daher bei Fehler null
+                        match crate::memory::allocate_cstring(&msg) {
+                            Ok(ptr) => ptr as *const c_char,
+                            Err(err_code) => {
+                                // FIX BUG 2: err_code ist i32, nicht casten zu Pointer!
+                                // Log error und return null pointer (sicherer Fehlerfall)
+                                log::error!("🔴 KRITISCH: Ungültige UTF-8 in Fehler! Error code: {}", err_code);
                                 std::ptr::null()
                             }
                         }
@@ -54,13 +59,11 @@ pub extern "C" fn connectias_get_last_error() -> *const c_char {
 
 /// Freigabe eines FFI-Strings
 /// SICHERHEIT: Nur für Pointer verwenden, die von Connectias FFI generiert wurden!
+/// SECURITY FIX: Verwendet deallocate_cstring für Double-Free-Schutz
 #[no_mangle]
 pub extern "C" fn connectias_free_string(s: *const c_char) {
-    if !s.is_null() {
-        unsafe {
-            let _ = CString::from_raw(s as *mut c_char);
-        }
-    }
+    // Verwende die sichere deallocate_cstring-Funktion mit Double-Free-Schutz
+    crate::memory::deallocate_cstring(s as *mut c_char);
 }
 
 /// FFI Fehler-Codes
@@ -92,14 +95,10 @@ pub fn c_str_to_rust(ptr: *const c_char, field_name: &str) -> Result<String, i32
 }
 
 /// Sichere String-Konvertierung: Rust → C
+/// SECURITY FIX: Verwendet allocate_cstring für konsistentes Tracking
 pub fn rust_str_to_c(s: &str) -> Result<*const c_char, i32> {
-    match CString::new(s) {
-        Ok(cs) => Ok(cs.into_raw() as *const c_char),
-        Err(_) => {
-            set_last_error("❌ String enthält Null-Bytes");
-            Err(FFI_ERROR_INVALID_UTF8)
-        }
-    }
+    // Verwende allocate_cstring für konsistentes Pointer-Tracking
+    crate::memory::allocate_cstring(s).map(|ptr| ptr as *const c_char)
 }
 
 #[cfg(test)]

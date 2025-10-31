@@ -1,5 +1,5 @@
 /// Security Dashboard – Echtzeit-Sicherheitsstatus
-/// 
+///
 /// Zeigt RASP-Checks, Threat-Detection und Sicherheitsmetriken
 library;
 
@@ -12,7 +12,8 @@ class SecurityDashboardScreen extends StatefulWidget {
   const SecurityDashboardScreen({super.key});
 
   @override
-  State<SecurityDashboardScreen> createState() => _SecurityDashboardScreenState();
+  State<SecurityDashboardScreen> createState() =>
+      _SecurityDashboardScreenState();
 }
 
 class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
@@ -42,7 +43,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
       final threatEvents = await connectiasService.getThreatEvents();
       final pluginSecurity = await connectiasService.getPluginSecurityInfo();
       final securityMetrics = await connectiasService.getSecurityMetrics();
-      
+
       setState(() {
         _raspStatus = status;
         _threatEvents = threatEvents;
@@ -135,7 +136,10 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
           const SizedBox(height: 24),
 
           // Checks
-          const Text('Security Checks', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text(
+            'Security Checks',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           _buildCheckTile('Root Detection', status.root),
           _buildCheckTile('Debugger Detection', status.debugger),
@@ -155,8 +159,16 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
   }
 
   Widget _buildCheckTile(String label, int value) {
-    final text = value == 0 ? '✅ Safe' : value == 1 ? '⚠️ Suspicious' : '❌ Compromised';
-    final color = value == 0 ? Colors.green : value == 1 ? Colors.orange : Colors.red;
+    final text = value == 0
+        ? '✅ Safe'
+        : value == 1
+        ? '⚠️ Suspicious'
+        : '❌ Compromised';
+    final color = value == 0
+        ? Colors.green
+        : value == 1
+        ? Colors.orange
+        : Colors.red;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -176,7 +188,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
 
   Widget _buildSecurityMetrics() {
     final metrics = _securityMetrics!;
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -237,7 +249,12 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMetricCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       color: color.withValues(alpha: 0.1),
       child: Padding(
@@ -256,10 +273,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, color: color),
               textAlign: TextAlign.center,
             ),
           ],
@@ -283,7 +297,9 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
             if (_threatEvents.isEmpty)
               const Text('No recent threats detected')
             else
-              ..._threatEvents.take(5).map((event) => _buildThreatEventTile(event)),
+              ..._threatEvents
+                  .take(5)
+                  .map((event) => _buildThreatEventTile(event)),
           ],
         ),
       ),
@@ -293,7 +309,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
   Widget _buildThreatEventTile(ThreatEvent event) {
     Color color;
     IconData icon;
-    
+
     switch (event.severity) {
       case 'low':
         color = Colors.yellow;
@@ -332,10 +348,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
                 ),
                 Text(
                   'Plugin: ${event.pluginId} • ${event.timestamp}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -365,7 +378,9 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
             if (_pluginSecurity.isEmpty)
               const Text('No plugins loaded')
             else
-              ..._pluginSecurity.map((plugin) => _buildPluginSecurityTile(plugin)),
+              ..._pluginSecurity.map(
+                (plugin) => _buildPluginSecurityTile(plugin),
+              ),
           ],
         ),
       ),
@@ -375,7 +390,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
   Widget _buildPluginSecurityTile(PluginSecurityInfo plugin) {
     Color statusColor;
     IconData statusIcon;
-    
+
     if (plugin.isSecure) {
       statusColor = Colors.green;
       statusIcon = Icons.check_circle;
@@ -400,10 +415,7 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
                 ),
                 Text(
                   'Permissions: ${plugin.permissions.length} • Threats: ${plugin.threatCount}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -418,4 +430,3 @@ class _SecurityDashboardScreenState extends State<SecurityDashboardScreen> {
     );
   }
 }
-

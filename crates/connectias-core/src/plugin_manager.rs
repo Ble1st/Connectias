@@ -167,6 +167,27 @@ pub struct PluginManager {
 }
 
 impl PluginManager {
+    /// SECURITY FIX: Mappt Command-Namen zu benötigten Permissions
+    /// Bestimmt welche Permission für einen Command erforderlich ist
+    fn get_command_permission(command: &str) -> Option<&'static str> {
+        match command.to_lowercase().as_str() {
+            cmd if cmd.contains("network") || cmd.contains("http") || cmd.contains("request") => {
+                Some("Network")
+            }
+            cmd if cmd.contains("storage") || cmd.contains("save") || cmd.contains("load") || cmd.contains("write") || cmd.contains("read") => {
+                Some("Storage")
+            }
+            cmd if cmd.contains("system") || cmd.contains("info") || cmd.contains("device") => {
+                Some("SystemInfo")
+            }
+            _ => {
+                // Standard-Commands benötigen keine spezielle Permission
+                // Aber sicherheitshalber für kritische Commands prüfen
+                None
+            }
+        }
+    }
+
     pub fn new(app_data_dir: PathBuf) -> Result<Self, String> {
         let plugin_dir = app_data_dir.join("plugins");
         std::fs::create_dir_all(&plugin_dir)
@@ -424,8 +445,15 @@ impl PluginManager {
         Err(anyhow::anyhow!("No valid plugin file found (expected plugin.wasm)"))
     }
 
+    /// Extrahiert Plugin aus ZIP-Datei
+    /// SECURITY FIX: Path-Traversal-Protection verhindert ZIP-Slip-Angriffe
     fn extract_plugin(&self, zip_path: &Path, target_dir: &Path) -> Result<(), std::io::Error> {
         std::fs::create_dir_all(target_dir)?;
+        
+        // SECURITY FIX: Canonicalize target_dir um absolute Pfad zu haben
+        let target_dir_canonical = target_dir.canonicalize()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidInput, 
+                format!("Cannot canonicalize target directory: {}", e)))?;
         
         let file = std::fs::File::open(zip_path)?;
         let mut archive = zip::ZipArchive::new(file)
@@ -434,7 +462,67 @@ impl PluginManager {
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-            let outpath = target_dir.join(file.name());
+            
+            // SECURITY FIX: Normalisiere und validiere ZIP-Eintrag-Pfad
+            let entry_name = file.name();
+            
+            // Normalisiere Pfad (Windows/Unix-Kompatibilität)
+            let normalized_entry = entry_name
+                .replace('\\', "/")
+                .trim_start_matches("./")
+                .trim_start_matches("../")
+                .to_string();
+            
+            // SECURITY FIX: Prüfe auf Path-Traversal-Patterns
+            if normalized_entry.contains("..") 
+                || normalized_entry.starts_with("/")
+                || normalized_entry.contains("//")
+                || normalized_entry.starts_with("C:")
+                || normalized_entry.starts_with("c:") {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Path traversal attempt detected in ZIP entry: '{}'", entry_name)
+                ));
+            }
+            
+            // SECURITY FIX: Konstruiere sicheren Ausgabepfad
+            let entry_path = Path::new(&normalized_entry);
+            
+            // Prüfe ob normalisierter Pfad noch relative Pfade enthält
+            if entry_path.components().any(|c| matches!(c, std::path::Component::ParentDir)) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("Path traversal detected in ZIP entry: '{}'", entry_name)
+                ));
+            }
+            
+            // SECURITY FIX: Join mit canonicalized target_dir und prüfe ob Ergebnis innerhalb bleibt
+            let outpath = target_dir_canonical.join(entry_path);
+            
+            // SECURITY FIX: Validiere dass outpath innerhalb von target_dir_canonical bleibt
+            // Canonicalize outpath und prüfe Prefix
+            let outpath_canonical = match outpath.canonicalize() {
+                Ok(p) => p,
+                Err(_) => {
+                    // Datei existiert noch nicht - prüfe Parent
+                    if let Some(parent) = outpath.parent() {
+                        match parent.canonicalize() {
+                            Ok(p) => p.join(outpath.file_name().unwrap_or_default()),
+                            Err(_) => outpath.clone(),
+                        }
+                    } else {
+                        outpath.clone()
+                    }
+                }
+            };
+            
+            // SECURITY FIX: Prüfe dass canonicalized outpath mit target_dir_canonical beginnt
+            if !outpath_canonical.starts_with(&target_dir_canonical) {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::PermissionDenied,
+                    format!("Path traversal attempt: '{}' would escape target directory", entry_name)
+                ));
+            }
 
             if file.is_dir() {
                 std::fs::create_dir_all(&outpath)?;
@@ -458,11 +546,60 @@ impl PluginManager {
     ) -> Result<String, String> {
         let start_time = std::time::Instant::now();
         
+        // SECURITY FIX: Permission-Check vor Execution
+        // Prüfe ob Plugin überhaupt ausgeführt werden darf
+        let permission_required = Self::get_command_permission(command);
+        if let Some(permission) = permission_required {
+            match self.permission_service.check_permission(plugin_id, permission).await {
+                Ok(true) => {
+                    // Permission granted
+                }
+                Ok(false) | Err(_) => {
+                    return Err(format!("Permission denied: Plugin '{}' benötigt Permission '{}' für Command '{}'", plugin_id, permission, command));
+                }
+            }
+        }
+        
+        // SECURITY FIX: Resource Quota Check vor Execution
+        self.quota_manager.check_and_enforce(plugin_id)
+            .map_err(|e| format!("Resource limit exceeded for plugin {}: {}", plugin_id, e))?;
+        
         let plugins = self.plugins.read().await;
         let plugin = plugins.get(plugin_id)
             .ok_or_else(|| "Plugin not found".to_string())?;
 
-        let result = plugin.execute(command, args)
+        // SECURITY FIX: Input Sanitization für Command und Args
+        // Fehlgeschlagene Sanitization führt zu Error - keine unsanierten Werte!
+        let sanitized_command = connectias_security::sandbox::InputSanitizer::sanitize_string(command)
+            .map_err(|e| {
+                let error_msg = format!("Invalid command: {}", e);
+                tracing::warn!("Sanitization failed for command: {}", error_msg);
+                error_msg
+            })?;
+        
+        // Sanitize args - überspringe fehlgeschlagene Einträge und logge Warnung
+        // KEINE unsanierten Werte verwenden!
+        let sanitized_args: HashMap<String, String> = args.into_iter()
+            .filter_map(|(k, v)| {
+                let clean_key = match connectias_security::sandbox::InputSanitizer::sanitize_string(&k) {
+                    Ok(cleaned) => cleaned,
+                    Err(e) => {
+                        tracing::warn!("Sanitization failed for arg key '{}': {}. Skipping entry.", k, e);
+                        return None;
+                    }
+                };
+                let clean_value = match connectias_security::sandbox::InputSanitizer::sanitize_string(&v) {
+                    Ok(cleaned) => cleaned,
+                    Err(e) => {
+                        tracing::warn!("Sanitization failed for arg value '{}': {}. Skipping entry.", v, e);
+                        return None;
+                    }
+                };
+                Some((clean_key, clean_value))
+            })
+            .collect();
+
+        let result = plugin.execute(&sanitized_command, sanitized_args)
             .map_err(|e| {
                 // Handle plugin crash
                 let error = connectias_api::PluginError::ExecutionFailed(e.to_string());

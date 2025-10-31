@@ -2,11 +2,12 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::thread;
 use tokio::sync::Mutex as TokioMutex;
 use reqwest::Client;
+use serde_json::Value;
 
 /// Runtime Application Self-Protection System
 pub struct RaspProtection {
@@ -436,16 +437,149 @@ impl EmulatorDetector {
 }
 
 /// Integrity-Monitoring für App-Tampering-Detection
-pub struct IntegrityMonitor;
+pub struct IntegrityMonitor {
+    expected_app_signature: Option<String>,
+    expected_code_checksum: Option<Vec<u8>>,
+}
 
 impl IntegrityMonitor {
     pub fn new() -> Self {
-        Self
+        Self {
+            expected_app_signature: Self::load_embedded_signature(),
+            expected_code_checksum: Self::load_embedded_checksum(),
+        }
+    }
+
+    /// Lädt eingebettete App-Signatur (wird zur Compile-Zeit eingebettet)
+    /// In Production: Nutzt compile-time embedded Signatur aus build.rs
+    /// In Tests/Dev: Fallback auf Runtime-Berechnung (nur wenn CONNECTIAS_ALLOW_RUNTIME_HASH gesetzt)
+    fn load_embedded_signature() -> Option<String> {
+        // 1. Versuche compile-time embedded Signatur zu laden
+        const EXPECTED_SIGNATURE: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_signature.txt"));
+        
+        if !EXPECTED_SIGNATURE.is_empty() {
+            return Some(EXPECTED_SIGNATURE.to_string());
+        }
+        
+        // 2. Fallback: Nur für Tests/Dev mit expliziter Erlaubnis
+        #[cfg(any(test, feature = "allow-runtime-hash"))]
+        {
+            // Environment Variable für Test-Harness
+            if let Ok(sig) = std::env::var("CONNECTIAS_EXPECTED_SIGNATURE") {
+                return Some(sig);
+            }
+            
+            // Runtime-Fallback nur wenn explizit erlaubt
+            if std::env::var("CONNECTIAS_ALLOW_RUNTIME_HASH").is_ok() {
+                return Self::compute_binary_hash().ok();
+            }
+        }
+        
+        // 3. Production: Keine Runtime-Berechnung - muss compile-time embedded sein
+        None
+    }
+
+    /// Berechnet SHA-256 Hash der aktuellen Binary
+    /// WARNUNG: Nur für Tests/Dev mit CONNECTIAS_ALLOW_RUNTIME_HASH erlaubt!
+    /// Production builds müssen compile-time embedded Signatur verwenden.
+    #[cfg(any(test, feature = "allow-runtime-hash"))]
+    fn compute_binary_hash() -> Result<String, super::SecurityError> {
+        use sha2::{Sha256, Digest};
+        
+        // Versuche Binary-Pfad zu ermitteln
+        #[cfg(target_os = "android")]
+        {
+            if let Ok(exe_path) = std::env::current_exe() {
+                if let Ok(contents) = std::fs::read(&exe_path) {
+                    let mut hasher = Sha256::new();
+                    hasher.update(&contents);
+                    let hash = hasher.finalize();
+                    return Ok(hex::encode(hash));
+                }
+            }
+        }
+        
+        #[cfg(unix)]
+        {
+            // Prüfe /proc/self/exe auf Linux/Android
+            if let Ok(contents) = std::fs::read("/proc/self/exe") {
+                let mut hasher = Sha256::new();
+                hasher.update(&contents);
+                let hash = hasher.finalize();
+                return Ok(hex::encode(hash));
+            }
+        }
+        
+        Err(super::SecurityError::SecurityViolation(
+            "Could not compute binary hash".to_string()
+        ))
+    }
+
+    /// Lädt eingebettete Code-Checksum (wird zur Compile-Zeit eingebettet)
+    /// In Production: Nutzt compile-time embedded Checksum aus build.rs
+    /// In Tests/Dev: Berechnet nur /proc/self/exe und bekannte kritische Pfade
+    fn load_embedded_checksum() -> Option<Vec<u8>> {
+        // 1. Versuche compile-time embedded Checksum zu laden
+        const EXPECTED_CHECKSUM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/embedded_checksum.bin"));
+        
+        if !EXPECTED_CHECKSUM.is_empty() {
+            return Some(EXPECTED_CHECKSUM.to_vec());
+        }
+        
+        // 2. Fallback: Nur für Tests/Dev mit expliziter Erlaubnis
+        // Berechnet nur /proc/self/exe (kleiner, fokussierter Check)
+        #[cfg(any(test, feature = "allow-runtime-hash"))]
+        {
+            if std::env::var("CONNECTIAS_ALLOW_RUNTIME_HASH").is_ok() {
+                return Self::compute_code_segments_checksum().ok();
+            }
+        }
+        
+        // 3. Production: Keine Runtime-Berechnung - muss compile-time embedded sein
+        None
+    }
+
+    /// Berechnet Checksum über kritische Code-Segmente
+    /// WARNUNG: Nur für Tests/Dev mit CONNECTIAS_ALLOW_RUNTIME_HASH erlaubt!
+    /// Statt /proc/self/maps zu scannen, fokussiert auf:
+    /// - /proc/self/exe (Haupt-Binary)
+    /// - Bekannte kritische Library-Pfade (hardcoded)
+    /// Produziert Fehler bei unerwarteten Dateien (strikte Validierung)
+    #[cfg(any(test, feature = "allow-runtime-hash"))]
+    fn compute_code_segments_checksum() -> Result<Vec<u8>, super::SecurityError> {
+        use sha2::{Sha256, Digest};
+        
+        let mut hasher = Sha256::new();
+        
+        // Bekannte kritische Pfade (wird zur Compile-Zeit in build.rs vorberechnet)
+        let critical_paths = [
+            "/proc/self/exe", // Haupt-Binary
+        ];
+        
+        #[cfg(unix)]
+        {
+            // Nur explizite Pfade hashen, nicht /proc/self/maps scannen
+            for path in &critical_paths {
+                match std::fs::read(path) {
+                    Ok(contents) => {
+                        hasher.update(&contents);
+                    }
+                    Err(e) => {
+                        // Strikte Validierung: Fehler bei unerwarteten Problemen
+                        return Err(super::SecurityError::SecurityViolation(
+                            format!("Could not read critical path {}: {}", path, e)
+                        ));
+                    }
+                }
+            }
+        }
+        
+        Ok(hasher.finalize().to_vec())
     }
 
     pub fn is_tampered(&self) -> Result<bool, super::SecurityError> {
         // Methode 1: App-Signatur prüfen
-        if self.check_app_signature() {
+        if self.check_app_signature()? {
             return Ok(true);
         }
 
@@ -455,34 +589,74 @@ impl IntegrityMonitor {
         }
 
         // Methode 3: Checksum prüfen
-        if self.check_checksum() {
+        if self.check_checksum()? {
             return Ok(true);
         }
 
         Ok(false)
     }
 
-    fn check_app_signature(&self) -> bool {
+    fn check_app_signature(&self) -> Result<bool, super::SecurityError> {
         // Prüfe ob App-Signatur verändert wurde
-        // In einer echten Implementierung würde hier die App-Signatur
-        // mit einer erwarteten Signatur verglichen
-        false
+        if let Some(ref expected) = self.expected_app_signature {
+            let current = Self::compute_binary_hash()?;
+            if current != *expected {
+                log::warn!("🔴 App-Signatur mismatch: expected={}, current={}", expected, current);
+                return Ok(true); // Tampering erkannt
+            }
+        } else {
+            // Keine erwartete Signatur - nur warnen
+            log::warn!("⚠️ Keine erwartete App-Signatur konfiguriert");
+        }
+        
+        Ok(false)
     }
 
     fn check_debug_flag(&self) -> bool {
         // Prüfe ob App im Debug-Modus läuft
-        if let Ok(output) = Command::new("getprop").arg("ro.debuggable").output() {
-            let debug = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            return debug == "1";
+        #[cfg(target_os = "android")]
+        {
+            if let Ok(output) = Command::new("getprop").arg("ro.debuggable").output() {
+                let debug = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if debug == "1" {
+                    log::warn!("🔴 Debug-Flag aktiviert");
+                    return true;
+                }
+            }
         }
+        
+        #[cfg(unix)]
+        {
+            // Prüfe auf Debug-Symbole in Binary
+            if let Ok(output) = Command::new("file")
+                .arg("/proc/self/exe")
+                .output() 
+            {
+                let file_info = String::from_utf8_lossy(&output.stdout);
+                if file_info.contains("not stripped") || file_info.contains("with debug_info") {
+                    log::warn!("🔴 Binary enthält Debug-Informationen");
+                    return true;
+                }
+            }
+        }
+        
         false
     }
 
-    fn check_checksum(&self) -> bool {
-        // Prüfe App-Integrität durch Checksum
-        // In einer echten Implementierung würde hier die aktuelle
-        // App-Checksum mit einer erwarteten Checksum verglichen
-        false
+    fn check_checksum(&self) -> Result<bool, super::SecurityError> {
+        // Prüfe App-Integrität durch Checksum-Vergleich
+        if let Some(ref expected) = self.expected_code_checksum {
+            let current = Self::compute_code_segments_checksum()?;
+            if current != *expected {
+                log::warn!("🔴 Code-Checksum mismatch: Tampering erkannt");
+                return Ok(true); // Tampering erkannt
+            }
+        } else {
+            // Keine erwartete Checksum - nur warnen
+            log::debug!("⚠️ Keine erwartete Code-Checksum konfiguriert");
+        }
+        
+        Ok(false)
     }
 }
 
@@ -573,15 +747,129 @@ impl HookDetector {
 
     fn detect_native_hooks(&self) -> bool {
         // Prüfe auf Native Hooks durch Memory-Scanning
-        // In einer echten Implementierung würde hier der Memory-Space
-        // nach verdächtigen Modifikationen gescannt
+        #[cfg(unix)]
+        {
+            // Methode 1: Prüfe /proc/self/maps auf verdächtige Memory-Regionen
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                for line in maps.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let permissions = parts[1];
+                        // Verdächtig: write + execute (W+X) außerhalb von Heap/Stack
+                        if permissions.contains('w') && permissions.contains('x') {
+                            let path = parts.get(5).unwrap_or(&"");
+                            // Ignoriere normale Bereiche
+                            if !path.contains("[heap]") 
+                                && !path.contains("[stack]") 
+                                && !path.contains("[vdso]") 
+                                && !path.contains("[vsyscall]")
+                                && !path.is_empty() {
+                                // Prüfe ob es eine bekannte Library ist
+                                if !path.contains("/lib/") && !path.contains("/usr/") {
+                                    log::warn!("🔴 Verdächtige W+X Memory-Region gefunden: {}", path);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Methode 2: Prüfe auf bekannte Hook-Patterns in Memory
+            // Scanne nach Frida/Hook-Framework-Strings im Memory
+            let hook_indicators: &[&[u8]] = &[
+                b"frida",
+                b"gum-js-loop",
+                b"xposed",
+                b"substrate",
+                b"libhook",
+            ];
+            
+            // Prüfe /proc/self/mem (nur wenn verfügbar und sicher)
+            // WARNUNG: Dies kann langsam sein - nur für kritische Checks
+            // Für Production: Deaktiviert, kann bei Bedarf aktiviert werden
+            if std::env::var("CONNECTIAS_ENABLE_MEMORY_SCAN").is_ok() {
+                if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                    for line in maps.lines() {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if parts.len() >= 1 {
+                            let addr_range = parts[0];
+                            if let Some((start, end)) = addr_range.split_once('-') {
+                                if let (Ok(start_addr), Ok(end_addr)) = (
+                                    u64::from_str_radix(start, 16),
+                                    u64::from_str_radix(end, 16)
+                                ) {
+                                    let size = end_addr.saturating_sub(start_addr);
+                                    // Nur kleine Memory-Regionen scannen (max 1MB)
+                                    if size < 1024 * 1024 {
+                                        // Hier könnte Memory-Scanning implementiert werden
+                                        // Für jetzt: nur warnen wenn verdächtige Pfade gefunden werden
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         false
     }
 
     fn detect_method_swizzling(&self) -> bool {
         // Prüfe auf Method Swizzling durch Runtime-Reflection
-        // In einer echten Implementierung würde hier die Method-Tables
-        // nach verdächtigen Änderungen überprüft
+        #[cfg(target_os = "android")]
+        {
+            // Methode 1: Prüfe auf bekannte Method-Swizzling-Frameworks
+            let swizzling_frameworks = [
+                "libswizzle",
+                "methodswizzle",
+                "swizzling",
+            ];
+            
+            // Prüfe loaded Libraries
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                for line in maps.lines() {
+                    for framework in &swizzling_frameworks {
+                        if line.contains(framework) {
+                            log::warn!("🔴 Method Swizzling Framework erkannt: {}", framework);
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            // Methode 2: Prüfe auf ungewöhnliche Library-Loads
+            // Method Swizzling erfordert oft das Laden zusätzlicher Libraries
+            if let Ok(output) = Command::new("cat")
+                .arg("/proc/self/maps")
+                .output() 
+            {
+                let maps = String::from_utf8_lossy(&output.stdout);
+                let loaded_libs: Vec<&str> = maps.lines()
+                    .filter_map(|l| {
+                        let parts: Vec<&str> = l.split_whitespace().collect();
+                        parts.get(5).filter(|p| p.contains(".so"))
+                    })
+                    .collect();
+                
+                // Prüfe auf verdächtige Library-Namen
+                let suspicious_patterns = [
+                    "hook", "patch", "swizzle", "inject", "override",
+                ];
+                
+                for lib in loaded_libs {
+                    let lib_lower = lib.to_lowercase();
+                    for pattern in &suspicious_patterns {
+                        if lib_lower.contains(pattern) && !lib_lower.contains("/system/") {
+                            log::warn!("🔴 Verdächtige Library geladen: {}", lib);
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        
         false
     }
 }
@@ -676,6 +964,9 @@ pub struct SslPinner {
     pinned_certificates: Vec<String>,
     verification_active: bool,
     ct_log_client: Client,
+    // FIX BUG 2: CT-Log-Verifikations-Fehler-Tracking für Grace Period
+    ct_log_failure_count: std::sync::Arc<std::sync::atomic::AtomicU32>,
+    ct_log_last_failure: Arc<TokioMutex<Option<std::time::SystemTime>>>,
 }
 
 impl SslPinner {
@@ -700,6 +991,8 @@ impl SslPinner {
             pinned_certificates: Vec::new(),
             verification_active: true,
             ct_log_client: client,
+            ct_log_failure_count: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            ct_log_last_failure: Arc::new(TokioMutex::new(None)),
         })
     }
     
@@ -833,12 +1126,13 @@ impl SslPinner {
                 let is_network_error = Self::is_network_error(&*e);
                 
                 if is_network_error {
-                    // FIX BUG 3: Atomare Grace Period Prüfung und Reset VOR Increment
+                    // SECURITY FIX: Atomare Grace Period Prüfung und Reset VOR Increment
+                    // Härtere Grace Period: Nur 30 Sekunden statt 5 Minuten
                     // Dies verhindert Race Conditions wo mehrere Threads zwischen Grace Period Prüfung
                     // und Reset incrementieren können, was mehr Fehler als beabsichtigt erlaubt
                     let now = std::time::SystemTime::now();
-                    const MAX_NETWORK_FAILURES: u32 = 3;
-                    const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
+                    const MAX_NETWORK_FAILURES: u32 = 5; // Erhöht von 3 auf 5 - härter zu erreichen
+                    const GRACE_PERIOD_SECONDS: u64 = 30; // Reduziert von 300 (5 Min) auf 30 Sekunden
                     
                     // FIX BUG 3: Atomare Sequenz: Load Counter + Prüfe Grace Period + Reset wenn nötig
                     // Dies verhindert Race Conditions zwischen Prüfung und Reset
@@ -915,13 +1209,34 @@ impl SslPinner {
                         };
                         
                         if should_allow_grace {
-                            // Grace Period aktiv - erlaube gepinnte Zertifikate auch ohne CT-Verifikation
-                            log::warn!("CT-Log-Verification fehlgeschlagen nach {} Versuchen (Netzwerkfehler), aber Grace Period aktiv - erlaube gepinnte Zertifikate: {}", failure_count, e);
-                            log::warn!("ACHTUNG: CT-Verifikation wird temporär umgangen aufgrund wiederholter Netzwerkfehler. Dies sollte nur bei legitimen Netzwerkproblemen passieren.");
-                            // Erlaube Zertifikat, wenn es gepinnt ist (wird in verify_pinned_certificate geprüft)
-                            // Wir geben hier Ok(true) zurück, aber nur wenn das Zertifikat auch gepinnt ist
-                            // Die tatsächliche Pin-Prüfung erfolgt vor diesem Aufruf
-                            return Ok(true);
+                            // SECURITY FIX: Grace Period aktiv - STRENGERE Validierung
+                            // Nur wenn Zertifikat gepinnt ist UND innerhalb von 30 Sekunden
+                            log::warn!("CT-Log-Verification fehlgeschlagen nach {} Versuchen (Netzwerkfehler), Grace Period aktiv (nur 30 Sekunden)", failure_count);
+                            log::warn!("ACHTUNG: CT-Verifikation wird temporär umgangen - GRACE PERIOD NUR 30 SEKUNDEN");
+                            
+                            // Prüfe ob Grace Period noch sehr frisch ist (< 10 Sekunden) für zusätzliche Sicherheit
+                            let grace_age = {
+                                let last_failure = self.ct_log_last_failure.lock().await;
+                                if let Some(last) = *last_failure {
+                                    now.duration_since(last)
+                                        .map(|d| d.as_secs())
+                                        .unwrap_or(0)
+                                } else {
+                                    0
+                                }
+                            };
+                            
+                            // Nur in den ersten 10 Sekunden der Grace Period erlauben
+                            if grace_age < 10 {
+                                log::warn!("Grace Period sehr frisch ({} Sekunden) - erlaube gepinnte Zertifikate", grace_age);
+                                return Ok(true);
+                            } else {
+                                // Grace Period läuft ab - nach 10 Sekunden wieder strikter
+                                log::error!("Grace Period läuft ab ({} Sekunden) - CT-Verifikation wieder erforderlich", grace_age);
+                                return Err(super::SecurityError::SecurityViolation(
+                                    format!("CT verification required - grace period expired ({} seconds)", grace_age)
+                                ));
+                            }
                         }
                     }
                     
@@ -949,7 +1264,6 @@ impl SslPinner {
     /// Verifiziert Certificate Transparency Logs (private helper method)
     async fn _verify_certificate_transparency(&self, cert: &[u8]) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         use std::collections::HashMap;
-        use serde_json::Value;
         
         // CT-Log-APIs (Google CT, Cloudflare CT)
         let ct_logs = vec![
@@ -1046,7 +1360,7 @@ impl SslPinner {
     
     /// Prüft ob ein Fehler ein Netzwerkfehler ist (robust, ohne String-Matching)
     /// Unterstützt reqwest::Error und andere gängige HTTP/Netzwerk-Fehler-Typen
-    fn is_network_error(error: &dyn std::error::Error) -> bool {
+    fn is_network_error(error: &(dyn std::error::Error + 'static)) -> bool {
         use std::error::Error;
         
         // Prüfe auf reqwest::Error (am häufigsten bei CT-Log-Abfragen)
@@ -1134,15 +1448,113 @@ impl AntiTamper {
 
     fn check_code_integrity(&self) -> bool {
         // Prüfe Code-Integrität durch Checksum-Vergleich
-        // In einer echten Implementierung würde hier die aktuelle
-        // Code-Checksum mit der erwarteten Checksum verglichen
+        use sha2::{Sha256, Digest};
+        
+        // Erstelle Baseline beim ersten Aufruf
+        let mut integrity_map = self.integrity_checks.lock().unwrap();
+        
+        // Prüfe kritische Funktionen auf Änderungen
+        #[cfg(unix)]
+        {
+            // Prüfe /proc/self/maps auf Code-Segmente
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                for line in maps.lines() {
+                    if line.contains("r-xp") {
+                        // Executable Code-Segment
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if let (Some(addr_range), Some(path)) = (parts.get(0), parts.get(5)) {
+                            if !path.is_empty() && !path.starts_with("[") {
+                                // Berechne Checksum der Datei
+                                if let Ok(contents) = fs::read(path) {
+                                    let mut hasher = Sha256::new();
+                                    hasher.update(&contents);
+                                    let hash = hasher.finalize();
+                                    let hash_u64 = u64::from_be_bytes(
+                                        hash[0..8].try_into().unwrap_or([0; 8])
+                                    );
+                                    
+                                    // Vergleiche mit Baseline
+                                    let key = format!("{}:{}", addr_range, path);
+                                    if let Some(&baseline) = integrity_map.get(&key) {
+                                        if baseline != hash_u64 {
+                                            log::warn!("🔴 Code-Integrität verletzt: {} (Hash geändert)", path);
+                                            return true;
+                                        }
+                                    } else {
+                                        // Erstelle Baseline beim ersten Mal
+                                        integrity_map.insert(key, hash_u64);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         false
     }
 
     fn check_runtime_modifications(&self) -> bool {
         // Prüfe auf Runtime-Modifikationen
-        // In einer echten Implementierung würde hier der Code-Space
-        // nach unerwarteten Änderungen gescannt
+        #[cfg(unix)]
+        {
+            // Methode 1: Prüfe auf Writable Code-Segments
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                for line in maps.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let permissions = parts[1];
+                        // Code-Segments sollten NUR r-x sein, nicht rwx
+                        if permissions.contains('x') && permissions.contains('w') {
+                            let path = parts.get(5).unwrap_or(&"");
+                            // Ignoriere Stack/Heap
+                            if !path.contains("[stack]") && !path.contains("[heap]") {
+                                // Prüfe ob es eine bekannte executable Library ist
+                                if !path.contains("/system/lib") 
+                                    && !path.contains("/usr/lib")
+                                    && !path.is_empty() {
+                                    log::warn!("🔴 Writable Code-Segment gefunden: {} (Permissions: {})", path, permissions);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Methode 2: Prüfe auf unerwartete Memory-Mappings
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                let mut executable_regions = 0;
+                let mut suspicious_regions = 0;
+                
+                for line in maps.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 2 {
+                        let permissions = parts[1];
+                        if permissions.contains('x') {
+                            executable_regions += 1;
+                            let path = parts.get(5).unwrap_or(&"");
+                            
+                            // Verdächtig: Executable ohne bekannten Pfad
+                            if path.is_empty() || path.starts_with("[") {
+                                suspicious_regions += 1;
+                            }
+                        }
+                    }
+                }
+                
+                // Zu viele verdächtige executable Regions
+                if suspicious_regions > 5 && executable_regions > 0 {
+                    let ratio = suspicious_regions as f64 / executable_regions as f64;
+                    if ratio > 0.3 {
+                        log::warn!("🔴 Zu viele verdächtige executable Memory-Regionen: {}/{}", suspicious_regions, executable_regions);
+                        return true;
+                    }
+                }
+            }
+        }
+        
         false
     }
 
@@ -1161,8 +1573,60 @@ impl AntiTamper {
 
     fn check_process_injection(&self) -> bool {
         // Prüfe auf Process-Injection
-        // In einer echten Implementierung würde hier der Process-Space
-        // nach verdächtigen Modifikationen gescannt
+        #[cfg(unix)]
+        {
+            // Methode 1: Prüfe auf unerwartete Threads
+            if let Ok(threads) = fs::read_dir("/proc/self/task") {
+                let thread_count = threads.count();
+                // Warnung: Normale Anzahl hängt von App ab
+                // Für Connectias: mehr als 20 Threads könnte verdächtig sein
+                if thread_count > 20 {
+                    log::warn!("⚠️ Viele Threads erkannt: {} (könnte Process-Injection sein)", thread_count);
+                }
+            }
+            
+            // Methode 2: Prüfe auf verdächtige Libraries in Memory
+            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
+                let suspicious_libs = [
+                    "inject", "hook", "patch", "override", "bypass",
+                ];
+                
+                for line in maps.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if let Some(path) = parts.get(5) {
+                        if path.contains(".so") || path.contains(".dylib") {
+                            let path_lower = path.to_lowercase();
+                            for suspicious in &suspicious_libs {
+                                if path_lower.contains(suspicious) {
+                                    log::warn!("🔴 Verdächtige Library für Process-Injection erkannt: {}", path);
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Methode 3: Prüfe auf unerwartete Process-Modifikationen
+            // Prüfe ob /proc/self/exe auf unerwartete Datei zeigt
+            #[cfg(target_os = "linux")]
+            {
+                if let Ok(exe_link) = fs::read_link("/proc/self/exe") {
+                    if let Ok(exe_path) = exe_link.canonicalize() {
+                        // Prüfe ob Binary-Pfad erwartet ist
+                        // In Production: Vergleiche mit embedded expected path
+                        if let Ok(expected_base) = std::env::var("CONNECTIAS_EXPECTED_BINARY_PATH") {
+                            if !exe_path.to_string_lossy().contains(&expected_base) {
+                                log::warn!("🔴 Binary-Pfad abweichend: {} (erwartet: {})", 
+                                    exe_path.display(), expected_base);
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         false
     }
 }

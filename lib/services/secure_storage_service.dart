@@ -1,5 +1,5 @@
 /// Secure Storage Service – Vereinfachte Implementierung
-/// 
+///
 /// Lokale Datei-basierte Verschlüsselung ohne externe Dependencies
 library;
 
@@ -10,7 +10,8 @@ import 'package:path_provider/path_provider.dart';
 
 /// Vereinfachte Storage Service
 class SecureStorageService {
-  static final SecureStorageService _instance = SecureStorageService._internal();
+  static final SecureStorageService _instance =
+      SecureStorageService._internal();
 
   factory SecureStorageService() {
     return _instance;
@@ -101,7 +102,10 @@ class SecureStorageService {
   }
 
   /// Lese JSON
-  Future<T?> getJson<T>(String key, T Function(Map<String, dynamic>) parser) async {
+  Future<T?> getJson<T>(
+    String key,
+    T Function(Map<String, dynamic>) parser,
+  ) async {
     final jsonStr = await read(key);
     if (jsonStr == null) return null;
     try {
@@ -212,4 +216,4 @@ class SecureStorageService {
 // ============================================================================
 
 /// Globale SecureStorageService Instance
-final secureStorageService = SecureStorageService();//ich diene der aktualisierung wala
+final secureStorageService = SecureStorageService();

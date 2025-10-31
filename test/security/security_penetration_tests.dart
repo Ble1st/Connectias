@@ -2,9 +2,9 @@
 library;
 
 import 'package:test/test.dart';
-import 'package:connectias/ffi/connectias_bindings.dart';
+// import 'package:connectias/ffi/connectias_bindings.dart'; // Entfernt, da nicht verwendet
 import 'package:connectias/services/connectias_service.dart';
-import 'package:flutter/foundation.dart';
+// import 'package:flutter/foundation.dart'; // Entfernt, da nicht verwendet
 
 void main() {
   group('Security Tests', () {
@@ -19,14 +19,13 @@ void main() {
     test('RASP detects compromised environment', () async {
       final service = ConnectiasService();
       await service.init();
-      
+
       final rooted = await service.isRooted();
       final debugged = await service.isDebugged();
-      
+
       print('✅ Rooted: $rooted, Debugged: $debugged');
-      
+
       await service.dispose();
     });
   });
 }
-//ich diene der aktualisierung wala

@@ -7,16 +7,13 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/plugin_model.dart';
-import '../services/connectias_service.dart';
+// import '../services/connectias_service.dart'; // Entfernt, da _service nicht verwendet wird
 
 /// Plugin Details Screen mit vollständigen Informationen
 class PluginDetailsScreen extends StatefulWidget {
   final PluginModel plugin;
 
-  const PluginDetailsScreen({
-    super.key,
-    required this.plugin,
-  });
+  const PluginDetailsScreen({super.key, required this.plugin});
 
   @override
   State<PluginDetailsScreen> createState() => _PluginDetailsScreenState();
@@ -24,12 +21,12 @@ class PluginDetailsScreen extends StatefulWidget {
 
 class _PluginDetailsScreenState extends State<PluginDetailsScreen>
     with TickerProviderStateMixin {
-  final ConnectiasService _service = connectiasService;
-  
+  // _service wurde entfernt, da nicht verwendet
+
   late TabController _tabController;
   Timer? _refreshTimer;
   bool _isLoading = false;
-  
+
   // Plugin Details
   Map<String, dynamic> _pluginStats = {};
   List<Map<String, dynamic>> _recentActivity = [];
@@ -210,7 +207,12 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
             _buildInfoTile('Version', widget.plugin.version, Icons.info),
             _buildInfoTile('Autor', widget.plugin.author, Icons.person),
             _buildInfoTile('Kategorie', widget.plugin.category, Icons.category),
-            _buildInfoTile('Status', _getStatusText(), Icons.circle, _getStatusColor()),
+            _buildInfoTile(
+              'Status',
+              _getStatusText(),
+              Icons.circle,
+              _getStatusColor(),
+            ),
           ]),
 
           const SizedBox(height: 24),
@@ -232,10 +234,30 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
 
           // Statistics
           _buildInfoSection('Statistiken', [
-            _buildStatCard('Ausführungen', '${_pluginStats['executionCount']}', Icons.play_arrow, Colors.blue),
-            _buildStatCard('Speicher', '${_pluginStats['memoryUsage']} MB', Icons.memory, Colors.orange),
-            _buildStatCard('CPU', '${_pluginStats['cpuUsage']}%', Icons.speed, Colors.green),
-            _buildStatCard('Uptime', _pluginStats['uptime'], Icons.schedule, Colors.purple),
+            _buildStatCard(
+              'Ausführungen',
+              '${_pluginStats['executionCount']}',
+              Icons.play_arrow,
+              Colors.blue,
+            ),
+            _buildStatCard(
+              'Speicher',
+              '${_pluginStats['memoryUsage']} MB',
+              Icons.memory,
+              Colors.orange,
+            ),
+            _buildStatCard(
+              'CPU',
+              '${_pluginStats['cpuUsage']}%',
+              Icons.speed,
+              Colors.green,
+            ),
+            _buildStatCard(
+              'Uptime',
+              _pluginStats['uptime'],
+              Icons.schedule,
+              Colors.purple,
+            ),
           ]),
         ],
       ),
@@ -250,18 +272,46 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
         children: [
           // Performance Metrics
           _buildInfoSection('Leistungsmetriken', [
-            _buildMetricCard('Antwortzeit', '${_performanceMetrics['responseTime']} ms', Icons.timer, Colors.blue),
-            _buildMetricCard('Durchsatz', '${_performanceMetrics['throughput']} req/s', Icons.speed, Colors.green),
-            _buildMetricCard('Fehlerrate', '${_performanceMetrics['errorRate']}%', Icons.error, Colors.red),
-            _buildMetricCard('Verfügbarkeit', '${_performanceMetrics['availability']}%', Icons.check_circle, Colors.purple),
+            _buildMetricCard(
+              'Antwortzeit',
+              '${_performanceMetrics['responseTime']} ms',
+              Icons.timer,
+              Colors.blue,
+            ),
+            _buildMetricCard(
+              'Durchsatz',
+              '${_performanceMetrics['throughput']} req/s',
+              Icons.speed,
+              Colors.green,
+            ),
+            _buildMetricCard(
+              'Fehlerrate',
+              '${_performanceMetrics['errorRate']}%',
+              Icons.error,
+              Colors.red,
+            ),
+            _buildMetricCard(
+              'Verfügbarkeit',
+              '${_performanceMetrics['availability']}%',
+              Icons.check_circle,
+              Colors.purple,
+            ),
           ]),
 
           const SizedBox(height: 24),
 
           // Resource Usage
           _buildInfoSection('Ressourcenverbrauch', [
-            _buildResourceChart('CPU', _pluginStats['cpuUsage'] ?? 0.0, Colors.red),
-            _buildResourceChart('Speicher', _pluginStats['memoryUsage'] ?? 0.0, Colors.blue),
+            _buildResourceChart(
+              'CPU',
+              _pluginStats['cpuUsage'] ?? 0.0,
+              Colors.red,
+            ),
+            _buildResourceChart(
+              'Speicher',
+              _pluginStats['memoryUsage'] ?? 0.0,
+              Colors.blue,
+            ),
             _buildResourceChart('Netzwerk', 12.5, Colors.green),
           ]),
 
@@ -296,11 +346,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.security,
-                      color: Colors.green,
-                      size: 32,
-                    ),
+                    Icon(Icons.security, color: Colors.green, size: 32),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
@@ -327,7 +373,9 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
 
           // Permissions
           _buildInfoSection('Berechtigungen', [
-            ..._permissions.map((permission) => _buildPermissionTile(permission)),
+            ..._permissions.map(
+              (permission) => _buildPermissionTile(permission),
+            ),
           ]),
 
           const SizedBox(height: 24),
@@ -370,7 +418,9 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
                 ),
               )
             else
-              ..._recentActivity.map((activity) => _buildActivityTile(activity)),
+              ..._recentActivity.map(
+                (activity) => _buildActivityTile(activity),
+              ),
           ]),
 
           const SizedBox(height: 24),
@@ -419,7 +469,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
           gradient: LinearGradient(
             colors: [
               Theme.of(context).colorScheme.primary,
-              Theme.of(context).colorScheme.primary.withOpacity(0.8),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.8),
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -429,11 +479,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
           padding: const EdgeInsets.all(20),
           child: Row(
             children: [
-              Icon(
-                _getPluginIcon(),
-                size: 48,
-                color: Colors.white,
-              ),
+              Icon(_getPluginIcon(), size: 48, color: Colors.white),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
@@ -465,7 +511,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
                             widget.plugin.category,
                             style: const TextStyle(color: Colors.white),
                           ),
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                         ),
                       ],
                     ),
@@ -494,9 +540,9 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
       children: [
         Text(
           title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
         ...children,
@@ -504,7 +550,12 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
     );
   }
 
-  Widget _buildInfoTile(String label, String value, IconData icon, [Color? color]) {
+  Widget _buildInfoTile(
+    String label,
+    String value,
+    IconData icon, [
+    Color? color,
+  ]) {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(label),
@@ -517,7 +568,12 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -546,9 +602,14 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
     );
   }
 
-  Widget _buildMetricCard(String title, String value, IconData icon, Color color) {
+  Widget _buildMetricCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
-      color: color.withOpacity(0.1),
+      color: color.withValues(alpha: 0.1),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -565,10 +626,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
             ),
             Text(
               title,
-              style: TextStyle(
-                fontSize: 12,
-                color: color,
-              ),
+              style: TextStyle(fontSize: 12, color: color),
               textAlign: TextAlign.center,
             ),
           ],
@@ -586,10 +644,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(label),
-                Text('${value.toStringAsFixed(1)}%'),
-              ],
+              children: [Text(label), Text('${value.toStringAsFixed(1)}%')],
             ),
             const SizedBox(height: 8),
             LinearProgressIndicator(
@@ -664,17 +719,11 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
   Widget _buildActivityTile(Map<String, dynamic> activity) {
     return Card(
       child: ListTile(
-        leading: Icon(
-          activity['icon'],
-          color: activity['color'],
-        ),
+        leading: Icon(activity['icon'], color: activity['color']),
         title: Text(activity['message']),
         subtitle: Text(
           _formatTimestamp(activity['timestamp']),
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
         ),
       ),
     );
@@ -683,7 +732,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
   Widget _buildStatusChip() {
     Color color;
     String text;
-    
+
     switch (widget.plugin.status) {
       case PluginStatus.active:
         color = Colors.green;
@@ -702,12 +751,9 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
         text = 'Lädt';
         break;
     }
-    
+
     return Chip(
-      label: Text(
-        text,
-        style: const TextStyle(color: Colors.white),
-      ),
+      label: Text(text, style: const TextStyle(color: Colors.white)),
       backgroundColor: color,
     );
   }
@@ -785,13 +831,13 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
   void _togglePlugin() async {
     try {
       // Echte Plugin-Toggle-Implementierung
-      final newStatus = widget.plugin.status == PluginStatus.active 
-          ? PluginStatus.inactive 
+      final newStatus = widget.plugin.status == PluginStatus.active
+          ? PluginStatus.inactive
           : PluginStatus.active;
-      
+
       // Hier würde der echte Service-Call stattfinden
       // await ConnectiasService.instance.togglePlugin(widget.plugin.id, newStatus);
-      
+
       // Erstelle neues PluginModel mit aktualisiertem Status
       final updatedPlugin = PluginModel(
         id: widget.plugin.id,
@@ -807,7 +853,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
         isEnabled: newStatus == PluginStatus.active,
         metadata: widget.plugin.metadata,
       );
-      
+
       // Signalisiere Parent über Status-Änderung
       // SnackBar wird im Parent angezeigt, damit sie sichtbar ist
       Navigator.of(context).pop(updatedPlugin);
@@ -825,9 +871,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
   void _updatePlugin() {
     // Simuliere Plugin-Update
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Plugin wird aktualisiert...'),
-      ),
+      const SnackBar(content: Text('Plugin wird aktualisiert...')),
     );
   }
 
@@ -872,17 +916,13 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
 
   void _runSecurityScan() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sicherheitsscan wird durchgeführt...'),
-      ),
+      const SnackBar(content: Text('Sicherheitsscan wird durchgeführt...')),
     );
   }
 
   void _checkPermissions() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Berechtigungen werden überprüft...'),
-      ),
+      const SnackBar(content: Text('Berechtigungen werden überprüft...')),
     );
   }
 }
@@ -890,12 +930,9 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
 /// Performance Chart Widget
 class PerformanceChart extends StatefulWidget {
   final String pluginId;
-  
-  const PerformanceChart({
-    super.key,
-    required this.pluginId,
-  });
-  
+
+  const PerformanceChart({super.key, required this.pluginId});
+
   @override
   State<PerformanceChart> createState() => _PerformanceChartState();
 }
@@ -905,31 +942,31 @@ class _PerformanceChartState extends State<PerformanceChart> {
   List<FlSpot> _memoryData = [];
   List<FlSpot> _networkData = [];
   Timer? _updateTimer;
-  
+
   @override
   void initState() {
     super.initState();
     _loadInitialData();
     _startPeriodicUpdates();
   }
-  
+
   @override
   void dispose() {
     _updateTimer?.cancel();
     super.dispose();
   }
-  
+
   void _loadInitialData() {
     // Lade historische Daten (letzte 24 Stunden)
     _generateSampleData();
   }
-  
+
   void _startPeriodicUpdates() {
     _updateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       _updateChartData();
     });
   }
-  
+
   void _generateSampleData() {
     // Generiere Sample-Daten für Demo
     final now = DateTime.now();
@@ -939,25 +976,27 @@ class _PerformanceChartState extends State<PerformanceChart> {
       final cpu = 20 + (hour * 2) + (index % 3) * 5; // Simuliere CPU-Usage
       return FlSpot(index.toDouble(), cpu.toDouble());
     });
-    
+
     _memoryData = List.generate(24, (index) {
       final time = now.subtract(Duration(hours: 23 - index));
       final hour = time.hour;
-      final memory = 30 + (hour * 1.5) + (index % 2) * 3; // Simuliere Memory-Usage
+      final memory =
+          30 + (hour * 1.5) + (index % 2) * 3; // Simuliere Memory-Usage
       return FlSpot(index.toDouble(), memory.toDouble());
     });
-    
+
     _networkData = List.generate(24, (index) {
       final time = now.subtract(Duration(hours: 23 - index));
       final hour = time.hour;
-      final network = 10 + (hour * 0.8) + (index % 4) * 2; // Simuliere Network-Usage
+      final network =
+          10 + (hour * 0.8) + (index % 4) * 2; // Simuliere Network-Usage
       return FlSpot(index.toDouble(), network.toDouble());
     });
   }
-  
+
   void _updateChartData() {
     if (!mounted) return;
-    
+
     setState(() {
       // Verschiebe alle Daten um eine Position nach links
       _cpuData.removeAt(0);
@@ -967,22 +1006,22 @@ class _PerformanceChartState extends State<PerformanceChart> {
       _cpuData = _cpuData.map((p) => FlSpot(p.x - 1, p.y)).toList();
       _memoryData = _memoryData.map((p) => FlSpot(p.x - 1, p.y)).toList();
       _networkData = _networkData.map((p) => FlSpot(p.x - 1, p.y)).toList();
-      
+
       // Füge neue Daten am Ende hinzu
       final now = DateTime.now();
       final hour = now.hour;
       final minute = now.minute;
-      
+
       final newCpu = 20 + (hour * 2) + (minute % 10) * 2;
       final newMemory = 30 + (hour * 1.5) + (minute % 15) * 1.5;
       final newNetwork = 10 + (hour * 0.8) + (minute % 20) * 1.2;
-      
+
       _cpuData.add(FlSpot(23, newCpu.toDouble()));
       _memoryData.add(FlSpot(23, newMemory.toDouble()));
       _networkData.add(FlSpot(23, newNetwork.toDouble()));
     });
   }
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -992,10 +1031,7 @@ class _PerformanceChartState extends State<PerformanceChart> {
         children: [
           const Text(
             'Performance Metrics (24h)',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -1007,16 +1043,10 @@ class _PerformanceChartState extends State<PerformanceChart> {
                   horizontalInterval: 20,
                   verticalInterval: 4,
                   getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey[300]!,
-                      strokeWidth: 1,
-                    );
+                    return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
                   },
                   getDrawingVerticalLine: (value) {
-                    return FlLine(
-                      color: Colors.grey[300]!,
-                      strokeWidth: 1,
-                    );
+                    return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
                   },
                 ),
                 titlesData: FlTitlesData(
@@ -1039,9 +1069,9 @@ class _PerformanceChartState extends State<PerformanceChart> {
                       reservedSize: 30,
                       interval: 6,
                       getTitlesWidget: (value, meta) {
-                        final hour = DateTime.now().subtract(
-                          Duration(hours: 23 - value.toInt()),
-                        ).hour;
+                        final hour = DateTime.now()
+                            .subtract(Duration(hours: 23 - value.toInt()))
+                            .hour;
                         return Text(
                           '${hour.toString().padLeft(2, '0')}:00',
                           style: const TextStyle(fontSize: 10),
@@ -1074,7 +1104,7 @@ class _PerformanceChartState extends State<PerformanceChart> {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.red.withOpacity(0.1),
+                      color: Colors.red.withValues(alpha: 0.1),
                     ),
                   ),
                   LineChartBarData(
@@ -1086,7 +1116,7 @@ class _PerformanceChartState extends State<PerformanceChart> {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.blue.withOpacity(0.1),
+                      color: Colors.blue.withValues(alpha: 0.1),
                     ),
                   ),
                   LineChartBarData(
@@ -1098,7 +1128,7 @@ class _PerformanceChartState extends State<PerformanceChart> {
                     dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: Colors.green.withOpacity(0.1),
+                      color: Colors.green.withValues(alpha: 0.1),
                     ),
                   ),
                 ],
@@ -1118,7 +1148,7 @@ class _PerformanceChartState extends State<PerformanceChart> {
       ),
     );
   }
-  
+
   Widget _buildLegendItem(String label, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -1126,16 +1156,10 @@ class _PerformanceChartState extends State<PerformanceChart> {
         Container(
           width: 12,
           height: 12,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12),
-        ),
+        Text(label, style: const TextStyle(fontSize: 12)),
       ],
     );
   }

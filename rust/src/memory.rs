@@ -19,12 +19,28 @@ pub struct MemoryStats {
     pub freed_strings: usize,
 }
 
+/// SECURITY FIX: Tracking für allocated Strings um Double-Free zu verhindern
+#[derive(Debug, Clone, Copy)]
+enum PointerState {
+    Allocated,
+    Freed,
+}
+
 static MEMORY_STATS: Lazy<Mutex<MemoryStats>> = Lazy::new(|| {
     Mutex::new(MemoryStats {
         allocated_strings: 0,
         freed_strings: 0,
     })
 });
+
+/// SECURITY FIX: Tracking-Map für allocated Pointer (verhindert Double-Free)
+/// Key: Pointer-Adresse als usize, Value: Allocated/Freed State
+/// SECURITY FIX: Memory Leak Prevention - Einträge werden bei deallocation entfernt
+static ALLOCATED_POINTERS: Lazy<Mutex<std::collections::HashMap<usize, PointerState>>> = 
+    Lazy::new(|| Mutex::new(std::collections::HashMap::new()));
+
+/// Threshold für periodische Bereinigung (verhindert unbounded Memory Leak)
+const CLEANUP_THRESHOLD: usize = 10_000;
 
 /// Gib Memory-Statistiken aus
 #[no_mangle]
@@ -46,13 +62,22 @@ pub extern "C" fn connectias_get_memory_stats() -> *const c_char {
 }
 
 /// Wrapper für sichere String-Allokation
+/// SECURITY FIX: Track allocated Pointer um Double-Free zu verhindern
 pub fn allocate_cstring(s: &str) -> Result<*mut c_char, i32> {
     match std::ffi::CString::new(s) {
         Ok(cs) => {
+            let ptr = cs.into_raw();
+            let ptr_addr = ptr as usize;
+            
+            // SECURITY FIX: Track allocated Pointer
+            if let Ok(mut ptr_map) = ALLOCATED_POINTERS.lock() {
+                ptr_map.insert(ptr_addr, PointerState::Allocated);
+            }
+            
             if let Ok(mut stats) = MEMORY_STATS.lock() {
                 stats.allocated_strings += 1;
             }
-            Ok(cs.into_raw())
+            Ok(ptr)
         }
         Err(_) => {
             warn!("⚠️ CString-Allokation fehlgeschlagen");
@@ -62,12 +87,70 @@ pub fn allocate_cstring(s: &str) -> Result<*mut c_char, i32> {
 }
 
 /// Wrapper für sichere String-Freigabe
+/// SECURITY FIX: Verhindert Double-Free durch Reference-Tracking
 pub fn deallocate_cstring(ptr: *mut c_char) {
-    if !ptr.is_null() {
+    if ptr.is_null() {
+        return;
+    }
+    
+    let ptr_addr = ptr as usize;
+    
+    // SECURITY FIX: Prüfe ob Pointer bereits freigegeben wurde
+    let should_free = {
+        if let Ok(mut ptr_map) = ALLOCATED_POINTERS.lock() {
+            match ptr_map.get(&ptr_addr) {
+                Some(PointerState::Freed) => {
+                    // Double-Free erkannt!
+                    warn!("🚨 SECURITY: Double-Free-Versuch erkannt bei Pointer {:p} (addr: 0x{:x})", ptr, ptr_addr);
+                    return; // Beende Funktion ohne Freigabe
+                }
+                Some(PointerState::Allocated) => {
+                    // Markiere als freigegeben VOR der tatsächlichen Freigabe
+                    ptr_map.insert(ptr_addr, PointerState::Freed);
+                    true
+                }
+                None => {
+                    // Pointer wurde nicht durch allocate_cstring allokiert
+                    // Möglicherweise wurde Pointer manuell erstellt oder bereits freigegeben
+                    warn!("⚠️ Versuch, unbekannten Pointer freizugeben: {:p} (addr: 0x{:x})", ptr, ptr_addr);
+                    // Erlaube Freigabe trotzdem (für Kompatibilität), aber tracke es
+                    ptr_map.insert(ptr_addr, PointerState::Freed);
+                    true
+                }
+            }
+        } else {
+            // Lock-Fehler - trotzdem versuchen freizugeben (Fail-Safe)
+            warn!("⚠️ Lock-Fehler bei Pointer-Tracking - trotzdem freigeben");
+            true
+        }
+    };
+    
+    if should_free {
         unsafe {
             let _ = std::ffi::CString::from_raw(ptr);
             if let Ok(mut stats) = MEMORY_STATS.lock() {
                 stats.freed_strings += 1;
+            }
+        }
+        
+        // SECURITY FIX: Entferne Eintrag aus HashMap um Memory Leak zu verhindern
+        // ABA-Race-Condition: Nur entfernen wenn State noch Freed ist (nicht re-allokiert)
+        // Wichtig: Muss NACH der Freigabe passieren, sonst Race Condition möglich
+        if let Ok(mut ptr_map) = ALLOCATED_POINTERS.lock() {
+            // Prüfe ob Eintrag noch existiert und State noch Freed ist
+            // Verhindert ABA: Wenn Pointer re-allokiert wurde, ist State = Allocated
+            if let Some(state) = ptr_map.get(&ptr_addr) {
+                if matches!(state, PointerState::Freed) {
+                    // Nur entfernen wenn State noch Freed (nicht re-allokiert)
+                    ptr_map.remove(&ptr_addr);
+                }
+                // Wenn State = Allocated, nicht entfernen (Pointer wurde re-allokiert)
+            }
+            
+            // Periodische Bereinigung: Entferne alle "Freed" Einträge wenn Map zu groß wird
+            // Prüfe >= statt > um Cleanup-Trigger nicht zu verpassen
+            if ptr_map.len() >= CLEANUP_THRESHOLD {
+                ptr_map.retain(|_, state| matches!(state, PointerState::Allocated));
             }
         }
     }
@@ -196,4 +279,3 @@ mod tests {
         assert!(ptr.is_null());
     }
 }
-//ich diene der aktualisierung wala
