@@ -484,17 +484,14 @@ impl InputSanitizer {
             ));
         }
         
-        // Schritt 5: Path-Traversal-Prüfung (auch nach Normalisierung)
-        if normalized.contains("..") 
-            || normalized.starts_with("./") 
-            || normalized.starts_with("../")
-            || normalized.contains("\\")
-            || normalized.contains("/etc/")
-            || normalized.contains("/root/")
-            || normalized.contains("C:\\")
-            || normalized.contains("..\\") {
+        // Schritt 5: Path-Traversal-Prüfung für ".." Pattern
+        // HINWEIS: Path-Traversal-Prüfungen für `/`, `\`, `/etc/`, etc. sind redundant,
+        // da die Regex-Whitelist (Schritt 2) bereits alle Slashes und Backslashes blockiert.
+        // Nur ".." könnte durch zwei aufeinanderfolgende Punkte entstehen, die durch die Regex erlaubt sind.
+        // Daher prüfen wir explizit auf ".." als zusätzliche Sicherheitsschicht.
+        if normalized.contains("..") {
             return Err(super::SecurityError::SecurityViolation(
-                "Path traversal pattern detected".to_string()
+                "Path traversal pattern detected: '..' not allowed".to_string()
             ));
         }
         
