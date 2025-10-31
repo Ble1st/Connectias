@@ -307,12 +307,12 @@ impl MessageBroker {
                         // Dies stellt sicher, dass der publish-subscribe contract erfüllt wird
                         self.distribute_message(&message).await;
                         
-                        // FIX BUG 1: History wird hier NICHT aktualisiert, um Duplikate zu vermeiden.
-                        // Die History wird bereits in publish_via_ipc bei erfolgreichem IPC-Publish
-                        // aktualisiert (Zeile 389). Bei IPC-Fehlern sollte die History nicht aktualisiert
-                        // werden, da die Message nicht erfolgreich an entfernte Prozesse geliefert wurde.
-                        // Lokale Subscriber werden dennoch benachrichtigt, aber ohne History-Update.
-                        // self.update_message_history(&message).await; // ENTFERNT - verhindert Duplikate
+                        // FIX BUG 4: History wird auch bei IPC-Fehler aktualisiert für konsistente Audit-Trails
+                        // Die Message wurde lokal verteilt und sollte in der History sein, auch wenn
+                        // IPC-Fehler aufgetreten sind. Dies ermöglicht vollständige Message-Replay und
+                        // Audit-Funktionalität. Es gibt KEIN Duplikat, da publish_via_ipc bei Fehler
+                        // NICHT die History aktualisiert (nur bei Erfolg, Zeile 393).
+                        self.update_message_history(&message).await;
                     }
                 }
             }

@@ -162,12 +162,16 @@ impl IPCTransport for UnixSocketTransport {
                 .ok_or(IPCError::ConnectionFailed("No socket".into()))?
         };
         
-        // FIX BUG 1: Verwende fd direkt in spawn_blocking (keine Duplikation nötig, da RawFd Copy ist)
+        // FIX BUG 3: Race Condition zwischen try_receive und disconnect verhindern
+        // Prüfe ob FD noch gültig ist, bevor wir spawn_blocking starten
         // Der FD bleibt in self.socket_fd gespeichert und wird nur bei disconnect() geschlossen.
-        // KEIN LEAK: Da wir den FD nicht mit dup() dupliziert haben, gibt es keinen zusätzlichen FD zum Schließen.
-        // Der originale FD wird korrekt verwaltet durch self.socket_fd und bei disconnect() geschlossen.
+        // WICHTIG: Wenn disconnect() während try_receive läuft, wird der FD geschlossen
+        // und libc::read gibt EBADF zurück. Wir behandeln das korrekt als Read-Fehler.
         let fd_for_read = fd;
         let result = tokio_timeout(timeout_duration, tokio::task::spawn_blocking(move || -> Result<IPCMessage, IPCError> {
+            // FIX BUG 3: Prüfe vor jedem Read ob FD noch gültig ist (Race Condition Schutz)
+            // Wenn disconnect() aufgerufen wurde, ist socket_fd None und der FD wurde geschlossen
+            // Wir können das nicht direkt prüfen, aber EBADF wird bei libc::read zurückgegeben
             // FIX BUG 1: Read length prefix mit Loop für partielle Reads
             let mut len_buf = [0u8; 4];
             let mut total_read = 0usize;
@@ -181,7 +185,12 @@ impl IPCTransport for UnixSocketTransport {
                     )
                 };
                 if result < 0 {
-                    return Err(IPCError::ReadFailed(format!("Failed to read length: {}", std::io::Error::last_os_error())));
+                    let errno = std::io::Error::last_os_error();
+                    // FIX BUG 3: EBADF bedeutet FD wurde geschlossen (Race Condition)
+                    if errno.raw_os_error() == Some(libc::EBADF) {
+                        return Err(IPCError::ReadFailed("File descriptor closed during read (disconnect() called)".to_string()));
+                    }
+                    return Err(IPCError::ReadFailed(format!("Failed to read length: {}", errno)));
                 }
                 if result == 0 {
                     return Err(IPCError::ReadFailed("Connection closed during length read".to_string()));
@@ -207,7 +216,12 @@ impl IPCTransport for UnixSocketTransport {
                     )
                 };
                 if result < 0 {
-                    return Err(IPCError::ReadFailed(format!("Failed to read data: {}", std::io::Error::last_os_error())));
+                    let errno = std::io::Error::last_os_error();
+                    // FIX BUG 3: EBADF bedeutet FD wurde geschlossen (Race Condition)
+                    if errno.raw_os_error() == Some(libc::EBADF) {
+                        return Err(IPCError::ReadFailed("File descriptor closed during read (disconnect() called)".to_string()));
+                    }
+                    return Err(IPCError::ReadFailed(format!("Failed to read data: {}", errno)));
                 }
                 if result == 0 {
                     return Err(IPCError::ReadFailed("Connection closed during payload read".to_string()));

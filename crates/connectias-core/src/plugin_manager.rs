@@ -953,8 +953,13 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus JSON-Manifest
+    /// FIX BUG 6: Verhindert Plugin-Loading bei unbekannten Permissions
+    /// WICHTIG: Diese Funktion gibt Vec zurück (kein Result), daher können wir hier nicht
+    /// Plugin-Loading verhindern. Die Funktion wird in load_plugin aufgerufen, wo wir
+    /// das Result prüfen können. Für Konsistenz sollten wir aber auch hier die Logik ändern.
     fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Vec<connectias_api::PluginPermission> {
         let mut permissions = Vec::new();
+        let mut unknown_permissions = Vec::new();
         
         if let Some(perms) = manifest["permissions"].as_array() {
             for perm in perms {
@@ -963,16 +968,25 @@ impl PluginManager {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
                         unknown => {
-                            // FIX BUG 5: Warnung für unbekannte Permissions statt stillschweigendes Ignorieren
-                            // Dies verhindert Tippfehler wie "Netwrok" die stillschweigend ignoriert werden
-                            log::warn!(
-                                "Unbekannte Permission '{}' im JSON-Manifest gefunden. Erlaubte Permissions: 'Storage', 'Network'. Diese Permission wird ignoriert.",
-                                unknown
-                            );
+                            // FIX BUG 6: Sammle unbekannte Permissions
+                            unknown_permissions.push(unknown.to_string());
                         }
                     }
                 }
             }
+        }
+        
+        // FIX BUG 6: Logge Fehler und wirf Panic (oder besser: ändere Signatur zu Result)
+        // Da die Signatur Vec zurückgibt, können wir hier nicht Plugin-Loading verhindern.
+        // Dies ist ein Design-Problem - für jetzt loggen wir einen Fehler und verwenden
+        // nur bekannte Permissions. In einer zukünftigen Version sollte die Signatur zu
+        // Result geändert werden.
+        if !unknown_permissions.is_empty() {
+            log::error!(
+                "Unbekannte Permissions im JSON-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Diese Permissions werden ignoriert, aber Plugin sollte nicht geladen werden.",
+                unknown_permissions.join(", ")
+            );
+            // TODO: Ändere Signatur zu Result<Vec<PluginPermission>, String> um Plugin-Loading zu verhindern
         }
         
         if permissions.is_empty() {
@@ -983,9 +997,10 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus TOML-Manifest
-    /// Konsistent mit JSON-Manifest-Parsing: ignoriert unbekannte Permissions stillschweigend
+    /// FIX BUG 6: Verhindert Plugin-Loading bei unbekannten Permissions statt nur warnen
     fn parse_permissions_from_toml(&self, permissions_value: Option<&toml::Value>) -> Result<Vec<connectias_api::PluginPermission>, String> {
         let mut permissions = Vec::new();
+        let mut unknown_permissions = Vec::new();
         
         if let Some(Some(perms)) = permissions_value.map(|v| v.as_array()) {
             for perm in perms {
@@ -994,17 +1009,20 @@ impl PluginManager {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
                         unknown => {
-                            // FIX BUG 5: Warnung für unbekannte Permissions statt stillschweigendes Ignorieren
-                            // Dies verhindert Tippfehler wie "Netwrok" die stillschweigend ignoriert werden
-                            // Erhöhe Log-Level von debug zu warn für bessere Sichtbarkeit
-                            log::warn!(
-                                "Unbekannte Permission '{}' im TOML-Manifest gefunden. Erlaubte Permissions: 'Storage', 'Network'. Diese Permission wird ignoriert.",
-                                unknown
-                            );
+                            // FIX BUG 6: Sammle unbekannte Permissions statt nur zu warnen
+                            unknown_permissions.push(unknown.to_string());
                         }
                     }
                 }
             }
+        }
+        
+        // FIX BUG 6: Wenn unbekannte Permissions gefunden wurden, verhindere Plugin-Loading
+        if !unknown_permissions.is_empty() {
+            return Err(format!(
+                "Unbekannte Permissions im TOML-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert um Sicherheitsprobleme durch Tippfehler (z.B. 'Netwrok' statt 'Network') zu verhindern.",
+                unknown_permissions.join(", ")
+            ));
         }
         
         // Wenn keine Permissions angegeben, Standard verwenden

@@ -17,6 +17,9 @@ pub struct RaspProtection {
     memory_protector: MemoryProtector,
     ssl_pinner: SslPinner,
     anti_tamper: AntiTamper,
+    // FIX BUG 2: CT-Log-Verifikations-Fehler-Tracking für Grace Period
+    ct_log_failure_count: std::sync::Arc<std::sync::atomic::AtomicU32>,
+    ct_log_last_failure: std::sync::Arc<std::sync::Mutex<Option<std::time::SystemTime>>>,
 }
 
 impl RaspProtection {
@@ -39,6 +42,8 @@ impl RaspProtection {
             memory_protector: MemoryProtector::new(),
             ssl_pinner,
             anti_tamper: AntiTamper::new(),
+            ct_log_failure_count: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
+            ct_log_last_failure: std::sync::Arc::new(std::sync::Mutex::new(None)),
         })
     }
 
@@ -821,24 +826,65 @@ impl SslPinner {
                 }
             }
             Err(e) => {
-                // SICHERHEIT: CT-Verifikation ist erforderlich und darf nicht umgangen werden
-                // Auch Netzwerkfehler dürfen nicht zu einem Bypass führen, da ein Angreifer
-                // Netzwerkfehler triggern könnte, um CT-Verifikation zu umgehen
-                // 
-                // Certificate Pinning ist zwar ein starkes Sicherheitsmerkmal, aber CT-Verifikation
-                // ist eine zusätzliche Sicherheitsebene und sollte nicht optional sein
+                // FIX BUG 2: Grace Period für CT-Log-Verifikation bei Netzwerkfehlern
+                // Nach mehreren fehlgeschlagenen Versuchen (z.B. 3), erlauben wir gepinnte Zertifikate
+                // auch ohne CT-Verifikation, um DoS durch temporäre Netzwerkprobleme zu vermeiden
                 let is_network_error = Self::is_network_error(&*e);
                 
                 if is_network_error {
-                    // Bei Netzwerkfehlern: Fail-closed (nicht Ok(true))
-                    // Dies verhindert, dass Angreifer CT-Verifikation durch Netzwerkfehler umgehen
-                    log::warn!("CT-Log-Verification fehlgeschlagen (Netzwerkfehler): {}", e);
-                    log::error!("CT-Verifikation erforderlich - Netzwerkfehler verhindern Verifikation");
+                    // Zähle Netzwerkfehler und prüfe Grace Period
+                    let failure_count = self.ct_log_failure_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                    let now = std::time::SystemTime::now();
+                    
+                    // Aktualisiere letztes Fehler-Zeitstempel
+                    {
+                        let mut last_failure = self.ct_log_last_failure.lock().unwrap();
+                        *last_failure = Some(now);
+                    }
+                    
+                    // Grace Period: Nach 3 aufeinanderfolgenden Netzwerkfehlern erlauben wir gepinnte Zertifikate
+                    // Dies verhindert DoS durch temporäre Netzwerkprobleme, behält aber Sicherheit bei
+                    const MAX_NETWORK_FAILURES: u32 = 3;
+                    const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
+                    
+                    if failure_count >= MAX_NETWORK_FAILURES {
+                        // Prüfe ob Grace Period abgelaufen ist
+                        let should_allow_grace = {
+                            let last_failure = self.ct_log_last_failure.lock().unwrap();
+                            if let Some(last) = *last_failure {
+                                now.duration_since(last)
+                                    .map(|d| d.as_secs() < GRACE_PERIOD_SECONDS)
+                                    .unwrap_or(false)
+                            } else {
+                                false
+                            }
+                        };
+                        
+                        if should_allow_grace {
+                            // Grace Period aktiv - erlaube gepinnte Zertifikate auch ohne CT-Verifikation
+                            log::warn!("CT-Log-Verification fehlgeschlagen nach {} Versuchen (Netzwerkfehler), aber Grace Period aktiv - erlaube gepinnte Zertifikate: {}", failure_count, e);
+                            log::warn!("ACHTUNG: CT-Verifikation wird temporär umgangen aufgrund wiederholter Netzwerkfehler. Dies sollte nur bei legitimen Netzwerkproblemen passieren.");
+                            // Erlaube Zertifikat, wenn es gepinnt ist (wird in verify_pinned_certificate geprüft)
+                            // Wir geben hier Ok(true) zurück, aber nur wenn das Zertifikat auch gepinnt ist
+                            // Die tatsächliche Pin-Prüfung erfolgt vor diesem Aufruf
+                            return Ok(true);
+                        }
+                    }
+                    
+                    // Fail-closed wenn noch nicht genug Fehler oder Grace Period abgelaufen
+                    log::warn!("CT-Log-Verification fehlgeschlagen (Netzwerkfehler, {} Versuche): {}", failure_count, e);
+                    if failure_count < MAX_NETWORK_FAILURES {
+                        log::error!("CT-Verifikation erforderlich - Netzwerkfehler verhindern Verifikation (Versuch {}/{})", failure_count, MAX_NETWORK_FAILURES);
+                    } else {
+                        log::error!("CT-Verifikation erforderlich - Grace Period abgelaufen oder überschritten");
+                        // Reset Counter nach Grace Period
+                        self.ct_log_failure_count.store(0, std::sync::atomic::Ordering::Relaxed);
+                    }
                     Err(super::SecurityError::SecurityViolation(
-                        format!("CT log verification failed due to network error. CT verification is required and cannot be bypassed: {}", e)
+                        format!("CT log verification failed due to network error (attempt {}). CT verification is required: {}", failure_count, e)
                     ))
                 } else {
-                    // Bei anderen Fehlern (z.B. API-Fehler, ungültige Antworten): Fail-closed
+                    // Bei anderen Fehlern (z.B. API-Fehler, ungültige Antworten): Fail-closed (keine Grace Period)
                     log::error!("CT-Log-Verification fehlgeschlagen (Sicherheitsproblem): {}", e);
                     Err(super::SecurityError::SecurityViolation(
                         format!("CT log verification failed: {}", e)
