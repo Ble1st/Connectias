@@ -147,11 +147,14 @@ impl IPCTransport for UnixSocketTransport {
     }
     
     async fn try_receive(&self, timeout_duration: Duration) -> Result<Option<IPCMessage>, IPCError> {
-        // FIX BUG 2: Verwende blocking libc::read mit timeout, da tokio::UnixStream::from_raw_fd nicht existiert
-        // Alternativ: Dupliziere FD und verwende blocking read in spawn_blocking
+        // FIX BUG 1: Verwende blocking libc::read mit timeout, da tokio::UnixStream::from_raw_fd nicht existiert
+        // WICHTIG: RawFd ist Copy (i32), daher kopieren wir nur den Integer-Wert, nicht den File Descriptor selbst.
+        // Es gibt KEINE echte FD-Duplikation (kein dup()/dup2()). Beide Referenzen zeigen auf denselben FD.
+        // Der FD wird nur geschlossen, wenn disconnect() aufgerufen wird oder socket_fd auf None gesetzt wird.
+        // KEIN LEAK: Der FD wird korrekt verwaltet durch self.socket_fd und nur bei disconnect() geschlossen.
         use libc;
         
-        // Hole FD (NICHT auf None setzen, da wir blocking read verwenden)
+        // Hole FD-Wert (RawFd ist Copy - Integer-Wert, keine echte FD-Duplikation)
         let fd = {
             let socket_fd_guard = self.socket_fd.lock().await;
             *socket_fd_guard
@@ -159,8 +162,11 @@ impl IPCTransport for UnixSocketTransport {
                 .ok_or(IPCError::ConnectionFailed("No socket".into()))?
         };
         
-        // Verwende spawn_blocking für blocking I/O mit timeout
-        let fd_clone = fd;
+        // FIX BUG 1: Verwende fd direkt in spawn_blocking (keine Duplikation nötig, da RawFd Copy ist)
+        // Der FD bleibt in self.socket_fd gespeichert und wird nur bei disconnect() geschlossen.
+        // KEIN LEAK: Da wir den FD nicht mit dup() dupliziert haben, gibt es keinen zusätzlichen FD zum Schließen.
+        // Der originale FD wird korrekt verwaltet durch self.socket_fd und bei disconnect() geschlossen.
+        let fd_for_read = fd;
         let result = tokio_timeout(timeout_duration, tokio::task::spawn_blocking(move || -> Result<IPCMessage, IPCError> {
             // FIX BUG 1: Read length prefix mit Loop für partielle Reads
             let mut len_buf = [0u8; 4];
@@ -169,7 +175,7 @@ impl IPCTransport for UnixSocketTransport {
                 let remaining = 4 - total_read;
                 let result = unsafe {
                     libc::read(
-                        fd_clone,
+                        fd_for_read,
                         len_buf.as_mut_ptr().add(total_read) as *mut libc::c_void,
                         remaining
                     )
@@ -195,7 +201,7 @@ impl IPCTransport for UnixSocketTransport {
                 let remaining = len - total_read;
                 let result = unsafe {
                     libc::read(
-                        fd_clone,
+                        fd_for_read,
                         data.as_mut_ptr().add(total_read) as *mut libc::c_void,
                         remaining
                     )
