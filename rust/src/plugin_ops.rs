@@ -213,17 +213,17 @@ pub extern "C" fn connectias_execute_plugin(
                     return FFI_ERROR_SECURITY_VIOLATION;
                 }
                 
-                // Schritt 4: Validierung - nur einfache Key-Value-Pairs erlaubt
-                // Keine verschachtelten Objekte oder Arrays (verhindert komplexe Injection-Angriffe)
+                // Schritt 4: Validierung - einfache Key-Value-Pairs erlaubt
+                // Erlaubt: Strings, Numbers, Booleans, Null (keine verschachtelten Objekte/Arrays)
                 match sanitized_json {
                     serde_json::Value::Object(map) => {
                         let mut args_map = HashMap::new();
                         for (key, value) in map {
-                            // Nur String-Werte erlauben (keine Objekte/Arrays)
-                            match value {
+                            // Konvertiere Wert zu String für HashMap<String, String>
+                            // Erlaubt: String, Number, Boolean, Null
+                            let value_str = match value {
                                 serde_json::Value::String(s) => {
-                                    // String-Validierung: Whitelist für erlaubte Zeichen
-                                    // Alphanumerisch, Leerzeichen, Bindestrich, Unterstrich, Punkt, @
+                                    // String-Validierung: Länge und gefährliche Patterns prüfen
                                     if s.len() > 4096 {
                                         let msg = format!("❌ String zu lang: {} bytes (max 4096)", s.len());
                                         error!("{}", msg);
@@ -231,7 +231,8 @@ pub extern "C" fn connectias_execute_plugin(
                                         return FFI_ERROR_SECURITY_VIOLATION;
                                     }
                                     
-                                    // Prüfe auf gefährliche Patterns
+                                    // SECURITY: Prüfe nur auf gefährliche Patterns in echten Strings
+                                    // (Nicht bei Zahlen/Booleans nötig, da diese bereits sicher sind)
                                     let s_upper = s.to_uppercase();
                                     let dangerous = ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", 
                                                      "CREATE", "ALTER", "UNION", "EXEC", "EXECUTE",
@@ -245,15 +246,54 @@ pub extern "C" fn connectias_execute_plugin(
                                         }
                                     }
                                     
-                                    args_map.insert(key, s);
+                                    s
                                 }
-                                _ => {
-                                    let msg = format!("❌ Nur String-Werte erlaubt in JSON-Args, gefunden: {:?}", value);
+                                serde_json::Value::Number(n) => {
+                                    // Numbers sind sicher - konvertiere zu String
+                                    // Prüfe auf vernünftige Größenlimits (verhindert Extremwerte)
+                                    if let Some(i) = n.as_i64() {
+                                        // Prüfe auf extrem große/kleine Integers
+                                        if i > i64::MAX / 2 || i < i64::MIN / 2 {
+                                            let msg = "❌ Number zu groß für sichere Konvertierung".to_string();
+                                            error!("{}", msg);
+                                            set_last_error(&msg);
+                                            return FFI_ERROR_SECURITY_VIOLATION;
+                                        }
+                                        i.to_string()
+                                    } else if let Some(f) = n.as_f64() {
+                                        // Prüfe auf NaN, Infinity, extrem große Floats
+                                        if f.is_nan() || f.is_infinite() || f.abs() > 1e308 {
+                                            let msg = "❌ Invalid Float-Wert (NaN/Infinity/zu groß)".to_string();
+                                            error!("{}", msg);
+                                            set_last_error(&msg);
+                                            return FFI_ERROR_SECURITY_VIOLATION;
+                                        }
+                                        f.to_string()
+                                    } else {
+                                        let msg = "❌ Unsupported Number-Format".to_string();
+                                        error!("{}", msg);
+                                        set_last_error(&msg);
+                                        return FFI_ERROR_SECURITY_VIOLATION;
+                                    }
+                                }
+                                serde_json::Value::Bool(b) => {
+                                    // Booleans sind sicher - konvertiere zu String
+                                    b.to_string()
+                                }
+                                serde_json::Value::Null => {
+                                    // Null ist sicher - konvertiere zu leeren String oder "null"
+                                    "null".to_string()
+                                }
+                                serde_json::Value::Object(_) | serde_json::Value::Array(_) => {
+                                    // Verschachtelte Objekte/Arrays sind nicht erlaubt (Sicherheitsrisiko)
+                                    let msg = "❌ Verschachtelte Objekte oder Arrays sind nicht erlaubt in JSON-Args".to_string();
                                     error!("{}", msg);
                                     set_last_error(&msg);
                                     return FFI_ERROR_SECURITY_VIOLATION;
                                 }
-                            }
+                            };
+                            
+                            args_map.insert(key, value_str);
                         }
                         args_map
                     }
