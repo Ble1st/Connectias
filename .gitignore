@@ -28,10 +28,21 @@ migrate_working_dir/
 **/ios/Flutter/.last_build_id
 .dart_tool/
 .flutter-plugins-dependencies
+.flutter-plugins
 .pub-cache/
 .pub/
+.packages
 /build/
 /coverage/
+
+# Generated Dart files
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Flutter-generated files
+**/generated_plugin_registrant.*
+linux/ephemeral/
 
 # Symbolication related
 app.*.symbols
@@ -43,8 +54,90 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/build/
+/android/build/
+/android/.gradle/
+/android/.cxx/
+android/local.properties
+
+# Android Keystore files (SICHERHEITSRELEVANT - NIEMALS COMMITTEN!)
+*.keystore
+*.jks
+*.store
+android/keystore/*.jks
+android/keystore/*.keystore
+android/keystore/*.store
 
 # Rust build artifacts
 /target/
 **/target/
-Cargo.lock
+# Note: Root Cargo.lock should be committed for applications
+# Only exclude Cargo.lock from examples
+examples/**/Cargo.lock
+
+# Rust analyzer cache
+rust-analyzer/
+**/rust-analyzer/
+.cargo/
+
+# Error reports and diagnostics
+/reports/
+**/reports/
+
+# WASM build artifacts
+**/pkg/
+*.wasm
+*.wasm.map
+**/*_bg.wasm
+
+# Linux/CMake build artifacts
+linux/cmake-build-*/
+linux/build/
+
+# Editor and IDE files
+*.swo
+*.swn
+*~
+.*.sw?
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.cache
+.cache/
+temp/
+tmp/
+
+# Test coverage and reports
+*.lcov
+coverage/
+*.gcov
+*.gcda
+*.gcno
+lcov.info
+
+# Documentation build artifacts (MkDocs)
+site/
+.mkdocs_cache/
+
+# Analysis and scan files
+*.analysis
+SCAN_REPORT.md
+*.scan
