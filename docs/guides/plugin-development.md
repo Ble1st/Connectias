@@ -521,8 +521,13 @@ fn sign_plugin(
         let mut file = archive.by_index(i)?;
         let file_name = file.name().to_string();
         
-        // Skip Signatur-Dateien
-        if file_name.contains("SIGNATURE") {
+        // Skip Signatur-Dateien (präzise Prüfung - verhindert False-Positives)
+        // Prüfe auf exakte Signatur-Dateinamen oder bekannte Signatur-Extensions
+        if file_name == "SIGNATURE" 
+            || file_name == "META-INF/SIGNATURE.RSA"
+            || file_name.ends_with(".sig") 
+            || file_name.ends_with(".sig.asc")
+            || file_name.ends_with("/SIGNATURE") {
             continue;
         }
         
@@ -559,8 +564,10 @@ fn sign_plugin(
         zip_writer.write_all(content)?;
     }
     
-    // Füge Signatur hinzu
-    let signature_b64 = base64::encode(&signature);
+    // Füge Signatur hinzu (base64 0.22+ API mit engine)
+    use base64::engine::general_purpose;
+    use base64::Engine;
+    let signature_b64 = general_purpose::STANDARD.encode(&signature);
     zip_writer.start_file("META-INF/SIGNATURE.RSA", zip::FileOptions::default())?;
     zip_writer.write_all(signature_b64.as_bytes())?;
     

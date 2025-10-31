@@ -250,4 +250,3 @@ class PermissionAuditEvent {
 
 /// Globale Instanz
 final permissionService = PermissionService();
-//ich diene der aktualisierung wala

@@ -453,5 +453,3 @@ Future<RaspStatus> getRaspStatus() async {
     tamper: await raspCheckTamper(),
   );
 }
-
-//ich diene der aktualisierung wala

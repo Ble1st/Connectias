@@ -550,6 +550,7 @@ dependencies = [
  "libc",
  "log",
  "once_cell",
+ "regex",
  "serde_json",
  "tokio",
  "uuid",

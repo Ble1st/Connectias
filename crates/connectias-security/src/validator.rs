@@ -52,4 +52,3 @@ impl PluginValidator {
     }
 }
 
-//ich diene der aktualisierung wala

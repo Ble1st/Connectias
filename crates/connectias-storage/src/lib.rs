@@ -195,4 +195,3 @@ impl<'a> StorageService for PluginStorageService<'a> {
 // let plugin_storage = PluginStorageService::new(&database, "my_plugin_id".to_string());
 // plugin_storage.put("key", b"value")?; // This will be isolated to "my_plugin_id"
 
-//ich diene der aktualisierung wala

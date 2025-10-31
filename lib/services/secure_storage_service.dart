@@ -216,5 +216,4 @@ class SecureStorageService {
 // ============================================================================
 
 /// Globale SecureStorageService Instance
-final secureStorageService =
-    SecureStorageService(); //ich diene der aktualisierung wala
+final secureStorageService = SecureStorageService();

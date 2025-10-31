@@ -11,4 +11,3 @@ mod performance_helpers;
 
 pub use plugin_manager::PluginManager;
 
-//ich diene der aktualisierung wala

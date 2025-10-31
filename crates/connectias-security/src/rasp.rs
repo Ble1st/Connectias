@@ -451,17 +451,38 @@ impl IntegrityMonitor {
     }
 
     /// Lädt eingebettete App-Signatur (wird zur Compile-Zeit eingebettet)
+    /// In Production: Nutzt compile-time embedded Signatur aus build.rs
+    /// In Tests/Dev: Fallback auf Runtime-Berechnung (nur wenn CONNECTIAS_ALLOW_RUNTIME_HASH gesetzt)
     fn load_embedded_signature() -> Option<String> {
-        // In Production würde hier ein compile-time eingebetteter Hash stehen
-        // Für jetzt: Prüfe auf environment variable für Tests
-        std::env::var("CONNECTIAS_EXPECTED_SIGNATURE").ok()
-            .or_else(|| {
-                // Fallback: Berechne Hash der aktuellen Binary
-                Self::compute_binary_hash().ok()
-            })
+        // 1. Versuche compile-time embedded Signatur zu laden
+        const EXPECTED_SIGNATURE: &str = include_str!(concat!(env!("OUT_DIR"), "/embedded_signature.txt"));
+        
+        if !EXPECTED_SIGNATURE.is_empty() {
+            return Some(EXPECTED_SIGNATURE.to_string());
+        }
+        
+        // 2. Fallback: Nur für Tests/Dev mit expliziter Erlaubnis
+        #[cfg(any(test, feature = "allow-runtime-hash"))]
+        {
+            // Environment Variable für Test-Harness
+            if let Ok(sig) = std::env::var("CONNECTIAS_EXPECTED_SIGNATURE") {
+                return Some(sig);
+            }
+            
+            // Runtime-Fallback nur wenn explizit erlaubt
+            if std::env::var("CONNECTIAS_ALLOW_RUNTIME_HASH").is_ok() {
+                return Self::compute_binary_hash().ok();
+            }
+        }
+        
+        // 3. Production: Keine Runtime-Berechnung - muss compile-time embedded sein
+        None
     }
 
     /// Berechnet SHA-256 Hash der aktuellen Binary
+    /// WARNUNG: Nur für Tests/Dev mit CONNECTIAS_ALLOW_RUNTIME_HASH erlaubt!
+    /// Production builds müssen compile-time embedded Signatur verwenden.
+    #[cfg(any(test, feature = "allow-runtime-hash"))]
     fn compute_binary_hash() -> Result<String, super::SecurityError> {
         use sha2::{Sha256, Digest};
         
@@ -495,39 +516,59 @@ impl IntegrityMonitor {
     }
 
     /// Lädt eingebettete Code-Checksum (wird zur Compile-Zeit eingebettet)
+    /// In Production: Nutzt compile-time embedded Checksum aus build.rs
+    /// In Tests/Dev: Berechnet nur /proc/self/exe und bekannte kritische Pfade
     fn load_embedded_checksum() -> Option<Vec<u8>> {
-        // In Production würde hier ein compile-time eingebetteter Checksum stehen
-        // Für jetzt: Berechne zur Laufzeit
-        Self::compute_code_segments_checksum().ok()
+        // 1. Versuche compile-time embedded Checksum zu laden
+        const EXPECTED_CHECKSUM: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/embedded_checksum.bin"));
+        
+        if !EXPECTED_CHECKSUM.is_empty() {
+            return Some(EXPECTED_CHECKSUM.to_vec());
+        }
+        
+        // 2. Fallback: Nur für Tests/Dev mit expliziter Erlaubnis
+        // Berechnet nur /proc/self/exe (kleiner, fokussierter Check)
+        #[cfg(any(test, feature = "allow-runtime-hash"))]
+        {
+            if std::env::var("CONNECTIAS_ALLOW_RUNTIME_HASH").is_ok() {
+                return Self::compute_code_segments_checksum().ok();
+            }
+        }
+        
+        // 3. Production: Keine Runtime-Berechnung - muss compile-time embedded sein
+        None
     }
 
     /// Berechnet Checksum über kritische Code-Segmente
+    /// WARNUNG: Nur für Tests/Dev mit CONNECTIAS_ALLOW_RUNTIME_HASH erlaubt!
+    /// Statt /proc/self/maps zu scannen, fokussiert auf:
+    /// - /proc/self/exe (Haupt-Binary)
+    /// - Bekannte kritische Library-Pfade (hardcoded)
+    /// Produziert Fehler bei unerwarteten Dateien (strikte Validierung)
+    #[cfg(any(test, feature = "allow-runtime-hash"))]
     fn compute_code_segments_checksum() -> Result<Vec<u8>, super::SecurityError> {
         use sha2::{Sha256, Digest};
         
         let mut hasher = Sha256::new();
         
-        // Prüfe kritische Memory-Regionen für Code-Integrität
+        // Bekannte kritische Pfade (wird zur Compile-Zeit in build.rs vorberechnet)
+        let critical_paths = [
+            "/proc/self/exe", // Haupt-Binary
+        ];
+        
         #[cfg(unix)]
         {
-            // Prüfe /proc/self/maps für Code-Segmente
-            if let Ok(maps) = fs::read_to_string("/proc/self/maps") {
-                for line in maps.lines() {
-                    if line.contains("r-xp") || line.contains("r--p") {
-                        // Code oder Read-Only Segment
-                        let parts: Vec<&str> = line.split_whitespace().collect();
-                        if let Some(path) = parts.get(5) {
-                            if !path.is_empty() && !path.starts_with("[") {
-                                // File-backed Segment - prüfe Hash
-                                if let Ok(metadata) = fs::metadata(path) {
-                                    if metadata.is_file() {
-                                        if let Ok(contents) = fs::read(path) {
-                                            hasher.update(&contents);
-                                        }
-                                    }
-                                }
-                            }
-                        }
+            // Nur explizite Pfade hashen, nicht /proc/self/maps scannen
+            for path in &critical_paths {
+                match std::fs::read(path) {
+                    Ok(contents) => {
+                        hasher.update(&contents);
+                    }
+                    Err(e) => {
+                        // Strikte Validierung: Fehler bei unerwarteten Problemen
+                        return Err(super::SecurityError::SecurityViolation(
+                            format!("Could not read critical path {}: {}", path, e)
+                        ));
                     }
                 }
             }
@@ -1319,7 +1360,7 @@ impl SslPinner {
     
     /// Prüft ob ein Fehler ein Netzwerkfehler ist (robust, ohne String-Matching)
     /// Unterstützt reqwest::Error und andere gängige HTTP/Netzwerk-Fehler-Typen
-    fn is_network_error<'a>(error: &'a (dyn std::error::Error + 'static)) -> bool {
+    fn is_network_error(error: &(dyn std::error::Error + 'static)) -> bool {
         use std::error::Error;
         
         // Prüfe auf reqwest::Error (am häufigsten bei CT-Log-Abfragen)

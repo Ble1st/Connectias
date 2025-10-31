@@ -7,7 +7,11 @@ use std::time::{Duration, SystemTime};
 /// Provides granular tracking of CPU cycles, memory operations, network calls,
 /// and file operations with behavior analysis and abuse detection.
 pub struct AdvancedFuelMeter {
-    // Core fuel counters (thread-safe atomics)
+    // SECURITY FIX: Einzelner atomarer total-counter verhindert Race Conditions
+    // Alle Updates sind atomar - keine separate Summierung mehr nötig
+    total_fuel_used: AtomicU64,
+    
+    // Per-type counters nur noch für Metriken (nicht für Limit-Checks)
     cpu_cycles: AtomicU64,
     memory_operations: AtomicU64,
     network_calls: AtomicU64,
@@ -122,6 +126,7 @@ impl AdvancedFuelMeter {
         instruction_costs.insert(InstructionType::Interrupt, 100);
         
         Self {
+            total_fuel_used: AtomicU64::new(0),
             cpu_cycles: AtomicU64::new(0),
             memory_operations: AtomicU64::new(0),
             network_calls: AtomicU64::new(0),
@@ -136,123 +141,77 @@ impl AdvancedFuelMeter {
     }
     
     /// Consume fuel for a specific operation
+    /// SECURITY FIX: Atomare Check-and-Update mit einem einzigen total-counter
+    /// Verhindert Race Conditions durch atomare compare-and-swap Operation
     pub fn consume_fuel(&self, operation: InstructionType, count: u64) -> Result<(), FuelExhausted> {
-        // Check if already exhausted (thread-safe read)
+        // Schneller Early-Exit wenn bereits exhausted
         if self.is_exhausted.load(Ordering::SeqCst) {
             return Err(FuelExhausted);
         }
         
         let cost = self.instruction_costs.get(&operation).unwrap_or(&1) * count;
         
-        // FIX BUG: Atomare Check-and-Set Operation um Race Condition zu vermeiden
-        // Prüfe ob bereits exhausted vor dem Update
-        if self.is_exhausted.load(Ordering::SeqCst) {
-            return Err(FuelExhausted);
-        }
-        
-        // FIX BUG 1: Atomare Check-and-Set-basierte Fuel-Consumption mit Loop
-        // Verhindert Race Conditions: Prüfe exhausted, dann Update, dann erneut prüfe Limit
-        // Loop stellt sicher dass keine andere Thread zwischen Check und Update exhausted setzt
-        loop {
-            // Prüfe ob bereits exhausted (atomar)
-            if self.is_exhausted.load(Ordering::SeqCst) {
-                return Err(FuelExhausted);
+        // Atomare Reservation: fetch_update auf total_fuel_used prüft und aktualisiert atomar
+        // Dies eliminiert die Race Condition zwischen Check und Update
+        let reservation_result = self.total_fuel_used.fetch_update(
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+            |current_total| {
+                // Prüfe ob exhausted (schneller Check)
+                // checked_add verhindert Overflow
+                let new_total = current_total.checked_add(cost)?;
+                if new_total > self.fuel_limit {
+                    None // Reservation fehlgeschlagen - Limit überschritten
+                } else {
+                    Some(new_total) // Reservation erfolgreich
+                }
             }
-            
-            // Hole aktuelle Werte für Check-before-Update
-            let current_cpu = self.cpu_cycles.load(Ordering::SeqCst);
-            let current_mem = self.memory_operations.load(Ordering::SeqCst);
-            let current_net = self.network_calls.load(Ordering::SeqCst);
-            let current_file = self.file_operations.load(Ordering::SeqCst);
-            let current_total = current_cpu + current_mem + current_net + current_file;
-            
-            // Prüfe ob Update Limit überschreiten würde
-            let new_total = current_total + cost;
-            if new_total > self.fuel_limit {
-                // Versuche exhausted Flag atomar zu setzen
-                if self.is_exhausted.compare_exchange(
+        );
+        
+        match reservation_result {
+            Ok(_) => {
+                // Reservation erfolgreich - Update per-type counters für Metriken
+                // Diese Updates sind nicht kritisch für Limit-Check, daher unconditional
+                match operation {
+                    InstructionType::MemoryGrow | InstructionType::MemoryAccess | 
+                    InstructionType::MemoryAlloc | InstructionType::MemoryFree => {
+                        self.memory_operations.fetch_add(cost, Ordering::SeqCst);
+                    },
+                    InstructionType::Call | InstructionType::Return | 
+                    InstructionType::Branch | InstructionType::Loop => {
+                        self.cpu_cycles.fetch_add(cost, Ordering::SeqCst);
+                    },
+                    InstructionType::NetworkRequest | InstructionType::NetworkResponse => {
+                        self.network_calls.fetch_add(cost, Ordering::SeqCst);
+                    },
+                    InstructionType::FileRead | InstructionType::FileWrite => {
+                        self.file_operations.fetch_add(cost, Ordering::SeqCst);
+                    },
+                    InstructionType::SystemCall | InstructionType::Interrupt => {
+                        self.cpu_cycles.fetch_add(cost, Ordering::SeqCst);
+                    },
+                }
+                
+                Ok(())
+            }
+            Err(_) => {
+                // Reservation fehlgeschlagen - Limit überschritten
+                // Setze exhausted flag atomar (nur wenn noch false)
+                let _ = self.is_exhausted.compare_exchange(
                     false,
                     true,
                     Ordering::SeqCst,
                     Ordering::SeqCst
-                ).is_ok() || self.is_exhausted.load(Ordering::SeqCst) {
-                    return Err(FuelExhausted);
-                }
-                // Exhausted wurde gerade gesetzt - retry loop
-                continue;
+                );
+                Err(FuelExhausted)
             }
-            
-            // Update appropriate counter (atomar)
-            let update_success = match operation {
-                InstructionType::MemoryGrow | InstructionType::MemoryAccess | 
-                InstructionType::MemoryAlloc | InstructionType::MemoryFree => {
-                    // Compare-and-swap: nur update wenn exhausted noch false
-                    if !self.is_exhausted.load(Ordering::SeqCst) {
-                        self.memory_operations.fetch_add(cost, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                InstructionType::Call | InstructionType::Return | 
-                InstructionType::Branch | InstructionType::Loop => {
-                    if !self.is_exhausted.load(Ordering::SeqCst) {
-                        self.cpu_cycles.fetch_add(cost, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                InstructionType::NetworkRequest | InstructionType::NetworkResponse => {
-                    if !self.is_exhausted.load(Ordering::SeqCst) {
-                        self.network_calls.fetch_add(cost, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                InstructionType::FileRead | InstructionType::FileWrite => {
-                    if !self.is_exhausted.load(Ordering::SeqCst) {
-                        self.file_operations.fetch_add(cost, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                },
-                InstructionType::SystemCall | InstructionType::Interrupt => {
-                    if !self.is_exhausted.load(Ordering::SeqCst) {
-                        self.cpu_cycles.fetch_add(cost, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                },
-            };
-            
-            if !update_success {
-                // Exhausted wurde zwischen Check und Update gesetzt - retry
-                continue;
-            }
-            
-            // Erfolgreich geupdatet - prüfe nochmal exhausted als finale Validierung
-            if self.is_exhausted.load(Ordering::SeqCst) {
-                // Exhausted wurde nach Update gesetzt - Rollback nicht möglich mit atomics
-                // Aber wir haben bereits geupdatet - das ist OK, da wir schon prüften
-                // und die nächste consume_fuel wird es abfangen
-                return Err(FuelExhausted);
-            }
-            
-            // Alles OK - Fuel erfolgreich konsumiert
-            return Ok(());
         }
     }
     
     /// Get total fuel consumed
+    /// SECURITY FIX: Nutzt jetzt atomaren total-counter statt Summierung
     pub fn get_total_consumed(&self) -> u64 {
-        self.cpu_cycles.load(Ordering::SeqCst) +
-        self.memory_operations.load(Ordering::SeqCst) +
-        self.network_calls.load(Ordering::SeqCst) +
-        self.file_operations.load(Ordering::SeqCst)
+        self.total_fuel_used.load(Ordering::SeqCst)
     }
     
     /// Get the current fuel limit

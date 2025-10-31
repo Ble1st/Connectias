@@ -51,9 +51,13 @@ sign_plugin() {
         return 0
     fi
     
-    # Erstelle temporäres ZIP
+    # Erstelle temporäres ZIP mit expliziter Fehlerprüfung
     temp_zip=$(mktemp -t plugin-XXXXXX.zip)
-    zip -q "$temp_zip" plugin.json plugin.wasm 2>/dev/null || zip -q "$temp_zip" plugin.json plugin.wasm || true
+    if ! zip -q "$temp_zip" plugin.json plugin.wasm; then
+        echo "  ❌ Fehler beim Erstellen des ZIP-Archivs"
+        rm -f "$temp_zip"
+        return 1
+    fi
     
     # Signiere Plugin
     signed_zip="$plugin_dir/${plugin_name}-signed.zip"

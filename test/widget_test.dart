@@ -20,5 +20,3 @@ void main() {
     expect(find.text('Security Dashboard'), findsOneWidget);
   });
 }
-
-//ich diene der aktualisierung wala

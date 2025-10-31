@@ -32,4 +32,3 @@ pub enum SecurityError {
     MemoryProtectionFailed(std::io::Error),
 }
 
-//ich diene der aktualisierung wala

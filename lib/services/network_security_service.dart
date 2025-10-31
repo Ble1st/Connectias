@@ -465,5 +465,3 @@ class SecurityPolicies {
     // );
   }
 }
-
-//ich diene der aktualisierung wala

@@ -12,6 +12,33 @@ use std::collections::HashMap;
 use crate::error::*;
 use crate::state::*;
 use log::{info, warn, error};
+use once_cell::sync::Lazy;
+use regex::Regex;
+
+/// SECURITY FIX: Statisch vorcompilierte SQL-Regex-Patterns (verhindert Runtime-Overhead)
+/// Kompiliert einmal beim Start, nicht bei jedem Funktionsaufruf
+static SQL_PATTERNS: Lazy<Vec<Regex>> = Lazy::new(|| {
+    let patterns = [
+        r"\bSELECT\b", r"\bINSERT\b", r"\bUPDATE\b", r"\bDELETE\b",
+        r"\bDROP\b", r"\bCREATE\b", r"\bALTER\b", r"\bUNION\b",
+        r"\bEXEC\b", r"\bEXECUTE\b", r"\bTRUNCATE\b", r"\bGRANT\b",
+        r"\bREVOKE\b",
+    ];
+    
+    patterns
+        .iter()
+        .map(|pattern| {
+            Regex::new(pattern)
+                .expect(&format!("Ungültiges SQL-Pattern: {}", pattern))
+        })
+        .collect()
+});
+
+/// SECURITY FIX: SQL/JS Injection Patterns (uppercase für Vergleich mit s_upper)
+/// Case-normalisiert für konsistenten Vergleich
+static INJECTION_PATTERNS: &[&str] = &[
+    "--", "/*", "*/", "JAVASCRIPT:", "<SCRIPT", "EVAL(", "FUNCTION("
+];
 
 /// Lade ein Plugin
 /// 
@@ -231,20 +258,51 @@ pub extern "C" fn connectias_execute_plugin(
                                         return FFI_ERROR_SECURITY_VIOLATION;
                                     }
                                     
-                                    // SECURITY: Prüfe nur auf gefährliche Patterns in echten Strings
-                                    // (Nicht bei Zahlen/Booleans nötig, da diese bereits sicher sind)
-                                    let s_upper = s.to_uppercase();
-                                    let dangerous = ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", 
-                                                     "CREATE", "ALTER", "UNION", "EXEC", "EXECUTE",
-                                                     "--", "/*", "*/", "..", "javascript:", "<script"];
-                                    for pattern in &dangerous {
-                                        if s_upper.contains(pattern) {
-                                            let msg = format!("❌ Gefährliches Pattern in JSON-Arg erkannt: {}", pattern);
+                                    // SECURITY: Prüfe gefährliche Patterns nur in kontextuellen Feldern
+                                    // (Felder die SQL/JS-Payloads enthalten können)
+                                    let key_lower = key.to_lowercase();
+                                    let is_contextual_field = key_lower.contains("sql") 
+                                        || key_lower.contains("query") 
+                                        || key_lower.contains("script")
+                                        || key_lower.contains("command")
+                                        || key_lower.contains("exec");
+                                    
+                                    if is_contextual_field {
+                                        // Nur für kontextuelle Felder: Prüfe auf gefährliche Patterns mit Word-Boundaries
+                                        // Verhindert False-Positives wie "select_file" oder "CREATE new account"
+                                        let s_upper = s.to_uppercase();
+                                        
+                                        // SECURITY FIX: Prüfe SQL Keywords mit vorcompilierten Regex-Patterns
+                                        // Verhindert Runtime-Overhead durch wiederholte Regex-Kompilierung
+                                        for re in SQL_PATTERNS.iter() {
+                                            if re.is_match(&s_upper) {
+                                                let msg = format!("❌ Gefährliches SQL-Pattern in kontextuellem Feld '{}' erkannt", key);
+                                                error!("{}", msg);
+                                                set_last_error(&msg);
+                                                return FFI_ERROR_SECURITY_VIOLATION;
+                                            }
+                                        }
+                                        
+                                        // SECURITY FIX: Prüfe Injection Patterns (uppercase Patterns vs s_upper)
+                                        // Case-normalisiert für konsistenten Vergleich
+                                        for pattern in INJECTION_PATTERNS {
+                                            if s_upper.contains(pattern) {
+                                                let msg = format!("❌ Gefährliches Injection-Pattern in kontextuellem Feld '{}' erkannt: {}", key, pattern);
+                                                error!("{}", msg);
+                                                set_last_error(&msg);
+                                                return FFI_ERROR_SECURITY_VIOLATION;
+                                            }
+                                        }
+                                        
+                                        // Path-Traversal Pattern (genau matchen)
+                                        if s.contains("../") || s.contains("..\\") {
+                                            let msg = format!("❌ Path-Traversal-Pattern in kontextuellem Feld '{}' erkannt", key);
                                             error!("{}", msg);
                                             set_last_error(&msg);
                                             return FFI_ERROR_SECURITY_VIOLATION;
                                         }
                                     }
+                                    // Nicht-kontextuelle Felder: Keine Pattern-Checks (erlaubt "select_file", "CREATE new account", etc.)
                                     
                                     s
                                 }
@@ -413,4 +471,3 @@ mod tests {
         assert!(true);
     }
 }
-//ich diene der aktualisierung wala

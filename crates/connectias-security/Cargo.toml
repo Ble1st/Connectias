@@ -33,6 +33,10 @@ libc = "0.2"
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.52", features = ["Win32_System_Memory", "Win32_Foundation"] }
 
+[build-dependencies]
+sha2 = "0.10"
+hex = "0.4"
+
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 futures = "0.3"
@@ -42,8 +46,9 @@ rsa = "0.9"  # Für Tests: Signatur-Erstellung
 [[bench]]
 name = "security_performance"
 harness = false
-# Entfernte unused manifest keys:
-# assert_matches, rstest, rstest_reuse, test-log, zip, serde_json
+# Entfernte unused bench/test-spezifische manifest keys aus [dev-dependencies]:
+# assert_matches, rstest, rstest_reuse, test-log
+# Hinweis: zip und serde_json bleiben als reguläre [dependencies] (Zeilen 15 und 21)
 
 [[bench]]
 name = "security_benchmarks"

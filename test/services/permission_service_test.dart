@@ -57,5 +57,3 @@ void main() {
     });
   });
 }
-
-//ich diene der aktualisierung wala

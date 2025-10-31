@@ -32,5 +32,3 @@ void main() {
     await service.dispose();
   });
 }
-
-//ich diene der aktualisierung wala

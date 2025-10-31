@@ -569,16 +569,33 @@ impl PluginManager {
             .ok_or_else(|| "Plugin not found".to_string())?;
 
         // SECURITY FIX: Input Sanitization für Command und Args
+        // Fehlgeschlagene Sanitization führt zu Error - keine unsanierten Werte!
         let sanitized_command = connectias_security::sandbox::InputSanitizer::sanitize_string(command)
-            .map_err(|e| format!("Invalid command: {}", e))?;
+            .map_err(|e| {
+                let error_msg = format!("Invalid command: {}", e);
+                tracing::warn!("Sanitization failed for command: {}", error_msg);
+                error_msg
+            })?;
         
+        // Sanitize args - überspringe fehlgeschlagene Einträge und logge Warnung
+        // KEINE unsanierten Werte verwenden!
         let sanitized_args: HashMap<String, String> = args.into_iter()
-            .map(|(k, v)| {
-                let clean_key = connectias_security::sandbox::InputSanitizer::sanitize_string(&k)
-                    .unwrap_or_else(|_| k);
-                let clean_value = connectias_security::sandbox::InputSanitizer::sanitize_string(&v)
-                    .unwrap_or_else(|_| v);
-                (clean_key, clean_value)
+            .filter_map(|(k, v)| {
+                let clean_key = match connectias_security::sandbox::InputSanitizer::sanitize_string(&k) {
+                    Ok(cleaned) => cleaned,
+                    Err(e) => {
+                        tracing::warn!("Sanitization failed for arg key '{}': {}. Skipping entry.", k, e);
+                        return None;
+                    }
+                };
+                let clean_value = match connectias_security::sandbox::InputSanitizer::sanitize_string(&v) {
+                    Ok(cleaned) => cleaned,
+                    Err(e) => {
+                        tracing::warn!("Sanitization failed for arg value '{}': {}. Skipping entry.", v, e);
+                        return None;
+                    }
+                };
+                Some((clean_key, clean_value))
             })
             .collect();
 
