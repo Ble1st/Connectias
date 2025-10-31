@@ -75,6 +75,11 @@ pub struct Message {
     pub timestamp: i64,
     pub message_id: String,
     pub message_type: MessageType,
+    /// FIX BUG 2: Delivery Status um Audit-Trail-Konsistenz sicherzustellen
+    /// None = erfolgreich an alle Prozesse verteilt (MultiProcess) oder verteilt (SingleProcess)
+    /// Some(error) = lokal verteilt, aber IPC zu anderen Prozessen fehlgeschlagen
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub delivery_error: Option<String>,
 }
 
 /// Message Types für verschiedene Kommunikations-Patterns
@@ -283,7 +288,7 @@ impl MessageBroker {
                         error!("IPC publish failed for topic '{}', sender '{}', type '{:?}': {}. Message NOT delivered to remote processes, but delivering to local subscribers.", 
                                topic, sender_id, message_type, e);
                         
-                        // Erstelle Message für lokale Verteilung
+                        // Erstelle Message für lokale Verteilung mit Fehler-Status
                         let message = Message {
                             topic: topic.to_string(),
                             sender_id: sender_id.to_string(),
@@ -294,6 +299,8 @@ impl MessageBroker {
                                 .as_secs() as i64,
                             message_id: self.generate_message_id(),
                             message_type: message_type.clone(),
+                            // FIX BUG 2: Setze delivery_error um zu markieren, dass IPC fehlgeschlagen ist
+                            delivery_error: Some(e.to_string()),
                         };
                         
                         // Message ebenfalls in lokale Queue einreihen, um dieselbe Reihenfolge/Verarbeitung
@@ -307,11 +314,9 @@ impl MessageBroker {
                         // Dies stellt sicher, dass der publish-subscribe contract erfüllt wird
                         self.distribute_message(&message).await;
                         
-                        // FIX BUG 4: History wird auch bei IPC-Fehler aktualisiert für konsistente Audit-Trails
-                        // Die Message wurde lokal verteilt und sollte in der History sein, auch wenn
-                        // IPC-Fehler aufgetreten sind. Dies ermöglicht vollständige Message-Replay und
-                        // Audit-Funktionalität. Es gibt KEIN Duplikat, da publish_via_ipc bei Fehler
-                        // NICHT die History aktualisiert (nur bei Erfolg, Zeile 393).
+                        // FIX BUG 2: History wird JETZT MIT FEHLER-STATUS aktualisiert
+                        // Der Fehler-Status zeigt klar: Diese Message wurde nur lokal verteilt,
+                        // nicht an entfernte Prozesse. Audit-Trails sind konsistent und aussagekräftig.
                         self.update_message_history(&message).await;
                     }
                 }
@@ -331,6 +336,7 @@ impl MessageBroker {
                 .as_secs() as i64,
             message_id: self.generate_message_id(),
             message_type,
+            delivery_error: None,
         };
 
         // Message zur Queue hinzufügen
@@ -370,6 +376,7 @@ impl MessageBroker {
             timestamp,
             message_id: message_id.clone(),
             message_type: message_type.clone(),
+            delivery_error: None,
         };
         
         // Serialisiere MessageType für IPC Message
@@ -734,6 +741,7 @@ impl MessageBroker {
                 .as_secs() as i64,
             message_id: self.generate_message_id(),
             message_type,
+            delivery_error: None,
         };
 
         // Enhanced Message erstellen
@@ -796,6 +804,7 @@ impl MessageBroker {
                 .as_secs() as i64,
             message_id: request_id,
             message_type: MessageType::Request,
+            delivery_error: None,
         };
 
         // Request publizieren

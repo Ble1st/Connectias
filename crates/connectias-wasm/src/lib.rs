@@ -371,22 +371,11 @@ impl Plugin for WasmPlugin {
             current_offset
         };
         
-        // FIX BUG 1: State-Update SOFORT nach erfolgreichem Memory Write
-        // Dies stellt sicher, dass der Memory-Block immer getrackt ist, auch wenn plugin_init fehlschlägt
-        // Bei Retry wird ein neuer Offset verwendet statt denselben zu überschreiben (verhindert Memory Corruption)
-        let data_size = context_json.len() as u32;
-        let old_offset = context_ptr;
-        self.next_offset = old_offset.saturating_add(data_size);
-        let alloc_info = AllocationInfo {
-            offset: old_offset,
-            size: data_size,
-            allocated_at: std::time::SystemTime::now(),
-        };
-        self.allocations.insert(old_offset, alloc_info);
+        // FIX BUG 1: State-Update NACH erfolgreichem plugin_init() verschieben
+        // Dadurch wird die Allokation nur getrackt, wenn die Initialisierung erfolgreich war
+        // Bei Fehler kann der Memory-Offset wiederverwendet werden (kein Leak)
         
-        // WASM init-Funktion aufrufen NACH State-Update (Reborrow store)
-        // FIX BUG 1: Auch wenn plugin_init fehlschlägt, ist der Memory-Block getrackt
-        // und wird bei nächstem init() nicht überschrieben, da next_offset bereits inkrementiert wurde
+        // WASM init-Funktion aufrufen BEVOR State-Update (Reborrow store)
         let instance = self.instance.as_ref()
             .ok_or_else(|| PluginError::InitializationFailed("Instance not initialized".to_string()))?;
         let store = self.store.as_mut()
@@ -398,11 +387,21 @@ impl Plugin for WasmPlugin {
             .map_err(|e| PluginError::InitializationFailed(format!("Init function call failed: {}", e)))?;
         
         if result != 0 {
-            // FIX BUG 1: Initialisierung fehlgeschlagen - Memory ist bereits getrackt und next_offset inkrementiert
-            // Bei Retry wird ein neuer Offset verwendet, der alte Block bleibt unbenutzt aber getrackt
-            // Dies verhindert Memory Corruption durch Überschreiben bei Retry
+            // Initialisierung fehlgeschlagen - next_offset wird NICHT inkrementiert
+            // Der Memory-Block kann bei nächstem Versuch wiederverwendet werden
             return Err(PluginError::InitializationFailed("WASM plugin initialization failed".to_string()));
         }
+        
+        // Nur bei erfolgreichem plugin_init(): State-Update durchführen
+        let data_size = context_json.len() as u32;
+        let old_offset = context_ptr;
+        self.next_offset = old_offset.saturating_add(data_size);
+        let alloc_info = AllocationInfo {
+            offset: old_offset,
+            size: data_size,
+            allocated_at: std::time::SystemTime::now(),
+        };
+        self.allocations.insert(old_offset, alloc_info);
         
         Ok(())
     }

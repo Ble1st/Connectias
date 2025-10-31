@@ -157,6 +157,10 @@ pub struct PluginManager {
     dependency_graph: Arc<RwLock<HashMap<String, HashSet<String>>>>,
     discovery_cache: Arc<RwLock<HashMap<PathBuf, DiscoveredPlugin>>>,
     registry_stats: Arc<RwLock<PluginRegistryStats>>,
+    /// FIX BUG 3: Strikter Mode für Permission-Validierung
+    /// true = unbekannte Permissions verweigern (Produktion, Standard für Sicherheit)
+    /// false = unbekannte Permissions ignorieren mit Warning (Entwicklung, Forward-Compatibility)
+    strict_mode: bool,
 }
 
 impl PluginManager {
@@ -292,7 +296,17 @@ impl PluginManager {
             dependency_graph,
             discovery_cache,
             registry_stats,
+            strict_mode: true, // Standardmäßig strikter Modus
         })
+    }
+
+    /// FIX BUG 3: Konfiguriert den Strict-Mode für Permission-Validierung
+    /// 
+    /// strict_mode = true: Unbekannte Permissions verweigern Plugin-Loading (Sicherheit, Standard)
+    /// strict_mode = false: Unbekannte Permissions ignorieren mit Warning (Forward-Compatibility)
+    pub fn with_strict_mode(mut self, strict: bool) -> Self {
+        self.strict_mode = strict;
+        self
     }
 
     /// Lädt ein Plugin aus einer ZIP-Datei
@@ -389,13 +403,13 @@ impl PluginManager {
     async fn load_plugin_by_type(
         &self,
         install_dir: &Path,
-        _info: &PluginInfo,
+        info: &PluginInfo,
     ) -> Result<Box<dyn Plugin>, anyhow::Error> {
         // Check for WASM plugin
         let wasm_path = install_dir.join("plugin.wasm");
         if wasm_path.exists() {
             let wasm_bytes = std::fs::read(&wasm_path)?;
-            let plugin = self.wasm_runtime.load_plugin(&wasm_bytes)?;
+            let plugin = self.wasm_runtime.load_plugin(&wasm_bytes, info.id.clone())?;
             return Ok(Box::new(plugin));
         }
 
@@ -955,7 +969,7 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus JSON-Manifest
-    /// FIX BUG 3: Gibt jetzt Result zurück um Plugin-Loading bei unbekannten Permissions zu verhindern
+    /// FIX BUG 3: Respektiert den Strict-Mode Flag
     fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Result<Vec<connectias_api::PluginPermission>, String> {
         let mut permissions = Vec::new();
         let mut unknown_permissions = Vec::new();
@@ -967,7 +981,7 @@ impl PluginManager {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
                         unknown => {
-                            // FIX BUG 3: Sammle unbekannte Permissions
+                            // Sammle unbekannte Permissions
                             unknown_permissions.push(unknown.to_string());
                         }
                     }
@@ -975,12 +989,21 @@ impl PluginManager {
             }
         }
         
-        // FIX BUG 3: Wenn unbekannte Permissions gefunden wurden, verhindere Plugin-Loading
+        // FIX BUG 3: Handling von unbekannten Permissions je nach Strict-Mode
         if !unknown_permissions.is_empty() {
-            return Err(format!(
-                "Unbekannte Permissions im JSON-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert um Sicherheitsprobleme durch Tippfehler (z.B. 'Netwrok' statt 'Network') zu verhindern.",
-                unknown_permissions.join(", ")
-            ));
+            if self.strict_mode {
+                // Strict Mode: Verweigere Plugin-Loading bei unbekannten Permissions (Standard)
+                return Err(format!(
+                    "Unbekannte Permissions im JSON-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert (Strict-Mode aktiv).",
+                    unknown_permissions.join(", ")
+                ));
+            } else {
+                // Non-Strict Mode: Warne, aber lade Plugin mit bekannten Permissions (Forward-Compatibility)
+                log::warn!(
+                    "Unbekannte Permissions im JSON-Manifest gefunden: {} (ggf. aus zukünftiger Version). Plugin wird mit bekannten Permissions geladen.",
+                    unknown_permissions.join(", ")
+                );
+            }
         }
         
         if permissions.is_empty() {
@@ -991,7 +1014,7 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus TOML-Manifest
-    /// FIX BUG 6: Verhindert Plugin-Loading bei unbekannten Permissions statt nur warnen
+    /// FIX BUG 3: Respektiert den Strict-Mode Flag
     fn parse_permissions_from_toml(&self, permissions_value: Option<&toml::Value>) -> Result<Vec<connectias_api::PluginPermission>, String> {
         let mut permissions = Vec::new();
         let mut unknown_permissions = Vec::new();
@@ -1003,7 +1026,7 @@ impl PluginManager {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
                         unknown => {
-                            // FIX BUG 6: Sammle unbekannte Permissions statt nur zu warnen
+                            // Sammle unbekannte Permissions
                             unknown_permissions.push(unknown.to_string());
                         }
                     }
@@ -1011,12 +1034,21 @@ impl PluginManager {
             }
         }
         
-        // FIX BUG 6: Wenn unbekannte Permissions gefunden wurden, verhindere Plugin-Loading
+        // FIX BUG 3: Handling von unbekannten Permissions je nach Strict-Mode
         if !unknown_permissions.is_empty() {
-            return Err(format!(
-                "Unbekannte Permissions im TOML-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert um Sicherheitsprobleme durch Tippfehler (z.B. 'Netwrok' statt 'Network') zu verhindern.",
-                unknown_permissions.join(", ")
-            ));
+            if self.strict_mode {
+                // Strict Mode: Verweigere Plugin-Loading bei unbekannten Permissions (Standard)
+                return Err(format!(
+                    "Unbekannte Permissions im TOML-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert (Strict-Mode aktiv).",
+                    unknown_permissions.join(", ")
+                ));
+            } else {
+                // Non-Strict Mode: Warne, aber lade Plugin mit bekannten Permissions (Forward-Compatibility)
+                log::warn!(
+                    "Unbekannte Permissions im TOML-Manifest gefunden: {} (ggf. aus zukünftiger Version). Plugin wird mit bekannten Permissions geladen.",
+                    unknown_permissions.join(", ")
+                );
+            }
         }
         
         // Wenn keine Permissions angegeben, Standard verwenden
