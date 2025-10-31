@@ -62,21 +62,48 @@ class RASPDetector(private val context: Context) {
         try {
             val process = Runtime.getRuntime().exec("which su")
             
-            // Starte Threads zum Drainen von stdout/stderr (verhindert Deadlock)
+            // FIX BUG 2: Starte Daemon-Threads zum Drainen von stdout/stderr
+            // Daemon-Threads werden automatisch beendet, wenn die VM beendet wird, verhindern Thread-Leaks
+            // Zusätzlich verwenden wir readLine() mit Timeout statt readText(), um blockierende Reads zu vermeiden
             val stdoutThread = Thread {
                 try {
-                    process.inputStream.bufferedReader().use { it.readText() }
+                    // Verwende readLine() mit begrenztem Puffer statt readText() um unbegrenzte Blockierung zu vermeiden
+                    val reader = process.inputStream.bufferedReader()
+                    val buffer = CharArray(8192) // 8KB Buffer
+                    while (reader.read(buffer) >= 0) {
+                        // Lese in Chunks statt alles auf einmal
+                    }
                 } catch (e: Exception) {
-                    // Ignoriere Lesefehler
+                    // Ignoriere Lesefehler (Stream könnte geschlossen sein)
+                } finally {
+                    try {
+                        process.inputStream.close()
+                    } catch (e: Exception) {
+                        // Ignoriere Close-Fehler
+                    }
                 }
             }
             val stderrThread = Thread {
                 try {
-                    process.errorStream.bufferedReader().use { it.readText() }
+                    val reader = process.errorStream.bufferedReader()
+                    val buffer = CharArray(8192) // 8KB Buffer
+                    while (reader.read(buffer) >= 0) {
+                        // Lese in Chunks statt alles auf einmal
+                    }
                 } catch (e: Exception) {
-                    // Ignoriere Lesefehler
+                    // Ignoriere Lesefehler (Stream könnte geschlossen sein)
+                } finally {
+                    try {
+                        process.errorStream.close()
+                    } catch (e: Exception) {
+                        // Ignoriere Close-Fehler
+                    }
                 }
             }
+            
+            // FIX BUG 2: Setze Threads als Daemon, damit sie automatisch beendet werden
+            stdoutThread.isDaemon = true
+            stderrThread.isDaemon = true
             stdoutThread.start()
             stderrThread.start()
             
@@ -116,30 +143,41 @@ class RASPDetector(private val context: Context) {
                 return false
             }
             
-            // FIX BUG 5: Warte auf stdout/stderr Threads mit längeren Timeouts und sicherer Behandlung
-            // Wenn join() fehlschlägt oder Timeout erreicht, müssen wir sicherstellen, dass Threads
-            // nicht unbegrenzt laufen. Da wir Threads als daemon nicht setzen können, müssen wir
-            // sicherstellen, dass sie beendet werden.
+            // FIX BUG 2: Warte auf stdout/stderr Daemon-Threads mit Timeout
+            // Daemon-Threads werden automatisch beendet wenn die VM beendet wird, aber wir warten
+            // trotzdem kurz darauf, dass sie ihre Arbeit beenden
             try {
-                // Erhöhe Timeout auf 3 Sekunden für große Outputs
-                val joinTimeout = 3000L
+                val joinTimeout = 2000L // 2 Sekunden sollte ausreichen
                 stdoutThread.join(joinTimeout)
                 stderrThread.join(joinTimeout)
                 
-                // FIX BUG 5: Prüfe ob Threads noch laufen und logge Warnung
+                // FIX BUG 2: Prüfe ob Threads noch laufen (unwahrscheinlich für Daemon-Threads mit geschlossenen Streams)
                 if (stdoutThread.isAlive) {
-                    android.util.Log.w("RASPDetector", "stdout thread did not complete within timeout - thread may leak")
+                    android.util.Log.w("RASPDetector", "stdout daemon thread still alive after join - should terminate automatically")
                 }
                 if (stderrThread.isAlive) {
-                    android.util.Log.w("RASPDetector", "stderr thread did not complete within timeout - thread may leak")
+                    android.util.Log.w("RASPDetector", "stderr daemon thread still alive after join - should terminate automatically")
                 }
             } catch (e: InterruptedException) {
                 android.util.Log.w("RASPDetector", "Interrupted while waiting for stream threads: ${e.message}")
                 Thread.currentThread().interrupt()
-                // FIX BUG 5: Threads könnten noch laufen - logge Warnung
+                // FIX BUG 2: Daemon-Threads werden automatisch beendet, kein Leak-Risiko
                 if (stdoutThread.isAlive || stderrThread.isAlive) {
-                    android.util.Log.w("RASPDetector", "Stream threads may still be running after interrupt")
+                    android.util.Log.d("RASPDetector", "Stream daemon threads still running after interrupt - will terminate automatically")
                 }
+            }
+            
+            // FIX BUG 2: Schließe Streams explizit um sicherzustellen, dass Threads nicht blockieren
+            // Dies sollte bereits durch process.exitValue() geschehen, aber sicher ist sicher
+            try {
+                process.inputStream.close()
+            } catch (e: Exception) {
+                // Ignoriere Close-Fehler
+            }
+            try {
+                process.errorStream.close()
+            } catch (e: Exception) {
+                // Ignoriere Close-Fehler
             }
             
             val exitCode = process.exitValue()

@@ -743,7 +743,8 @@ impl PluginManager {
             description: manifest["description"].as_str().unwrap_or("No description").to_string(),
             min_core_version: manifest["min_core_version"].as_str().unwrap_or("1.0.0").to_string(),
             max_core_version: manifest["max_core_version"].as_str().map(|s| s.to_string()),
-            permissions: self.parse_permissions_from_manifest(&manifest),
+            permissions: self.parse_permissions_from_manifest(&manifest)
+                .map_err(|e| format!("Failed to parse permissions: {}", e))?,
             entry_point: manifest["entry_point"].as_str().unwrap_or("plugin.wasm").to_string(),
             dependencies: self.parse_dependencies_from_manifest(&manifest),
         })
@@ -953,11 +954,8 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus JSON-Manifest
-    /// FIX BUG 6: Verhindert Plugin-Loading bei unbekannten Permissions
-    /// WICHTIG: Diese Funktion gibt Vec zurück (kein Result), daher können wir hier nicht
-    /// Plugin-Loading verhindern. Die Funktion wird in load_plugin aufgerufen, wo wir
-    /// das Result prüfen können. Für Konsistenz sollten wir aber auch hier die Logik ändern.
-    fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Vec<connectias_api::PluginPermission> {
+    /// FIX BUG 3: Gibt jetzt Result zurück um Plugin-Loading bei unbekannten Permissions zu verhindern
+    fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Result<Vec<connectias_api::PluginPermission>, String> {
         let mut permissions = Vec::new();
         let mut unknown_permissions = Vec::new();
         
@@ -968,7 +966,7 @@ impl PluginManager {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
                         unknown => {
-                            // FIX BUG 6: Sammle unbekannte Permissions
+                            // FIX BUG 3: Sammle unbekannte Permissions
                             unknown_permissions.push(unknown.to_string());
                         }
                     }
@@ -976,24 +974,19 @@ impl PluginManager {
             }
         }
         
-        // FIX BUG 6: Logge Fehler und wirf Panic (oder besser: ändere Signatur zu Result)
-        // Da die Signatur Vec zurückgibt, können wir hier nicht Plugin-Loading verhindern.
-        // Dies ist ein Design-Problem - für jetzt loggen wir einen Fehler und verwenden
-        // nur bekannte Permissions. In einer zukünftigen Version sollte die Signatur zu
-        // Result geändert werden.
+        // FIX BUG 3: Wenn unbekannte Permissions gefunden wurden, verhindere Plugin-Loading
         if !unknown_permissions.is_empty() {
-            log::error!(
-                "Unbekannte Permissions im JSON-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Diese Permissions werden ignoriert, aber Plugin sollte nicht geladen werden.",
+            return Err(format!(
+                "Unbekannte Permissions im JSON-Manifest gefunden: {}. Erlaubte Permissions: 'Storage', 'Network'. Plugin-Loading wird verweigert um Sicherheitsprobleme durch Tippfehler (z.B. 'Netwrok' statt 'Network') zu verhindern.",
                 unknown_permissions.join(", ")
-            );
-            // TODO: Ändere Signatur zu Result<Vec<PluginPermission>, String> um Plugin-Loading zu verhindern
+            ));
         }
         
         if permissions.is_empty() {
             permissions.push(connectias_api::PluginPermission::Storage);
         }
         
-        permissions
+        Ok(permissions)
     }
     
     /// Parse Permissions aus TOML-Manifest

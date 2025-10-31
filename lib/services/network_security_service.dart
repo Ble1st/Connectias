@@ -351,25 +351,18 @@ class NetworkSecurityService {
         }
       }
       
+      // FIX BUG 1: Entferne Fallback mit starren Indizes - nur strukturelle Validierung verwenden
+      // Starre Indizes (5 oder 6) funktionieren nicht für alle X.509-Zertifikate mit optionalen Feldern.
+      // Wenn strukturelle Validierung fehlschlägt, geben wir einen klaren Fehler zurück statt
+      // zu versuchen, mit unsicheren Annahmen zu arbeiten.
       if (!foundSpki || subjectPublicKeyInfo == null) {
-        // Fallback: Versuche starre Indexierung als letzte Option
-        final first = tbsSeq.elements.isNotEmpty ? tbsSeq.elements.first : null;
-        final bool hasVersionTag = first != null && first.tag == 0xA0;
-        final spkiIndex = (hasVersionTag ? 6 : 5);
-        
-        if (tbsSeq.elements.length > spkiIndex) {
-          final candidate = tbsSeq.elements[spkiIndex];
-          if (candidate is ASN1Sequence &&
-              candidate.elements.length >= 2 &&
-              candidate.elements[0] is ASN1Sequence &&
-              candidate.elements[1] is ASN1BitString) {
-            subjectPublicKeyInfo = candidate;
-          }
-        }
-        
-        if (subjectPublicKeyInfo == null) {
-          throw Exception('Konnte subjectPublicKeyInfo nicht in TBSCertificate finden. Zertifikat hat möglicherweise unerwartete Struktur.');
-        }
+        throw Exception(
+          'Konnte subjectPublicKeyInfo nicht in TBSCertificate finden. '
+          'Das Zertifikat hat möglicherweise eine unerwartete Struktur oder optionale Felder, '
+          'die die strukturelle SPKI-Erkennung verhindern. '
+          'Bitte stellen Sie sicher, dass das Zertifikat ein gültiges X.509-Zertifikat mit '
+          'korrekt kodiertem SubjectPublicKeyInfo ist.'
+        );
       }
       // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert oben (wurde im Loop geprüft)
       
