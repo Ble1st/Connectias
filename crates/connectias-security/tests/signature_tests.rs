@@ -1,48 +1,77 @@
-use connectias_security::signature::SignatureVerifier;
-use sha2::Digest;
+use connectias_security::signature::{SignatureVerifier, PublicKey};
 use std::path::Path;
 use tempfile::TempDir;
 use std::fs::File;
 use std::io::Write;
 use zip::ZipWriter;
 use zip::write::FileOptions;
+use ring::signature::{RsaKeyPair, RSA_PKCS1_SHA256, KeyPair};
+use ring::rand::SystemRandom;
+
+// Helper: Erstellt ein RSA Key Pair mit ring (für Option A - komplett ring)
+#[cfg(test)]
+fn create_ring_key_pair() -> (RsaKeyPair, Vec<u8>) {
+    // Generiere RSA Key Pair mit ring
+    let rng = SystemRandom::new();
+    
+    // ring 0.17 API: generate_pkcs8 benötigt eine Closure für Random
+    let mut pkcs8_vec = vec![0u8; 2048 * 3]; // Genug Platz für PKCS#8
+    let mut filled = 0;
+    
+    // Generiere Key Pair - verwende rsa Library als Fallback für Tests wenn ring zu komplex ist
+    // ABER: Für Option A wollen wir komplett ring verwenden
+    // Workaround: Verwende einen statischen Test-Key oder generiere mit rsa und konvertiere
+    
+    // Einfacherer Ansatz für Tests: Verwende rsa zum Generieren, aber signiere/verifiziere mit ring
+    let mut rng_rsa = rand::thread_rng();
+    let private_key_rsa = rsa::RsaPrivateKey::new(&mut rng_rsa, 2048).expect("Failed to generate key");
+    
+    // Konvertiere rsa Private Key zu PKCS#8 DER
+    use rsa::pkcs8::EncodePrivateKey;
+    let pkcs8_doc = private_key_rsa.to_pkcs8_der().expect("Failed to encode to PKCS#8");
+    let pkcs8_bytes = pkcs8_doc.as_bytes();
+    
+    // Lade als ring Key Pair
+    let key_pair = RsaKeyPair::from_pkcs8(pkcs8_bytes).expect("Failed to create ring key pair");
+    
+    // Extrahiere Public Key (SubjectPublicKeyInfo DER Format)
+    let public_key_bytes = key_pair.public_key().as_ref().to_vec();
+    
+    (key_pair, public_key_bytes)
+}
 
 #[test]
 fn test_signature_verifier_creation() {
     let verifier = SignatureVerifier::new();
-    assert_eq!(verifier.trusted_keys_ref().len(), 0);
+    assert_eq!(verifier.trusted_keys_count(), 0);
 }
 
 #[test]
 fn test_add_trusted_key() {
     let mut verifier = SignatureVerifier::new();
     
-    // Generate a test RSA key pair
-    let mut rng = rand::thread_rng();
-    let bits = 2048;
-    let private_key = rsa::RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate private key");
-    let public_key = private_key.to_public_key();
+    // Generate test key pair mit ring (Option A)
+    let (_key_pair, public_key_der) = create_ring_key_pair();
+    let public_key_ring = PublicKey::from_der(public_key_der);
     
-    verifier.add_trusted_key(public_key);
-    assert_eq!(verifier.trusted_keys_ref().len(), 1);
+    verifier.add_trusted_key(public_key_ring);
+    assert_eq!(verifier.trusted_keys_count(), 1);
 }
 
 #[test]
 fn test_verify_plugin_with_valid_signature() {
     let mut verifier = SignatureVerifier::new();
     
-    // Generate test key pair
-    let mut rng = rand::thread_rng();
-    let bits = 2048;
-    let private_key = rsa::RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate private key");
-    let public_key = private_key.to_public_key();
-    verifier.add_trusted_key(public_key);
+    // Generate test key pair mit ring (Option A)
+    let (key_pair, public_key_der) = create_ring_key_pair();
+    let public_key_ring = PublicKey::from_der(public_key_der);
+    verifier.add_trusted_key(public_key_ring);
     
     // Create a test plugin ZIP with signature
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let plugin_path = temp_dir.path().join("test_plugin.zip");
     
-    create_signed_plugin_zip(&plugin_path, &private_key).expect("Failed to create signed plugin");
+    create_signed_plugin_zip(&plugin_path, &key_pair).expect("Failed to create signed plugin");
     
     // Verify the plugin
     let result = verifier.verify_plugin(&plugin_path);
@@ -57,12 +86,10 @@ fn test_verify_plugin_with_valid_signature() {
 fn test_verify_plugin_with_invalid_signature() {
     let mut verifier = SignatureVerifier::new();
     
-    // Generate test key pair
-    let mut rng = rand::thread_rng();
-    let bits = 2048;
-    let private_key = rsa::RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate private key");
-    let public_key = private_key.to_public_key();
-    verifier.add_trusted_key(public_key);
+    // Generate test key pair mit ring (Option A)
+    let (_key_pair, public_key_der) = create_ring_key_pair();
+    let public_key_ring = PublicKey::from_der(public_key_der);
+    verifier.add_trusted_key(public_key_ring);
     
     // Create a test plugin ZIP without signature
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -79,20 +106,19 @@ fn test_verify_plugin_with_invalid_signature() {
 fn test_verify_plugin_with_wrong_signature() {
     let mut verifier = SignatureVerifier::new();
     
-    // Generate two different key pairs
-    let mut rng = rand::thread_rng();
-    let bits = 2048;
-    let private_key1 = rsa::RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate private key 1");
-    let private_key2 = rsa::RsaPrivateKey::new(&mut rng, bits).expect("Failed to generate private key 2");
-    let public_key1 = private_key1.to_public_key();
+    // Generate two different key pairs mit ring (Option A)
+    let (key_pair1, public_key_der1) = create_ring_key_pair();
+    let (key_pair2, _) = create_ring_key_pair(); // Different key
     
-    verifier.add_trusted_key(public_key1);
+    let public_key_ring1 = PublicKey::from_der(public_key_der1);
+    verifier.add_trusted_key(public_key_ring1);
     
     // Create a test plugin ZIP signed with different key
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let plugin_path = temp_dir.path().join("test_plugin.zip");
     
-    create_signed_plugin_zip(&plugin_path, &private_key2).expect("Failed to create signed plugin");
+    // Sign with key_pair2 (different from trusted key_pair1)
+    create_signed_plugin_zip(&plugin_path, &key_pair2).expect("Failed to create signed plugin");
     
     // Verify the plugin should fail
     let result = verifier.verify_plugin(&plugin_path);
@@ -121,7 +147,7 @@ fn test_verify_plugin_invalid_zip() {
 
 // Helper functions for creating test plugin ZIPs
 
-fn create_signed_plugin_zip(path: &Path, private_key: &rsa::RsaPrivateKey) -> Result<(), Box<dyn std::error::Error>> {
+fn create_signed_plugin_zip(path: &Path, key_pair: &RsaKeyPair) -> Result<(), Box<dyn std::error::Error>> {
     let plugin_json = r#"{
         "id": "com.test.plugin",
         "name": "Test Plugin",
@@ -136,28 +162,32 @@ fn create_signed_plugin_zip(path: &Path, private_key: &rsa::RsaPrivateKey) -> Re
     }"#;
     let wasm_content = b"dummy wasm content";
     
-    // Calculate hash over content (matching verification logic - deterministisch)
-    let mut hasher = sha2::Sha256::new();
+    // OPTION A: Signatur-Format geändert - signiere die Nachricht direkt (nicht den Hash)
+    // ring erwartet die Nachricht und hash intern, also müssen wir die Nachricht signieren
+    let mut message = Vec::new();
     
     // Sortiert nach Pfad: plugin.json kommt vor plugin.wasm
-    // Hash: Pfad + | + Größe + | + Content
-    hasher.update(b"plugin.json");
-    hasher.update(b"|");
-    hasher.update(plugin_json.len().to_string().as_bytes());
-    hasher.update(b"|");
-    hasher.update(plugin_json.as_bytes());
+    // Nachricht: Pfad + | + Größe + | + Content (gleiches Format wie Verifikation)
+    message.extend_from_slice(b"plugin.json");
+    message.extend_from_slice(b"|");
+    message.extend_from_slice(plugin_json.len().to_string().as_bytes());
+    message.extend_from_slice(b"|");
+    message.extend_from_slice(plugin_json.as_bytes());
     
-    hasher.update(b"plugin.wasm");
-    hasher.update(b"|");
-    hasher.update(wasm_content.len().to_string().as_bytes());
-    hasher.update(b"|");
-    hasher.update(wasm_content);
+    message.extend_from_slice(b"plugin.wasm");
+    message.extend_from_slice(b"|");
+    message.extend_from_slice(wasm_content.len().to_string().as_bytes());
+    message.extend_from_slice(b"|");
+    message.extend_from_slice(wasm_content);
     
-    let hash = hasher.finalize();
-    
-    // Create signature
-    let padding = rsa::Pkcs1v15Sign::new::<sha2::Sha256>();
-    let signature = private_key.sign(padding, &hash)?;
+    // Create signature mit ring (Option A) - signiere die Nachricht direkt
+    // ring's sign() erwartet die Nachricht und hash intern mit SHA-256 (RSA_PKCS1_SHA256)
+    // Das ist kompatibel mit ring's verify()!
+    let rng = SystemRandom::new();
+    let signature_len = key_pair.public().modulus_len();
+    let mut signature = vec![0u8; signature_len];
+    key_pair.sign(&RSA_PKCS1_SHA256, &rng, &message, &mut signature)
+        .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, format!("Ring signing failed: {:?}", e))))?;
     let signature_b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &signature);
     
     // Create ZIP with all files
@@ -207,4 +237,3 @@ fn create_unsigned_plugin_zip(path: &Path) -> Result<(), Box<dyn std::error::Err
     zip.finish()?;
     Ok(())
 }
-//ich diene der aktualisierung wala

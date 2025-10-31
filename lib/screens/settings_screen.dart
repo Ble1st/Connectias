@@ -4,7 +4,7 @@
 library;
 
 import 'package:flutter/material.dart';
-import '../services/connectias_service.dart';
+// import '../services/connectias_service.dart'; // Entfernt, da _service nicht verwendet wird
 
 /// Settings Screen für App-Konfiguration
 class SettingsScreen extends StatefulWidget {
@@ -15,20 +15,20 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final ConnectiasService _service = connectiasService;
-  
+  // _service wurde entfernt, da nicht verwendet
+
   // Settings State
   bool _autoStart = true;
   bool _securityMonitoring = true;
   bool _performanceTracking = true;
   bool _debugMode = false;
-  bool _darkMode = false;
+  // _darkMode wurde entfernt, da nicht verwendet
   String _language = 'de';
   int _maxPlugins = 10;
   int _memoryLimit = 512; // MB
   int _networkTimeout = 30; // seconds
   String _logLevel = 'info';
-  
+
   final List<String> _languages = ['de', 'en', 'fr', 'es'];
   final List<String> _logLevels = ['debug', 'info', 'warn', 'error'];
 
@@ -41,13 +41,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     // Simuliere das Laden der Einstellungen
     await Future.delayed(const Duration(milliseconds: 500));
-    
+
     setState(() {
       _autoStart = true;
       _securityMonitoring = true;
       _performanceTracking = true;
       _debugMode = false;
-      _darkMode = false;
       _language = 'de';
       _maxPlugins = 10;
       _memoryLimit = 512;
@@ -59,7 +58,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _saveSettings() async {
     // Simuliere das Speichern der Einstellungen
     await Future.delayed(const Duration(milliseconds: 300));
-    
+
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Einstellungen gespeichert'),
@@ -207,21 +208,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // About Section
             _buildSectionHeader('Über'),
             _buildSettingsCard([
-              _buildInfoTile(
-                'Version',
-                '1.0.0',
-                Icons.info,
-              ),
-              _buildInfoTile(
-                'Build',
-                '2024.01.15',
-                Icons.build,
-              ),
-              _buildInfoTile(
-                'Entwickler',
-                'Connectias Team',
-                Icons.people,
-              ),
+              _buildInfoTile('Version', '1.0.0', Icons.info),
+              _buildInfoTile('Build', '2024.01.15', Icons.build),
+              _buildInfoTile('Entwickler', 'Connectias Team', Icons.people),
             ]),
 
             const SizedBox(height: 32),
@@ -245,12 +234,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSettingsCard(List<Widget> children) {
-    return Card(
-      elevation: 2,
-      child: Column(
-        children: children,
-      ),
-    );
+    return Card(elevation: 2, child: Column(children: children));
   }
 
   Widget _buildSwitchTile(
@@ -347,11 +331,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildInfoTile(
-    String title,
-    String value,
-    IconData icon,
-  ) {
+  Widget _buildInfoTile(String title, String value, IconData icon) {
     return ListTile(
       leading: Icon(icon),
       title: Text(title),
@@ -423,7 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _clearCache() async {
     // Simuliere Cache-Löschung
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -437,7 +417,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _exportLogs() async {
     // Simuliere Log-Export
     await Future.delayed(const Duration(seconds: 2));
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -451,20 +431,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _resetSettings() async {
     // Simuliere Einstellungs-Reset
     await Future.delayed(const Duration(seconds: 1));
-    
+
     setState(() {
       _autoStart = true;
       _securityMonitoring = true;
       _performanceTracking = true;
       _debugMode = false;
-      _darkMode = false;
       _language = 'de';
       _maxPlugins = 10;
       _memoryLimit = 512;
       _networkTimeout = 30;
       _logLevel = 'info';
     });
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

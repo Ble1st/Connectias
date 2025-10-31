@@ -170,14 +170,98 @@ pub extern "C" fn connectias_execute_plugin(
     } else {
         match c_str_to_rust(args_json, "args_json") {
             Ok(s) => {
-                // Parse JSON zu HashMap
-                match serde_json::from_str::<HashMap<String, String>>(&s) {
-                    Ok(map) => map,
+                // SECURITY FIX: JSON Schema-Validierung und Sanitization
+                // Schritt 1: Längen-Limitierung
+                const MAX_JSON_LENGTH: usize = 1024 * 1024; // 1MB
+                if s.len() > MAX_JSON_LENGTH {
+                    let msg = format!("❌ JSON zu lang: {} bytes (max {} bytes)", s.len(), MAX_JSON_LENGTH);
+                    error!("{}", msg);
+                    set_last_error(&msg);
+                    return FFI_ERROR_SECURITY_VIOLATION;
+                }
+                
+                // Schritt 2: Parse JSON mit Tiefenlimitierung
+                let sanitized_json: serde_json::Value = match serde_json::from_str(&s) {
+                    Ok(value) => value,
                     Err(e) => {
-                        let msg = format!("❌ Ungültiges JSON in args: {}", e);
+                        let msg = format!("❌ Ungültiges JSON: {}", e);
                         error!("{}", msg);
                         set_last_error(&msg);
                         return FFI_ERROR_INVALID_UTF8;
+                    }
+                };
+                
+                // Schritt 3: Prüfe JSON-Tiefe (verhindert Deep-Nesting DoS)
+                fn json_depth(value: &serde_json::Value) -> usize {
+                    match value {
+                        serde_json::Value::Object(map) => {
+                            1 + map.values().map(json_depth).max().unwrap_or(0)
+                        }
+                        serde_json::Value::Array(arr) => {
+                            1 + arr.iter().map(json_depth).max().unwrap_or(0)
+                        }
+                        _ => 1,
+                    }
+                }
+                
+                const MAX_JSON_DEPTH: usize = 32;
+                let depth = json_depth(&sanitized_json);
+                if depth > MAX_JSON_DEPTH {
+                    let msg = format!("❌ JSON-Tiefe zu tief: {} (max {})", depth, MAX_JSON_DEPTH);
+                    error!("{}", msg);
+                    set_last_error(&msg);
+                    return FFI_ERROR_SECURITY_VIOLATION;
+                }
+                
+                // Schritt 4: Validierung - nur einfache Key-Value-Pairs erlaubt
+                // Keine verschachtelten Objekte oder Arrays (verhindert komplexe Injection-Angriffe)
+                match sanitized_json {
+                    serde_json::Value::Object(map) => {
+                        let mut args_map = HashMap::new();
+                        for (key, value) in map {
+                            // Nur String-Werte erlauben (keine Objekte/Arrays)
+                            match value {
+                                serde_json::Value::String(s) => {
+                                    // String-Validierung: Whitelist für erlaubte Zeichen
+                                    // Alphanumerisch, Leerzeichen, Bindestrich, Unterstrich, Punkt, @
+                                    if s.len() > 4096 {
+                                        let msg = format!("❌ String zu lang: {} bytes (max 4096)", s.len());
+                                        error!("{}", msg);
+                                        set_last_error(&msg);
+                                        return FFI_ERROR_SECURITY_VIOLATION;
+                                    }
+                                    
+                                    // Prüfe auf gefährliche Patterns
+                                    let s_upper = s.to_uppercase();
+                                    let dangerous = ["SELECT", "INSERT", "UPDATE", "DELETE", "DROP", 
+                                                     "CREATE", "ALTER", "UNION", "EXEC", "EXECUTE",
+                                                     "--", "/*", "*/", "..", "javascript:", "<script"];
+                                    for pattern in &dangerous {
+                                        if s_upper.contains(pattern) {
+                                            let msg = format!("❌ Gefährliches Pattern in JSON-Arg erkannt: {}", pattern);
+                                            error!("{}", msg);
+                                            set_last_error(&msg);
+                                            return FFI_ERROR_SECURITY_VIOLATION;
+                                        }
+                                    }
+                                    
+                                    args_map.insert(key, s);
+                                }
+                                _ => {
+                                    let msg = format!("❌ Nur String-Werte erlaubt in JSON-Args, gefunden: {:?}", value);
+                                    error!("{}", msg);
+                                    set_last_error(&msg);
+                                    return FFI_ERROR_SECURITY_VIOLATION;
+                                }
+                            }
+                        }
+                        args_map
+                    }
+                    _ => {
+                        let msg = "❌ JSON-Args müssen ein Objekt sein".to_string();
+                        error!("{}", msg);
+                        set_last_error(&msg);
+                        return FFI_ERROR_SECURITY_VIOLATION;
                     }
                 }
             }

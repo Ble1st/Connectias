@@ -452,14 +452,128 @@ cp README.md my-plugin-package/
 zip -r my-connectias-plugin-0.1.0.zip my-plugin-package/
 ```
 
-### 2. Plugin Distribution
+### 2. Plugin Signing
+
+Alle Plugins müssen vor der Distribution signiert werden. Connectias verwendet RSA PKCS#1 v1.5 mit SHA-256 für die Signatur-Verifikation.
+
+#### Signatur-Format (ab Version 2.0)
+
+**WICHTIG**: Seit der RSA-Migration zu `ring` (Version 2.0) hat sich das Signatur-Format geändert:
+
+- **ALT (bis Version 1.x)**: Plugins signierten `SHA-256(Message)` (Hash wurde signiert)
+- **NEU (ab Version 2.0)**: Plugins signieren die `Message` direkt (ring hasht intern)
+
+#### Signatur-Prozess
+
+1. **Nachricht erstellen**: Konkatenation aller Plugin-Dateien (außer Signatur):
+   ```
+   Message = Sortierte Dateien: Pfad|Größe|Inhalt
+   ```
+
+2. **Signatur erstellen**: RSA PKCS#1 v1.5 mit SHA-256 (ring signiert die Message direkt)
+
+3. **Signatur einbetten**: Base64-kodierte Signatur in `META-INF/SIGNATURE.RSA` speichern
+
+#### Signatur-Tool verwenden
 
 ```bash
-# Sign plugin (if required)
-gpg --armor --detach-sign my-connectias-plugin-0.1.0.zip
+# Plugin signieren
+cd tools/plugin-signer
+cargo build --release
+./target/release/plugin-signer sign \
+    --plugin my-connectias-plugin-0.1.0.zip \
+    --private-key private-key.pem \
+    --output my-connectias-plugin-0.1.0-signed.zip
 
-# Upload to plugin store
-# (Implementation depends on plugin store)
+# Öffentlichen Schlüssel extrahieren (für Verifikation)
+./target/release/plugin-signer extract-key \
+    --private-key private-key.pem \
+    --output public-key.der
+```
+
+#### Manuelle Signatur (Rust Beispiel)
+
+```rust
+use ring::signature::{RsaKeyPair, RSA_PKCS1_SHA256, KeyPair};
+use ring::rand::SystemRandom;
+use std::fs::File;
+use std::io::Write;
+use zip::{ZipWriter, ZipArchive};
+use std::path::Path;
+
+fn sign_plugin(
+    plugin_zip_path: &Path,
+    private_key_pem: &[u8],
+    output_path: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Private Key laden (PKCS#8 DER Format)
+    let key_pair = RsaKeyPair::from_pkcs8(private_key_pem)?;
+    
+    // 2. ZIP öffnen und Dateien lesen
+    let file = File::open(plugin_zip_path)?;
+    let mut archive = ZipArchive::new(file)?;
+    
+    // 3. Nachricht erstellen (sortiert nach Pfad)
+    let mut message = Vec::new();
+    let mut file_entries: Vec<(String, usize, Vec<u8>)> = Vec::new();
+    
+    for i in 0..archive.len() {
+        let mut file = archive.by_index(i)?;
+        let file_name = file.name().to_string();
+        
+        // Skip Signatur-Dateien
+        if file_name.contains("SIGNATURE") {
+            continue;
+        }
+        
+        let mut content = Vec::new();
+        file.read_to_end(&mut content)?;
+        file_entries.push((file_name, content.len(), content));
+    }
+    
+    // Sortiere nach Pfad
+    file_entries.sort_by(|a, b| a.0.cmp(&b.0));
+    
+    // Erstelle Nachricht: Pfad|Größe|Inhalt
+    for (path, size, content) in &file_entries {
+        message.extend_from_slice(path.as_bytes());
+        message.extend_from_slice(b"|");
+        message.extend_from_slice(size.to_string().as_bytes());
+        message.extend_from_slice(b"|");
+        message.extend_from_slice(content);
+    }
+    
+    // 4. Signatur erstellen (ring signiert die Message direkt)
+    let rng = SystemRandom::new();
+    let signature_len = key_pair.public().modulus_len();
+    let mut signature = vec![0u8; signature_len];
+    key_pair.sign(&RSA_PKCS1_SHA256, &rng, &message, &mut signature)?;
+    
+    // 5. Signatur in ZIP einbetten
+    let output_file = File::create(output_path)?;
+    let mut zip_writer = ZipWriter::new(output_file);
+    
+    // Kopiere alle Dateien
+    for (path, _, content) in &file_entries {
+        zip_writer.start_file(path, zip::FileOptions::default())?;
+        zip_writer.write_all(content)?;
+    }
+    
+    // Füge Signatur hinzu
+    let signature_b64 = base64::encode(&signature);
+    zip_writer.start_file("META-INF/SIGNATURE.RSA", zip::FileOptions::default())?;
+    zip_writer.write_all(signature_b64.as_bytes())?;
+    
+    zip_writer.finish()?;
+    Ok(())
+}
+```
+
+### 3. Plugin Distribution
+
+```bash
+# Signiertes Plugin hochladen
+# (Upload to plugin store - Implementation depends on plugin store)
 ```
 
 ## Performance Optimization

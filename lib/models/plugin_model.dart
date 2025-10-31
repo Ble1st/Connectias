@@ -1,12 +1,7 @@
 /// Plugin Model – Data Model für Plugin-Informationen
 library;
 
-enum PluginStatus {
-  active,
-  inactive,
-  loading,
-  error,
-}
+enum PluginStatus { active, inactive, loading, error }
 
 class PluginModel {
   final String id;

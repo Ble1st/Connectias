@@ -23,4 +23,7 @@ cp pkg/wasm_hello_plugin_bg.wasm plugin.wasm
 
 echo "✅ WASM plugin built successfully!"
 echo "📁 Output: plugin.wasm"
+echo ""
+echo "📝 Hinweis: Plugin muss vor der Verwendung signiert werden."
+echo "   Verwenden Sie: ../../tools/sign-examples.sh"
 

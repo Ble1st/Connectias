@@ -172,34 +172,23 @@ impl AdvancedFuelMeter {
         }
         
         // FIX BUG: Atomare Check-and-Set nach Update - prüfe ob Limit überschritten
-        // Verwende Loop mit compare-and-swap für atomare Prüfung und Setzung
-        loop {
-            let current_total = self.get_total_consumed();
-            if current_total > self.fuel_limit {
-                // Versuche exhausted Flag atomar zu setzen (nur wenn noch false)
-                match self.is_exhausted.compare_exchange(
-                    false,
-                    true,
-                    Ordering::SeqCst,
-                    Ordering::SeqCst
-                ) {
-                    Ok(_) => {
-                        // Erfolgreich auf exhausted gesetzt
-                        return Err(FuelExhausted);
-                    }
-                    Err(_) => {
-                        // Bereits von anderem Thread auf exhausted gesetzt
-                        return Err(FuelExhausted);
-                    }
-                }
-            } else {
-                // Limit nicht überschritten - prüfe nochmal ob nicht doch exhausted
-                if self.is_exhausted.load(Ordering::SeqCst) {
-                    return Err(FuelExhausted);
-                }
-                // Alles OK - verlasse Loop
-                break;
-            }
+        // Prüfe ob Limit überschritten und setze exhausted Flag atomar
+        let current_total = self.get_total_consumed();
+        if current_total > self.fuel_limit {
+            // Versuche exhausted Flag atomar zu setzen (nur wenn noch false)
+            let _ = self.is_exhausted.compare_exchange(
+                false,
+                true,
+                Ordering::SeqCst,
+                Ordering::SeqCst
+            );
+            // Egal ob gesetzt oder schon gesetzt: Fuel ist exhausted
+            return Err(FuelExhausted);
+        }
+        
+        // Limit nicht überschritten - prüfe nochmal ob nicht doch exhausted
+        if self.is_exhausted.load(Ordering::SeqCst) {
+            return Err(FuelExhausted);
         }
         
         Ok(())

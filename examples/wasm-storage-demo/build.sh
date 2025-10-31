@@ -12,9 +12,15 @@ fi
 wasm-pack build --target web --out-dir pkg
 
 if [ $? -eq 0 ]; then
+    # Kopiere WASM-Datei
+    cp pkg/*_bg.wasm plugin.wasm 2>/dev/null || cp pkg/*.wasm plugin.wasm 2>/dev/null || true
+    
     echo "✅ WASM Storage Demo Plugin erfolgreich kompiliert!"
     echo "📦 Output: pkg/wasm_storage_demo_plugin.wasm"
     echo "📋 Package: pkg/wasm_storage_demo_plugin.js"
+    echo ""
+    echo "📝 Hinweis: Plugin muss vor der Verwendung signiert werden."
+    echo "   Verwenden Sie: ../../tools/sign-examples.sh"
 else
     echo "❌ Failed to build WASM Storage Demo Plugin"
     exit 1

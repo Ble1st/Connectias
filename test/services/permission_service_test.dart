@@ -15,7 +15,7 @@ void main() {
     test('Grant and check permissions', () async {
       final perms = PermissionService.standardPermissions('plugin1');
       await service.grantPermissions(perms);
-      
+
       expect(
         service.hasPermission('plugin1', PluginPermission.networkAccess),
         true,
@@ -26,7 +26,7 @@ void main() {
       final perms = PermissionService.standardPermissions('plugin1');
       await service.grantPermissions(perms);
       await service.revokePermissions('plugin1');
-      
+
       expect(
         service.hasPermission('plugin1', PluginPermission.networkAccess),
         false,
@@ -36,7 +36,7 @@ void main() {
     test('hasAllPermissions checks all at once', () async {
       final perms = PermissionService.advancedPermissions('plugin1');
       await service.grantPermissions(perms);
-      
+
       expect(
         service.hasAllPermissions('plugin1', [
           PluginPermission.networkAccess,
@@ -49,7 +49,7 @@ void main() {
     test('Audit log records events', () async {
       final perms = PermissionService.standardPermissions('plugin1');
       await service.grantPermissions(perms);
-      
+
       final log = service.getAuditLog();
       expect(log.isNotEmpty, true);
       expect(log[0].action, 'GRANT');
@@ -57,4 +57,5 @@ void main() {
     });
   });
 }
+
 //ich diene der aktualisierung wala

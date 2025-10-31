@@ -20,14 +20,12 @@ class ConnectiasAnimations {
         const end = Offset.zero;
         const curve = Curves.easeInOut;
 
-        var tween = Tween(begin: begin, end: end).chain(
-          CurveTween(curve: curve),
-        );
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
 
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
+        return SlideTransition(position: animation.drive(tween), child: child);
       },
     );
   }
@@ -41,14 +39,12 @@ class ConnectiasAnimations {
         const end = Offset.zero;
         const curve = Curves.easeInOut;
 
-        var tween = Tween(begin: begin, end: end).chain(
-          CurveTween(curve: curve),
-        );
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
 
-        return SlideTransition(
-          position: animation.drive(tween),
-          child: child,
-        );
+        return SlideTransition(position: animation.drive(tween), child: child);
       },
     );
   }
@@ -58,10 +54,7 @@ class ConnectiasAnimations {
     return PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: child,
-        );
+        return FadeTransition(opacity: animation, child: child);
       },
     );
   }
@@ -71,10 +64,7 @@ class ConnectiasAnimations {
     return PageRouteBuilder<T>(
       pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return ScaleTransition(
-          scale: animation,
-          child: child,
-        );
+        return ScaleTransition(scale: animation, child: child);
       },
     );
   }
@@ -103,9 +93,7 @@ class ConnectiasAnimations {
       color: color,
       padding: padding,
       margin: margin,
-      decoration: BoxDecoration(
-        borderRadius: borderRadius,
-      ),
+      decoration: BoxDecoration(borderRadius: borderRadius),
       child: child,
     );
   }
@@ -170,10 +158,7 @@ class ConnectiasAnimations {
       tween: Tween(begin: minScale, end: maxScale),
       duration: duration,
       builder: (context, value, child) {
-        return Transform.scale(
-          scale: value,
-          child: child,
-        );
+        return Transform.scale(scale: value, child: child);
       },
       child: child,
     );
@@ -188,10 +173,7 @@ class ConnectiasAnimations {
       tween: Tween(begin: 0.0, end: 1.0),
       duration: duration,
       builder: (context, value, child) {
-        return Transform.rotate(
-          angle: value * 2 * 3.14159,
-          child: child,
-        );
+        return Transform.rotate(angle: value * 2 * 3.14159, child: child);
       },
       child: child,
     );
@@ -209,10 +191,7 @@ class ConnectiasAnimations {
       builder: (context, value, child) {
         final bounce = (value * 2 - 1).abs();
         final offset = bounce * bounceHeight;
-        return Transform.translate(
-          offset: Offset(0, -offset),
-          child: child,
-        );
+        return Transform.translate(offset: Offset(0, -offset), child: child);
       },
       child: child,
     );
@@ -233,21 +212,19 @@ class ConnectiasAnimations {
       children: children.asMap().entries.map((entry) {
         final index = entry.key;
         final child = entry.value;
-        
+
         return TweenAnimationBuilder<double>(
           tween: Tween(begin: 0.0, end: 1.0),
           duration: Duration(
-            milliseconds: animationDuration.inMilliseconds + 
-                        (index * staggerDelay.inMilliseconds),
+            milliseconds:
+                animationDuration.inMilliseconds +
+                (index * staggerDelay.inMilliseconds),
           ),
           curve: curve,
           builder: (context, value, child) {
             return Transform.translate(
               offset: Offset(0, 50 * (1 - value)),
-              child: Opacity(
-                opacity: value,
-                child: child,
-              ),
+              child: Opacity(opacity: value, child: child),
             );
           },
           child: child,
@@ -270,10 +247,7 @@ class ConnectiasAnimations {
       builder: (context, value, child) {
         return Transform.translate(
           offset: Offset(-offset * (1 - value), 0),
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
+          child: Opacity(opacity: value, child: child),
         );
       },
       child: child,
@@ -294,10 +268,7 @@ class ConnectiasAnimations {
       builder: (context, value, child) {
         return Transform.translate(
           offset: Offset(offset * (1 - value), 0),
-          child: Opacity(
-            opacity: value,
-            child: child,
-          ),
+          child: Opacity(opacity: value, child: child),
         );
       },
       child: child,
@@ -319,17 +290,18 @@ class ConnectiasAnimations {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isHovered = false;
-        
+
         return MouseRegion(
           onEnter: (_) => setState(() => isHovered = true),
           onExit: (_) => setState(() => isHovered = false),
-          child: AnimatedContainer(
-            duration: duration,
-            transform: Matrix4.identity()
-              ..scale(isHovered ? hoverScale : 1.0),
-            child: Card(
-              elevation: isHovered ? hoverElevation : normalElevation,
-              child: child,
+          child: Transform.scale(
+            scale: isHovered ? hoverScale : 1.0,
+            child: AnimatedContainer(
+              duration: duration,
+              child: Card(
+                elevation: isHovered ? hoverElevation : normalElevation,
+                child: child,
+              ),
             ),
           ),
         );
@@ -347,13 +319,15 @@ class ConnectiasAnimations {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isHovered = false;
-        
+
         return MouseRegion(
           onEnter: (_) => setState(() => isHovered = true),
           onExit: (_) => setState(() => isHovered = false),
           child: AnimatedContainer(
             duration: duration,
-            color: isHovered ? hoverColor : normalColor,
+            decoration: BoxDecoration(
+              color: isHovered ? hoverColor : normalColor,
+            ),
             child: child,
           ),
         );
@@ -375,17 +349,18 @@ class ConnectiasAnimations {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isPressed = false;
-        
+
         return GestureDetector(
           onTapDown: (_) => setState(() => isPressed = true),
           onTapUp: (_) => setState(() => isPressed = false),
           onTapCancel: () => setState(() => isPressed = false),
           onTap: onPressed,
-          child: AnimatedContainer(
-            duration: duration,
-            transform: Matrix4.identity()
-              ..scale(isPressed ? pressScale : 1.0),
-            child: child,
+          child: Transform.scale(
+            scale: isPressed ? pressScale : 1.0,
+            child: AnimatedContainer(
+              duration: duration,
+              child: child,
+            ),
           ),
         );
       },
@@ -403,7 +378,7 @@ class ConnectiasAnimations {
     return StatefulBuilder(
       builder: (context, setState) {
         bool isPressed = false;
-        
+
         return GestureDetector(
           onTapDown: (_) => setState(() => isPressed = true),
           onTapUp: (_) => setState(() => isPressed = false),
@@ -411,7 +386,9 @@ class ConnectiasAnimations {
           onTap: onPressed,
           child: AnimatedContainer(
             duration: duration,
-            color: isPressed ? pressedColor : normalColor,
+            decoration: BoxDecoration(
+              color: isPressed ? pressedColor : normalColor,
+            ),
             child: child,
           ),
         );
@@ -489,10 +466,7 @@ class ConnectiasAnimations {
     required TickerProvider vsync,
     Duration duration = const Duration(milliseconds: 300),
   }) {
-    return AnimationController(
-      duration: duration,
-      vsync: vsync,
-    );
+    return AnimationController(duration: duration, vsync: vsync);
   }
 
   /// Create a custom animation
@@ -502,9 +476,10 @@ class ConnectiasAnimations {
     double end = 1.0,
     Curve curve = Curves.easeInOut,
   }) {
-    return Tween<double>(begin: begin, end: end).animate(
-      CurvedAnimation(parent: controller, curve: curve),
-    );
+    return Tween<double>(
+      begin: begin,
+      end: end,
+    ).animate(CurvedAnimation(parent: controller, curve: curve));
   }
 
   /// Animate a value with custom tween

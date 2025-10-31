@@ -1,4 +1,4 @@
-use rsa::RsaPublicKey;
+use ring::signature::{UnparsedPublicKey, RSA_PKCS1_2048_8192_SHA256};
 use sha2::{Sha256, Digest};
 use std::path::Path;
 use std::fs::File;
@@ -14,8 +14,26 @@ const SIGNATURE_FILES: &[&str] = &[
     "signature.sig"
 ];
 
+/// Public Key im DER-Format (PKCS#1 SubjectPublicKeyInfo)
+#[derive(Clone)]
+pub struct PublicKey {
+    der: Vec<u8>,
+}
+
+impl PublicKey {
+    /// Erstellt einen neuen Public Key aus DER-encoded Daten
+    pub fn from_der(der: Vec<u8>) -> Self {
+        Self { der }
+    }
+
+    /// Gibt den DER-encoded Public Key zurück
+    pub fn as_der(&self) -> &[u8] {
+        &self.der
+    }
+}
+
 pub struct SignatureVerifier {
-    public_keys: Vec<RsaPublicKey>,
+    public_keys: Vec<PublicKey>,
 }
 
 impl SignatureVerifier {
@@ -25,17 +43,29 @@ impl SignatureVerifier {
         }
     }
 
-    pub fn add_trusted_key(&mut self, public_key: RsaPublicKey) {
+    /// Fügt einen vertrauenswürdigen Public Key hinzu
+    /// Der Key muss im DER-Format (PKCS#1 SubjectPublicKeyInfo) sein
+    pub fn add_trusted_key(&mut self, public_key: PublicKey) {
         self.public_keys.push(public_key);
     }
 
+    /// Fügt einen vertrauenswürdigen Public Key aus DER-Format hinzu
+    pub fn add_trusted_key_der(&mut self, der: Vec<u8>) {
+        self.public_keys.push(PublicKey::from_der(der));
+    }
+
     /// Gibt eine Kopie der vertrauenswürdigen Schlüssel zurück
-    pub fn trusted_keys(&self) -> Vec<RsaPublicKey> {
+    pub fn trusted_keys(&self) -> Vec<PublicKey> {
         self.public_keys.clone()
     }
 
+    /// Gibt die Anzahl der vertrauenswürdigen Schlüssel zurück
+    pub fn trusted_keys_count(&self) -> usize {
+        self.public_keys.len()
+    }
+
     /// Gibt eine Referenz auf die vertrauenswürdigen Schlüssel zurück
-    pub fn trusted_keys_ref(&self) -> &[RsaPublicKey] {
+    pub fn trusted_keys_ref(&self) -> &[PublicKey] {
         &self.public_keys
     }
 
@@ -83,16 +113,21 @@ impl SignatureVerifier {
             return Err(super::SecurityError::SignatureVerificationFailed("Missing required file: plugin.wasm or *.wasm".to_string()));
         }
         
-        // Berechne deterministischen Hash
+        // Berechne Hash über alle Dateien (OPTION A: Signatur-Format geändert)
+        // Für ring müssen wir die Nachricht berechnen, da ring intern hasht
+        // ABER: Da rsa den Hash signiert, müssen wir einen Workaround verwenden:
+        // Wir berechnen die Nachricht UND den Hash, und verwenden die Nachricht für ring
+        let mut message = Vec::new();
         let mut hasher = Sha256::new();
-        for (path, size, index) in file_entries {
-            // Hash: Pfad + Separator + Größe + Separator + Content
-            hasher.update(path.as_bytes());
-            hasher.update(b"|");
-            hasher.update(size.to_string().as_bytes());
-            hasher.update(b"|");
+        
+        for (path, size, index) in &file_entries {
+            // Nachricht: Pfad + Separator + Größe + Separator + Content
+            message.extend_from_slice(path.as_bytes());
+            message.extend_from_slice(b"|");
+            message.extend_from_slice(size.to_string().as_bytes());
+            message.extend_from_slice(b"|");
             
-            let mut file = archive.by_index(index)
+            let mut file = archive.by_index(*index)
                 .map_err(|e| super::SecurityError::SignatureVerificationFailed(format!("Failed to reopen file: {}", e)))?;
             let mut content = Vec::new();
             file.read_to_end(&mut content)
@@ -102,10 +137,15 @@ impl SignatureVerifier {
                 return Err(super::SecurityError::SignatureVerificationFailed("plugin.json is empty".to_string()));
             }
             
+            message.extend_from_slice(&content);
+            
+            // Hash für Debugging (ring hash intern)
+            hasher.update(path.as_bytes());
+            hasher.update(b"|");
+            hasher.update(size.to_string().as_bytes());
+            hasher.update(b"|");
             hasher.update(&content);
         }
-        
-        let hash = hasher.finalize();
         
         // 4. Mit jedem trusted key verifizieren
         for public_key in &self.public_keys {
@@ -118,17 +158,23 @@ impl SignatureVerifier {
                 }
             };
             
-            // Verifiziere Signatur gegen Hash mit PKCS1v15
-            use rsa::Pkcs1v15Sign;
+            // Verifiziere Signatur gegen Nachricht mit PKCS1v15 SHA-256 (ring verwendet constant-time)
+            // ring's UnparsedPublicKey verwendet constant-time Verifikation, was sicher gegen Timing-Angriffe ist
+            // OPTION A: Signatur-Format geändert - Plugins signieren die Nachricht direkt (ring hash intern)
+            let public_key_der = public_key.as_der();
             
-            let padding = Pkcs1v15Sign::new::<Sha256>();
-            match public_key.verify(padding, &hash, &signature_bytes) {
+            // Erstelle UnparsedPublicKey für RSA PKCS#1 v1.5 mit SHA-256
+            let public_key_unparsed = UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, public_key_der);
+            
+            // ring's verify() erwartet die Nachricht (ring hash intern automatisch mit SHA-256)
+            match public_key_unparsed.verify(&message, &signature_bytes) {
                 Ok(_) => {
-                    log::info!("Signature verification successful");
+                    log::info!("Signature verification successful (ring constant-time)");
                     return Ok(true);
                 }
                 Err(e) => {
-                    log::debug!("Signature verification failed with key: {}", e);
+                    log::debug!("Signature verification failed: {:?}, message_len: {}, sig_len: {}, key_der_len: {}", 
+                               e, message.len(), signature_bytes.len(), public_key_der.len());
                     continue;
                 }
             }
@@ -152,5 +198,3 @@ impl SignatureVerifier {
         Err(super::SecurityError::SignatureVerificationFailed("No signature file found in plugin".to_string()))
     }
 }
-
-//ich diene der aktualisierung wala

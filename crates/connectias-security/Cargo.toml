@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rsa = "0.9"
+ring = "0.17"
 sha2 = { version = "0.10", features = ["oid"] }
 rand = "0.8"
+# OPTION A: rsa wurde vollständig durch ring ersetzt
+# rsa bleibt nur als dev-dependency für Test-Key-Generierung
 base64 = "0.22"
 serde = { workspace = true }
 thiserror = { workspace = true }
@@ -21,7 +23,9 @@ connectias-api = { path = "../connectias-api" }
 log = "0.4"
 async-trait = "0.1"
 hex = "0.4"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
+unicode-normalization = "0.1"
+regex = "1.11"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
@@ -33,16 +37,13 @@ windows = { version = "0.52", features = ["Win32_System_Memory", "Win32_Foundati
 criterion = { version = "0.5", features = ["html_reports"] }
 futures = "0.3"
 tempfile = { workspace = true }
+rsa = "0.9"  # Für Tests: Signatur-Erstellung
 
 [[bench]]
 name = "security_performance"
 harness = false
-assert_matches = { workspace = true }
-rstest = { workspace = true }
-rstest_reuse = { workspace = true }
-test-log = { workspace = true }
-zip = "0.6"
-serde_json = { workspace = true }
+# Entfernte unused manifest keys:
+# assert_matches, rstest, rstest_reuse, test-log, zip, serde_json
 
 [[bench]]
 name = "security_benchmarks"

@@ -11,7 +11,7 @@ pub mod platform;
 use thiserror::Error;
 
 // Re-export wichtige Typen aus Submodulen
-pub use signature::SignatureVerifier;
+pub use signature::{SignatureVerifier, PublicKey};
 pub use validator::PluginValidator;
 pub use rasp::RaspProtection;
 pub use network::NetworkSecurityFilter;

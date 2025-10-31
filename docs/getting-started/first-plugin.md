@@ -57,14 +57,34 @@ cargo install wasm-pack
 wasm-pack build --target web --out-dir pkg
 ```
 
-### 4. Load in Connectias
+### 4. Build and Sign Plugin
+
+```bash
+# Build the plugin
+wasm-pack build --target web --out-dir pkg
+
+# Create ZIP package
+zip plugin.zip plugin.json pkg/*.wasm
+
+# Sign the plugin (required for Connectias 2.0+)
+cd ../../tools/plugin-signer
+cargo build --release
+./target/release/plugin-signer sign \
+    --plugin ../../examples/my-plugin/plugin.zip \
+    --private-key dev-key.der \
+    --output ../../examples/my-plugin/plugin-signed.zip
+```
+
+**Wichtig**: Alle Plugins müssen vor der Verwendung signiert werden. Siehe [Plugin Development Guide](../guides/plugin-development.md#2-plugin-signing) für Details.
+
+### 5. Load in Connectias
 
 ```dart
 final service = ConnectiasService();
 await service.init();
 
-// Load the plugin
-final pluginId = await service.loadPlugin('/path/to/my-plugin.wasm');
+// Load the signed plugin (must be a ZIP file)
+final pluginId = await service.loadPlugin('/path/to/plugin-signed.zip');
 
 // Execute commands
 final result1 = await service.executePlugin(pluginId, 'hello', {});
@@ -83,6 +103,7 @@ await service.dispose();
 - Handle errors gracefully
 - Use minimal memory footprint
 - Follow security guidelines
+- **Sign all plugins** before distribution (required for Connectias 2.0+)
 
 ## Next Steps
 

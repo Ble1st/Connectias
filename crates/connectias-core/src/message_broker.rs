@@ -203,16 +203,16 @@ impl MessageBroker {
         let (broadcast_sender, _) = broadcast::channel(1000);
         Self {
             // PERF: Optimierte Capacity-basierte Initialisierung
-            subscribers: Arc::new(RwLock::new(crate::hashmap_with_capacity!(50))),
-            message_queue: Arc::new(Mutex::new(VecDeque::new())),
-            message_history: Arc::new(RwLock::new(crate::hashmap_with_capacity!(100))),
+            subscribers: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(50))),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(100))),
             max_history_size: 1000,
-            plugin_connections: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
-            message_filters: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
-            rate_limits: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
+            plugin_connections: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(30))),
+            message_filters: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(10))),
+            rate_limits: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(30))),
             broadcast_sender: Arc::new(broadcast_sender),
-            is_running: Arc::new(Mutex::new(false)),
-            pending_requests: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(crate::hashmap_with_capacity!(10))),
             ipc_transport: None,
             process_mode: ProcessMode::SingleProcess,
         }
@@ -596,6 +596,18 @@ impl MessageBrokerManager {
             // Keine Permissions = keine Kommunikation
             false
         }
+    }
+    
+    /// Erweitere MessageBrokerManager um IPC-Transport
+    pub fn with_ipc_transport(mut self, transport: Arc<dyn IPCTransport>) -> Self {
+        self.broker = Arc::new(self.broker.as_ref().clone().with_ipc_transport(transport));
+        self
+    }
+    
+    /// Setzt Process Mode für MessageBrokerManager
+    pub fn with_mode(mut self, mode: ProcessMode) -> Self {
+        self.broker = Arc::new(self.broker.as_ref().clone().with_mode(mode));
+        self
     }
 
     /// Publiziert eine Message mit Permission-Check
