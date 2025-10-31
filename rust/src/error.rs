@@ -33,11 +33,15 @@ pub extern "C" fn connectias_get_last_error() -> *const c_char {
             Ok(mut error) => {
                 match error.take() {
                     Some(msg) => {
-                        // SECURITY FIX: Verwende allocate_cstring für konsistentes Tracking
+                        // FIX BUG 2: allocate_cstring gibt Result<*mut c_char, i32> zurück
+                        // Bei Fehler (Err(i32)) dürfen wir NICHT den Integer als Pointer casten
+                        // Funktion muss *const c_char zurückgeben, daher bei Fehler null
                         match crate::memory::allocate_cstring(&msg) {
                             Ok(ptr) => ptr as *const c_char,
-                            Err(_) => {
-                                log::error!("🔴 KRITISCH: Ungültige UTF-8 in Fehler!");
+                            Err(err_code) => {
+                                // FIX BUG 2: err_code ist i32, nicht casten zu Pointer!
+                                // Log error und return null pointer (sicherer Fehlerfall)
+                                log::error!("🔴 KRITISCH: Ungültige UTF-8 in Fehler! Error code: {}", err_code);
                                 std::ptr::null()
                             }
                         }

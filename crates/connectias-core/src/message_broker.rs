@@ -599,14 +599,51 @@ impl MessageBrokerManager {
     }
     
     /// Erweitere MessageBrokerManager um IPC-Transport
+    /// FIX BUG 3: Erstelle neue MessageBroker-Instanz statt Clone, da Clone Arc-Felder
+    /// shallow-copied werden und State teilt. Builder-Pattern braucht isolierte Instanz.
     pub fn with_ipc_transport(mut self, transport: Arc<dyn IPCTransport>) -> Self {
-        self.broker = Arc::new(self.broker.as_ref().clone().with_ipc_transport(transport));
+        // FIX BUG 3: Clone würde Arc-Felder shallow-copieren - verwende stattdessen
+        // neuen MessageBroker mit gleichen Settings aber neuem State
+        let old_broker = self.broker.as_ref();
+        let new_broker = MessageBroker {
+            subscribers: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(HashMap::new())),
+            max_history_size: old_broker.max_history_size,
+            plugin_connections: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_filters: Arc::new(TokioRwLock::new(HashMap::new())),
+            rate_limits: Arc::new(TokioRwLock::new(HashMap::new())),
+            broadcast_sender: old_broker.broadcast_sender.clone(), // Broadcast kann geteilt werden
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(HashMap::new())),
+            ipc_transport: Some(transport),
+            process_mode: ProcessMode::MultiProcess, // IPC bedeutet MultiProcess
+        };
+        self.broker = Arc::new(new_broker);
         self
     }
     
     /// Setzt Process Mode für MessageBrokerManager
+    /// FIX BUG 3: Erstelle neue MessageBroker-Instanz statt Clone
     pub fn with_mode(mut self, mode: ProcessMode) -> Self {
-        self.broker = Arc::new(self.broker.as_ref().clone().with_mode(mode));
+        // FIX BUG 3: Clone würde Arc-Felder shallow-copieren - verwende stattdessen
+        // neuen MessageBroker mit gleichen Settings aber neuem State
+        let old_broker = self.broker.as_ref();
+        let new_broker = MessageBroker {
+            subscribers: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_queue: Arc::new(TokioMutex::new(VecDeque::new())),
+            message_history: Arc::new(TokioRwLock::new(HashMap::new())),
+            max_history_size: old_broker.max_history_size,
+            plugin_connections: Arc::new(TokioRwLock::new(HashMap::new())),
+            message_filters: Arc::new(TokioRwLock::new(HashMap::new())),
+            rate_limits: Arc::new(TokioRwLock::new(HashMap::new())),
+            broadcast_sender: old_broker.broadcast_sender.clone(), // Broadcast kann geteilt werden
+            is_running: Arc::new(TokioMutex::new(false)),
+            pending_requests: Arc::new(TokioRwLock::new(HashMap::new())),
+            ipc_transport: old_broker.ipc_transport.clone(),
+            process_mode: mode,
+        };
+        self.broker = Arc::new(new_broker);
         self
     }
 
