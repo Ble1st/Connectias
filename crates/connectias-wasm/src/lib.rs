@@ -371,18 +371,9 @@ impl Plugin for WasmPlugin {
             current_offset
         };
         
-        // Aktualisiere self.next_offset und track allocation nach dem Block (außerhalb von store-Borrow)
-        let data_size = context_json.len() as u32;
-        let old_offset = context_ptr;
-        self.next_offset = old_offset.saturating_add(data_size);
-        let alloc_info = AllocationInfo {
-            offset: old_offset,
-            size: data_size,
-            allocated_at: std::time::SystemTime::now(),
-        };
-        self.allocations.insert(old_offset, alloc_info);
-        
-        // WASM init-Funktion aufrufen (Reborrow store)
+        // WASM init-Funktion aufrufen VOR State-Update (Reborrow store)
+        // FIX BUG 2: Nur wenn plugin_init erfolgreich ist, wird State aktualisiert
+        // Dies verhindert inkonsistenten State bei Initialisierungsfehlern
         let instance = self.instance.as_ref()
             .ok_or_else(|| PluginError::InitializationFailed("Instance not initialized".to_string()))?;
         let store = self.store.as_mut()
@@ -394,8 +385,23 @@ impl Plugin for WasmPlugin {
             .map_err(|e| PluginError::InitializationFailed(format!("Init function call failed: {}", e)))?;
         
         if result != 0 {
+            // FIX BUG 2: Initialisierung fehlgeschlagen - gebe Fehler zurück OHNE State-Update
+            // Der Memory-Block bleibt ungetrackt, aber das ist OK, da init fehlgeschlagen ist
+            // und das Plugin nicht verwendet werden kann. Bei Retry wird derselbe Offset wiederverwendet.
             return Err(PluginError::InitializationFailed("WASM plugin initialization failed".to_string()));
         }
+        
+        // FIX BUG 2: State-Update NACH erfolgreichem plugin_init
+        // Nur wenn init erfolgreich war, wird next_offset aktualisiert und Allocation getrackt
+        let data_size = context_json.len() as u32;
+        let old_offset = context_ptr;
+        self.next_offset = old_offset.saturating_add(data_size);
+        let alloc_info = AllocationInfo {
+            offset: old_offset,
+            size: data_size,
+            allocated_at: std::time::SystemTime::now(),
+        };
+        self.allocations.insert(old_offset, alloc_info);
         
         Ok(())
     }

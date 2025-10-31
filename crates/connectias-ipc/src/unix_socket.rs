@@ -162,17 +162,25 @@ impl IPCTransport for UnixSocketTransport {
         // Verwende spawn_blocking für blocking I/O mit timeout
         let fd_clone = fd;
         let result = tokio_timeout(timeout_duration, tokio::task::spawn_blocking(move || -> Result<IPCMessage, IPCError> {
-            // Read length prefix (blocking)
+            // FIX BUG 1: Read length prefix mit Loop für partielle Reads
             let mut len_buf = [0u8; 4];
-            let result = unsafe { libc::read(fd_clone, len_buf.as_mut_ptr() as *mut libc::c_void, 4) };
-            if result < 0 {
-                return Err(IPCError::ReadFailed(format!("Failed to read length: {}", std::io::Error::last_os_error())));
-            }
-            if result == 0 {
-                return Err(IPCError::ReadFailed("Connection closed".to_string()));
-            }
-            if result != 4 {
-                return Err(IPCError::ReadFailed("Incomplete length read".to_string()));
+            let mut total_read = 0usize;
+            while total_read < 4 {
+                let remaining = 4 - total_read;
+                let result = unsafe {
+                    libc::read(
+                        fd_clone,
+                        len_buf.as_mut_ptr().add(total_read) as *mut libc::c_void,
+                        remaining
+                    )
+                };
+                if result < 0 {
+                    return Err(IPCError::ReadFailed(format!("Failed to read length: {}", std::io::Error::last_os_error())));
+                }
+                if result == 0 {
+                    return Err(IPCError::ReadFailed("Connection closed during length read".to_string()));
+                }
+                total_read += result as usize;
             }
             
             let len = u32::from_le_bytes(len_buf) as usize;
@@ -180,17 +188,25 @@ impl IPCTransport for UnixSocketTransport {
                 return Err(IPCError::MessageTooLarge { size: len, max: MAX_MESSAGE_SIZE });
             }
             
-            // Read payload (blocking)
+            // FIX BUG 1: Read payload mit Loop für partielle Reads
             let mut data = vec![0u8; len];
-            let result = unsafe { libc::read(fd_clone, data.as_mut_ptr() as *mut libc::c_void, len) };
-            if result < 0 {
-                return Err(IPCError::ReadFailed(format!("Failed to read data: {}", std::io::Error::last_os_error())));
-            }
-            if result == 0 {
-                return Err(IPCError::ReadFailed("Connection closed during payload read".to_string()));
-            }
-            if result as usize != len {
-                return Err(IPCError::ReadFailed("Incomplete payload read".to_string()));
+            let mut total_read = 0usize;
+            while total_read < len {
+                let remaining = len - total_read;
+                let result = unsafe {
+                    libc::read(
+                        fd_clone,
+                        data.as_mut_ptr().add(total_read) as *mut libc::c_void,
+                        remaining
+                    )
+                };
+                if result < 0 {
+                    return Err(IPCError::ReadFailed(format!("Failed to read data: {}", std::io::Error::last_os_error())));
+                }
+                if result == 0 {
+                    return Err(IPCError::ReadFailed("Connection closed during payload read".to_string()));
+                }
+                total_read += result as usize;
             }
             
             let msg = bincode::deserialize(&data)?;
