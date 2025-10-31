@@ -832,25 +832,63 @@ impl SslPinner {
                 let is_network_error = Self::is_network_error(&*e);
                 
                 if is_network_error {
-                    // Zähle Netzwerkfehler und prüfe Grace Period
-                    let failure_count = self.ct_log_failure_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                    // FIX BUG 1: Prüfe und resette Grace Period ATOMAR VOR dem Increment
+                    // Dies verhindert Race Conditions wo mehrere Threads den Counter über MAX_NETWORK_FAILURES
+                    // hinaus incrementieren können, bevor die Grace Period geprüft wird
                     let now = std::time::SystemTime::now();
+                    const MAX_NETWORK_FAILURES: u32 = 3;
+                    const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
                     
-                    // Aktualisiere letztes Fehler-Zeitstempel
+                    // Schritt 1: Prüfe Grace Period und resette atomar wenn abgelaufen (VOR Increment)
+                    let grace_period_expired = {
+                        let last_failure = self.ct_log_last_failure.lock().unwrap();
+                        if let Some(last) = *last_failure {
+                            now.duration_since(last)
+                                .map(|d| d.as_secs() >= GRACE_PERIOD_SECONDS)
+                                .unwrap_or(true) // Wenn Zeit nicht ermittelbar, Grace Period als abgelaufen betrachten
+                        } else {
+                            true // Kein vorheriger Fehler = Grace Period abgelaufen
+                        }
+                    };
+                    
+                    // Wenn Grace Period abgelaufen ist, resette Counter atomar
+                    if grace_period_expired {
+                        // Atomarer Reset: Prüfe und resette in einer atomaren Operation
+                        loop {
+                            let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
+                            
+                            // Wenn bereits zurückgesetzt, sind wir fertig
+                            if current == 0 {
+                                break;
+                            }
+                            
+                            // Versuche atomar auf 0 zu setzen
+                            match self.ct_log_failure_count.compare_exchange(
+                                current,
+                                0,
+                                std::sync::atomic::Ordering::Relaxed,
+                                std::sync::atomic::Ordering::Relaxed
+                            ) {
+                                Ok(_) => break, // Erfolgreich zurückgesetzt
+                                Err(_) => continue, // Anderer Thread hat geändert, retry
+                            }
+                        }
+                    }
+                    
+                    // Schritt 2: Incrementiere Counter NACH Grace Period Prüfung
+                    let failure_count = self.ct_log_failure_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+                    
+                    // Schritt 3: Aktualisiere letztes Fehler-Zeitstempel
                     {
                         let mut last_failure = self.ct_log_last_failure.lock().unwrap();
                         *last_failure = Some(now);
                     }
                     
+                    // Schritt 4: Prüfe ob wir in Grace Period sind (nach Increment)
                     // Grace Period: Nach 3 aufeinanderfolgenden Netzwerkfehlern erlauben wir gepinnte Zertifikate
                     // Dies verhindert DoS durch temporäre Netzwerkprobleme, behält aber Sicherheit bei
-                    const MAX_NETWORK_FAILURES: u32 = 3;
-                    const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
-                    
-                    // FIX BUG 4: Atomare Operation für Counter-Check und Grace Period-Prüfung
-                    // Verwende compare-and-swap Loop um Race Conditions zu vermeiden
                     if failure_count >= MAX_NETWORK_FAILURES {
-                        // Prüfe ob Grace Period abgelaufen ist (atomar mit Counter-Check)
+                        // Prüfe ob Grace Period noch aktiv ist (neu berechnen nach Increment)
                         let should_allow_grace = {
                             let last_failure = self.ct_log_last_failure.lock().unwrap();
                             if let Some(last) = *last_failure {
@@ -870,44 +908,6 @@ impl SslPinner {
                             // Wir geben hier Ok(true) zurück, aber nur wenn das Zertifikat auch gepinnt ist
                             // Die tatsächliche Pin-Prüfung erfolgt vor diesem Aufruf
                             return Ok(true);
-                        } else {
-                            // FIX BUG 1: Grace Period abgelaufen - atomar Counter resetten mit Retry-Loop
-                            // Verwende compare_exchange mit Retry um Race Conditions zu vermeiden:
-                            // Wenn zwischen load und compare_exchange neue Fehler aufgetreten sind,
-                            // wird compare_exchange fehlschlagen und wir versuchen es erneut in einer Loop
-                            // Dies verhindert unbounded Counter-Wachstum, das sonst die Grace Period-Mechanik brechen würde
-                            loop {
-                                let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
-                                
-                                // Wenn Counter bereits unter Schwellwert (von anderem Thread zurückgesetzt), sind wir fertig
-                                if current < MAX_NETWORK_FAILURES {
-                                    break;
-                                }
-                                
-                                // Versuche Counter atomar auf 0 zu setzen
-                                match self.ct_log_failure_count.compare_exchange(
-                                    current,
-                                    0,
-                                    std::sync::atomic::Ordering::Relaxed,
-                                    std::sync::atomic::Ordering::Relaxed
-                                ) {
-                                    Ok(_) => {
-                                        // Erfolgreich zurückgesetzt
-                                        break;
-                                    }
-                                    Err(actual_value) => {
-                                        // Zwischen load und compare_exchange wurde der Counter geändert
-                                        // Aktueller Wert ist jetzt in actual_value
-                                        // Wenn actual_value < MAX_NETWORK_FAILURES, sind wir fertig
-                                        if actual_value < MAX_NETWORK_FAILURES {
-                                            break;
-                                        }
-                                        // Sonst: Retry mit neuem Wert (Loop läuft weiter)
-                                        // Dies stellt sicher, dass wir den Counter erfolgreich zurücksetzen,
-                                        // auch bei concurrent Zugriffen
-                                    }
-                                }
-                            }
                         }
                     }
                     
@@ -1201,7 +1201,7 @@ mod tests {
 
     #[test]
     fn test_ssl_pinning() {
-        let pinner = SslPinner::new();
+        let pinner = SslPinner::new(Some(Duration::from_secs(10))).unwrap();
         // Test sollte in echter Umgebung durchgeführt werden
         let _result = pinner.verify_certificates();
     }
