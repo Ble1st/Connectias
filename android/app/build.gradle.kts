@@ -19,8 +19,36 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    signingConfigs {
+        create("release") {
+            // Keystore-Pfad (relativ zum android/app/ Verzeichnis)
+            storeFile = file("../keystore/connectias-release-key.jks")
+            
+            // SICHERHEIT: Erfordere Umgebungsvariablen - keine Hardcoded Passwords
+            val storePasswordEnv = System.getenv("CONNECTIAS_KEYSTORE_PASSWORD")
+            val keyPasswordEnv = System.getenv("CONNECTIAS_KEY_PASSWORD")
+            
+            if (storePasswordEnv.isNullOrBlank()) {
+                throw GradleException(
+                    "CONNECTIAS_KEYSTORE_PASSWORD environment variable must be set for release builds. " +
+                    "Never use hardcoded passwords in production."
+                )
+            }
+            if (keyPasswordEnv.isNullOrBlank()) {
+                throw GradleException(
+                    "CONNECTIAS_KEY_PASSWORD environment variable must be set for release builds. " +
+                    "Never use hardcoded passwords in production."
+                )
+            }
+            
+            storePassword = storePasswordEnv
+            keyAlias = "connectias-release"
+            keyPassword = keyPasswordEnv
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // Application ID für Connectias Plugin-Plattform
         applicationId = "com.connectias.connectias"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
@@ -35,9 +63,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Release-Signing mit eigenem Keystore
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -57,4 +84,7 @@ android {
 flutter {
     source = "../.."
 }
-//ich diene der aktualisierung wala
+
+dependencies {
+    implementation("com.scottyab:rootbeer-lib:0.1.0")
+}

@@ -1,0 +1,20 @@
+[package]
+name = "connectias-ipc"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.0", features = ["full"] }
+log = "0.4"
+bincode = "1.3"
+thiserror = "1.0"
+async-trait = "0.1"
+uuid = { version = "1.6", features = ["v4"] }
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.28", features = ["socket"] }
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.52", features = ["Win32_System_Pipes", "Win32_Foundation"] }

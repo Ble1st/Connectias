@@ -5,6 +5,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:file_picker/file_picker.dart';
 import '../services/connectias_service.dart';
 import '../models/plugin_model.dart';
 import 'plugin_details_screen.dart';
@@ -481,13 +484,31 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
     }
   }
 
-  void _navigateToPluginDetails(PluginModel plugin) {
-    Navigator.push(
+  void _navigateToPluginDetails(PluginModel plugin) async {
+    final updatedPlugin = await Navigator.push<PluginModel>(
       context,
       MaterialPageRoute(
         builder: (context) => PluginDetailsScreen(plugin: plugin),
       ),
     );
+    
+    // Zeige SnackBar wenn Plugin aktualisiert wurde
+    if (updatedPlugin != null && mounted) {
+      setState(() {
+        // Aktualisiere Plugin in der Liste
+        final index = _plugins.indexWhere((p) => p.id == updatedPlugin.id);
+        if (index != -1) {
+          _plugins[index] = updatedPlugin;
+        }
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Plugin ${updatedPlugin.name} wurde ${updatedPlugin.status == PluginStatus.active ? 'aktiviert' : 'deaktiviert'}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   void _togglePlugin(PluginModel plugin) {
@@ -601,17 +622,85 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
   void _showInstallPluginDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Install Plugin'),
-        content: const Text('Plugin installation feature coming soon!'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+      builder: (context) => PluginInstallDialog(
+        onInstall: (file) async {
+          // Dialog wird in _installPlugin() geschlossen, nicht hier
+          await _installPlugin(file);
+        },
       ),
     );
+  }
+  
+  Future<void> _installPlugin(File file) async {
+    // Schließe Install-Dialog zuerst
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+    
+    try {
+      // Zeige Progress-Dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Row(
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(width: 16),
+                Text('Installing plugin...'),
+              ],
+            ),
+          ),
+        );
+      }
+      
+      // Lade Plugin
+      final pluginId = await connectiasService.loadPlugin(file.path);
+      
+      // Schließe Progress-Dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Zeige Success-Dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Success'),
+            content: Text('Plugin installed successfully!\nID: $pluginId'),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  setState(() {}); // Refresh plugin list
+                },
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      // Schließe Progress-Dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Zeige Error-Dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Installation Failed'),
+            content: Text('Failed to install plugin:\n$e'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -620,4 +709,153 @@ enum PluginSortOption {
   status,
   memory,
   lastUsed,
+}
+
+/// Plugin Installation Dialog
+class PluginInstallDialog extends StatefulWidget {
+  final Function(File) onInstall;
+  
+  const PluginInstallDialog({
+    super.key,
+    required this.onInstall,
+  });
+  
+  @override
+  State<PluginInstallDialog> createState() => _PluginInstallDialogState();
+}
+
+class _PluginInstallDialogState extends State<PluginInstallDialog> {
+  bool _isLoading = false;
+  String? _selectedFile;
+  
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Install Plugin'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text('Select a plugin file to install:'),
+          const SizedBox(height: 16),
+          if (_selectedFile != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.file_present, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _selectedFile!.split('/').last,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() => _selectedFile = null),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          ElevatedButton.icon(
+            onPressed: _isLoading ? null : _selectFile,
+            icon: const Icon(Icons.folder_open),
+            label: Text(_selectedFile == null ? 'Select File' : 'Change File'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedFile != null && !_isLoading ? _installPlugin : null,
+          child: _isLoading 
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Text('Install'),
+        ),
+      ],
+    );
+  }
+  
+  Future<void> _selectFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['wasm', 'zip'],
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        // Verwende name wenn path null ist, normalisiere Pfad
+        final filePath = file.path ?? file.name;
+        final displayName = file.name.isNotEmpty ? file.name : path.basename(filePath);
+        
+        // Validiere Datei-Existenz und Lesbarkeit
+        if (filePath.isNotEmpty) {
+          final fileObj = File(filePath);
+          if (await fileObj.exists()) {
+            setState(() {
+              _selectedFile = filePath;
+            });
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Datei existiert nicht: $displayName')),
+              );
+            }
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Ungültiger Dateipfad: $displayName')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Auswählen der Datei: $e')),
+        );
+      }
+    }
+  }
+  
+  Future<void> _installPlugin() async {
+    if (_selectedFile == null) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      final file = File(_selectedFile!);
+      await widget.onInstall(file);
+      
+      // Dialog wird nicht hier geschlossen, sondern in der Hauptklasse _installPlugin()
+    } catch (e) {
+      // Error wird von der Hauptklasse _installPlugin Methode behandelt
+      // Hier nur setState zurücksetzen
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      // Re-throw damit die Hauptklasse den Error behandeln kann
+      rethrow;
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
 }

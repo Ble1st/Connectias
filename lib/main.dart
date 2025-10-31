@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
 import 'screens/plugin_manager_screen.dart';
 import 'screens/security_dashboard_screen.dart';
 import 'screens/settings_screen.dart';
@@ -714,13 +715,7 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
-                child: Text(
-                  'Performance Chart\n(Coming Soon)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
+              child: const SystemPerformanceChart(),
             ),
           ],
         ),
@@ -981,6 +976,196 @@ class _ConnectiasDashboardState extends State<ConnectiasDashboard>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// System Performance Chart Widget
+class SystemPerformanceChart extends StatefulWidget {
+  const SystemPerformanceChart({super.key});
+  
+  @override
+  State<SystemPerformanceChart> createState() => _SystemPerformanceChartState();
+}
+
+class _SystemPerformanceChartState extends State<SystemPerformanceChart> {
+  List<FlSpot> _systemData = [];
+  Timer? _updateTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+    _startPeriodicUpdates();
+  }
+  
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+  
+  void _loadInitialData() {
+    // Lade historische System-Daten (letzte 12 Stunden)
+    _generateSampleData();
+  }
+  
+  void _startPeriodicUpdates() {
+    _updateTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      _updateChartData();
+    });
+  }
+  
+  void _generateSampleData() {
+    // Generiere Sample-System-Daten für Demo
+    final now = DateTime.now();
+    _systemData = List.generate(12, (index) {
+      final time = now.subtract(Duration(hours: 11 - index));
+      final hour = time.hour;
+      final system = 40 + (hour * 3) + (index % 4) * 8; // Simuliere System-Performance
+      return FlSpot(index.toDouble(), system.toDouble());
+    });
+  }
+  
+  void _updateChartData() {
+    if (!mounted) return;
+    
+    setState(() {
+      // Verschiebe alle Daten um eine Position nach links
+      _systemData.removeAt(0);
+      
+      // Füge neue Daten am Ende hinzu
+      final now = DateTime.now();
+      final hour = now.hour;
+      final minute = now.minute;
+      
+      final newSystem = 40 + (hour * 3) + (minute % 30) * 2;
+      
+      _systemData.add(FlSpot(11, newSystem.toDouble()));
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'System Performance (12h)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: true,
+                  horizontalInterval: 20,
+                  verticalInterval: 2,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    );
+                  },
+                  getDrawingVerticalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      interval: 20,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          '${value.toInt()}%',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 3,
+                      getTitlesWidget: (value, meta) {
+                        final hour = DateTime.now().subtract(
+                          Duration(hours: 11 - value.toInt()),
+                        ).hour;
+                        return Text(
+                          '${hour.toString().padLeft(2, '0')}:00',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey[400]!),
+                ),
+                minX: 0,
+                maxX: 11,
+                minY: 0,
+                maxY: 100,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _systemData,
+                    isCurved: true,
+                    color: Colors.purple,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Colors.purple.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 12,
+                  height: 12,
+                  decoration: const BoxDecoration(
+                    color: Colors.purple,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Text(
+                  'System Performance',
+                  style: TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

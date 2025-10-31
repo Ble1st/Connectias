@@ -2,9 +2,20 @@ use std::collections::{HashMap, VecDeque, HashSet};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
 use serde::{Deserialize, Serialize};
+use serde_json;
 use tokio::time::{interval, timeout};
 use tokio::sync::{broadcast, oneshot};
-use log::{info, warn, debug};
+use log::{info, warn, debug, error};
+use connectias_ipc::{IPCTransport, IPCMessage};
+
+/// Process Mode für MessageBroker
+#[derive(Debug, Clone)]
+pub enum ProcessMode {
+    /// Alle Plugins im selben Prozess (aktuell)
+    SingleProcess,
+    /// Jedes Plugin in separatem Prozess
+    MultiProcess,
+}
 
 /// Message Broker für Inter-Plugin Communication
 pub struct MessageBroker {
@@ -20,6 +31,9 @@ pub struct MessageBroker {
     is_running: Arc<Mutex<bool>>,
     // Request-Response Pattern
     pending_requests: Arc<RwLock<HashMap<String, oneshot::Sender<Message>>>>,
+    // IPC Support
+    ipc_transport: Option<Arc<dyn IPCTransport>>,
+    process_mode: ProcessMode,
 }
 
 impl std::fmt::Debug for MessageBroker {
@@ -43,12 +57,14 @@ impl Clone for MessageBroker {
             broadcast_sender: self.broadcast_sender.clone(),
             is_running: self.is_running.clone(),
             pending_requests: self.pending_requests.clone(),
+            ipc_transport: self.ipc_transport.clone(),
+            process_mode: self.process_mode.clone(),
         }
     }
 }
 
 /// Message Handler für Plugin-Subscriptions
-pub type MessageHandler = Box<dyn Fn(&Message) + Send + Sync>;
+pub type MessageHandler = Arc<dyn Fn(&Message) + Send + Sync>;
 
 /// Message für Plugin-Communication
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -158,12 +174,11 @@ pub struct MessageSubscription {
 
 impl Clone for MessageSubscription {
     fn clone(&self) -> Self {
-        // Note: We can't clone the handler, so this creates a subscription without handler
-        // In practice, subscriptions would be managed differently
+        // Arc-basierte Handler können jetzt geklont werden
         Self {
             topic: self.topic.clone(),
             plugin_id: self.plugin_id.clone(),
-            handler: Box::new(|_| {}), // Dummy handler
+            handler: self.handler.clone(), // Arc kann geklont werden
         }
     }
 }
@@ -191,7 +206,22 @@ impl MessageBroker {
             broadcast_sender: Arc::new(broadcast_sender),
             is_running: Arc::new(Mutex::new(false)),
             pending_requests: Arc::new(RwLock::new(HashMap::new())),
+            ipc_transport: None,
+            process_mode: ProcessMode::SingleProcess,
         }
+    }
+    
+    /// Erweitere MessageBroker um IPC-Transport
+    pub fn with_ipc_transport(mut self, transport: Arc<dyn IPCTransport>) -> Self {
+        self.ipc_transport = Some(transport);
+        self.process_mode = ProcessMode::MultiProcess;
+        self
+    }
+    
+    /// Setze Process-Mode
+    pub fn with_mode(mut self, mode: ProcessMode) -> Self {
+        self.process_mode = mode;
+        self
     }
 
     /// Erweiterte Message Broker mit erweiterten Features
@@ -231,6 +261,55 @@ impl MessageBroker {
 
     /// Publiziert eine Message an ein Topic
     pub async fn publish(&self, topic: &str, sender_id: &str, payload: Vec<u8>, message_type: MessageType) {
+        match self.process_mode {
+            ProcessMode::SingleProcess => {
+                self.publish_in_memory(topic, sender_id, payload, message_type).await;
+            },
+            ProcessMode::MultiProcess => {
+                // In MultiProcess-Modus: Versuche IPC zuerst, aber bei Fehlern
+                // dennoch lokale Subscriber benachrichtigen (same-process guarantee)
+                let ipc_result = self.publish_via_ipc(topic, sender_id, payload.clone(), message_type.clone()).await;
+                
+                match ipc_result {
+                    Ok(_) => {
+                        // IPC publish erfolgreich - lokale Subscriber wurden bereits in publish_via_ipc benachrichtigt
+                        debug!("IPC publish successful for topic '{}', sender '{}', type '{:?}'", 
+                               topic, sender_id, message_type);
+                    },
+                    Err(e) => {
+                        // IPC-Fehler: Message wurde nicht an entfernte Prozesse geliefert
+                        // ABER: Lokale Subscriber müssen trotzdem benachrichtigt werden
+                        // (publish-subscribe contract: same-process subscribers always receive)
+                        error!("IPC publish failed for topic '{}', sender '{}', type '{:?}': {}. Message NOT delivered to remote processes, but delivering to local subscribers.", 
+                               topic, sender_id, message_type, e);
+                        
+                        // Erstelle Message für lokale Verteilung
+                        let message = Message {
+                            topic: topic.to_string(),
+                            sender_id: sender_id.to_string(),
+                            payload: payload.clone(),
+                            timestamp: SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs() as i64,
+                            message_id: self.generate_message_id(),
+                            message_type: message_type.clone(),
+                        };
+                        
+                        // Benachrichtige lokale Subscriber trotz IPC-Fehler
+                        // Dies stellt sicher, dass der publish-subscribe contract erfüllt wird
+                        self.distribute_message(&message).await;
+                        
+                        // Update History für lokale Nachverfolgung
+                        self.update_message_history(&message).await;
+                    }
+                }
+            }
+        }
+    }
+    
+    /// INTERN: Bestehende Logik für Single-Process
+    async fn publish_in_memory(&self, topic: &str, sender_id: &str, payload: Vec<u8>, message_type: MessageType) {
         let message = Message {
             topic: topic.to_string(),
             sender_id: sender_id.to_string(),
@@ -255,6 +334,64 @@ impl MessageBroker {
         // Message an Subscribers verteilen
         self.distribute_message(&message).await;
     }
+    
+    /// INTERN: Neue IPC-Logik für Multi-Process
+    async fn publish_via_ipc(&self, topic: &str, sender_id: &str, payload: Vec<u8>, message_type: MessageType) -> Result<(), String> {
+        // Prüfe ob IPC Transport verfügbar ist
+        let ipc = match &self.ipc_transport {
+            Some(ipc) => ipc,
+            None => {
+                return Err("No IPC transport configured".to_string());
+            }
+        };
+        
+        let message_id = self.generate_message_id();
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64;
+        
+        // Erstelle vollständige Message für History
+        let message = Message {
+            topic: topic.to_string(),
+            sender_id: sender_id.to_string(),
+            payload: payload.clone(),
+            timestamp,
+            message_id: message_id.clone(),
+            message_type: message_type.clone(),
+        };
+        
+        // Serialisiere MessageType für IPC Message
+        let message_type_str = serde_json::to_string(&message_type)
+            .map_err(|e| format!("Failed to serialize message type: {}", e))?;
+        
+        // Erstelle IPC Message mit Validierung
+        let ipc_msg = IPCMessage::new(
+            sender_id.to_string(),
+            topic.to_string(),
+            payload.clone(),
+            timestamp,
+            message_id.clone(),
+            message_type_str,
+        ).map_err(|e| format!("Failed to create IPC message: {}", e))?;
+        
+        // Sende via IPC - ACHTUNG: History wird erst NACH erfolgreichem Send aktualisiert
+        match ipc.send(sender_id, ipc_msg).await {
+            Ok(_) => {
+                // Nach erfolgreichem IPC Send: Persistiere in History
+                self.update_message_history(&message).await;
+                
+                // Nach erfolgreichem IPC Send: Notify local subscribers
+                self.distribute_message(&message).await;
+                
+                Ok(())
+            },
+            Err(e) => {
+                // IPC Send fehlgeschlagen - KEINE History-Update
+                Err(e.to_string())
+            }
+        }
+    }
 
     /// Subscribiert zu einem Topic
     pub async fn subscribe<F>(&self, topic: &str, _plugin_id: &str, handler: F)
@@ -262,7 +399,7 @@ impl MessageBroker {
         F: Fn(&Message) + Send + Sync + 'static,
     {
         let mut subscribers = self.subscribers.write().unwrap();
-        let handler = Box::new(handler);
+        let handler = Arc::new(handler);
 
         subscribers
             .entry(topic.to_string())
@@ -370,11 +507,8 @@ impl MessageBroker {
     }
 
     fn generate_message_id(&self) -> String {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        
-        let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-        format!("msg_{}", id)
+        use uuid::Uuid;
+        Uuid::new_v4().to_string()
     }
 
     async fn distribute_message(&self, message: &Message) {

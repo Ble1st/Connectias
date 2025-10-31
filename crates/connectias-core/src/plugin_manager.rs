@@ -169,7 +169,23 @@ impl PluginManager {
         let recovery_manager = Arc::new(RecoveryManager::new());
         let recovery_handler = Arc::new(RecoveryHandler::new(recovery_manager.clone()));
         let memory_manager = Arc::new(MemoryManager::new());
-        let message_broker = Arc::new(MessageBrokerManager::new());
+        // Socket directory setup für IPC
+        let socket_dir = app_data_dir.join("ipc");
+        std::fs::create_dir_all(&socket_dir)
+            .map_err(|e| format!("Fehler beim Erstellen des IPC-Verzeichnisses: {}", e))?;
+        
+        // IPC-Transport basierend auf Plattform
+        #[cfg(unix)]
+        let ipc_transport = Arc::new(connectias_ipc::UnixSocketTransport::new()) as Arc<dyn connectias_ipc::IPCTransport>;
+        
+        #[cfg(windows)]
+        let ipc_transport = Arc::new(connectias_ipc::NamedPipeTransport::new()) as Arc<dyn connectias_ipc::IPCTransport>;
+        
+        let message_broker = Arc::new(
+            MessageBrokerManager::new()
+                .with_ipc_transport(ipc_transport)
+                .with_mode(connectias_core::message_broker::ProcessMode::MultiProcess)
+        );
 
         // Initialize new services
         let database = Arc::new(Database::new(&app_data_dir.join("connectias.db"))
@@ -733,9 +749,88 @@ impl PluginManager {
     }
     
     /// Extrahiere Plugin-Info aus TOML-Manifest
-    async fn extract_from_toml_manifest(&self, _manifest_path: &std::path::Path) -> Result<PluginInfo, String> {
-        // TOML-Parsing ist optional - verwende JSON als Fallback
-        Err("TOML parsing not implemented - use JSON manifest instead".to_string())
+    async fn extract_from_toml_manifest(&self, manifest_path: &std::path::Path) -> Result<PluginInfo, String> {
+        use std::fs;
+        use toml::Value;
+        
+        // Lese TOML-Datei
+        let toml_content = fs::read_to_string(manifest_path)
+            .map_err(|e| format!("Failed to read TOML manifest: {}", e))?;
+        
+        // Parse TOML
+        let toml_value: Value = toml::from_str(&toml_content)
+            .map_err(|e| format!("Failed to parse TOML: {}", e))?;
+        
+        // Extrahiere Plugin-Info aus TOML-Struktur
+        let table = toml_value.as_table()
+            .ok_or_else(|| "TOML root must be a table".to_string())?;
+        
+        // Erforderliche Felder extrahieren
+        let id = table.get("id")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Missing 'id' field in TOML manifest".to_string())?
+            .to_string();
+            
+        let name = table.get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Missing 'name' field in TOML manifest".to_string())?
+            .to_string();
+            
+        let version = table.get("version")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "Missing 'version' field in TOML manifest".to_string())?
+            .to_string();
+            
+        let author = table.get("author")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Unknown")
+            .to_string();
+            
+        let description = table.get("description")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+            
+        let min_core_version = table.get("min_core_version")
+            .and_then(|v| v.as_str())
+            .unwrap_or("1.0.0")
+            .to_string();
+            
+        let max_core_version = table.get("max_core_version")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+            
+        let entry_point = table.get("entry_point")
+            .and_then(|v| v.as_str())
+            .unwrap_or("main.wasm")
+            .to_string();
+            
+        // Permissions extrahieren - TOML-Struktur direkt parsen
+        let permissions = self.parse_permissions_from_toml(table.get("permissions"))
+            .map_err(|e| format!("Failed to parse permissions: {}", e))?;
+            
+        // Dependencies extrahieren
+        let dependencies = table.get("dependencies")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>()
+            });
+        
+        Ok(PluginInfo {
+            id,
+            name,
+            version,
+            author,
+            description,
+            min_core_version,
+            max_core_version,
+            permissions,
+            entry_point,
+            dependencies,
+        })
     }
     
     /// Extrahiere Plugin-Info aus WASM-Custom-Section
@@ -877,6 +972,35 @@ impl PluginManager {
         }
         
         permissions
+    }
+    
+    /// Parse Permissions aus TOML-Manifest
+    /// Konsistent mit JSON-Manifest-Parsing: ignoriert unbekannte Permissions stillschweigend
+    fn parse_permissions_from_toml(&self, permissions_value: Option<&toml::Value>) -> Result<Vec<connectias_api::PluginPermission>, String> {
+        let mut permissions = Vec::new();
+        
+        if let Some(Some(perms)) = permissions_value.map(|v| v.as_array()) {
+            for perm in perms {
+                if let Some(perm_str) = perm.as_str() {
+                    match perm_str {
+                        "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
+                        "Network" => permissions.push(connectias_api::PluginPermission::Network),
+                        _ => {
+                            // Ignore unknown permissions (konsistent mit JSON-Parsing)
+                            // Logge Warnung für Debugging, aber verhindere nicht Plugin-Loading
+                            log::debug!("Unbekannte Permission im TOML-Manifest ignoriert: {}", perm_str);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Wenn keine Permissions angegeben, Standard verwenden
+        if permissions.is_empty() {
+            permissions.push(connectias_api::PluginPermission::Storage);
+        }
+        
+        Ok(permissions)
     }
     
     /// Parse Dependencies aus JSON-Manifest
@@ -1118,6 +1242,11 @@ impl PluginManager {
         } else {
             Err(format!("Plugin {} nicht in Registry gefunden", plugin_id))
         }
+    }
+    
+    /// Hilfsfunktion für Plugin-spezifische Socket-Pfade
+    fn get_plugin_socket_path(&self, plugin_id: &str) -> PathBuf {
+        self.plugin_dir.join("ipc").join(format!("plugin_{}.sock", plugin_id))
     }
 }
 

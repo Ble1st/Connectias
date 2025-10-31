@@ -758,7 +758,7 @@ impl SslPinner {
         }
     }
 
-    pub fn verify_certificate_transparency(&self, cert: &[u8]) -> Result<bool, super::SecurityError> {
+    pub async fn verify_certificate_transparency(&self, cert: &[u8]) -> Result<bool, super::SecurityError> {
         if !self.verification_active {
             return Err(super::SecurityError::SecurityViolation(
                 "SSL verification is disabled".to_string()
@@ -771,18 +771,172 @@ impl SslPinner {
             ));
         }
 
-        // TODO: Echte Certificate Transparency Log-Verification implementieren
-        // Aktuell wird nur SHA-256 Pin-Verification durchgeführt
-        // In einer echten Implementierung würden hier CT-Logs abgefragt werden
+        // Echte Certificate Transparency Log-Verification implementieren
         let computed_pin = Self::compute_sha256_pin(cert);
         
-        if self.pinned_certificates.contains(&computed_pin) {
-            Ok(true)
-        } else {
-            Err(super::SecurityError::SecurityViolation(
-                format!("Certificate transparency pin mismatch: {}", computed_pin)
-            ))
+        // Prüfe Certificate Pinning zuerst
+        if !self.pinned_certificates.contains(&computed_pin) {
+            return Err(super::SecurityError::SecurityViolation(
+                format!("Certificate pin mismatch: {}", computed_pin)
+            ));
         }
+        
+        // CT-Log-Verification durchführen
+        match self._verify_certificate_transparency(cert).await {
+            Ok(ct_valid) => {
+                if ct_valid {
+                    Ok(true)
+                } else {
+                    Err(super::SecurityError::SecurityViolation(
+                        "Certificate not found in CT logs".to_string()
+                    ))
+                }
+            }
+            Err(e) => {
+                // SICHERHEIT: CT-Verifikation ist erforderlich und darf nicht umgangen werden
+                // Auch Netzwerkfehler dürfen nicht zu einem Bypass führen, da ein Angreifer
+                // Netzwerkfehler triggern könnte, um CT-Verifikation zu umgehen
+                // 
+                // Certificate Pinning ist zwar ein starkes Sicherheitsmerkmal, aber CT-Verifikation
+                // ist eine zusätzliche Sicherheitsebene und sollte nicht optional sein
+                let is_network_error = Self::is_network_error(&*e);
+                
+                if is_network_error {
+                    // Bei Netzwerkfehlern: Fail-closed (nicht Ok(true))
+                    // Dies verhindert, dass Angreifer CT-Verifikation durch Netzwerkfehler umgehen
+                    log::warn!("CT-Log-Verification fehlgeschlagen (Netzwerkfehler): {}", e);
+                    log::error!("CT-Verifikation erforderlich - Netzwerkfehler verhindern Verifikation");
+                    Err(super::SecurityError::SecurityViolation(
+                        format!("CT log verification failed due to network error. CT verification is required and cannot be bypassed: {}", e)
+                    ))
+                } else {
+                    // Bei anderen Fehlern (z.B. API-Fehler, ungültige Antworten): Fail-closed
+                    log::error!("CT-Log-Verification fehlgeschlagen (Sicherheitsproblem): {}", e);
+                    Err(super::SecurityError::SecurityViolation(
+                        format!("CT log verification failed: {}", e)
+                    ))
+                }
+            }
+        }
+    }
+    
+    /// Verifiziert Certificate Transparency Logs (private helper method)
+    async fn _verify_certificate_transparency(&self, cert: &[u8]) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        use std::collections::HashMap;
+        use serde_json::Value;
+        
+        // CT-Log-APIs (Google CT, Cloudflare CT)
+        let ct_logs = vec![
+            "https://ct.googleapis.com/logs/argon2024/ct/v1/get-entries",
+            "https://ct.cloudflare.com/logs/nimbus2024/ct/v1/get-entries",
+        ];
+        
+        // Certificate-Hash berechnen
+        let cert_hash = self.compute_certificate_hash(cert)?;
+        
+        // Prüfe jeden CT-Log
+        for ct_log_url in ct_logs {
+            match self.query_ct_log(ct_log_url, &cert_hash).await {
+                Ok(found) => {
+                    if found {
+                        log::info!("Certificate in CT-Log gefunden: {}", ct_log_url);
+                        return Ok(true);
+                    }
+                }
+                Err(e) => {
+                    log::warn!("CT-Log-Abfrage fehlgeschlagen {}: {}", ct_log_url, e);
+                    continue;
+                }
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    /// Berechnet SHA-256 Hash des Certificates
+    fn compute_certificate_hash(&self, cert: &[u8]) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        use sha2::{Sha256, Digest};
+        
+        let mut hasher = Sha256::new();
+        hasher.update(cert);
+        let hash = hasher.finalize();
+        Ok(format!("{:x}", hash))
+    }
+    
+    /// Fragt einen CT-Log ab
+    async fn query_ct_log(&self, ct_log_url: &str, cert_hash: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        use reqwest::Client;
+        use std::time::Duration;
+        
+        let client = Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()?;
+        
+        // CT-Log-API-Aufruf
+        let response = client
+            .get(ct_log_url)
+            .query(&[("hash", cert_hash)])
+            .send()
+            .await?;
+        
+        if response.status().is_success() {
+            let json: Value = response.json().await?;
+            
+            // Prüfe ob Certificate in CT-Log gefunden wurde
+            if let Some(entries) = json.get("entries").and_then(|v| v.as_array()) {
+                return Ok(!entries.is_empty());
+            }
+        }
+        
+        Ok(false)
+    }
+    
+    /// Prüft ob ein Fehler ein Netzwerkfehler ist (robust, ohne String-Matching)
+    /// Unterstützt reqwest::Error und andere gängige HTTP/Netzwerk-Fehler-Typen
+    fn is_network_error(error: &dyn std::error::Error) -> bool {
+        use std::error::Error;
+        
+        // Prüfe auf reqwest::Error (am häufigsten bei CT-Log-Abfragen)
+        if let Some(reqwest_err) = error.downcast_ref::<reqwest::Error>() {
+            // reqwest::Error hat spezifische Methoden für Netzwerkfehler
+            return reqwest_err.is_timeout()
+                || reqwest_err.is_connect()
+                || reqwest_err.is_request()
+                || reqwest_err.is_decode();
+        }
+        
+        // Prüfe auf std::io::Error (häufig bei Netzwerk-Operationen)
+        if let Some(io_err) = error.downcast_ref::<std::io::Error>() {
+            use std::io::ErrorKind;
+            match io_err.kind() {
+                ErrorKind::TimedOut
+                | ErrorKind::ConnectionRefused
+                | ErrorKind::ConnectionAborted
+                | ErrorKind::ConnectionReset
+                | ErrorKind::NotConnected
+                | ErrorKind::AddrInUse
+                | ErrorKind::AddrNotAvailable
+                | ErrorKind::NetworkUnreachable
+                | ErrorKind::HostUnreachable
+                | ErrorKind::BrokenPipe => return true,
+                _ => {}
+            }
+        }
+        
+        // Prüfe auf DNS-Fehler (können in verschiedenen Error-Typen verpackt sein)
+        // via source() chain
+        let mut current: Option<&dyn Error> = Some(error);
+        while let Some(err) = current {
+            let err_msg = err.to_string().to_lowercase();
+            // DNS-Fehler sind spezifisch genug für String-Matching (DNS ist standardisiert)
+            if err_msg.contains("dns") || err_msg.contains("name resolution") {
+                return true;
+            }
+            current = err.source();
+        }
+        
+        // Kein bekannter Netzwerkfehler
+        false
     }
 }
 

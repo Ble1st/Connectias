@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 use connectias_api::PluginError;
 use crate::metrics::MetricsCollector;
 use thiserror::Error;
+use connectias_security::threat_detection::MonitoringServiceTrait;
 
 /// Monitoring Service für Plugin-Überwachung
 pub struct MonitoringService {
@@ -332,17 +333,16 @@ impl MonitoringService {
     }
 }
 
-// MonitoringServiceTrait implementation temporarily disabled
-// impl MonitoringServiceTrait for MonitoringService {
-//     fn increase_sampling_rate_sync(&self, plugin_id: &str, factor: f64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//         // Run in a blocking context to avoid Send issues
-//         let rt = tokio::runtime::Handle::current();
-//         rt.block_on(async {
-//             self.increase_sampling_rate(plugin_id, factor).await
-//                 .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-//         })
-//     }
-// }
+impl MonitoringServiceTrait for MonitoringService {
+    fn increase_sampling_rate_sync(&self, plugin_id: &str, factor: f64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Run in a blocking context to avoid Send issues
+        let rt = tokio::runtime::Handle::current();
+        rt.block_on(async {
+            self.increase_sampling_rate(plugin_id, factor).await
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        })
+    }
+}
 
 #[cfg(test)]
 mod tests {

@@ -1,0 +1,8 @@
+# Connectias Keystore - NIEMALS committen!
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Nur das Generator-Script ist erlaubt
+!generate-keystore.sh

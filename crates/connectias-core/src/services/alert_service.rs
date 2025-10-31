@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use connectias_storage::Database;
-use connectias_security::threat_detection::ThreatAssessment;
+use connectias_security::threat_detection::{ThreatAssessment, AlertServiceTrait};
 use connectias_api::PluginError;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use thiserror::Error;
+use async_trait::async_trait;
 
 /// Alert Service für Security-Alerts und Event-Logging
 #[derive(Clone)]
@@ -599,77 +600,76 @@ mod tests {
     }
 }
 
-// AlertServiceTrait implementation temporarily disabled
-// #[async_trait]
-// impl AlertServiceTrait for AlertService {
-//     async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-//         let alert = SecurityAlert {
-//             id: uuid::Uuid::new_v4().to_string(),
-//             plugin_id: assessment.plugin_id.clone(),
-//             severity: match assessment.threat_score {
-//                 score if score >= 0.8 => AlertSeverity::Critical,
-//                 score if score >= 0.6 => AlertSeverity::High,
-//                 score if score >= 0.4 => AlertSeverity::Medium,
-//                 _ => AlertSeverity::Low,
-//             },
-//             alert_type: AlertType::ThreatDetected,
-//             message: format!("Threat detected: {} threats found", assessment.detected_threats.len()),
-//             timestamp: Utc::now(),
-//             resolved: false,
-//             threat_score: assessment.threat_score,
-//             context: {
-//                 let mut ctx = HashMap::new();
-//                 for threat in &assessment.detected_threats {
-//                     ctx.insert("threat".to_string(), threat.clone());
-//                 }
-//                 ctx
-//             },
-//             resolution_notes: None,
-//         };
-//
-//         self.add_alert_to_history(&alert).await;
-//         let _ = self.save_alert_to_database(&alert).await;
-//         let _ = self.send_notifications(&alert).await;
-//         Ok(alert.id)
-//     }
-//
-//     async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-//         let alert = SecurityAlert {
-//             id: uuid::Uuid::new_v4().to_string(),
-//             plugin_id: plugin_id.to_string(),
-//             severity: AlertSeverity::Medium,
-//             alert_type: AlertType::PermissionViolation,
-//             message: format!("Permission {} {} for plugin {}", permission, action, plugin_id),
-//             timestamp: Utc::now(),
-//             resolved: false,
-//             threat_score: 0.5,
-//             context: HashMap::new(),
-//             resolution_notes: None,
-//         };
-//
-//         self.add_alert_to_history(&alert).await;
-//         let _ = self.save_alert_to_database(&alert).await;
-//         let _ = self.send_notifications(&alert).await;
-//         Ok(alert.id)
-//     }
-//
-//     async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-//         let alert = SecurityAlert {
-//             id: uuid::Uuid::new_v4().to_string(),
-//             plugin_id: plugin_id.to_string(),
-//             severity: AlertSeverity::High,
-//             alert_type: AlertType::ResourceLimitExceeded,
-//             message: format!("Resource {} usage {} exceeds limit {} for plugin {}", resource_type, usage, limit, plugin_id),
-//             timestamp: Utc::now(),
-//             resolved: false,
-//             threat_score: (usage / limit).min(1.0),
-//             context: HashMap::new(),
-//             resolution_notes: None,
-//         };
-//
-//         self.add_alert_to_history(&alert).await;
-//         let _ = self.save_alert_to_database(&alert).await;
-//         let _ = self.send_notifications(&alert).await;
-//         Ok(alert.id)
-//     }
-// }
+#[async_trait]
+impl AlertServiceTrait for AlertService {
+    async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let alert = SecurityAlert {
+            id: uuid::Uuid::new_v4().to_string(),
+            plugin_id: assessment.plugin_id.clone(),
+            severity: match assessment.threat_score {
+                score if score >= 0.8 => AlertSeverity::Critical,
+                score if score >= 0.6 => AlertSeverity::High,
+                score if score >= 0.4 => AlertSeverity::Medium,
+                _ => AlertSeverity::Low,
+            },
+            alert_type: AlertType::ThreatDetected,
+            message: format!("Threat detected: {} threats found", assessment.detected_threats.len()),
+            timestamp: Utc::now(),
+            resolved: false,
+            threat_score: assessment.threat_score,
+            context: {
+                let mut ctx = HashMap::new();
+                for threat in &assessment.detected_threats {
+                    ctx.insert("threat".to_string(), threat.clone());
+                }
+                ctx
+            },
+            resolution_notes: None,
+        };
+
+        self.add_alert_to_history(&alert).await;
+        let _ = self.save_alert_to_database(&alert).await;
+        let _ = self.send_notifications(&alert).await;
+        Ok(alert.id)
+    }
+
+    async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let alert = SecurityAlert {
+            id: uuid::Uuid::new_v4().to_string(),
+            plugin_id: plugin_id.to_string(),
+            severity: AlertSeverity::Medium,
+            alert_type: AlertType::PermissionViolation,
+            message: format!("Permission {} {} for plugin {}", permission, action, plugin_id),
+            timestamp: Utc::now(),
+            resolved: false,
+            threat_score: 0.5,
+            context: HashMap::new(),
+            resolution_notes: None,
+        };
+
+        self.add_alert_to_history(&alert).await;
+        let _ = self.save_alert_to_database(&alert).await;
+        let _ = self.send_notifications(&alert).await;
+        Ok(alert.id)
+    }
+
+    async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let alert = SecurityAlert {
+            id: uuid::Uuid::new_v4().to_string(),
+            plugin_id: plugin_id.to_string(),
+            severity: AlertSeverity::High,
+            alert_type: AlertType::ResourceLimitExceeded,
+            message: format!("Resource {} usage {} exceeds limit {} for plugin {}", resource_type, usage, limit, plugin_id),
+            timestamp: Utc::now(),
+            resolved: false,
+            threat_score: (usage / limit).min(1.0),
+            context: HashMap::new(),
+            resolution_notes: None,
+        };
+
+        self.add_alert_to_history(&alert).await;
+        let _ = self.save_alert_to_database(&alert).await;
+        let _ = self.send_notifications(&alert).await;
+        Ok(alert.id)
+    }
+}

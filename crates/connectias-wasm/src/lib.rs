@@ -14,6 +14,17 @@ pub struct WasmRuntime {
     resource_limits: ResourceLimits,
     #[cfg(feature = "advanced_fuel_metering")]
     fuel_meter: Option<AdvancedFuelMeter>,
+    // Memory-Tracking für echte WASM-Implementierung
+    allocations: HashMap<u32, AllocationInfo>,
+    next_offset: u32,
+}
+
+/// Information über eine Memory-Allocation
+#[derive(Debug, Clone)]
+struct AllocationInfo {
+    offset: u32,
+    size: u32,
+    allocated_at: std::time::SystemTime,
 }
 
 /// Resource-Limits für WASM-Plugins
@@ -63,6 +74,8 @@ impl WasmRuntime {
             resource_limits: ResourceLimits::default(),
             #[cfg(feature = "advanced_fuel_metering")]
             fuel_meter: None,
+            allocations: HashMap::new(),
+            next_offset: 1024, // Start nach WASM-Stack
         })
     }
 
@@ -77,6 +90,8 @@ impl WasmRuntime {
             #[cfg(feature = "advanced_fuel_metering")]
             fuel_meter: Some(AdvancedFuelMeter::new(plugin_id.clone())),
             store: None, // Wird bei init() erstellt
+            allocations: HashMap::new(),
+            next_offset: 1024, // Start nach WASM-Stack
         })
     }
 
@@ -94,6 +109,9 @@ pub struct WasmPlugin {
     #[cfg(feature = "advanced_fuel_metering")]
     fuel_meter: Option<AdvancedFuelMeter>,
     store: Option<Store<()>>,
+    // Memory-Tracking für echte WASM-Implementierung
+    allocations: HashMap<u32, AllocationInfo>,
+    next_offset: u32,
 }
 
 impl WasmPlugin {
@@ -118,8 +136,17 @@ impl WasmPlugin {
         Ok(store)
     }
 
-    /// Schreibt Daten in WASM Memory
-    fn write_to_wasm_memory(&self, _store: &mut Store<()>, data: &[u8]) -> Result<u32, PluginError> {
+    /// NON-PRODUCTION PLACEHOLDER: Allokiert WASM Memory (nicht implementiert)
+    /// 
+    /// WARNUNG: Diese Funktion ist ein Stub und führt KEINE echten WASM Memory-Operationen durch.
+    /// Sie ist nicht für Production geeignet und muss durch eine echte WASM Memory-Allocation
+    /// ersetzt werden, die mit einem echten Wasm-Instance und Allocator integriert ist.
+    /// 
+    /// TODO: Implementiere echte WASM Memory-Allocation mit:
+    /// - Wasm-Instance Integration
+    /// - Memory Allocator
+    /// - Proper Memory Management
+    fn allocate_wasm_memory_stub(&self, _store: &mut Store<()>, data: &[u8]) -> Result<u32, PluginError> {
         // Prüfe Memory-Limit
         if data.len() > self.resource_limits.max_memory {
             return Err(PluginError::MemoryLimitExceeded { 
@@ -128,10 +155,29 @@ impl WasmPlugin {
             });
         }
         
-        // Für jetzt verwenden wir eine einfache Implementierung
-        // In einer echten Implementierung würde man hier die WASM Memory-Allocation verwenden
-        // Da wir keine echte WASM-Instance haben, simulieren wir nur die Pointer-Rückgabe
-        Ok(0) // Placeholder - in echter Implementierung würde hier der WASM-Heap-Pointer stehen
+        // WARNUNG: Dies ist ein Stub - keine echte WASM Memory-Allocation
+        // Rückgabe eines Dummy-Pointers würde Memory-Korruption verursachen, da
+        // alle Allokationen denselben Pointer zurückgeben würden
+        return Err(PluginError::ExecutionFailed(
+            "WASM memory allocation not implemented - allocate_wasm_memory_stub is a placeholder and cannot be used in production".to_string()
+        ));
+    }
+
+    /// Schreibt Daten in WASM Memory
+    fn write_to_wasm_memory(&mut self, _store: &mut Store<()>, data: &[u8]) -> Result<u32, PluginError> {
+        // Prüfe Memory-Limit
+        if data.len() > self.resource_limits.max_memory {
+            return Err(PluginError::MemoryLimitExceeded { 
+                used: data.len(), 
+                limit: self.resource_limits.max_memory 
+            });
+        }
+        
+        // WARNUNG: allocate_wasm_memory_stub ist nicht implementiert
+        // Diese Funktion sollte nicht verwendet werden bis echte WASM Memory-Allocation vorhanden ist
+        return Err(PluginError::ExecutionFailed(
+            "WASM memory allocation not implemented - write_to_wasm_memory requires allocate_wasm_memory_stub to be properly implemented".to_string()
+        ));
     }
 
     /// Liest Daten aus WASM Memory
@@ -226,7 +272,10 @@ impl Plugin for WasmPlugin {
         })).map_err(|e| PluginError::InitializationFailed(format!("Context serialization failed: {}", e)))?;
         
         // Context in WASM Memory schreiben
-        let context_ptr = self.write_to_wasm_memory(&mut store, context_json.as_bytes())?;
+        // WARNUNG: write_to_wasm_memory ist nicht implementiert - wird fehlschlagen
+        // Bis echte WASM Memory-Allocation vorhanden ist, kann init() nicht verwendet werden
+        let _context_ptr = self.write_to_wasm_memory(&mut store, context_json.as_bytes())?;
+        let context_ptr = 0; // Placeholder - wird durch write_to_wasm_memory fehlschlagen
         
         // WASM init-Funktion aufrufen
         let init_func = instance.get_typed_func::<(i32, i32), i32>(&mut store, "plugin_init")
@@ -267,36 +316,13 @@ impl Plugin for WasmPlugin {
             }
         }
         
-        // Command und Args serialisieren
-        let input = serde_json::json!({
-            "command": command,
-            "args": args
-        });
-        
-        let _input_json = serde_json::to_string(&input)
-            .map_err(|e| PluginError::ExecutionFailed(format!("Input serialization failed: {}", e)))?;
-        
-        // Input in WASM Memory schreiben (simuliert)
-        let _input_ptr = 0; // Placeholder
-        
-        // Für jetzt verwenden wir eine einfache Implementierung
-        // In einer echten Implementierung würde man hier die WASM-Funktionen aufrufen
-        // Da wir keine echte WASM-Instance haben, simulieren wir nur die Ausführung
-        let result_data = format!(r#"{{"status": "success", "result": "Executed command: {}"}}"#, command).into_bytes();
-        let result = String::from_utf8(result_data)
-            .map_err(|e| PluginError::ExecutionFailed(format!("Invalid UTF-8 in result: {}", e)))?;
-        
-        // JSON-Response parsen
-        let response: serde_json::Value = serde_json::from_str(&result)
-            .map_err(|e| PluginError::ExecutionFailed(format!("Invalid JSON response: {}", e)))?;
-        
-        if response["status"] != "success" {
-            return Err(PluginError::ExecutionFailed(
-                response["error"].as_str().unwrap_or("Unknown execution error").to_string()
-            ));
-        }
-        
-        Ok(response["result"].as_str().unwrap_or("").to_string())
+        // WARNUNG: WASM Memory-Allocation ist nicht implementiert
+        // allocate_wasm_memory_stub ist ein Stub und gibt Fehler zurück
+        // Bis echte WASM Memory-Allocation implementiert ist, kann execute() nicht verwendet werden
+        // Dies verhindert Memory-Korruption durch wiederholte Allokationen mit gleichem Pointer
+        Err(PluginError::ExecutionFailed(
+            format!("WASM memory allocation not implemented - allocate_wasm_memory_stub is a placeholder. Cannot execute command '{}' until proper WASM memory management is implemented.", command)
+        ))
     }
 
     /// Cleanup des WASM-Plugins mit vollständiger Resource-Freigabe
@@ -325,6 +351,7 @@ impl Plugin for WasmPlugin {
         // Engine wird automatisch dropped
         Ok(())
     }
+    
 }
 
 impl WasmPlugin {
@@ -332,5 +359,75 @@ impl WasmPlugin {
     #[cfg(feature = "advanced_fuel_metering")]
     pub fn get_fuel_report(&self) -> Option<fuel_meter::FuelReport> {
         self.fuel_meter.as_ref().map(|meter| meter.generate_report())
+    }
+    
+    /// Findet freien Memory-Offset für Allocation
+    fn find_free_memory_offset(&self, store: &mut Store<()>, memory: &Memory, size: u32) -> Result<u32, PluginError> {
+        // Einfache Linear-Allocation-Strategie
+        // In einer echten Implementierung würde man eine Free-List verwenden
+        let current_offset = self.next_offset;
+        
+        // Prüfe ob genug Platz vorhanden ist
+        let current_pages = memory.size(store);
+        let current_bytes = current_pages * 65536; // 64KB per page
+        let required_end = current_offset + size;
+        
+        if required_end > current_bytes as u32 {
+            return Err(PluginError::ExecutionFailed(format!(
+                "Insufficient memory: required={}, available={}", 
+                required_end, current_bytes
+            )));
+        }
+        
+        // Prüfe auf Overlaps mit existierenden Allocations
+        for (_, alloc_info) in &self.allocations {
+            let alloc_end = alloc_info.offset + alloc_info.size;
+            let new_end = current_offset + size;
+            
+            if current_offset < alloc_end && new_end > alloc_info.offset {
+                return Err(PluginError::ExecutionFailed(format!(
+                    "Memory overlap detected: new={}-{}, existing={}-{}", 
+                    current_offset, new_end, alloc_info.offset, alloc_end
+                )));
+            }
+        }
+        
+        Ok(current_offset)
+    }
+    
+    /// Trackt eine neue Memory-Allocation
+    fn track_allocation(&mut self, offset: u32, size: u32) -> Result<(), PluginError> {
+        let alloc_info = AllocationInfo {
+            offset,
+            size,
+            allocated_at: std::time::SystemTime::now(),
+        };
+        
+        self.allocations.insert(offset, alloc_info);
+        self.next_offset = offset + size;
+        
+        Ok(())
+    }
+    
+    /// Validiert ob eine Allocation existiert und gültig ist
+    fn is_valid_allocation(&self, ptr: u32, len: u32) -> Result<bool, PluginError> {
+        for (_, alloc_info) in &self.allocations {
+            if ptr >= alloc_info.offset && ptr + len <= alloc_info.offset + alloc_info.size {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+    
+    /// Gibt Memory-Allocation frei
+    fn free_allocation(&mut self, offset: u32) -> Result<(), PluginError> {
+        if self.allocations.remove(&offset).is_some() {
+            // In einer echten Implementierung würde man hier Memory-Zeroing durchführen
+            Ok(())
+        } else {
+            Err(PluginError::ExecutionFailed(format!(
+                "Allocation not found: {}", offset
+            )))
+        }
     }
 }

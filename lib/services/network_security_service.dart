@@ -10,6 +10,11 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:math' as math;
+import 'package:crypto/crypto.dart';
+import 'package:asn1lib/asn1lib.dart';
 
 /// Netzwerk Sicherheitsrichtlinie
 class NetworkSecurityPolicy {
@@ -38,7 +43,7 @@ class SecureHttpClient extends http.BaseClient {
     // 1. Validiere URL
     final uri = request.url;
     if (!uri.scheme.startsWith('https')) {
-      throw Exception('❌ Nur HTTPS erlaubt! Schema: ${uri.scheme}');
+      throw NetworkSecurityException('Nur HTTPS erlaubt! Schema: ${uri.scheme}');
     }
 
     debugPrint('🔒 Sichere Request vorbereitet: ${request.method} $uri');
@@ -46,15 +51,22 @@ class SecureHttpClient extends http.BaseClient {
     // 2. Hole Policy
     final policy = policies[uri.host];
     if (policy == null) {
-      throw Exception('❌ Keine Security Policy für Host: ${uri.host}');
+      throw NetworkSecurityException('Keine Security Policy für Host: ${uri.host}');
     }
 
-    // 3. Validiere Timeout
+    // 3. Validiere URL mit Certificate Pinning
+    final networkSecurityService = NetworkSecurityService();
+    final isValid = await networkSecurityService.validateUrl(uri);
+    if (!isValid) {
+      throw NetworkSecurityException('URL-Validierung fehlgeschlagen für ${uri.host}: Certificate Pinning fehlgeschlagen oder andere Sicherheitsprüfung nicht bestanden');
+    }
+
+    // 4. Validiere Timeout
     if (request.persistentConnection != false) {
       request.persistentConnection = true;
     }
 
-    // 4. Sende Request
+    // 5. Sende Request
     debugPrint('📤 Sichere Request: ${request.method} ${request.url}');
 
     try {
@@ -63,7 +75,7 @@ class SecureHttpClient extends http.BaseClient {
         onTimeout: () => throw TimeoutException('Request Timeout'),
       );
 
-      // 5. Validiere Response
+      // 6. Validiere Response
       if (response.statusCode < 200 || response.statusCode >= 300) {
         debugPrint('⚠️ HTTP ${response.statusCode}: ${request.url}');
       }
@@ -136,7 +148,13 @@ class NetworkSecurityService {
       return true; // Policy optional
     }
 
-    // TODO: Certificate Pinning Validierung
+    // Certificate Pinning Validierung implementieren
+    final pinValid = await _validateCertificatePinning(url, policy);
+    if (!pinValid) {
+      debugPrint('❌ Certificate Pinning fehlgeschlagen für: ${url.host}');
+      return false;
+    }
+    
     debugPrint('✅ URL validiert: $url');
     return true;
   }
@@ -152,6 +170,237 @@ class NetworkSecurityService {
     debugPrint('✅ TLS Version validiert für: $url');
     return true;
   }
+  
+  /// Validiert Certificate Pinning für eine URL
+  /// 
+  /// Prüft ob keine Pins konfiguriert sind oder Feature-Flag deaktiviert ist
+  /// und führt sonst echte Pin-Validierung durch.
+  /// 
+  /// Führt nur einen TLS-Handshake durch, ohne vollständigen HTTP-Request.
+  Future<bool> _validateCertificatePinning(Uri url, NetworkSecurityPolicy policy) async {
+    // Wenn keine Pins konfiguriert sind, ist Pinning nicht erforderlich
+    if (policy.certificatePins.isEmpty) {
+      debugPrint('✅ Keine Certificate Pins konfiguriert für ${url.host} - Pinning übersprungen');
+      return true;
+    }
+    
+    // Feature-Flag prüfen (kann später über Konfiguration gesteuert werden)
+    // Für jetzt: Pinning ist aktiviert wenn Pins vorhanden sind
+    
+    try {
+      // Öffne TLS-Verbindung nur für Certificate-Validierung (kein HTTP-Request)
+      final host = url.host;
+      final port = url.hasPort ? url.port : 443;
+      
+      debugPrint('🔒 Starte TLS-Handshake für Certificate Pinning: $host:$port');
+      
+      // Erstelle SecurityContext für Certificate Pinning
+      // WICHTIG: Wir akzeptieren KEINE Certificates ohne Pin-Validierung
+      // Auch system-trusted certificates müssen gepinnt sein
+      final securityContext = SecurityContext(withTrustedRoots: false);
+      
+      // Erstelle SecureSocket für TLS-Handshake mit benutzerdefiniertem Context
+      // onBadCertificate wird für ALLE Certificates aufgerufen (da withTrustedRoots: false)
+      final socket = await SecureSocket.connect(
+        host,
+        port,
+        context: securityContext,
+        onBadCertificate: (X509Certificate cert) {
+          // Validiere Certificate gegen konfigurierte Pins
+          // Dieser Callback wird für ALLE Certificates aufgerufen (auch system-trusted)
+          // da withTrustedRoots: false bedeutet, dass kein System-Trust verwendet wird
+          final isValid = _validateCertificatePin(cert, policy.certificatePins);
+          
+          if (!isValid) {
+            debugPrint('❌ Certificate pin validation failed in callback');
+            debugPrint('   Certificate: ${cert.subject}');
+            debugPrint('   Expected pins: ${policy.certificatePins}');
+          } else {
+            debugPrint('✅ Certificate pin validiert in callback');
+          }
+          
+          return isValid;
+        },
+      );
+      
+      // Hole Certificate aus der Verbindung und validiere erneut (Defense in Depth)
+      final certificate = socket.peerCertificate;
+      if (certificate == null) {
+        debugPrint('❌ Kein Certificate von Server erhalten');
+        await socket.close();
+        return false;
+      }
+      
+      // Zusätzliche Validierung nach erfolgreichem Handshake (Defense in Depth)
+      // onBadCertificate sollte bereits alle Certificates validiert haben,
+      // aber diese zusätzliche Prüfung stellt sicher, dass nichts durchrutscht
+      final isValid = _validateCertificatePin(certificate, policy.certificatePins);
+      
+      if (!isValid) {
+        debugPrint('❌ Certificate pin validation failed for $host:$port');
+        debugPrint('   Certificate: ${certificate.subject}');
+        debugPrint('   Expected pins: ${policy.certificatePins}');
+        await socket.close();
+        return false;
+      }
+      
+      // Schließe Socket (nur TLS-Handshake, kein HTTP-Request)
+      await socket.close();
+      
+      debugPrint('✅ Certificate pin validation successful for ${url.host}');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Certificate Pinning Fehler für ${url.host}: $e');
+      return false;
+    }
+  }
+  
+  /// Validiert ein Certificate gegen die konfigurierten Pins
+  bool _validateCertificatePin(X509Certificate cert, List<String> expectedPins) {
+    try {
+      // Berechne SHA-256 SPKI-Hash des Certificates
+      final spkiHash = _computeSpkiHash(cert.der);
+      
+      // Prüfe gegen alle konfigurierten Pins
+      for (final pin in expectedPins) {
+        if (pin.startsWith('sha256/')) {
+          final expectedHash = pin.substring(7); // Entferne 'sha256/' Prefix
+          if (spkiHash == expectedHash) {
+            debugPrint('✅ Certificate Pin validiert: $expectedHash');
+            return true;
+          }
+        }
+      }
+      
+      debugPrint('❌ Certificate Pin nicht gefunden. Erwartet: $expectedPins, Gefunden: $spkiHash');
+      return false;
+    } catch (e) {
+      debugPrint('❌ Certificate Pin Validierung fehlgeschlagen: $e');
+      return false;
+    }
+  }
+  
+  /// Berechnet SHA-256 SPKI-Hash eines X.509 Certificates
+  /// 
+  /// Extrahiert SubjectPublicKeyInfo (SPKI) aus DER-encoded Certificate
+  /// und berechnet SHA-256 Hash in Base64-Kodierung.
+  /// 
+  /// Verwendet asn1lib für korrektes ASN.1/X.509-Parsing.
+  /// 
+  /// Bei Parsing-Fehlern wird eine Exception geworfen, um sicherzustellen,
+  /// dass ungültige Daten nicht für Pin-Validierung verwendet werden.
+  String _computeSpkiHash(List<int> derData) {
+    try {
+      // Parse DER-encoded X.509 Certificate mit asn1lib
+      final asn1Sequence = ASN1Sequence.fromBytes(Uint8List.fromList(derData));
+      
+      if (asn1Sequence.elements.isEmpty) {
+        throw Exception('Ungültiges Certificate: Leeres SEQUENCE');
+      }
+      
+      // Certificate ::= SEQUENCE {
+      //   tbsCertificate TBSCertificate,
+      //   signatureAlgorithm AlgorithmIdentifier,
+      //   signatureValue BIT STRING
+      // }
+      // Das erste Element ist TBSCertificate
+      final tbsCertificate = asn1Sequence.elements[0];
+      if (tbsCertificate is! ASN1Sequence) {
+        throw Exception('Ungültiges Certificate: TBSCertificate ist kein SEQUENCE');
+      }
+      
+      final tbsSeq = tbsCertificate;
+      if (tbsSeq.elements.isEmpty) {
+        throw Exception('Ungültiges Certificate: Leeres TBSCertificate');
+      }
+      
+      // TBSCertificate ::= SEQUENCE {
+      //   version [0] Version OPTIONAL,
+      //   serialNumber INTEGER,
+      //   signature AlgorithmIdentifier,
+      //   issuer Name,
+      //   validity Validity,
+      //   subject Name,
+      //   subjectPublicKeyInfo SubjectPublicKeyInfo,  <-- Das brauchen wir
+      //   ...
+      // }
+      
+      // Finde subjectPublicKeyInfo durch Position (nicht durch Pattern-Matching)
+      // TBSCertificate Struktur ist immer gleich:
+      // [0] version (optional, EXPLICIT [0] - kann sein oder nicht)
+      // [1] serialNumber (INTEGER)
+      // [2] signature (AlgorithmIdentifier)
+      // [3] issuer (Name)
+      // [4] validity (Validity)
+      // [5] subject (Name)
+      // [6] subjectPublicKeyInfo (SubjectPublicKeyInfo) <-- Immer an Position 6 (oder 5 wenn keine version)
+      
+      // Prüfe beide möglichen Positionen (5 oder 6, abhängig von optional version)
+      // Da wir nicht einfach auf Tag prüfen können, prüfen wir beide Positionen
+      int spkiIndex = -1;
+      
+      // Versuche Position 5 (wenn keine version vorhanden)
+      if (tbsSeq.elements.length > 5) {
+        final candidate5 = tbsSeq.elements[5];
+        if (candidate5 is ASN1Sequence) {
+          final candidateSeq = candidate5;
+          if (candidateSeq.elements.length >= 2 &&
+              candidateSeq.elements[0] is ASN1Sequence &&
+              candidateSeq.elements[1] is ASN1BitString) {
+            spkiIndex = 5;
+          }
+        }
+      }
+      
+      // Falls Position 5 kein SPKI ist, versuche Position 6 (wenn version vorhanden)
+      if (spkiIndex < 0 && tbsSeq.elements.length > 6) {
+        final candidate6 = tbsSeq.elements[6];
+        if (candidate6 is ASN1Sequence) {
+          final candidateSeq = candidate6;
+          if (candidateSeq.elements.length >= 2 &&
+              candidateSeq.elements[0] is ASN1Sequence &&
+              candidateSeq.elements[1] is ASN1BitString) {
+            spkiIndex = 6;
+          }
+        }
+      }
+      
+      // Wenn SPKI nicht gefunden, Fehler werfen
+      if (spkiIndex < 0) {
+        throw Exception('SubjectPublicKeyInfo nicht an erwarteter Position (5 oder 6) im TBSCertificate gefunden');
+      }
+      
+      final subjectPublicKeyInfo = tbsSeq.elements[spkiIndex];
+      // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert oben
+      
+      // Extrahiere encoded bytes des SubjectPublicKeyInfo
+      // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert
+      final spkiSequence = subjectPublicKeyInfo as ASN1Sequence;
+      final spkiBytes = spkiSequence.encodedBytes;
+      
+      if (spkiBytes.isEmpty) {
+        throw Exception('Konnte SPKI-Bytes nicht extrahieren: Leere encodedBytes');
+      }
+      
+      // Berechne SHA-256 Hash über SPKI bytes
+      final bytes = Uint8List.fromList(spkiBytes);
+      final digest = sha256.convert(bytes);
+      
+      // Kodiere in Base64 (RFC 7469 Format)
+      final base64Hash = base64Encode(digest.bytes);
+      
+      debugPrint('✅ SPKI-Hash berechnet: ${digest.bytes.length} bytes → Base64: ${base64Hash.substring(0, math.min(20, base64Hash.length))}...');
+      
+      return base64Hash;
+    } catch (e) {
+      debugPrint('❌ SPKI-Hash Berechnung fehlgeschlagen: $e');
+      debugPrint('   DER-Daten Länge: ${derData.length} bytes');
+      // Rethrow damit Pin-Validierung fehlschlägt (Fail-Safe)
+      rethrow;
+    }
+  }
+  
+// ASN.1-Helper-Methoden wurden entfernt - jetzt wird asn1lib verwendet
 }
 
 /// Network Security Exception

@@ -4,8 +4,7 @@ use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use crate::SecurityError;
 
-// Temporarily disable async_trait to fix compilation issues
-// use async_trait::async_trait;
+use async_trait::async_trait;
 
 /// Advanced Threat Detection System
 /// 
@@ -23,12 +22,11 @@ pub struct ThreatDetectionSystem {
 }
 
 /// Trait für Permission Service Integration
-// Temporarily disabled due to async trait compatibility issues
-// #[async_trait]
-// pub trait PermissionServiceTrait: Send + Sync {
-//     async fn restrict_plugin_permissions(&self, plugin_id: &str, allowed: Vec<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-//     async fn revoke_permission(&self, plugin_id: &str, permission: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-// }
+#[async_trait]
+pub trait PermissionServiceTrait: Send + Sync {
+    async fn restrict_plugin_permissions(&self, plugin_id: &str, allowed: Vec<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn revoke_permission(&self, plugin_id: &str, permission: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+}
 
 /// Trait für Monitoring Service Integration
 pub trait MonitoringServiceTrait: Send + Sync {
@@ -36,21 +34,19 @@ pub trait MonitoringServiceTrait: Send + Sync {
 }
 
 /// Trait für Alert Service Integration
-// Temporarily disabled due to async trait compatibility issues
-// #[async_trait]
-// pub trait AlertServiceTrait: Send + Sync {
-//     async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
-//     async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
-//     async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
-// }
+#[async_trait]
+pub trait AlertServiceTrait: Send + Sync {
+    async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
+    async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
+    async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, Box<dyn std::error::Error + Send + Sync>>;
+}
 
 /// Trait für Plugin Manager Integration
-// Temporarily disabled due to async trait compatibility issues
-// #[async_trait]
-// pub trait PluginManagerTrait: Send + Sync {
-//     async fn suspend_plugin(&self, plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-//     async fn block_plugin_network_access(&self, plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
-// }
+#[async_trait]
+pub trait PluginManagerTrait: Send + Sync {
+    async fn suspend_plugin(&self, plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+    async fn block_plugin_network_access(&self, plugin_id: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+}
 
 #[derive(Debug, Clone)]
 pub struct ThreatEvent {

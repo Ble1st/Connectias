@@ -5,6 +5,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
 import '../models/plugin_model.dart';
 import '../services/connectias_service.dart';
 
@@ -274,13 +275,7 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Center(
-                child: Text(
-                  'Performance Chart\n(Coming Soon)',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ),
+              child: PerformanceChart(pluginId: widget.plugin.id),
             ),
           ]),
         ],
@@ -797,18 +792,25 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
       // Hier würde der echte Service-Call stattfinden
       // await ConnectiasService.instance.togglePlugin(widget.plugin.id, newStatus);
       
-      // UI-Update
-      setState(() {
-        widget.plugin.status = newStatus;
-      });
-      
-      // Erfolgs-SnackBar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Plugin ${widget.plugin.name} wurde ${newStatus == PluginStatus.active ? 'aktiviert' : 'deaktiviert'}'),
-          backgroundColor: Colors.green,
-        ),
+      // Erstelle neues PluginModel mit aktualisiertem Status
+      final updatedPlugin = PluginModel(
+        id: widget.plugin.id,
+        name: widget.plugin.name,
+        version: widget.plugin.version,
+        description: widget.plugin.description,
+        author: widget.plugin.author,
+        category: widget.plugin.category,
+        status: newStatus,
+        permissions: widget.plugin.permissions,
+        lastUsed: widget.plugin.lastUsed,
+        memoryUsage: widget.plugin.memoryUsage,
+        isEnabled: newStatus == PluginStatus.active,
+        metadata: widget.plugin.metadata,
       );
+      
+      // Signalisiere Parent über Status-Änderung
+      // SnackBar wird im Parent angezeigt, damit sie sichtbar ist
+      Navigator.of(context).pop(updatedPlugin);
     } catch (e) {
       // Fehler-SnackBar
       ScaffoldMessenger.of(context).showSnackBar(
@@ -881,6 +883,256 @@ class _PluginDetailsScreenState extends State<PluginDetailsScreen>
       const SnackBar(
         content: Text('Berechtigungen werden überprüft...'),
       ),
+    );
+  }
+}
+
+/// Performance Chart Widget
+class PerformanceChart extends StatefulWidget {
+  final String pluginId;
+  
+  const PerformanceChart({
+    super.key,
+    required this.pluginId,
+  });
+  
+  @override
+  State<PerformanceChart> createState() => _PerformanceChartState();
+}
+
+class _PerformanceChartState extends State<PerformanceChart> {
+  List<FlSpot> _cpuData = [];
+  List<FlSpot> _memoryData = [];
+  List<FlSpot> _networkData = [];
+  Timer? _updateTimer;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+    _startPeriodicUpdates();
+  }
+  
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+  
+  void _loadInitialData() {
+    // Lade historische Daten (letzte 24 Stunden)
+    _generateSampleData();
+  }
+  
+  void _startPeriodicUpdates() {
+    _updateTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      _updateChartData();
+    });
+  }
+  
+  void _generateSampleData() {
+    // Generiere Sample-Daten für Demo
+    final now = DateTime.now();
+    _cpuData = List.generate(24, (index) {
+      final time = now.subtract(Duration(hours: 23 - index));
+      final hour = time.hour;
+      final cpu = 20 + (hour * 2) + (index % 3) * 5; // Simuliere CPU-Usage
+      return FlSpot(index.toDouble(), cpu.toDouble());
+    });
+    
+    _memoryData = List.generate(24, (index) {
+      final time = now.subtract(Duration(hours: 23 - index));
+      final hour = time.hour;
+      final memory = 30 + (hour * 1.5) + (index % 2) * 3; // Simuliere Memory-Usage
+      return FlSpot(index.toDouble(), memory.toDouble());
+    });
+    
+    _networkData = List.generate(24, (index) {
+      final time = now.subtract(Duration(hours: 23 - index));
+      final hour = time.hour;
+      final network = 10 + (hour * 0.8) + (index % 4) * 2; // Simuliere Network-Usage
+      return FlSpot(index.toDouble(), network.toDouble());
+    });
+  }
+  
+  void _updateChartData() {
+    if (!mounted) return;
+    
+    setState(() {
+      // Verschiebe alle Daten um eine Position nach links
+      _cpuData.removeAt(0);
+      _memoryData.removeAt(0);
+      _networkData.removeAt(0);
+      
+      // Füge neue Daten am Ende hinzu
+      final now = DateTime.now();
+      final hour = now.hour;
+      final minute = now.minute;
+      
+      final newCpu = 20 + (hour * 2) + (minute % 10) * 2;
+      final newMemory = 30 + (hour * 1.5) + (minute % 15) * 1.5;
+      final newNetwork = 10 + (hour * 0.8) + (minute % 20) * 1.2;
+      
+      _cpuData.add(FlSpot(23, newCpu.toDouble()));
+      _memoryData.add(FlSpot(23, newMemory.toDouble()));
+      _networkData.add(FlSpot(23, newNetwork.toDouble()));
+    });
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Performance Metrics (24h)',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: LineChart(
+              LineChartData(
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: true,
+                  horizontalInterval: 20,
+                  verticalInterval: 4,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    );
+                  },
+                  getDrawingVerticalLine: (value) {
+                    return FlLine(
+                      color: Colors.grey[300]!,
+                      strokeWidth: 1,
+                    );
+                  },
+                ),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      interval: 20,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          '${value.toInt()}%',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 30,
+                      interval: 6,
+                      getTitlesWidget: (value, meta) {
+                        final hour = DateTime.now().subtract(
+                          Duration(hours: 23 - value.toInt()),
+                        ).hour;
+                        return Text(
+                          '${hour.toString().padLeft(2, '0')}:00',
+                          style: const TextStyle(fontSize: 10),
+                        );
+                      },
+                    ),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey[400]!),
+                ),
+                minX: 0,
+                maxX: 23,
+                minY: 0,
+                maxY: 100,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: _cpuData,
+                    isCurved: true,
+                    color: Colors.red,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Colors.red.withOpacity(0.1),
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: _memoryData,
+                    isCurved: true,
+                    color: Colors.blue,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Colors.blue.withOpacity(0.1),
+                    ),
+                  ),
+                  LineChartBarData(
+                    spots: _networkData,
+                    isCurved: true,
+                    color: Colors.green,
+                    barWidth: 2,
+                    isStrokeCapRound: true,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: Colors.green.withOpacity(0.1),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildLegendItem('CPU', Colors.red),
+              _buildLegendItem('Memory', Colors.blue),
+              _buildLegendItem('Network', Colors.green),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildLegendItem(String label, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12),
+        ),
+      ],
     );
   }
 }

@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use connectias_api::PluginError;
 use thiserror::Error;
+use async_trait::async_trait;
+use connectias_security::threat_detection::PermissionServiceTrait;
 
 /// Permission Service für Plugin-Berechtigungen
 #[derive(Clone)]
@@ -216,19 +218,18 @@ impl PermissionService {
     }
 }
 
-// PermissionServiceTrait implementation temporarily disabled
-// #[async_trait]
-// impl PermissionServiceTrait for PermissionService {
-//     async fn restrict_plugin_permissions(&self, plugin_id: &str, allowed: Vec<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//         self.restrict_plugin_permissions(plugin_id, allowed).await
-//             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-//     }
-//
-//     async fn revoke_permission(&self, plugin_id: &str, permission: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-//         self.revoke_permission(plugin_id, permission).await
-//             .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
-//     }
-// }
+#[async_trait]
+impl PermissionServiceTrait for PermissionService {
+    async fn restrict_plugin_permissions(&self, plugin_id: &str, allowed: Vec<String>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.restrict_plugin_permissions(plugin_id, allowed).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+
+    async fn revoke_permission(&self, plugin_id: &str, permission: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.revoke_permission(plugin_id, permission).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+    }
+}
 
 #[cfg(test)]
 mod tests {

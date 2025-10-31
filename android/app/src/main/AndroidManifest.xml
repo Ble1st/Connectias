@@ -30,6 +30,15 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Plugin Process Service für Process-Isolation -->
+        <service
+            android:name=".PluginProcessService"
+            android:process=":plugin_process"
+            android:exported="false">
+            <!-- WICHTIG: isolatedProcess NICHT verwenden! -->
+            <!-- Plugins brauchen Storage & Network-Zugriff via connectias_ffi -->
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
