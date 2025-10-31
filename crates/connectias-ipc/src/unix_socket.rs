@@ -27,7 +27,7 @@ impl IPCTransport for UnixSocketTransport {
         let len = (data.len() as u32).to_le_bytes();
         
         // Halte Mutex während der gesamten Write-Sequenz
-        let mut socket_fd_guard = self.socket_fd.lock().await;
+        let socket_fd_guard = self.socket_fd.lock().await;
         let fd = *socket_fd_guard
             .as_ref()
             .ok_or(IPCError::ConnectionFailed("No socket".into()))?;
@@ -85,7 +85,7 @@ impl IPCTransport for UnixSocketTransport {
     
     async fn receive(&self) -> Result<IPCMessage, IPCError> {
         // Halte Mutex während der gesamten Read-Sequenz
-        let mut socket_fd_guard = self.socket_fd.lock().await;
+        let socket_fd_guard = self.socket_fd.lock().await;
         let fd = *socket_fd_guard
             .as_ref()
             .ok_or(IPCError::ConnectionFailed("No socket".into()))?;
@@ -279,31 +279,30 @@ impl IPCTransport for UnixSocketTransport {
         };
         
         // Verwende async connect statt blocking
-        // WICHTIG: socket_fd wird in spawn_blocking bewegt, daher müssen wir as_raw_fd() vorher aufrufen
+        // FIX BUG: socket_fd wird in spawn_blocking bewegt - verwende raw_fd für alle Operationen
         let raw_fd = socket_fd.as_raw_fd();
         match tokio::task::spawn_blocking(move || {
             connect(raw_fd, &addr)
         }).await {
             Ok(Ok(())) => {
                 let mut fd = self.socket_fd.lock().await;
-                // socket_fd wurde in spawn_blocking bewegt, daher verwenden wir raw_fd
-                // ABER: Wir können nicht in move Closure auf socket_fd zugreifen
-                // Lösung: Wir müssen raw_fd außerhalb der Closure behalten
-                // Da wir as_raw_fd() vor spawn_blocking aufrufen, können wir es hier verwenden
+                // socket_fd wurde in spawn_blocking bewegt - verwende raw_fd
                 *fd = Some(raw_fd);
                 Ok(())
             }
             Ok(Err(e)) => {
+                // FIX BUG: socket_fd wurde gemoved - verwende raw_fd statt socket_fd.as_raw_fd()
                 // Socket schließen bei Fehler
                 unsafe {
-                    libc::close(socket_fd.as_raw_fd());
+                    libc::close(raw_fd);
                 }
                 Err(IPCError::SocketError(e))
             }
             Err(join_err) => {
+                // FIX BUG: socket_fd wurde gemoved - verwende raw_fd statt socket_fd.as_raw_fd()
                 // Socket schließen bei Task-Fehler
                 unsafe {
-                    libc::close(socket_fd.as_raw_fd());
+                    libc::close(raw_fd);
                 }
                 Err(IPCError::ConnectionFailed(format!("Task join failed: {:?}", join_err)))
             }
@@ -331,7 +330,7 @@ impl IPCTransport for UnixSocketTransport {
             
             // Vermeide unwrap() - propagiere Result
             let backlog = Backlog::new(128)
-                .map_err(|e| IPCError::SocketError(nix::errno::Errno::from_i32(e as i32)))?;
+                .map_err(|e| IPCError::SocketError(nix::errno::Errno::from_raw(e as i32)))?;
             listen(&socket_fd, backlog)
                 .map_err(|e| IPCError::SocketError(e))?;
             

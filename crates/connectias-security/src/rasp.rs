@@ -2,9 +2,10 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 use std::thread;
+use tokio::sync::Mutex as TokioMutex;
 use reqwest::Client;
 
 /// Runtime Application Self-Protection System
@@ -19,7 +20,7 @@ pub struct RaspProtection {
     anti_tamper: AntiTamper,
     // FIX BUG 2: CT-Log-Verifikations-Fehler-Tracking für Grace Period
     ct_log_failure_count: std::sync::Arc<std::sync::atomic::AtomicU32>,
-    ct_log_last_failure: std::sync::Arc<std::sync::Mutex<Option<std::time::SystemTime>>>,
+    ct_log_last_failure: Arc<TokioMutex<Option<std::time::SystemTime>>>,
 }
 
 impl RaspProtection {
@@ -43,7 +44,7 @@ impl RaspProtection {
             ssl_pinner,
             anti_tamper: AntiTamper::new(),
             ct_log_failure_count: std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0)),
-            ct_log_last_failure: std::sync::Arc::new(std::sync::Mutex::new(None)),
+            ct_log_last_failure: Arc::new(TokioMutex::new(None)),
         })
     }
 
@@ -848,7 +849,7 @@ impl SslPinner {
                         if current >= MAX_NETWORK_FAILURES {
                             // Atomare Prüfung: Grace Period + Reset in einem Block
                             let grace_period_expired = {
-                                let last_failure = self.ct_log_last_failure.lock().unwrap();
+                                let last_failure = self.ct_log_last_failure.lock().await;
                                 if let Some(last) = *last_failure {
                                     now.duration_since(last)
                                         .map(|d| d.as_secs() >= GRACE_PERIOD_SECONDS)
@@ -893,7 +894,7 @@ impl SslPinner {
                     
                     // Schritt 3: Aktualisiere letztes Fehler-Zeitstempel
                     {
-                        let mut last_failure = self.ct_log_last_failure.lock().unwrap();
+                        let mut last_failure = self.ct_log_last_failure.lock().await;
                         *last_failure = Some(now);
                     }
                     
@@ -903,7 +904,7 @@ impl SslPinner {
                     if failure_count >= MAX_NETWORK_FAILURES {
                         // Prüfe ob Grace Period noch aktiv ist (neu berechnen nach Increment)
                         let should_allow_grace = {
-                            let last_failure = self.ct_log_last_failure.lock().unwrap();
+                            let last_failure = self.ct_log_last_failure.lock().await;
                             if let Some(last) = *last_failure {
                                 now.duration_since(last)
                                     .map(|d| d.as_secs() < GRACE_PERIOD_SECONDS)

@@ -112,6 +112,11 @@ pub struct WasmPlugin {
 }
 
 impl WasmPlugin {
+    /// Get resource limits for this plugin
+    pub fn get_resource_limits(&self) -> &ResourceLimits {
+        &self.resource_limits
+    }
+
     /// Erstellt einen neuen Store für das Plugin
     fn create_store(&self) -> Result<Store<()>, PluginError> {
         let mut store = Store::new(&self.engine, ());

@@ -79,6 +79,40 @@ class SecureStorageService {
     }
   }
 
+  /// Alias für deleteAll
+  Future<void> clear() => deleteAll();
+
+  /// Alias für write
+  Future<void> saveSecure(String key, String value) => write(key, value);
+
+  /// Alias für read
+  Future<String?> getSecure(String key) => read(key);
+
+  /// Alias für delete
+  Future<void> deleteSecure(String key) => delete(key);
+
+  /// Alias für containsKey
+  Future<bool> hasKey(String key) => containsKey(key);
+
+  /// Speichere JSON
+  Future<void> saveJson(String key, Map<String, dynamic> data) async {
+    final jsonStr = jsonEncode(data);
+    await write(key, jsonStr);
+  }
+
+  /// Lese JSON
+  Future<T?> getJson<T>(String key, T Function(Map<String, dynamic>) parser) async {
+    final jsonStr = await read(key);
+    if (jsonStr == null) return null;
+    try {
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+      return parser(data);
+    } catch (e) {
+      debugPrint('❌ JSON Parse Fehler: $e');
+      return null;
+    }
+  }
+
   /// Prüfe ob ein Key existiert
   Future<bool> containsKey(String key) async {
     try {

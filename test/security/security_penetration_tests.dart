@@ -1,6 +1,7 @@
 /// Security Penetration Tests – Sicherheitstests
 library;
 
+import 'package:test/test.dart';
 import 'package:connectias/ffi/connectias_bindings.dart';
 import 'package:connectias/services/connectias_service.dart';
 import 'package:flutter/foundation.dart';

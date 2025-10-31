@@ -687,7 +687,8 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
                   final plugins = await connectiasService.fetchPlugins();
                   if (mounted) {
                     setState(() {
-                      _plugins = plugins;
+                      _plugins.clear();
+                      _plugins.addAll(plugins);
                     });
                   }
                 },

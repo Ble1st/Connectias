@@ -1,6 +1,7 @@
 /// Performance Benchmarks – Leistungstests
 library;
 
+import 'package:test/test.dart';
 import 'package:connectias/services/connectias_service.dart';
 import 'package:flutter/foundation.dart';
 

@@ -1,5 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
-use connectias_wasm::{WasmRuntime, WasmPlugin};
+use connectias_wasm::WasmRuntime;
+use connectias_api::Plugin;
 use std::time::Duration;
 use std::sync::Arc;
 
@@ -58,7 +59,7 @@ fn benchmark_wasm_memory_operations(c: &mut Criterion) {
         eprintln!("Failed to create runtime: {}", e);
         panic!("Runtime creation failed in benchmark");
     });
-    let plugin = runtime.load_plugin(VALID_WASM_MODULE, "benchmark_plugin".to_string()).unwrap_or_else(|e| {
+    let _plugin = runtime.load_plugin(VALID_WASM_MODULE, "benchmark_plugin".to_string()).unwrap_or_else(|e| {
         eprintln!("Failed to load plugin: {}", e);
         panic!("Plugin loading failed in benchmark");
     });
@@ -92,17 +93,19 @@ fn benchmark_wasm_execution(c: &mut Criterion) {
         panic!("Plugin loading failed in benchmark");
     });
     
-    let test_input = vec![0u8; 512]; // 512 bytes test input
+    let test_input = vec![0u8; 512]; // 512 bytes test input (used in args)
     
     group.bench_function("execute_plugin", |b| {
         b.iter(|| {
-            match plugin.execute(black_box(&test_input)) {
+            let mut args = std::collections::HashMap::new();
+            args.insert("input".to_string(), format!("{:?}", black_box(&test_input)));
+            let _ = match plugin.execute("test_command", args) {
                 Ok(result) => black_box(result),
                 Err(e) => {
                     eprintln!("Plugin execution failed: {}", e);
-                    // Don't panic in benchmark, just continue
+                    String::new() // Return empty string on error
                 }
-            }
+            };
         })
     });
     
@@ -171,13 +174,15 @@ fn benchmark_concurrent_wasm_operations(c: &mut Criterion) {
                     let plugin = Arc::clone(&plugin);
                     let input = test_input.clone();
                     std::thread::spawn(move || {
-                        match plugin.execute(&input) {
+                        let mut args = std::collections::HashMap::new();
+                        args.insert("input".to_string(), format!("{:?}", &input));
+                        let _ = match plugin.execute("test_command", args) {
                             Ok(result) => black_box(result),
                             Err(e) => {
                                 eprintln!("Concurrent execution failed: {}", e);
-                                // Don't panic in benchmark, just continue
+                                String::new() // Return empty string on error
                             }
-                        }
+                        };
                     })
                 })
                 .collect();
@@ -206,7 +211,7 @@ fn benchmark_resource_limits(c: &mut Criterion) {
     
     group.bench_function("check_limits", |b| {
         b.iter(|| {
-            let _ = black_box(plugin.resource_limits);
+            let _ = black_box(plugin.get_resource_limits());
         })
     });
     
@@ -232,17 +237,16 @@ fn benchmark_plugin_lifecycle(c: &mut Criterion) {
             });
             
             // Execute plugin
-            let test_input = vec![0u8; 128];
-            match plugin.execute(&test_input) {
+            let _ = match plugin.execute("test_command", std::collections::HashMap::new()) {
                 Ok(result) => black_box(result),
                 Err(e) => {
                     eprintln!("Plugin execution failed: {}", e);
-                    // Don't panic in benchmark, just continue
+                    String::new() // Return empty string on error
                 }
-            }
+            };
             
             // Check resource limits
-            let _ = black_box(plugin.resource_limits);
+            let _ = black_box(plugin.get_resource_limits());
             
             // Plugin goes out of scope (cleanup)
             drop(plugin);

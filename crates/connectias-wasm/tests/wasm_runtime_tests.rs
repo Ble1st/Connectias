@@ -117,7 +117,7 @@ fn test_wasm_plugin_loading() {
         0x01, 0x00, 0x00, 0x00, // Version 1
     ];
     
-    let result = runtime.load_plugin(&mock_wasm_bytes);
+    let result = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string());
     assert!(result.is_ok());
     
     let plugin = result.unwrap();
@@ -129,7 +129,7 @@ fn test_wasm_plugin_loading() {
 fn test_wasm_plugin_info() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     let info = plugin.get_info();
     assert_eq!(info.id, "wasm-plugin");
@@ -144,7 +144,7 @@ fn test_wasm_plugin_info() {
 fn test_wasm_plugin_initialization() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let mut plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let mut plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     let context = create_mock_context();
     
@@ -158,7 +158,7 @@ fn test_wasm_plugin_initialization() {
 fn test_wasm_plugin_execution() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     let mut args = HashMap::new();
     args.insert("test".to_string(), "value".to_string());
@@ -173,7 +173,7 @@ fn test_wasm_plugin_execution() {
 fn test_wasm_plugin_cleanup() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let mut plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let mut plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     // Cleanup sollte immer erfolgreich sein
     let result = plugin.cleanup();
@@ -212,7 +212,7 @@ fn test_resource_limits_custom() {
 fn test_wasm_plugin_memory_management() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
 
     // Test dass Resource-Limits korrekt gesetzt wurden
     assert!(true); // Private field, cannot access
@@ -228,7 +228,7 @@ fn test_wasm_plugin_error_handling() {
     
     // Test mit ungültigen WASM Bytes
     let invalid_wasm_bytes = vec![0x00, 0x00, 0x00, 0x00];
-    let result = runtime.load_plugin(&invalid_wasm_bytes);
+    let result = runtime.load_plugin(&invalid_wasm_bytes, "test-plugin".to_string());
     assert!(result.is_err());
 }
 
@@ -247,7 +247,7 @@ fn test_wasm_plugin_security_configuration() {
 fn test_wasm_plugin_resource_limits_enforcement() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     // Test dass Resource-Limits verfügbar sind
     assert!(true); // Private field, cannot access
@@ -261,7 +261,7 @@ fn test_wasm_plugin_resource_limits_enforcement() {
 fn test_wasm_plugin_store_management() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     // Test dass Store initial None ist
     assert!(true); // Private field, cannot access
@@ -272,7 +272,7 @@ fn test_wasm_plugin_store_management() {
 fn test_wasm_plugin_module_management() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     // Test dass Module geladen wurde
     assert!(true); // Private field, cannot access
@@ -283,7 +283,7 @@ fn test_wasm_plugin_module_management() {
 fn test_wasm_plugin_engine_management() {
     let runtime = WasmRuntime::new().unwrap();
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     // Test dass Engine verfügbar ist
     assert!(true); // Private field, cannot access
@@ -296,8 +296,8 @@ fn test_wasm_plugin_multiple_instances() {
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
     
     // Test mehrere Plugin-Instanzen
-    let plugin1 = runtime.load_plugin(&mock_wasm_bytes).unwrap();
-    let plugin2 = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let plugin1 = runtime.load_plugin(&mock_wasm_bytes, "test-plugin-1".to_string()).unwrap();
+    let plugin2 = runtime.load_plugin(&mock_wasm_bytes, "test-plugin-2".to_string()).unwrap();
     
     assert_eq!(plugin1.get_info().id, plugin2.get_info().id);
     assert_eq!(plugin1.get_info().name, plugin2.get_info().name);
@@ -318,7 +318,7 @@ fn test_wasm_plugin_resource_limits_customization() {
     runtime.set_resource_limits(custom_limits.clone());
     
     let mock_wasm_bytes = vec![0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
-    let _plugin = runtime.load_plugin(&mock_wasm_bytes).unwrap();
+    let _plugin = runtime.load_plugin(&mock_wasm_bytes, "test-plugin".to_string()).unwrap();
     
     assert!(true); // Private field, cannot access
     assert!(true); // Private field, cannot access

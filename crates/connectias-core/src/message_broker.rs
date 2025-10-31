@@ -1,6 +1,7 @@
 use std::collections::{HashMap, VecDeque, HashSet};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH, Duration};
+use tokio::sync::{Mutex as TokioMutex, RwLock as TokioRwLock};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use tokio::time::{interval, timeout};
@@ -19,18 +20,18 @@ pub enum ProcessMode {
 
 /// Message Broker für Inter-Plugin Communication
 pub struct MessageBroker {
-    subscribers: Arc<RwLock<HashMap<String, Vec<MessageHandler>>>>,
-    message_queue: Arc<Mutex<VecDeque<Message>>>,
-    message_history: Arc<RwLock<HashMap<String, Vec<Message>>>>,
+    subscribers: Arc<TokioRwLock<HashMap<String, Vec<MessageHandler>>>>,
+    message_queue: Arc<TokioMutex<VecDeque<Message>>>,
+    message_history: Arc<TokioRwLock<HashMap<String, Vec<Message>>>>,
     max_history_size: usize,
     // Erweiterte Features
-    plugin_connections: Arc<RwLock<HashMap<String, PluginConnection>>>,
-    message_filters: Arc<RwLock<HashMap<String, MessageFilter>>>,
-    rate_limits: Arc<RwLock<HashMap<String, RateLimit>>>,
+    plugin_connections: Arc<TokioRwLock<HashMap<String, PluginConnection>>>,
+    message_filters: Arc<TokioRwLock<HashMap<String, MessageFilter>>>,
+    rate_limits: Arc<TokioRwLock<HashMap<String, RateLimit>>>,
     broadcast_sender: Arc<broadcast::Sender<Message>>,
-    is_running: Arc<Mutex<bool>>,
+    is_running: Arc<TokioMutex<bool>>,
     // Request-Response Pattern
-    pending_requests: Arc<RwLock<HashMap<String, oneshot::Sender<Message>>>>,
+    pending_requests: Arc<TokioRwLock<HashMap<String, oneshot::Sender<Message>>>>,
     // IPC Support
     ipc_transport: Option<Arc<dyn IPCTransport>>,
     process_mode: ProcessMode,
@@ -201,16 +202,17 @@ impl MessageBroker {
     pub fn new() -> Self {
         let (broadcast_sender, _) = broadcast::channel(1000);
         Self {
-            subscribers: Arc::new(RwLock::new(HashMap::new())),
+            // PERF: Optimierte Capacity-basierte Initialisierung
+            subscribers: Arc::new(RwLock::new(crate::hashmap_with_capacity!(50))),
             message_queue: Arc::new(Mutex::new(VecDeque::new())),
-            message_history: Arc::new(RwLock::new(HashMap::new())),
+            message_history: Arc::new(RwLock::new(crate::hashmap_with_capacity!(100))),
             max_history_size: 1000,
-            plugin_connections: Arc::new(RwLock::new(HashMap::new())),
-            message_filters: Arc::new(RwLock::new(HashMap::new())),
-            rate_limits: Arc::new(RwLock::new(HashMap::new())),
+            plugin_connections: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
+            message_filters: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
+            rate_limits: Arc::new(RwLock::new(crate::hashmap_with_capacity!(30))),
             broadcast_sender: Arc::new(broadcast_sender),
             is_running: Arc::new(Mutex::new(false)),
-            pending_requests: Arc::new(RwLock::new(HashMap::new())),
+            pending_requests: Arc::new(RwLock::new(crate::hashmap_with_capacity!(10))),
             ipc_transport: None,
             process_mode: ProcessMode::SingleProcess,
         }
@@ -238,7 +240,7 @@ impl MessageBroker {
 
     /// Starte den Message Broker Background Service
     pub async fn start_background_service(&self) {
-        let mut is_running = self.is_running.lock().unwrap();
+        let mut is_running = self.is_running.lock().await;
         if *is_running {
             warn!("⚠️ Message Broker Background Service läuft bereits");
             return;
@@ -252,7 +254,7 @@ impl MessageBroker {
 
     /// Stoppe den Message Broker Background Service
     pub async fn stop_background_service(&self) {
-        let mut is_running = self.is_running.lock().unwrap();
+        let mut is_running = self.is_running.lock().await;
         if !*is_running {
             warn!("⚠️ Message Broker Background Service läuft nicht");
             return;
@@ -306,7 +308,7 @@ impl MessageBroker {
                         // Message ebenfalls in lokale Queue einreihen, um dieselbe Reihenfolge/Verarbeitung
                         // wie im SingleProcess-Pfad sicherzustellen
                         {
-                            let mut queue = self.message_queue.lock().unwrap();
+                            let mut queue = self.message_queue.lock().await;
                             queue.push_back(message.clone());
                         }
 
@@ -341,7 +343,7 @@ impl MessageBroker {
 
         // Message zur Queue hinzufügen
         {
-            let mut queue = self.message_queue.lock().unwrap();
+            let mut queue = self.message_queue.lock().await;
             queue.push_back(message.clone());
         }
 
@@ -416,18 +418,18 @@ impl MessageBroker {
     where
         F: Fn(&Message) + Send + Sync + 'static,
     {
-        let mut subscribers = self.subscribers.write().unwrap();
+        let mut subscribers = self.subscribers.write().await;
         let handler = Arc::new(handler);
 
         subscribers
             .entry(topic.to_string())
-            .or_insert_with(Vec::new)
+            .or_insert_with(|| crate::vec_with_capacity!(10))
             .push(handler);
     }
 
     /// Unsubscribiert von einem Topic
     pub async fn unsubscribe(&self, topic: &str, _plugin_id: &str) {
-        let mut subscribers = self.subscribers.write().unwrap();
+        let mut subscribers = self.subscribers.write().await;
         if let Some(handlers) = subscribers.get_mut(topic) {
             // In einer echten Implementierung würde hier der spezifische Handler entfernt
             // Für jetzt entfernen wir alle Handler für das Topic
@@ -477,15 +479,15 @@ impl MessageBroker {
 
     /// Gibt Message History für ein Topic zurück
     pub async fn get_message_history(&self, topic: &str) -> Vec<Message> {
-        let history = self.message_history.read().unwrap();
+        let history = self.message_history.read().await;
         history.get(topic).cloned().unwrap_or_default()
     }
 
     /// Gibt aktuelle Broker-Statistics zurück
     pub async fn get_stats(&self) -> MessageBrokerStats {
-        let subscribers = self.subscribers.read().unwrap();
-        let queue = self.message_queue.lock().unwrap();
-        let history = self.message_history.read().unwrap();
+        let subscribers = self.subscribers.read().await;
+        let queue = self.message_queue.lock().await;
+        let history = self.message_history.read().await;
 
         MessageBrokerStats {
             total_messages: history.values().map(|v| v.len()).sum::<usize>() as u64,
@@ -504,13 +506,13 @@ impl MessageBroker {
             loop {
                 // Process messages from queue
                 let message = {
-                    let mut queue = message_queue.lock().unwrap();
+                    let mut queue = message_queue.lock().await;
                     queue.pop_front()
                 };
 
                 if let Some(message) = message {
                     // Distribute message to subscribers
-                    let subscribers = subscribers.read().unwrap();
+                    let subscribers = subscribers.read().await;
                     if let Some(handlers) = subscribers.get(&message.topic) {
                         for handler in handlers {
                             handler(&message);
@@ -530,7 +532,7 @@ impl MessageBroker {
     }
 
     async fn distribute_message(&self, message: &Message) {
-        let subscribers = self.subscribers.read().unwrap();
+        let subscribers = self.subscribers.read().await;
         if let Some(handlers) = subscribers.get(&message.topic) {
             for handler in handlers {
                 handler(message);
@@ -539,8 +541,8 @@ impl MessageBroker {
     }
 
     async fn update_message_history(&self, message: &Message) {
-        let mut history = self.message_history.write().unwrap();
-        let topic_history = history.entry(message.topic.clone()).or_insert_with(Vec::new);
+        let mut history = self.message_history.write().await;
+        let topic_history = history.entry(message.topic.clone()).or_insert_with(|| crate::vec_with_capacity!(20));
         
         topic_history.push(message.clone());
         
@@ -554,7 +556,7 @@ impl MessageBroker {
 /// Message Broker Manager für zentrale Verwaltung
 pub struct MessageBrokerManager {
     broker: Arc<MessageBroker>,
-    plugin_permissions: Arc<RwLock<HashMap<String, Vec<String>>>>,
+    plugin_permissions: Arc<TokioRwLock<HashMap<String, Vec<String>>>>,
 }
 
 impl std::fmt::Debug for MessageBrokerManager {
@@ -575,19 +577,19 @@ impl MessageBrokerManager {
 
         Self {
             broker,
-            plugin_permissions: Arc::new(RwLock::new(HashMap::new())),
+            plugin_permissions: Arc::new(TokioRwLock::new(HashMap::new())),
         }
     }
 
     /// Setzt Permissions für ein Plugin
     pub async fn set_plugin_permissions(&self, plugin_id: &str, topics: Vec<String>) {
-        let mut permissions = self.plugin_permissions.write().unwrap();
+        let mut permissions = self.plugin_permissions.write().await;
         permissions.insert(plugin_id.to_string(), topics);
     }
 
     /// Prüft ob ein Plugin Permission für ein Topic hat
     pub async fn has_permission(&self, plugin_id: &str, topic: &str) -> bool {
-        let permissions = self.plugin_permissions.read().unwrap();
+        let permissions = self.plugin_permissions.read().await;
         if let Some(allowed_topics) = permissions.get(plugin_id) {
             allowed_topics.contains(&topic.to_string())
         } else {
@@ -651,7 +653,7 @@ impl MessageBroker {
 
         // Plugin-Verbindung registrieren
         {
-            let mut connections = self.plugin_connections.write().unwrap();
+            let mut connections = self.plugin_connections.write().await;
             connections.insert(plugin_id.to_string(), connection);
         }
 
@@ -674,7 +676,7 @@ impl MessageBroker {
         };
 
         {
-            let mut rate_limits = self.rate_limits.write().unwrap();
+            let mut rate_limits = self.rate_limits.write().await;
             rate_limits.insert(plugin_id.to_string(), rate_limit);
         }
 
@@ -688,19 +690,19 @@ impl MessageBroker {
         
         // Plugin-Verbindung entfernen
         {
-            let mut connections = self.plugin_connections.write().unwrap();
+            let mut connections = self.plugin_connections.write().await;
             connections.remove(plugin_id);
         }
 
         // Rate Limiting entfernen
         {
-            let mut rate_limits = self.rate_limits.write().unwrap();
+            let mut rate_limits = self.rate_limits.write().await;
             rate_limits.remove(plugin_id);
         }
 
         // Alle Subscriptions des Plugins entfernen
         {
-            let mut subscribers = self.subscribers.write().unwrap();
+            let mut subscribers = self.subscribers.write().await;
             for (_, handlers) in subscribers.iter_mut() {
                 handlers.retain(|_| true); // Hier würde die echte Filterung stattfinden
             }
@@ -756,7 +758,7 @@ impl MessageBroker {
 
         // Message zur Queue hinzufügen (mit Priority)
         {
-            let mut queue = self.message_queue.lock().unwrap();
+            let mut queue = self.message_queue.lock().await;
             queue.push_back(enhanced_message.base_message.clone());
         }
 
@@ -772,7 +774,7 @@ impl MessageBroker {
     /// Verarbeite eingehende Response-Message
     pub async fn handle_response(&self, response: Message) -> Result<(), String> {
         if let MessageType::Response { request_id } = &response.message_type {
-            let mut pending = self.pending_requests.write().unwrap();
+            let mut pending = self.pending_requests.write().await;
             if let Some(sender) = pending.remove(request_id) {
                 if let Err(_) = sender.send(response.clone()) {
                     warn!("Failed to send response for request {}", request_id);
@@ -829,7 +831,7 @@ impl MessageBroker {
         
         // Registriere den Request
         {
-            let mut pending = self.pending_requests.write().unwrap();
+            let mut pending = self.pending_requests.write().await;
             pending.insert(correlation_id.to_string(), tx);
         }
         
@@ -838,13 +840,13 @@ impl MessageBroker {
             Ok(Ok(response)) => Ok(response),
             Ok(Err(_)) => {
                 // Sender wurde dropped, entferne aus pending
-                let mut pending = self.pending_requests.write().unwrap();
+                let mut pending = self.pending_requests.write().await;
                 pending.remove(correlation_id);
                 Err("Response channel closed".to_string())
             }
             Err(_) => {
                 // Timeout erreicht, entferne aus pending
-                let mut pending = self.pending_requests.write().unwrap();
+                let mut pending = self.pending_requests.write().await;
                 pending.remove(correlation_id);
                 Err("Request timeout".to_string())
             }
@@ -853,7 +855,7 @@ impl MessageBroker {
 
     /// Atomare Rate-Limiting-Prüfung und -Aktualisierung
     async fn check_and_consume_rate_limit(&self, plugin_id: &str) -> bool {
-        let mut rate_limits = self.rate_limits.write().unwrap();
+        let mut rate_limits = self.rate_limits.write().await;
         if let Some(rate_limit) = rate_limits.get_mut(plugin_id) {
             if rate_limit.is_blocked {
                 return false;
@@ -897,7 +899,7 @@ impl MessageBroker {
 
     /// Message-Filter anwenden
     async fn apply_message_filters(&self, topic: &str, sender_id: &str, payload: &[u8]) -> Option<Vec<u8>> {
-        let filters = self.message_filters.read().unwrap();
+        let filters = self.message_filters.read().await;
         
         for (_, filter) in filters.iter() {
             // Topic-Pattern prüfen
@@ -965,7 +967,7 @@ impl MessageBroker {
                 .unwrap()
                 .as_secs() as i64;
             
-            let mut connections = self.plugin_connections.write().unwrap();
+            let mut connections = self.plugin_connections.write().await;
             for (plugin_id, connection) in connections.iter_mut() {
                 // Prüfe Heartbeat-Timeout (5 Minuten)
                 if current_time - connection.last_heartbeat > 300 {
@@ -988,7 +990,7 @@ impl MessageBroker {
                 .unwrap()
                 .as_secs() as i64;
             
-            let mut rate_limits = self.rate_limits.write().unwrap();
+            let mut rate_limits = self.rate_limits.write().await;
             for (_, rate_limit) in rate_limits.iter_mut() {
                 // Minute-Reset
                 if current_time - rate_limit.last_reset_minute >= 60 {
@@ -1009,7 +1011,7 @@ impl MessageBroker {
             
             // Verarbeite Messages aus der Queue
             let message = {
-                let mut queue = self.message_queue.lock().unwrap();
+                let mut queue = self.message_queue.lock().await;
                 queue.pop_front()
             };
             
@@ -1024,7 +1026,7 @@ impl MessageBroker {
     pub async fn add_message_filter(&self, filter: MessageFilter) -> Result<(), String> {
         debug!("🔍 Füge Message-Filter hinzu: {}", filter.filter_id);
         
-        let mut filters = self.message_filters.write().unwrap();
+        let mut filters = self.message_filters.write().await;
         filters.insert(filter.filter_id.clone(), filter);
         
         info!("✅ Message-Filter hinzugefügt");
@@ -1035,7 +1037,7 @@ impl MessageBroker {
     pub async fn remove_message_filter(&self, filter_id: &str) -> Result<(), String> {
         debug!("🗑️ Entferne Message-Filter: {}", filter_id);
         
-        let mut filters = self.message_filters.write().unwrap();
+        let mut filters = self.message_filters.write().await;
         filters.remove(filter_id);
         
         info!("✅ Message-Filter entfernt");
@@ -1044,13 +1046,13 @@ impl MessageBroker {
 
     /// Hole Plugin-Verbindungs-Status
     pub async fn get_plugin_connection_status(&self, plugin_id: &str) -> Option<PluginConnection> {
-        let connections = self.plugin_connections.read().unwrap();
+        let connections = self.plugin_connections.read().await;
         connections.get(plugin_id).cloned()
     }
 
     /// Hole alle aktiven Plugin-Verbindungen
     pub async fn get_active_connections(&self) -> Vec<PluginConnection> {
-        let connections = self.plugin_connections.read().unwrap();
+        let connections = self.plugin_connections.read().await;
         connections.values()
             .filter(|conn| conn.is_active)
             .cloned()
@@ -1064,7 +1066,7 @@ impl MessageBroker {
             .unwrap()
             .as_secs() as i64;
         
-        let mut connections = self.plugin_connections.write().unwrap();
+        let mut connections = self.plugin_connections.write().await;
         if let Some(connection) = connections.get_mut(plugin_id) {
             connection.last_heartbeat = current_time;
             connection.is_active = true;
@@ -1097,12 +1099,20 @@ mod tests {
     #[tokio::test]
     async fn test_message_subscription() {
         let broker = MessageBroker::new();
-        let received_messages = Arc::new(Mutex::new(Vec::new()));
+        let received_messages = Arc::new(TokioMutex::new(Vec::new()));
         let received_clone = received_messages.clone();
         
         // Subscribe to topic
+        // FIX: Handler muss synchron sein, aber wir verwenden async Mutex
+        // Lösung: Verwende block_in_place im Handler oder block_on
         broker.subscribe("test.topic", "plugin1", move |msg| {
-            received_clone.lock().unwrap().push(msg.clone());
+            // Handler ist sync, aber Mutex ist async - verwende block_on
+            let rt = tokio::runtime::Handle::try_current().unwrap_or_else(|_| {
+                panic!("Test must run in tokio runtime");
+            });
+            rt.block_on(async {
+                received_clone.lock().await.push(msg.clone());
+            });
         }).await;
         
         // Publish message
@@ -1112,7 +1122,7 @@ mod tests {
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
         
         // Verify message was received
-        let received = received_messages.lock().unwrap();
+        let received = received_messages.lock().await;
         assert_eq!(received.len(), 1);
         assert_eq!(received[0].sender_id, "plugin2");
     }

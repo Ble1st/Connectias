@@ -254,9 +254,10 @@ impl PluginManager {
         });
 
         // Initialize Enhanced Registry Features
-        let plugin_registry = Arc::new(RwLock::new(HashMap::new()));
-        let dependency_graph = Arc::new(RwLock::new(HashMap::new()));
-        let discovery_cache = Arc::new(RwLock::new(HashMap::new()));
+        // PERF: Optimierte Capacity-basierte Initialisierung
+        let plugin_registry = Arc::new(RwLock::new(crate::hashmap_with_capacity!(20)));
+        let dependency_graph = Arc::new(RwLock::new(crate::hashmap_with_capacity!(10)));
+        let discovery_cache = Arc::new(RwLock::new(crate::hashmap_with_capacity!(10)));
         let registry_stats = Arc::new(RwLock::new(PluginRegistryStats {
             total_plugins: 0,
             loaded_plugins: 0,
@@ -266,11 +267,15 @@ impl PluginManager {
             total_memory_usage: 0,
             total_storage_usage: 0,
             average_performance: 0.0,
-            last_scan: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64,
+            last_scan: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0), // Fallback auf 0 wenn SystemTime vor UNIX_EPOCH
         }));
 
         Ok(Self {
-            plugins: Arc::new(RwLock::new(HashMap::new())),
+            // PERF: Optimierte Capacity für Plugin-Storage
+            plugins: Arc::new(RwLock::new(crate::hashmap_with_capacity!(20))),
             plugin_dir,
             wasm_runtime: WasmRuntime::new()
                 .map_err(|e| format!("Fehler beim Initialisieren des WASM-Runtime: {}", e))?,
@@ -592,8 +597,9 @@ impl PluginManager {
     /// Plugin Discovery - Scanne Verzeichnisse nach Plugins
     pub async fn discover_plugins(&self, scan_paths: Vec<PathBuf>) -> Result<PluginDiscoveryResult, String> {
         let start_time = std::time::Instant::now();
-        let mut discovered_plugins = Vec::new();
-        let mut errors = Vec::new();
+        // PERF: Optimierte Capacity für Plugin-Discovery
+        let mut discovered_plugins = crate::vec_with_capacity!(15);
+        let mut errors = crate::vec_with_capacity!(5);
 
         for scan_path in &scan_paths {
             if let Err(e) = self.scan_directory_for_plugins(scan_path, &mut discovered_plugins, &mut errors).await {
@@ -606,7 +612,10 @@ impl PluginManager {
         // Update registry stats
         {
             let mut stats = self.registry_stats.write().await;
-            stats.last_scan = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() as i64;
+            stats.last_scan = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0); // Fallback auf 0 wenn SystemTime vor UNIX_EPOCH
         }
 
         Ok(PluginDiscoveryResult {
@@ -870,7 +879,8 @@ impl PluginManager {
         let mut file = fs::File::open(file_path)
             .map_err(|e| format!("Failed to open WASM file: {}", e))?;
             
-        let mut buffer = Vec::new();
+        // PERF: Optimierte Buffer-Capacity für File-Reading
+        let mut buffer = crate::vec_with_capacity!(4096);
         file.read_to_end(&mut buffer)
             .map_err(|e| format!("Failed to read WASM file: {}", e))?;
             
@@ -892,7 +902,8 @@ impl PluginManager {
         let mut file = fs::File::open(file_path)
             .map_err(|e| format!("Failed to open WASM file: {}", e))?;
             
-        let mut buffer = Vec::new();
+        // PERF: Optimierte Buffer-Capacity für File-Reading
+        let mut buffer = crate::vec_with_capacity!(4096);
         file.read_to_end(&mut buffer)
             .map_err(|e| format!("Failed to read WASM file: {}", e))?;
             
@@ -950,7 +961,8 @@ impl PluginManager {
         use wasmparser::{Parser, Payload};
         
         let parser = Parser::new(0);
-        let mut exports = Vec::new();
+        // PERF: Optimierte Capacity für WASM-Exports
+        let mut exports = crate::vec_with_capacity!(10);
         
         for payload in parser.parse_all(wasm_data) {
             match payload {
@@ -985,8 +997,9 @@ impl PluginManager {
     /// 
     /// Returns: (Vec<PluginPermission>, Vec<String>) - (bekannte Permissions, unbekannte Permissions)
     fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Result<(Vec<connectias_api::PluginPermission>, Vec<String>), String> {
-        let mut permissions = Vec::new();
-        let mut unknown_permissions = Vec::new();
+        // PERF: Optimierte Capacity für Permission-Parsing
+        let mut permissions = crate::vec_with_capacity!(10);
+        let mut unknown_permissions = crate::vec_with_capacity!(5);
         
         if let Some(perms) = manifest["permissions"].as_array() {
             for perm in perms {
@@ -1033,8 +1046,9 @@ impl PluginManager {
     /// Parse Permissions aus TOML-Manifest
     /// FIX BUG 3: Respektiert den Strict-Mode Flag
     fn parse_permissions_from_toml(&self, permissions_value: Option<&toml::Value>) -> Result<Vec<connectias_api::PluginPermission>, String> {
-        let mut permissions = Vec::new();
-        let mut unknown_permissions = Vec::new();
+        // PERF: Optimierte Capacity für Permission-Parsing
+        let mut permissions = crate::vec_with_capacity!(10);
+        let mut unknown_permissions = crate::vec_with_capacity!(5);
         
         if let Some(Some(perms)) = permissions_value.map(|v| v.as_array()) {
             for perm in perms {

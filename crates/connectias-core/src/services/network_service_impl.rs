@@ -92,28 +92,64 @@ impl NetworkService for NetworkServiceImpl {
         self.quota_manager.register_network_request(&self.plugin_id)
             .map_err(|e| PluginError::ExecutionFailed(format!("Quota exceeded: {}", e)))?;
 
-        // 3. Execute request (blocking for compatibility with sync trait)
-        // Note: This is a limitation of the current API design
-        let rt = tokio::runtime::Handle::current();
-        let (status_code, headers, body_bytes) = rt.block_on(async {
-            match self.http_client
-                .request(self.parse_method(&req.method), &req.url)
-                .headers(self.build_headers(&req.headers))
-                .body(req.body.unwrap_or_default())
-                .send()
-                .await
-            {
-                Ok(response) => {
-                    let status = response.status().as_u16();
-                    let headers_map = self.extract_headers(&response);
-                    match response.bytes().await {
-                        Ok(bytes) => Ok((status, headers_map, bytes.to_vec())),
-                        Err(e) => Err(PluginError::ExecutionFailed(format!("Failed to read response: {}", e))),
+        // 3. Execute request - FIX BUG: block_on() Deadlock-Schutz
+        // Prüfe ob wir bereits in async Runtime sind - wenn ja, verwende block_in_place
+        let http_client = self.http_client.clone();
+        let method = self.parse_method(&req.method);
+        let url = req.url.clone();
+        let headers = self.build_headers(&req.headers);
+        let body = req.body.unwrap_or_default();
+        
+        let (status_code, headers_map, body_bytes) = if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // Wir sind in async Runtime - verwende block_in_place um Deadlock zu vermeiden
+            tokio::task::block_in_place(|| {
+                handle.block_on(async {
+                    match http_client
+                        .request(method, &url)
+                        .headers(headers)
+                        .body(body)
+                        .send()
+                        .await
+                    {
+                        Ok(response) => {
+                            let status = response.status().as_u16();
+                            let headers = response.headers().iter()
+                                .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                                .collect();
+                            match response.bytes().await {
+                                Ok(bytes) => Ok((status, headers, bytes.to_vec())),
+                                Err(e) => Err(PluginError::ExecutionFailed(format!("Failed to read response: {}", e))),
+                            }
+                        }
+                        Err(e) => Err(PluginError::ExecutionFailed(format!("Request failed: {}", e))),
                     }
+                })
+            })
+        } else {
+            // Wir sind nicht in async Runtime - block_on ist sicher
+            let rt = tokio::runtime::Handle::current();
+            rt.block_on(async {
+                match http_client
+                    .request(method, &url)
+                    .headers(headers)
+                    .body(body)
+                    .send()
+                    .await
+                {
+                    Ok(response) => {
+                        let status = response.status().as_u16();
+                        let headers = response.headers().iter()
+                            .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or("").to_string()))
+                            .collect();
+                        match response.bytes().await {
+                            Ok(bytes) => Ok((status, headers, bytes.to_vec())),
+                            Err(e) => Err(PluginError::ExecutionFailed(format!("Failed to read response: {}", e))),
+                        }
+                    }
+                    Err(e) => Err(PluginError::ExecutionFailed(format!("Request failed: {}", e))),
                 }
-                Err(e) => Err(PluginError::ExecutionFailed(format!("Request failed: {}", e))),
-            }
-        })?;
+            })
+        }?;
 
         Ok(NetworkResponse {
             status_code,

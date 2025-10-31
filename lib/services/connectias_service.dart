@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/foundation.dart';
 import '../ffi/connectias_bindings.dart' as ffi;
+import '../models/plugin_model.dart';
 
 /// Connectias Plugin Manager Service
 /// 
@@ -206,6 +207,30 @@ class ConnectiasService extends ChangeNotifier {
     _requireInitialized();
 
     return List.from(_loadedPlugins);
+  }
+
+  /// Hole Plugins als PluginModel Liste
+  Future<List<PluginModel>> fetchPlugins() async {
+    _requireInitialized();
+    
+    final pluginIds = await listPlugins();
+    return pluginIds.map((id) {
+      final metadata = getPluginMetadata(id);
+      return PluginModel(
+        id: id,
+        name: metadata?['name'] ?? id,
+        version: metadata?['version'] ?? '1.0.0',
+        author: metadata?['author'] ?? 'Unknown',
+        category: metadata?['category'] ?? 'General',
+        description: metadata?['description'] ?? 'No description',
+        status: PluginStatus.active,
+        permissions: List<String>.from(metadata?['permissions'] ?? []),
+        lastUsed: metadata?['loadedAt'] as DateTime? ?? DateTime.now(),
+        memoryUsage: metadata?['memoryUsage'] as int? ?? 0,
+        isEnabled: true,
+        metadata: metadata,
+      );
+    }).toList();
   }
 
   /// Erhalte Plugin Metadata
