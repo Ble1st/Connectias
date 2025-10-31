@@ -1,21 +1,27 @@
 use connectias_ipc::{IPCMessage, IPCTransport, MAX_MESSAGE_SIZE};
 use connectias_ipc::unix_socket::UnixSocketTransport;
-use std::fs;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
+use uuid::Uuid;
 
 #[tokio::test]
 async fn test_unix_socket_send_receive() {
-    let path = "/tmp/test_connectias.sock";
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use tempfile::tempdir;
     
-    // Cleanup vorheriger Tests
-    let _ = fs::remove_file(path);
+    // Erstelle eindeutigen Socket-Pfad pro Test-Lauf
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let test_id = COUNTER.fetch_add(1, Ordering::SeqCst);
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let path = temp_dir.path().join(format!("test_connectias_{}.sock", test_id));
+    let path_str = path.to_str().unwrap();
     
     // Starte Server in separatem Task
     let server_transport = Arc::new(UnixSocketTransport::new());
-    let server_path = path.to_string();
+    let server_transport_for_spawn = server_transport.clone();
+    let server_path = path_str.to_string();
     let server_handle = tokio::spawn(async move {
-        server_transport.listen(&server_path).await.unwrap();
+        server_transport_for_spawn.listen(&server_path).await.unwrap();
         // Server wartet auf eingehende Verbindungen
         sleep(Duration::from_millis(100)).await;
     });
@@ -25,14 +31,14 @@ async fn test_unix_socket_send_receive() {
     
     // Client verbindet sich
     let client_transport = UnixSocketTransport::new();
-    client_transport.connect(path).await.unwrap();
+    client_transport.connect(path_str).await.unwrap();
     
     let msg = IPCMessage::new(
         "test_plugin".to_string(),
         "test_topic".to_string(),
         vec![1, 2, 3, 4, 5],
         1234567890,
-        "msg_123".to_string(),
+        Uuid::new_v4().to_string(), // UUID erforderlich
         "Event".to_string(),
     ).unwrap();
     
@@ -73,20 +79,19 @@ async fn test_unix_socket_send_receive() {
     // Warte auf Server Task
     let _ = server_handle.await;
     
-    // Cleanup
-    let _ = fs::remove_file(path);
+    // Cleanup durch tempdir Drop (automatisch)
 }
 
 #[tokio::test]
 async fn test_message_too_large() {
-    let path = "/tmp/test_connectias_large.sock";
-    
-    // Cleanup vorheriger Tests
-    let _ = fs::remove_file(path);
+    use tempfile::tempdir;
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let path = temp_dir.path().join("test_connectias_large.sock");
+    let path_str = path.to_str().unwrap();
     
     // Starte Server in separatem Task
     let server_transport = Arc::new(UnixSocketTransport::new());
-    let server_path = path.to_string();
+    let server_path = path_str.to_string();
     let server_handle = tokio::spawn(async move {
         server_transport.listen(&server_path).await.unwrap();
         // Server wartet auf eingehende Verbindungen
@@ -98,7 +103,7 @@ async fn test_message_too_large() {
     
     // Client verbindet sich
     let client_transport = UnixSocketTransport::new();
-    client_transport.connect(path).await.unwrap();
+    client_transport.connect(path_str).await.unwrap();
     
     // Versuche Message mit zu großem Payload zu erstellen - sollte Validierungsfehler geben
     let msg_result = IPCMessage::new(
@@ -106,7 +111,7 @@ async fn test_message_too_large() {
         "test".to_string(),
         vec![0u8; MAX_MESSAGE_SIZE + 1], // 1 Byte zu groß
         946684800, // Gültiger Timestamp
-        "msg_large".to_string(),
+        uuid::Uuid::new_v4().to_string(),
         "Event".to_string(),
     );
     
@@ -116,20 +121,19 @@ async fn test_message_too_large() {
     // Warte auf Server Task
     let _ = server_handle.await;
     
-    // Cleanup
-    let _ = fs::remove_file(path);
+    // Cleanup durch tempdir Drop (automatisch)
 }
 
 #[tokio::test]
 async fn test_connection_reconnect() {
-    let path = "/tmp/test_connectias_reconnect.sock";
-    
-    // Cleanup vorheriger Tests
-    let _ = fs::remove_file(path);
+    use tempfile::tempdir;
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let path = temp_dir.path().join("test_connectias_reconnect.sock");
+    let path_str = path.to_str().unwrap();
     
     // Starte Server in separatem Task
     let server_transport = Arc::new(UnixSocketTransport::new());
-    let server_path = path.to_string();
+    let server_path = path_str.to_string();
     let server_handle = tokio::spawn(async move {
         server_transport.listen(&server_path).await.unwrap();
         sleep(Duration::from_millis(200)).await;
@@ -141,33 +145,33 @@ async fn test_connection_reconnect() {
     let client_transport = UnixSocketTransport::new();
     
     // Teste erste Verbindung
-    client_transport.connect(path).await.unwrap();
+    client_transport.connect(path_str).await.unwrap();
     
     // Teste Disconnect
     client_transport.disconnect().await.unwrap();
     
     // Teste Reconnect
-    client_transport.connect(path).await.unwrap();
+    client_transport.connect(path_str).await.unwrap();
     
     // Warte auf Server Task
     let _ = server_handle.await;
     
-    // Cleanup
-    let _ = fs::remove_file(path);
+    // Cleanup durch tempdir Drop (automatisch)
 }
 
 #[tokio::test]
 async fn test_multiple_messages() {
-    let path = "/tmp/test_connectias_multiple.sock";
-    
-    // Cleanup vorheriger Tests
-    let _ = fs::remove_file(path);
+    use tempfile::tempdir;
+    let temp_dir = tempdir().expect("Failed to create temp dir");
+    let path = temp_dir.path().join("test_connectias_multiple.sock");
+    let path_str = path.to_str().unwrap();
     
     // Starte Server in separatem Task
     let server_transport = Arc::new(UnixSocketTransport::new());
-    let server_path = path.to_string();
+    let server_transport_for_spawn = server_transport.clone();
+    let server_path = path_str.to_string();
     let server_handle = tokio::spawn(async move {
-        server_transport.listen(&server_path).await.unwrap();
+        server_transport_for_spawn.listen(&server_path).await.unwrap();
         sleep(Duration::from_millis(200)).await;
     });
     
@@ -176,7 +180,7 @@ async fn test_multiple_messages() {
     
     // Client verbindet sich
     let client_transport = UnixSocketTransport::new();
-    client_transport.connect(path).await.unwrap();
+    client_transport.connect(path_str).await.unwrap();
     
     let messages = vec![
         IPCMessage::new(
@@ -184,7 +188,7 @@ async fn test_multiple_messages() {
             "topic1".to_string(),
             vec![1, 2, 3],
             946684801, // Gültiger Timestamp
-            "msg_1".to_string(),
+            Uuid::new_v4().to_string(),
             "Event".to_string(),
         ).unwrap(),
         IPCMessage::new(
@@ -192,7 +196,7 @@ async fn test_multiple_messages() {
             "topic2".to_string(),
             vec![4, 5, 6],
             946684802,
-            "msg_2".to_string(),
+            Uuid::new_v4().to_string(),
             "Event".to_string(),
         ).unwrap(),
         IPCMessage::new(
@@ -200,10 +204,12 @@ async fn test_multiple_messages() {
             "topic3".to_string(),
             vec![7, 8, 9],
             946684803,
-            "msg_3".to_string(),
+            Uuid::new_v4().to_string(),
             "Event".to_string(),
         ).unwrap(),
     ];
+    let message_count = messages.len();
+    let messages_clone = messages.clone(); // Clone für späteren Vergleich
     
     // Server akzeptiert Verbindungen und empfängt Messages
     let server_clone = server_transport.clone();
@@ -212,7 +218,7 @@ async fn test_multiple_messages() {
     
     let server_task = tokio::spawn(async move {
         // Empfange alle eingehenden Messages
-        for _ in 0..messages.len() {
+        for _ in 0..message_count {
             if let Ok(Some(received)) = server_clone.try_receive(Duration::from_secs(1)).await {
                 received_messages_clone.lock().await.push(received);
             }
@@ -232,8 +238,8 @@ async fn test_multiple_messages() {
     
     // Prüfe empfangene Messages
     let received = received_messages.lock().await;
-    assert_eq!(received.len(), messages.len());
-    for (expected, actual) in messages.iter().zip(received.iter()) {
+    assert_eq!(received.len(), messages_clone.len());
+    for (expected, actual) in messages_clone.iter().zip(received.iter()) {
         assert_eq!(expected.plugin_id(), actual.plugin_id());
         assert_eq!(expected.topic(), actual.topic());
         assert_eq!(expected.payload(), actual.payload());
@@ -245,6 +251,5 @@ async fn test_multiple_messages() {
     // Warte auf Server Task
     let _ = server_handle.await;
     
-    // Cleanup
-    let _ = fs::remove_file(path);
+    // Cleanup durch tempdir Drop (automatisch)
 }

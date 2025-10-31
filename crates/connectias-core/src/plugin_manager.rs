@@ -269,7 +269,8 @@ impl PluginManager {
                 .map_err(|e| format!("Fehler beim Initialisieren des WASM-Runtime: {}", e))?,
             signature_verifier: SignatureVerifier::new(),
             validator: PluginValidator::new(),
-            rasp_protection: RaspProtection::new(),
+            rasp_protection: RaspProtection::new()
+                .map_err(|e| format!("Failed to initialize RASP protection: {}", e))?,
             metrics_collector,
             recovery_manager,
             recovery_handler,
@@ -961,7 +962,14 @@ impl PluginManager {
                     match perm_str {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
-                        _ => {} // Ignore unknown permissions
+                        unknown => {
+                            // FIX BUG 5: Warnung für unbekannte Permissions statt stillschweigendes Ignorieren
+                            // Dies verhindert Tippfehler wie "Netwrok" die stillschweigend ignoriert werden
+                            log::warn!(
+                                "Unbekannte Permission '{}' im JSON-Manifest gefunden. Erlaubte Permissions: 'Storage', 'Network'. Diese Permission wird ignoriert.",
+                                unknown
+                            );
+                        }
                     }
                 }
             }
@@ -985,10 +993,14 @@ impl PluginManager {
                     match perm_str {
                         "Storage" => permissions.push(connectias_api::PluginPermission::Storage),
                         "Network" => permissions.push(connectias_api::PluginPermission::Network),
-                        _ => {
-                            // Ignore unknown permissions (konsistent mit JSON-Parsing)
-                            // Logge Warnung für Debugging, aber verhindere nicht Plugin-Loading
-                            log::debug!("Unbekannte Permission im TOML-Manifest ignoriert: {}", perm_str);
+                        unknown => {
+                            // FIX BUG 5: Warnung für unbekannte Permissions statt stillschweigendes Ignorieren
+                            // Dies verhindert Tippfehler wie "Netwrok" die stillschweigend ignoriert werden
+                            // Erhöhe Log-Level von debug zu warn für bessere Sichtbarkeit
+                            log::warn!(
+                                "Unbekannte Permission '{}' im TOML-Manifest gefunden. Erlaubte Permissions: 'Storage', 'Network'. Diese Permission wird ignoriert.",
+                                unknown
+                            );
                         }
                     }
                 }

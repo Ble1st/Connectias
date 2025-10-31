@@ -96,24 +96,31 @@ async fn test_toml_manifest_parsing() {
     
     // Test TOML manifest parsing
     let toml_content = r#"
-[package]
 id = "test_plugin"
 name = "Test Plugin"
 version = "1.0.0"
 author = "Test Author"
 description = "A test plugin for integration testing"
 
-[permissions]
-network_access = true
-file_system_read = true
+permissions = ["Network", "Storage"]
 
-[dependencies]
-connectias_core = "1.0.0"
+dependencies = ["connectias_core=1.0.0"]
 "#;
     
-    // Test extract_from_toml_manifest
-    let result = plugin_manager.extract_from_toml_manifest(toml_content);
-    assert!(result.is_ok(), "TOML parsing should succeed");
+    // Erstelle temporäre Datei für TOML-Manifest
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::NamedTempFile;
+    
+    let temp_file = NamedTempFile::new().expect("Failed to create temp file");
+    let temp_path = temp_file.path();
+    fs::write(temp_path, toml_content).expect("Failed to write TOML content");
+    // Sync temp file descriptor (fs::write bereits synchronisiert, aber für zusätzliche Sicherheit)
+    temp_file.as_file().sync_all().expect("Failed to sync temp file");
+    
+    // Test extract_from_toml_manifest mit Path
+    let result = plugin_manager.extract_from_toml_manifest(temp_path).await;
+    assert!(result.is_ok(), "TOML parsing should succeed: {:?}", result);
     
     let plugin_info = result.unwrap();
     assert_eq!(plugin_info.id, "test_plugin");
@@ -227,20 +234,21 @@ async fn test_concurrent_operations() {
                 let plugin_id = format!("concurrent_plugin_{}", i);
                 let permission = format!("test_permission_{}", i); // Unique permission per task
                 
-                // Grant permission
-                let grant_result = permission_service.grant_permission(&plugin_id, &permission).await;
+                // Grant permission using set_plugin_permissions
+                let grant_result = permission_service.set_plugin_permissions(&plugin_id, vec![permission.clone()]).await;
                 assert!(grant_result.is_ok(), "Permission grant should succeed for plugin {}", i);
                 
-                // Create alert
-                let alert_result = alert_service.create_alert(
-                    connectias_security::threat_detection::ThreatLevel::Low,
-                    &format!("Concurrent test alert {}", i),
+                // Create alert using create_permission_alert
+                let alert_result = alert_service.create_permission_alert(
+                    &plugin_id,
+                    &permission,
+                    "test_action"
                 ).await;
                 assert!(alert_result.is_ok(), "Alert creation should succeed for plugin {}", i);
                 
                 // Check permission with a small delay to ensure consistency
                 tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
-                let has_permission = permission_service.has_permission(&plugin_id, &permission);
+                let has_permission = permission_service.check_permission(&plugin_id, &permission).await.unwrap_or(false);
                 assert!(has_permission, "Plugin {} should have permission {}", i, permission);
                 
                 // Return success indicator

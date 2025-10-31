@@ -4,21 +4,21 @@ use tempfile::TempDir;
 
 #[test]
 fn test_rasp_protection_creation() {
-    let _rasp = RaspProtection::new();
+    let _rasp = RaspProtection::new().expect("RASP protection should initialize");
     // Should create without errors
     assert!(true);
 }
 
 #[test]
 fn test_root_detector_creation() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     // Should create without errors
     assert!(true);
 }
 
 #[test]
 fn test_root_detection_su_binaries() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     
     // Test with temporary directory to avoid affecting real system
     let _temp_dir = TempDir::new().expect("Failed to create temp dir");
@@ -30,7 +30,7 @@ fn test_root_detection_su_binaries() {
 
 #[test]
 fn test_root_detection_build_tags() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     
     // Test build tags detection
     // This is environment-dependent, so we just verify the method exists
@@ -64,14 +64,14 @@ fn test_debugger_detection_processes() {
 
 #[test]
 fn test_emulator_detector_creation() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     // Should create without errors
     assert!(true);
 }
 
 #[test]
 fn test_emulator_detection_hardware() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     
     // Test hardware signature detection
     // This is environment-dependent, so we just verify the method exists
@@ -81,7 +81,7 @@ fn test_emulator_detection_hardware() {
 
 #[test]
 fn test_emulator_detection_build_properties() {
-    let _detector = RaspProtection::new();
+    let _detector = RaspProtection::new().expect("RASP protection should initialize");
     
     // Test build properties detection
     // This is environment-dependent, so we just verify the method exists
@@ -167,7 +167,7 @@ mod mock_tests {
     
     #[test]
     fn test_emulator_detection_with_mock_hardware() {
-        let _detector = RaspProtection::new();
+        let _detector = RaspProtection::new().expect("RASP protection should initialize");
         
         // Test the emulator hardware detection logic
         let emulator_hardware = [
@@ -185,7 +185,7 @@ mod mock_tests {
     
     #[test]
     fn test_emulator_detection_with_mock_products() {
-        let _detector = RaspProtection::new();
+        let _detector = RaspProtection::new().expect("RASP protection should initialize");
         
         // Test the emulator product detection logic
         let emulator_products = [

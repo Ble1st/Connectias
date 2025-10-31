@@ -79,14 +79,8 @@ class PluginProcessService : Service() {
         }
         
         // Erlaube nur alphanumerische Zeichen, Bindestriche und Unterstriche
-        val allowedPattern = Regex("^[a-zA-Z0-9_-]+$")
-        if (!pluginId.matches(allowedPattern)) {
-            return false
-        }
-        
-        // Stelle sicher, dass mindestens ein alphanumerisches Zeichen vorhanden ist
-        // Verhindert IDs wie "----" oder "___" die Probleme in Dateisystem/Logging verursachen könnten
-        val hasAlphanumeric = pluginId.any { it.isLetterOrDigit() }
-        return hasAlphanumeric
+        // UND erzwinge mindestens ein alphanumerisches Zeichen
+        val allowedPattern = Regex("^(?=.*[A-Za-z0-9])[A-Za-z0-9_-]+$")
+        return pluginId.matches(allowedPattern)
     }
 }

@@ -36,40 +36,59 @@ impl IPCTransport for NamedPipeTransport {
         let data = bincode::serialize(&msg)?;
         let len = (data.len() as u32).to_le_bytes();
         
-        let handle = self.pipe_handle.lock().await
-            .ok_or(IPCError::ConnectionFailed("No pipe".into()))?;
+        // Halte Mutex während der gesamten Write-Sequenz
+        let mut pipe_handle_guard = self.pipe_handle.lock().await;
+        let handle = pipe_handle_guard
+            .as_ref()
+            .ok_or(IPCError::ConnectionFailed("No pipe".into()))?
+            .clone();
+        drop(pipe_handle_guard); // Release lock after cloning handle
         
         unsafe {
             // Write length with complete-write check
-            let mut total_written = 0u32;
+            let mut total_written: usize = 0;
             while total_written < 4 {
                 let mut written = 0u32;
                 let result = WriteFile(
                     handle, 
-                    &len[total_written as usize..], 
+                    &len[total_written..], 
                     Some(&mut written), 
                     None
                 );
-                if let Err(e) = result {
-                    return Err(IPCError::WriteFailed(format!("Failed to write length: {}", e)));
+                match result {
+                    Ok(_) => {
+                        if written == 0 {
+                            return Err(IPCError::WriteFailed("Zero bytes written for length prefix".into()));
+                        }
+                        total_written += written as usize;
+                    }
+                    Err(e) => {
+                        return Err(IPCError::WriteFailed(format!("Failed to write length: {}", e)));
+                    }
                 }
-                total_written += written;
             }
             
             // Write data with complete-write check
-            let mut total_written = 0u32;
-            while total_written < data.len() as u32 {
+            let mut total_written: usize = 0;
+            while total_written < data.len() {
                 let mut written = 0u32;
                 let result = WriteFile(
                     handle, 
-                    &data[total_written as usize..], 
+                    &data[total_written..], 
                     Some(&mut written), 
                     None
                 );
-                if let Err(e) = result {
-                    return Err(IPCError::WriteFailed(format!("Failed to write data: {}", e)));
+                match result {
+                    Ok(_) => {
+                        if written == 0 {
+                            return Err(IPCError::WriteFailed("Zero bytes written for payload".into()));
+                        }
+                        total_written += written as usize;
+                    }
+                    Err(e) => {
+                        return Err(IPCError::WriteFailed(format!("Failed to write data: {}", e)));
+                    }
                 }
-                total_written += written;
             }
         }
         Ok(())
@@ -183,11 +202,22 @@ impl IPCTransport for NamedPipeTransport {
             }
         }).await.map_err(|e| IPCError::ConnectionFailed(format!("Failed to spawn blocking task: {}", e)))?;
         
-        connection_result?;
-        
-        let mut pipe_handle = self.pipe_handle.lock().await;
-        *pipe_handle = Some(handle);
-        Ok(())
+        match connection_result {
+            Ok(_) => {
+                // Verbindung erfolgreich - Handle wird in pipe_handle gespeichert
+                let mut pipe_handle = self.pipe_handle.lock().await;
+                *pipe_handle = Some(handle);
+                Ok(())
+            }
+            Err(e) => {
+                // Verbindung fehlgeschlagen - Handle explizit schließen
+                unsafe {
+                    use windows::Win32::Foundation::CloseHandle;
+                    let _ = CloseHandle(handle);
+                }
+                Err(e)
+            }
+        }
     }
     
     async fn disconnect(&self) -> Result<(), IPCError> {

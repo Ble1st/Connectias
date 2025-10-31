@@ -40,7 +40,7 @@ fn benchmark_signature_verification(c: &mut Criterion) {
 fn benchmark_rasp_protection(c: &mut Criterion) {
     let mut group = c.benchmark_group("rasp_protection");
     
-    let rasp = RaspProtection::new();
+    let rasp = RaspProtection::new().expect("RASP protection should initialize");
     
     group.bench_function("check_environment", |b| {
         b.iter(|| {
@@ -127,7 +127,7 @@ fn benchmark_security_operations(c: &mut Criterion) {
     
     // Erstelle Instanzen außerhalb der gemessenen Schleife
     let verifier = SignatureVerifier::new();
-    let rasp = RaspProtection::new();
+    let rasp = RaspProtection::new().expect("RASP protection should initialize");
     let filter = NetworkSecurityFilter::new();
     
     group.bench_function("combined_security_check", |b| {

@@ -5,7 +5,7 @@ use std::os::fd::{AsRawFd, IntoRawFd};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::Mutex;
-use tokio::time::timeout;
+use tokio::time::timeout as tokio_timeout;
 use crate::{IPCTransport, IPCMessage, IPCError, MAX_MESSAGE_SIZE};
 
 pub struct UnixSocketTransport {
@@ -26,27 +26,38 @@ impl IPCTransport for UnixSocketTransport {
         let data = bincode::serialize(&msg)?;
         let len = (data.len() as u32).to_le_bytes();
         
-        let fd = self.socket_fd.lock().await
+        // Halte Mutex während der gesamten Write-Sequenz
+        let mut socket_fd_guard = self.socket_fd.lock().await;
+        let fd = *socket_fd_guard
+            .as_ref()
             .ok_or(IPCError::ConnectionFailed("No socket".into()))?;
+        // Mutex bleibt gesperrt für die gesamte Write-Sequenz
         
         // Send length with complete-write check
-        let mut total_written = 0;
+        let mut total_written: usize = 0;
         unsafe {
             while total_written < 4 {
                 let result = libc::write(
                     fd, 
                     len.as_ptr().add(total_written) as *const libc::c_void, 
-                    4 - total_written
+                    (4 - total_written) as usize
                 );
-                if result <= 0 {
-                    return Err(IPCError::WriteFailed(format!("Failed to write length: {}", result)));
+                if result < 0 {
+                    let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                    if errno == libc::EAGAIN || errno == libc::EWOULDBLOCK {
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
+                    return Err(IPCError::WriteFailed(format!("Failed to write length: errno {}", errno)));
+                } else if result == 0 {
+                    return Err(IPCError::WriteFailed("Zero bytes written for length prefix (EOF)".into()));
                 }
                 total_written += result as usize;
             }
         }
         
         // Send data with complete-write check
-        let mut total_written = 0;
+        let mut total_written: usize = 0;
         unsafe {
             while total_written < data.len() {
                 let result = libc::write(
@@ -54,32 +65,49 @@ impl IPCTransport for UnixSocketTransport {
                     data.as_ptr().add(total_written) as *const libc::c_void, 
                     data.len() - total_written
                 );
-                if result <= 0 {
-                    return Err(IPCError::WriteFailed(format!("Failed to write data: {}", result)));
+                if result < 0 {
+                    let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                    if errno == libc::EAGAIN || errno == libc::EWOULDBLOCK {
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
+                    return Err(IPCError::WriteFailed(format!("Failed to write data: errno {}", errno)));
+                } else if result == 0 {
+                    return Err(IPCError::WriteFailed("Zero bytes written for payload (EOF)".into()));
                 }
                 total_written += result as usize;
             }
         }
+        drop(socket_fd_guard); // Mutex wird jetzt freigegeben
         
         Ok(())
     }
     
     async fn receive(&self) -> Result<IPCMessage, IPCError> {
-        let fd = self.socket_fd.lock().await
+        // Halte Mutex während der gesamten Read-Sequenz
+        let mut socket_fd_guard = self.socket_fd.lock().await;
+        let fd = *socket_fd_guard
+            .as_ref()
             .ok_or(IPCError::ConnectionFailed("No socket".into()))?;
+        // Mutex bleibt gesperrt für die gesamte Read-Sequenz
         
         // Read length with complete-read check
         let mut len_buf = [0u8; 4];
-        let mut total_read = 0;
+        let mut total_read: usize = 0;
         unsafe {
             while total_read < 4 {
                 let result = libc::read(
                     fd, 
                     len_buf.as_mut_ptr().add(total_read) as *mut libc::c_void, 
-                    4 - total_read
+                    (4 - total_read) as usize
                 );
-                if result <= 0 {
-                    return Err(IPCError::ReadFailed(format!("Failed to read length: {}", result)));
+                if result < 0 {
+                    let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                    drop(socket_fd_guard);
+                    return Err(IPCError::ReadFailed(format!("Failed to read length: errno {}", errno)));
+                } else if result == 0 {
+                    drop(socket_fd_guard);
+                    return Err(IPCError::ReadFailed("Connection closed while reading length".into()));
                 }
                 total_read += result as usize;
             }
@@ -87,64 +115,180 @@ impl IPCTransport for UnixSocketTransport {
         let len = u32::from_le_bytes(len_buf) as usize;
         
         if len > MAX_MESSAGE_SIZE {
+            drop(socket_fd_guard);
             return Err(IPCError::MessageTooLarge { size: len, max: MAX_MESSAGE_SIZE });
         }
         
         // Read data with complete-read check
         let mut data = vec![0u8; len];
-        let mut total_read = 0;
+        let mut total_read: usize = 0;
         unsafe {
             while total_read < len {
                 let result = libc::read(
                     fd, 
                     data.as_mut_ptr().add(total_read) as *mut libc::c_void, 
-                    len - total_read
+                    (len - total_read) as usize
                 );
-                if result <= 0 {
-                    return Err(IPCError::ReadFailed(format!("Failed to read data: {}", result)));
+                if result < 0 {
+                    let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(0);
+                    drop(socket_fd_guard);
+                    return Err(IPCError::ReadFailed(format!("Failed to read data: errno {}", errno)));
+                } else if result == 0 {
+                    drop(socket_fd_guard);
+                    return Err(IPCError::ReadFailed("Connection closed while reading data".into()));
                 }
                 total_read += result as usize;
             }
         }
+        drop(socket_fd_guard); // Mutex wird jetzt freigegeben
         
         let msg = bincode::deserialize(&data)?;
         Ok(msg)
     }
     
     async fn try_receive(&self, timeout_duration: Duration) -> Result<Option<IPCMessage>, IPCError> {
-        match timeout(timeout_duration, self.receive()).await {
-            Ok(Ok(msg)) => Ok(Some(msg)),
-            Ok(Err(e)) => Err(e),
-            Err(_) => Ok(None), // Timeout
+        // FIX BUG 2: Verwende blocking libc::read mit timeout, da tokio::UnixStream::from_raw_fd nicht existiert
+        // Alternativ: Dupliziere FD und verwende blocking read in spawn_blocking
+        use libc;
+        
+        // Hole FD (NICHT auf None setzen, da wir blocking read verwenden)
+        let fd = {
+            let socket_fd_guard = self.socket_fd.lock().await;
+            *socket_fd_guard
+                .as_ref()
+                .ok_or(IPCError::ConnectionFailed("No socket".into()))?
+        };
+        
+        // Verwende spawn_blocking für blocking I/O mit timeout
+        let fd_clone = fd;
+        let result = tokio_timeout(timeout_duration, tokio::task::spawn_blocking(move || -> Result<IPCMessage, IPCError> {
+            // Read length prefix (blocking)
+            let mut len_buf = [0u8; 4];
+            let result = unsafe { libc::read(fd_clone, len_buf.as_mut_ptr() as *mut libc::c_void, 4) };
+            if result < 0 {
+                return Err(IPCError::ReadFailed(format!("Failed to read length: {}", std::io::Error::last_os_error())));
+            }
+            if result == 0 {
+                return Err(IPCError::ReadFailed("Connection closed".to_string()));
+            }
+            if result != 4 {
+                return Err(IPCError::ReadFailed("Incomplete length read".to_string()));
+            }
+            
+            let len = u32::from_le_bytes(len_buf) as usize;
+            if len > MAX_MESSAGE_SIZE {
+                return Err(IPCError::MessageTooLarge { size: len, max: MAX_MESSAGE_SIZE });
+            }
+            
+            // Read payload (blocking)
+            let mut data = vec![0u8; len];
+            let result = unsafe { libc::read(fd_clone, data.as_mut_ptr() as *mut libc::c_void, len) };
+            if result < 0 {
+                return Err(IPCError::ReadFailed(format!("Failed to read data: {}", std::io::Error::last_os_error())));
+            }
+            if result == 0 {
+                return Err(IPCError::ReadFailed("Connection closed during payload read".to_string()));
+            }
+            if result as usize != len {
+                return Err(IPCError::ReadFailed("Incomplete payload read".to_string()));
+            }
+            
+            let msg = bincode::deserialize(&data)?;
+            Ok(msg)
+        })).await;
+        
+        match result {
+            Ok(Ok(Ok(msg))) => Ok(Some(msg)),
+            Ok(Ok(Err(e))) => Err(e),
+            Ok(Err(e)) => Err(IPCError::ConnectionFailed(format!("Task join failed: {:?}", e))),
+            Err(_) => Err(IPCError::Timeout(timeout_duration)),
         }
     }
     
     async fn connect(&self, path: &str) -> Result<(), IPCError> {
-        let socket_fd = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None)?;
-        let addr = UnixAddr::new(path)?;
-        connect(socket_fd.as_raw_fd(), &addr)?;
+        let socket_fd = match socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None) {
+            Ok(fd) => fd,
+            Err(e) => return Err(IPCError::SocketError(e)),
+        };
         
-        let mut fd = self.socket_fd.lock().await;
-        *fd = Some(socket_fd.into_raw_fd());
-        Ok(())
+        let addr = match UnixAddr::new(path) {
+            Ok(addr) => addr,
+            Err(e) => {
+                // Socket schließen bei Fehler
+                unsafe {
+                    libc::close(socket_fd.as_raw_fd());
+                }
+                return Err(IPCError::SocketError(e));
+            }
+        };
+        
+        // Verwende async connect statt blocking
+        match tokio::task::spawn_blocking(move || {
+            connect(socket_fd.as_raw_fd(), &addr)
+        }).await {
+            Ok(Ok(())) => {
+                let mut fd = self.socket_fd.lock().await;
+                *fd = Some(socket_fd.into_raw_fd());
+                Ok(())
+            }
+            Ok(Err(e)) => {
+                // Socket schließen bei Fehler
+                unsafe {
+                    libc::close(socket_fd.as_raw_fd());
+                }
+                Err(IPCError::SocketError(e))
+            }
+            Err(join_err) => {
+                // Socket schließen bei Task-Fehler
+                unsafe {
+                    libc::close(socket_fd.as_raw_fd());
+                }
+                Err(IPCError::ConnectionFailed(format!("Task join failed: {:?}", join_err)))
+            }
+        }
     }
     
     async fn listen(&self, path: &str) -> Result<(), IPCError> {
-        // Entferne existierende Socket-Datei falls vorhanden
-        if std::path::Path::new(path).exists() {
-            if let Err(e) = std::fs::remove_file(path) {
-                // Log warning aber nicht als Fehler behandeln
-                eprintln!("Warning: Could not remove existing socket file {}: {}", path, e);
+        // Entferne existierende Socket-Datei atomar (TOCTOU-Schutz)
+        // Ignoriere NotFound-Fehler (Datei existiert möglicherweise nicht)
+        if let Err(e) = std::fs::remove_file(path) {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                log::warn!("Could not remove existing socket file {}: {}", path, e);
             }
         }
         
-        let socket_fd = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None)?;
-        let addr = UnixAddr::new(path)?;
-        bind(socket_fd.as_raw_fd(), &addr)?;
-        listen(&socket_fd, Backlog::new(128).unwrap())?;
+        // Socket-Erstellung und bind/listen in spawn_blocking (blocking syscalls)
+        let path_clone = path.to_string();
+        let socket_fd_result = tokio::task::spawn_blocking(move || -> Result<_, IPCError> {
+            let socket_fd = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None)
+                .map_err(|e| IPCError::SocketError(e))?;
+            let addr = UnixAddr::new(&path_clone)
+                .map_err(|e| IPCError::SocketError(e))?;
+            bind(socket_fd.as_raw_fd(), &addr)
+                .map_err(|e| IPCError::SocketError(e))?;
+            
+            // Vermeide unwrap() - propagiere Result
+            let backlog = Backlog::new(128)
+                .map_err(|e| IPCError::SocketError(nix::errno::Errno::from_i32(e as i32)))?;
+            listen(&socket_fd, backlog)
+                .map_err(|e| IPCError::SocketError(e))?;
+            
+            Ok(socket_fd)
+        }).await
+            .map_err(|e| IPCError::ConnectionFailed(format!("Failed to spawn blocking task: {:?}", e)))??;
         
         let mut fd = self.socket_fd.lock().await;
-        *fd = Some(socket_fd.into_raw_fd());
+        *fd = Some(socket_fd_result.into_raw_fd());
+        
+        // Starte Accept-Loop in separatem Task (async-capable)
+        let path_for_accept = path.to_string();
+        tokio::task::spawn_blocking(move || {
+            // Accept-Loop würde hier implementiert werden
+            // Für jetzt ist dies ein Platzhalter - vollständige Implementierung
+            // würde accepted sockets in einem Channel/Queue speichern
+            log::info!("Accept loop started for socket at {}", path_for_accept);
+        });
+        
         Ok(())
     }
     

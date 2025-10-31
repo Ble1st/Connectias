@@ -14,9 +14,6 @@ pub struct WasmRuntime {
     resource_limits: ResourceLimits,
     #[cfg(feature = "advanced_fuel_metering")]
     fuel_meter: Option<AdvancedFuelMeter>,
-    // Memory-Tracking für echte WASM-Implementierung
-    allocations: HashMap<u32, AllocationInfo>,
-    next_offset: u32,
 }
 
 /// Information über eine Memory-Allocation
@@ -74,8 +71,6 @@ impl WasmRuntime {
             resource_limits: ResourceLimits::default(),
             #[cfg(feature = "advanced_fuel_metering")]
             fuel_meter: None,
-            allocations: HashMap::new(),
-            next_offset: 1024, // Start nach WASM-Stack
         })
     }
 
@@ -90,6 +85,7 @@ impl WasmRuntime {
             #[cfg(feature = "advanced_fuel_metering")]
             fuel_meter: Some(AdvancedFuelMeter::new(plugin_id.clone())),
             store: None, // Wird bei init() erstellt
+            instance: None, // Wird bei init() erstellt und gespeichert
             allocations: HashMap::new(),
             next_offset: 1024, // Start nach WASM-Stack
         })
@@ -109,6 +105,7 @@ pub struct WasmPlugin {
     #[cfg(feature = "advanced_fuel_metering")]
     fuel_meter: Option<AdvancedFuelMeter>,
     store: Option<Store<()>>,
+    instance: Option<Instance>, // Gespeicherte Instance für Performance (wird in init() erstellt)
     // Memory-Tracking für echte WASM-Implementierung
     allocations: HashMap<u32, AllocationInfo>,
     next_offset: u32,
@@ -163,8 +160,12 @@ impl WasmPlugin {
         ));
     }
 
-    /// Schreibt Daten in WASM Memory
-    fn write_to_wasm_memory(&mut self, _store: &mut Store<()>, data: &[u8]) -> Result<u32, PluginError> {
+    /// Schreibt Daten in WASM Memory (echte Implementierung)
+    /// 
+    /// WICHTIG: Diese interne Methode verwendet den übergebenen Store.
+    /// Die öffentliche Methode write_to_wasm_memory() sollte den Store aus self.store holen.
+    fn write_to_wasm_memory(&mut self, store: &mut Store<()>, data: &[u8]) -> Result<u32, PluginError> {
+        
         // Prüfe Memory-Limit
         if data.len() > self.resource_limits.max_memory {
             return Err(PluginError::MemoryLimitExceeded { 
@@ -173,11 +174,47 @@ impl WasmPlugin {
             });
         }
         
-        // WARNUNG: allocate_wasm_memory_stub ist nicht implementiert
-        // Diese Funktion sollte nicht verwendet werden bis echte WASM Memory-Allocation vorhanden ist
-        return Err(PluginError::ExecutionFailed(
-            "WASM memory allocation not implemented - write_to_wasm_memory requires allocate_wasm_memory_stub to be properly implemented".to_string()
-        ));
+        // Hole WASM Memory aus gespeicherter Instance (Performance-Optimierung)
+        let memory = self.get_memory(&mut *store)?;
+        
+        // Berechne benötigte Größe
+        let data_size = data.len() as u32;
+        
+        // Prüfe ob Memory wachsen muss
+        let current_pages = memory.size(&mut *store); // Reborrow store für size()
+        let current_bytes = (current_pages as u32) * 65536; // 64KB per page
+        let required_bytes = self.next_offset.saturating_add(data_size);
+        
+        if required_bytes > current_bytes {
+            // Berechne benötigte zusätzliche Pages (mit Overflow-Schutz)
+            // WICHTIG: saturating_add verhindert Overflow wenn required_bytes nahe u32::MAX ist
+            let required_pages = (required_bytes.saturating_add(65535) / 65536) as u64; // Aufrunden
+            let additional_pages = required_pages.saturating_sub(current_pages);
+            
+            if additional_pages > 0 {
+                // Grow Memory (Reborrow store für grow())
+                memory.grow(&mut *store, additional_pages)
+                    .map_err(|e| PluginError::ExecutionFailed(format!("Failed to grow WASM memory: {}", e)))?;
+            }
+        }
+        
+        // Allokiere Memory-Offset über allocate_and_track (Reborrow store)
+        let offset = self.allocate_and_track(&mut *store, &memory, data_size)?;
+        
+        // Schreibe Daten in Memory (Reborrow store)
+        let memory_view = memory.data_mut(&mut *store);
+        let offset_usize = offset as usize;
+        
+        if offset_usize + data.len() > memory_view.len() {
+            return Err(PluginError::ExecutionFailed(format!(
+                "Memory write out of bounds: offset={}, size={}, memory_size={}",
+                offset, data.len(), memory_view.len()
+            )));
+        }
+        
+        memory_view[offset_usize..offset_usize + data.len()].copy_from_slice(data);
+        
+        Ok(offset)
     }
 
     /// Liest Daten aus WASM Memory
@@ -262,34 +299,103 @@ impl Plugin for WasmPlugin {
     fn init(&mut self, context: PluginContext) -> Result<(), PluginError> {
         let mut store = self.create_store()?;
         
-        // Instance erstellen
+        // Instance erstellen und speichern (für Performance - wird nicht mehr bei jedem Memory-Zugriff neu erstellt)
         let instance = Instance::new(&mut store, &self.module, &[])
             .map_err(|e| PluginError::InitializationFailed(format!("Failed to create WASM instance: {}", e)))?;
+        
+        // Instance und Store speichern für späteren Zugriff (verhindert wiederholte Instance-Erstellung)
+        self.instance = Some(instance);
+        self.store = Some(store);
         
         // Context serialisieren (nur primitive Felder)
         let context_json = serde_json::to_string(&serde_json::json!({
             "plugin_id": context.plugin_id,
         })).map_err(|e| PluginError::InitializationFailed(format!("Context serialization failed: {}", e)))?;
         
-        // Context in WASM Memory schreiben
-        // WARNUNG: write_to_wasm_memory ist nicht implementiert - wird fehlschlagen
-        // Bis echte WASM Memory-Allocation vorhanden ist, kann init() nicht verwendet werden
-        let _context_ptr = self.write_to_wasm_memory(&mut store, context_json.as_bytes())?;
-        let context_ptr = 0; // Placeholder - wird durch write_to_wasm_memory fehlschlagen
+        // Context in WASM Memory schreiben (echte Implementierung)
+        // Direkte Implementierung hier um Borrow-Konflikte zu vermeiden
+        let context_ptr = {
+            let store = self.store.as_mut()
+                .ok_or_else(|| PluginError::InitializationFailed("Store not initialized".to_string()))?;
+            let instance = self.instance.as_ref()
+                .ok_or_else(|| PluginError::InitializationFailed("Instance not initialized".to_string()))?;
+            
+            // Prüfe Memory-Limit
+            if context_json.len() > self.resource_limits.max_memory {
+                return Err(PluginError::MemoryLimitExceeded { 
+                    used: context_json.len(), 
+                    limit: self.resource_limits.max_memory 
+                });
+            }
+            
+            // Hole WASM Memory aus gespeicherter Instance (Reborrow store)
+            let memory = instance.get_memory(&mut *store, "memory")
+                .ok_or_else(|| PluginError::ExecutionFailed("Memory export not found".to_string()))?;
+            
+            // Berechne benötigte Größe
+            let data_size = context_json.len() as u32;
+            
+            // Prüfe ob Memory wachsen muss (Reborrow store)
+            let current_pages = memory.size(&mut *store);
+            let current_bytes = (current_pages as u32) * 65536;
+            let required_bytes = self.next_offset.saturating_add(data_size);
+            
+            if required_bytes > current_bytes {
+                // Berechne benötigte zusätzliche Pages (mit Overflow-Schutz)
+                let required_pages = (required_bytes.saturating_add(65535) / 65536) as u64;
+                let additional_pages = required_pages.saturating_sub(current_pages);
+                
+                if additional_pages > 0 {
+                    // Grow Memory (Reborrow store)
+                    memory.grow(&mut *store, additional_pages)
+                        .map_err(|e| PluginError::ExecutionFailed(format!("Failed to grow WASM memory: {}", e)))?;
+                }
+            }
+            
+            // Allokiere Memory-Offset - verwende current_offset direkt
+            let current_offset = self.next_offset;
+            
+            // Schreibe Daten in Memory (Reborrow store)
+            let memory_view = memory.data_mut(&mut *store);
+            let offset_usize = current_offset as usize;
+            
+            if offset_usize + context_json.len() > memory_view.len() {
+                return Err(PluginError::ExecutionFailed(format!(
+                    "Memory write out of bounds: offset={}, size={}, memory_size={}",
+                    current_offset, context_json.len(), memory_view.len()
+                )));
+            }
+            
+            memory_view[offset_usize..offset_usize + context_json.len()].copy_from_slice(context_json.as_bytes());
+            
+            current_offset
+        };
         
-        // WASM init-Funktion aufrufen
-        let init_func = instance.get_typed_func::<(i32, i32), i32>(&mut store, "plugin_init")
+        // Aktualisiere self.next_offset und track allocation nach dem Block (außerhalb von store-Borrow)
+        let data_size = context_json.len() as u32;
+        let old_offset = context_ptr;
+        self.next_offset = old_offset.saturating_add(data_size);
+        let alloc_info = AllocationInfo {
+            offset: old_offset,
+            size: data_size,
+            allocated_at: std::time::SystemTime::now(),
+        };
+        self.allocations.insert(old_offset, alloc_info);
+        
+        // WASM init-Funktion aufrufen (Reborrow store)
+        let instance = self.instance.as_ref()
+            .ok_or_else(|| PluginError::InitializationFailed("Instance not initialized".to_string()))?;
+        let store = self.store.as_mut()
+            .ok_or_else(|| PluginError::InitializationFailed("Store not initialized".to_string()))?;
+        let init_func = instance.get_typed_func::<(i32, i32), i32>(&mut *store, "plugin_init")
             .map_err(|e| PluginError::InitializationFailed(format!("Init function not found: {}", e)))?;
         
-        let result = init_func.call(&mut store, (context_ptr as i32, context_json.len() as i32))
+        let result = init_func.call(&mut *store, (context_ptr as i32, context_json.len() as i32))
             .map_err(|e| PluginError::InitializationFailed(format!("Init function call failed: {}", e)))?;
         
         if result != 0 {
             return Err(PluginError::InitializationFailed("WASM plugin initialization failed".to_string()));
         }
-        
-        // Store für spätere Verwendung speichern
-        self.store = Some(store);
         
         Ok(())
     }
@@ -361,16 +467,24 @@ impl WasmPlugin {
         self.fuel_meter.as_ref().map(|meter| meter.generate_report())
     }
     
-    /// Findet freien Memory-Offset für Allocation
+    /// Allokiert Memory und trackt die Allocation atomar
+    fn allocate_and_track(&mut self, store: &mut Store<()>, memory: &Memory, size: u32) -> Result<u32, PluginError> {
+        // Finde freien Offset und inkrementiere next_offset atomar
+        let current_offset = self.find_free_memory_offset(store, memory, size)?;
+        self.next_offset = current_offset.saturating_add(size);
+        self.track_allocation(current_offset, size)?;
+        Ok(current_offset)
+    }
+    
+    /// Findet freien Memory-Offset für Allocation (intern - verwendet self.next_offset)
     fn find_free_memory_offset(&self, store: &mut Store<()>, memory: &Memory, size: u32) -> Result<u32, PluginError> {
-        // Einfache Linear-Allocation-Strategie
-        // In einer echten Implementierung würde man eine Free-List verwenden
+        // Verwende self.next_offset als Startpunkt (wird durch allocate_and_track aktualisiert)
         let current_offset = self.next_offset;
         
         // Prüfe ob genug Platz vorhanden ist
         let current_pages = memory.size(store);
         let current_bytes = current_pages * 65536; // 64KB per page
-        let required_end = current_offset + size;
+        let required_end = current_offset.saturating_add(size);
         
         if required_end > current_bytes as u32 {
             return Err(PluginError::ExecutionFailed(format!(
@@ -381,8 +495,8 @@ impl WasmPlugin {
         
         // Prüfe auf Overlaps mit existierenden Allocations
         for (_, alloc_info) in &self.allocations {
-            let alloc_end = alloc_info.offset + alloc_info.size;
-            let new_end = current_offset + size;
+            let alloc_end = alloc_info.offset.saturating_add(alloc_info.size);
+            let new_end = current_offset.saturating_add(size);
             
             if current_offset < alloc_end && new_end > alloc_info.offset {
                 return Err(PluginError::ExecutionFailed(format!(
@@ -395,7 +509,10 @@ impl WasmPlugin {
         Ok(current_offset)
     }
     
-    /// Trackt eine neue Memory-Allocation
+    /// Trackt eine neue Memory-Allocation (NICHT verantwortlich für next_offset-Update)
+    /// 
+    /// WICHTIG: next_offset wird von allocate_and_track aktualisiert, nicht hier
+    /// Dies verhindert doppelte Mutation und Race Conditions
     fn track_allocation(&mut self, offset: u32, size: u32) -> Result<(), PluginError> {
         let alloc_info = AllocationInfo {
             offset,
@@ -404,7 +521,7 @@ impl WasmPlugin {
         };
         
         self.allocations.insert(offset, alloc_info);
-        self.next_offset = offset + size;
+        // next_offset wird NICHT hier aktualisiert - das macht allocate_and_track
         
         Ok(())
     }

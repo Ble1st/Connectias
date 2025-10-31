@@ -137,8 +137,8 @@ impl AlertService {
         }
     }
 
-    /// Sendet einen Security Alert
-    pub async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, AlertError> {
+    /// Sendet einen Security Alert (interne Implementierung)
+    async fn send_security_alert_impl(&self, assessment: &ThreatAssessment) -> Result<String, AlertError> {
         let alert_id = format!("alert_{}", uuid::Uuid::new_v4());
         
         let severity = match assessment.threat_score {
@@ -173,6 +173,11 @@ impl AlertService {
         Ok(alert_id)
     }
 
+    /// Sendet einen Security Alert
+    pub async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, AlertError> {
+        self.send_security_alert_impl(assessment).await
+    }
+
     /// Loggt ein Security Event
     pub async fn log_security_event(&self, event: SecurityEvent) -> Result<(), AlertError> {
         // Speichere Event in Database
@@ -188,8 +193,8 @@ impl AlertService {
         Ok(())
     }
 
-    /// Erstellt einen Alert für Permission Violation
-    pub async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, AlertError> {
+    /// Erstellt einen Alert für Permission Violation (interne Implementierung)
+    async fn create_permission_alert_impl(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, AlertError> {
         let alert_id = format!("perm_alert_{}", uuid::Uuid::new_v4());
         
         let alert = SecurityAlert {
@@ -216,8 +221,13 @@ impl AlertService {
         Ok(alert_id)
     }
 
-    /// Erstellt einen Alert für Resource Limit Exceeded
-    pub async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, AlertError> {
+    /// Erstellt einen Alert für Permission Violation
+    pub async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, AlertError> {
+        self.create_permission_alert_impl(plugin_id, permission, action).await
+    }
+
+    /// Erstellt einen Alert für Resource Limit Exceeded (interne Implementierung)
+    async fn create_resource_alert_impl(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, AlertError> {
         let alert_id = format!("resource_alert_{}", uuid::Uuid::new_v4());
         
         let alert = SecurityAlert {
@@ -243,6 +253,11 @@ impl AlertService {
         self.send_notifications(&alert).await?;
         
         Ok(alert_id)
+    }
+
+    /// Erstellt einen Alert für Resource Limit Exceeded
+    pub async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, AlertError> {
+        self.create_resource_alert_impl(plugin_id, resource_type, usage, limit).await
     }
 
     /// Holt alle Alerts für ein Plugin
@@ -603,73 +618,20 @@ mod tests {
 #[async_trait]
 impl AlertServiceTrait for AlertService {
     async fn send_security_alert(&self, assessment: &ThreatAssessment) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let alert = SecurityAlert {
-            id: uuid::Uuid::new_v4().to_string(),
-            plugin_id: assessment.plugin_id.clone(),
-            severity: match assessment.threat_score {
-                score if score >= 0.8 => AlertSeverity::Critical,
-                score if score >= 0.6 => AlertSeverity::High,
-                score if score >= 0.4 => AlertSeverity::Medium,
-                _ => AlertSeverity::Low,
-            },
-            alert_type: AlertType::ThreatDetected,
-            message: format!("Threat detected: {} threats found", assessment.detected_threats.len()),
-            timestamp: Utc::now(),
-            resolved: false,
-            threat_score: assessment.threat_score,
-            context: {
-                let mut ctx = HashMap::new();
-                for threat in &assessment.detected_threats {
-                    ctx.insert("threat".to_string(), threat.clone());
-                }
-                ctx
-            },
-            resolution_notes: None,
-        };
-
-        self.add_alert_to_history(&alert).await;
-        let _ = self.save_alert_to_database(&alert).await;
-        let _ = self.send_notifications(&alert).await;
-        Ok(alert.id)
+        // Delegiere an die interne Implementierung
+        self.send_security_alert_impl(assessment).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
     async fn create_permission_alert(&self, plugin_id: &str, permission: &str, action: &str) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let alert = SecurityAlert {
-            id: uuid::Uuid::new_v4().to_string(),
-            plugin_id: plugin_id.to_string(),
-            severity: AlertSeverity::Medium,
-            alert_type: AlertType::PermissionViolation,
-            message: format!("Permission {} {} for plugin {}", permission, action, plugin_id),
-            timestamp: Utc::now(),
-            resolved: false,
-            threat_score: 0.5,
-            context: HashMap::new(),
-            resolution_notes: None,
-        };
-
-        self.add_alert_to_history(&alert).await;
-        let _ = self.save_alert_to_database(&alert).await;
-        let _ = self.send_notifications(&alert).await;
-        Ok(alert.id)
+        // Delegiere an die interne Implementierung
+        self.create_permission_alert_impl(plugin_id, permission, action).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 
     async fn create_resource_alert(&self, plugin_id: &str, resource_type: &str, usage: f64, limit: f64) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let alert = SecurityAlert {
-            id: uuid::Uuid::new_v4().to_string(),
-            plugin_id: plugin_id.to_string(),
-            severity: AlertSeverity::High,
-            alert_type: AlertType::ResourceLimitExceeded,
-            message: format!("Resource {} usage {} exceeds limit {} for plugin {}", resource_type, usage, limit, plugin_id),
-            timestamp: Utc::now(),
-            resolved: false,
-            threat_score: (usage / limit).min(1.0),
-            context: HashMap::new(),
-            resolution_notes: None,
-        };
-
-        self.add_alert_to_history(&alert).await;
-        let _ = self.save_alert_to_database(&alert).await;
-        let _ = self.send_notifications(&alert).await;
-        Ok(alert.id)
+        // Delegiere an die interne Implementierung
+        self.create_resource_alert_impl(plugin_id, resource_type, usage, limit).await
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
     }
 }

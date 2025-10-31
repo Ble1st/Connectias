@@ -27,7 +27,7 @@ const MAX_TIMESTAMP: i64 = 4_102_444_800; // 2100-01-01 00:00:00 UTC
 /// 
 /// **WARNUNG**: Felder sind jetzt private - verwende IPCMessage::new() oder IPCMessage::create()
 /// für Validierung. Direkte Konstruktion ist nicht mehr möglich.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct IPCMessage {
     /// Eindeutige ID des sendenden Plugins
     plugin_id: String,
@@ -72,6 +72,36 @@ impl std::fmt::Display for ValidationError {
 }
 
 impl std::error::Error for ValidationError {}
+
+/// Helper-Struktur für Deserialisierung ohne Validierung
+#[derive(Deserialize)]
+struct IPCMessageHelper {
+    plugin_id: String,
+    topic: String,
+    payload: Vec<u8>,
+    timestamp: i64,
+    message_id: String,
+    message_type: String,
+}
+
+impl<'de> Deserialize<'de> for IPCMessage {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let helper = IPCMessageHelper::deserialize(deserializer)?;
+        
+        // Validiere durch Aufruf von IPCMessage::new()
+        IPCMessage::new(
+            helper.plugin_id,
+            helper.topic,
+            helper.payload,
+            helper.timestamp,
+            helper.message_id,
+            helper.message_type,
+        ).map_err(|e| serde::de::Error::custom(format!("IPCMessage validation failed: {}", e)))
+    }
+}
 
 impl IPCMessage {
     /// Erstellt eine neue validierte IPCMessage
@@ -144,10 +174,16 @@ impl IPCMessage {
         payload: Vec<u8>,
         message_type: String,
     ) -> Result<Self, ValidationError> {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i64;
+        let timestamp = match SystemTime::now().duration_since(UNIX_EPOCH) {
+            Ok(duration) => duration.as_secs() as i64,
+            Err(_) => {
+                return Err(ValidationError::InvalidTimestamp {
+                    timestamp: 0,
+                    min: MIN_TIMESTAMP,
+                    max: MAX_TIMESTAMP,
+                });
+            }
+        };
         
         let message_id = Uuid::new_v4().to_string();
         

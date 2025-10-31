@@ -963,6 +963,10 @@ class _PerformanceChartState extends State<PerformanceChart> {
       _cpuData.removeAt(0);
       _memoryData.removeAt(0);
       _networkData.removeAt(0);
+      // x-Koordinaten der verbleibenden Punkte anpassen (nach links schieben)
+      _cpuData = _cpuData.map((p) => FlSpot(p.x - 1, p.y)).toList();
+      _memoryData = _memoryData.map((p) => FlSpot(p.x - 1, p.y)).toList();
+      _networkData = _networkData.map((p) => FlSpot(p.x - 1, p.y)).toList();
       
       // Füge neue Daten am Ende hinzu
       final now = DateTime.now();

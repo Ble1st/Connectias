@@ -4,6 +4,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import com.connectias.connectias.security.EnhancedRASPDetector
+import android.util.Log
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "connectias/security"
@@ -16,18 +17,34 @@ class MainActivity : FlutterActivity() {
         
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
             .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "performSecurityCheck" -> {
-                        val check = rasp.performCheck()
-                        result.success(mapOf(
-                            "passed" to check.passed,
-                            "details" to check.details
-                        ))
+                try {
+                    when (call.method) {
+                        "performSecurityCheck" -> {
+                            val check = rasp.performCheck()
+                            result.success(mapOf(
+                                "passed" to check.passed,
+                                "details" to check.details
+                            ))
+                        }
+                        "detectRoot" -> {
+                            val rootDetected = rasp.custom.detectRoot()
+                            result.success(rootDetected)
+                        }
+                        "detectDebugger" -> {
+                            val debuggerDetected = rasp.custom.detectDebugger()
+                            result.success(debuggerDetected)
+                        }
+                        "detectEmulator" -> {
+                            val emulatorDetected = rasp.custom.detectEmulator()
+                            result.success(emulatorDetected)
+                        }
+                        else -> result.notImplemented()
                     }
-                    "detectRoot" -> result.success(rasp.custom.detectRoot())
-                    "detectDebugger" -> result.success(rasp.custom.detectDebugger())
-                    "detectEmulator" -> result.success(rasp.custom.detectEmulator())
-                    else -> result.notImplemented()
+                } catch (e: Exception) {
+                    Log.e("MainActivity", "Error in security method call: ${call.method}", e)
+                    result.error("SECURITY_ERROR", 
+                                "Security check failed: ${e.message}", 
+                                e.toString())
                 }
             }
     }

@@ -6,7 +6,8 @@ import java.io.File
 class RASPDetector(private val context: Context) {
     
     fun detectRoot(): Boolean {
-        val paths = arrayOf(
+        // Prüfe klassische Root-Pfade
+        val legacyPaths = arrayOf(
             "/system/app/Superuser.apk",
             "/sbin/su",
             "/system/bin/su",
@@ -17,7 +18,114 @@ class RASPDetector(private val context: Context) {
             "/system/bin/failsafe/su",
             "/data/local/su"
         )
-        return paths.any { File(it).exists() }
+        
+        // Prüfe auf Root in Legacy-Pfaden (mit Exception-Handling)
+        for (path in legacyPaths) {
+            try {
+                if (File(path).exists()) {
+                    return true
+                }
+            } catch (e: SecurityException) {
+                // Ignoriere SecurityException und prüfe weiter
+                continue
+            } catch (e: Exception) {
+                // Andere Exceptions loggen aber nicht weiterwerfen
+                android.util.Log.w("RASPDetector", "Error checking path $path: ${e.message}")
+                continue
+            }
+        }
+        
+        // Prüfe auf Magisk (moderne Root-Lösung)
+        val magiskPaths = arrayOf(
+            "/system/bin/magisk",
+            "/system/xbin/magisk",
+            "/sbin/magisk",
+            "/data/adb/magisk",
+            "/cache/magisk.log"
+        )
+        
+        for (path in magiskPaths) {
+            try {
+                if (File(path).exists()) {
+                    return true
+                }
+            } catch (e: SecurityException) {
+                continue
+            } catch (e: Exception) {
+                android.util.Log.w("RASPDetector", "Error checking Magisk path $path: ${e.message}")
+                continue
+            }
+        }
+        
+        // Prüfe auf 'su' in PATH (mit Timeout und asynchronem stdout/stderr handling)
+        // WICHTIG: Diese Operation läuft auf Background-Thread, nicht auf Main-Thread
+        try {
+            val process = Runtime.getRuntime().exec("which su")
+            
+            // Starte Threads zum Drainen von stdout/stderr (verhindert Deadlock)
+            val stdoutThread = Thread {
+                try {
+                    process.inputStream.bufferedReader().use { it.readText() }
+                } catch (e: Exception) {
+                    // Ignoriere Lesefehler
+                }
+            }
+            val stderrThread = Thread {
+                try {
+                    process.errorStream.bufferedReader().use { it.readText() }
+                } catch (e: Exception) {
+                    // Ignoriere Lesefehler
+                }
+            }
+            stdoutThread.start()
+            stderrThread.start()
+            
+            // Warte auf Prozess-Ende mit Timeout (3 Sekunden)
+            val timeout = 3000L // 3 Sekunden
+            val processExited = process.waitFor(timeout, java.util.concurrent.TimeUnit.MILLISECONDS)
+            
+            if (!processExited) {
+                // Timeout - zerstöre Prozess und behandele als nicht-root
+                android.util.Log.w("RASPDetector", "Process timeout after ${timeout}ms - destroying process")
+                process.destroy()
+                try {
+                    // Warte kurz auf destroy, dann force-kill falls nötig
+                    if (!process.waitFor(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        process.destroyForcibly()
+                    }
+                } catch (e: InterruptedException) {
+                    android.util.Log.w("RASPDetector", "Interrupted while waiting for process destruction: ${e.message}")
+                    Thread.currentThread().interrupt()
+                }
+                // Timeout = kein Root gefunden (fail-safe)
+                return false
+            }
+            
+            // Warte auf stdout/stderr Threads
+            try {
+                stdoutThread.join(1000) // Max 1 Sekunde für stdout
+                stderrThread.join(1000) // Max 1 Sekunde für stderr
+            } catch (e: InterruptedException) {
+                android.util.Log.w("RASPDetector", "Interrupted while waiting for stream threads: ${e.message}")
+                Thread.currentThread().interrupt()
+            }
+            
+            val exitCode = process.exitValue()
+            if (exitCode == 0) {
+                return true
+            }
+        } catch (e: SecurityException) {
+            // Ignoriere SecurityException
+            android.util.Log.d("RASPDetector", "SecurityException beim Prüfen von 'su': ${e.message}")
+        } catch (e: InterruptedException) {
+            android.util.Log.w("RASPDetector", "InterruptedException beim Prüfen von 'su': ${e.message}")
+            Thread.currentThread().interrupt()
+        } catch (e: Exception) {
+            android.util.Log.w("RASPDetector", "Error checking 'su' in PATH: ${e.message}")
+        }
+        
+        // Keine Root-Indikatoren gefunden
+        return false
     }
     
     fun detectDebugger(): Boolean {

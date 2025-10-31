@@ -33,7 +33,7 @@ fn benchmark_wasm_plugin_loading(c: &mut Criterion) {
     let mut group = c.benchmark_group("wasm_plugin_loading");
     group.measurement_time(Duration::from_secs(10));
     
-    let runtime = WasmRuntime::new();
+    let runtime = WasmRuntime::new().expect("Failed to create WasmRuntime");
     
     group.bench_function("load_plugin", |b| {
         b.iter(|| {

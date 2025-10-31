@@ -484,7 +484,7 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
     }
   }
 
-  void _navigateToPluginDetails(PluginModel plugin) async {
+  Future<void> _navigateToPluginDetails(PluginModel plugin) async {
     final updatedPlugin = await Navigator.push<PluginModel>(
       context,
       MaterialPageRoute(
@@ -670,9 +670,15 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
             content: Text('Plugin installed successfully!\nID: $pluginId'),
             actions: [
               TextButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  setState(() {}); // Refresh plugin list
+                  // Lade Plugins neu um die installierten Plugins zu sehen
+                  final plugins = await connectiasService.fetchPlugins();
+                  if (mounted) {
+                    setState(() {
+                      _plugins = plugins;
+                    });
+                  }
                 },
                 child: const Text('OK'),
               ),
@@ -799,12 +805,12 @@ class _PluginInstallDialogState extends State<PluginInstallDialog> {
       
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        // Verwende name wenn path null ist, normalisiere Pfad
-        final filePath = file.path ?? file.name;
-        final displayName = file.name.isNotEmpty ? file.name : path.basename(filePath);
-        
-        // Validiere Datei-Existenz und Lesbarkeit
-        if (filePath.isNotEmpty) {
+        // Require non-null, non-empty file.path (do not use file.name as path)
+        if (file.path != null && file.path!.isNotEmpty) {
+          final filePath = file.path!;
+          final displayName = file.name.isNotEmpty ? file.name : path.basename(filePath);
+          
+          // Validiere Datei-Existenz und Lesbarkeit
           final fileObj = File(filePath);
           if (await fileObj.exists()) {
             setState(() {
@@ -820,7 +826,7 @@ class _PluginInstallDialogState extends State<PluginInstallDialog> {
         } else {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Ungültiger Dateipfad: $displayName')),
+              SnackBar(content: Text('Ungültiger oder nicht unterstützter Dateipfad')),
             );
           }
         }

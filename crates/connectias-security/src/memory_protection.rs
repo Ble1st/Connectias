@@ -102,7 +102,7 @@ pub mod alignment {
         // Defensive Check: Page-Size sollte Power-of-Two sein (wird in get_page_size() validiert)
         debug_assert!(page_size.is_power_of_two(), "Page size must be power of two for bitwise alignment");
         
-        (size + page_size - 1) & !(page_size - 1)
+        size.saturating_add(page_size - 1) & !(page_size - 1)
     }
     
     /// Validate that pointer and size are page-aligned

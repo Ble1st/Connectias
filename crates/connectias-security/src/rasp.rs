@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::thread;
+use reqwest::Client;
 
 /// Runtime Application Self-Protection System
 pub struct RaspProtection {
@@ -19,17 +20,26 @@ pub struct RaspProtection {
 }
 
 impl RaspProtection {
-    pub fn new() -> Self {
-        Self {
+    /// Erstellt eine neue RaspProtection-Instanz
+    /// 
+    /// # Fehler
+    /// 
+    /// Gibt `Err` zurück wenn SslPinner nicht initialisiert werden kann
+    /// (z.B. wenn reqwest::Client nicht erstellt werden kann)
+    pub fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        // Erstelle SslPinner mit CT-Log-Client (kann fehlschlagen)
+        let ssl_pinner = SslPinner::new(Some(Duration::from_secs(10)))?;
+        
+        Ok(Self {
             root_detector: RootDetector::new(),
             debugger_monitor: DebuggerMonitor::new(),
             emulator_detector: EmulatorDetector::new(),
             integrity_monitor: IntegrityMonitor::new(),
             hook_detector: HookDetector::new(),
             memory_protector: MemoryProtector::new(),
-            ssl_pinner: SslPinner::new(),
+            ssl_pinner,
             anti_tamper: AntiTamper::new(),
-        }
+        })
     }
 
     /// Überprüft die gesamte Umgebung auf Sicherheitsbedrohungen
@@ -659,14 +669,32 @@ impl MemoryProtector {
 pub struct SslPinner {
     pinned_certificates: Vec<String>,
     verification_active: bool,
+    ct_log_client: Client,
 }
 
 impl SslPinner {
-    pub fn new() -> Self {
-        Self {
+    /// Erstellt einen neuen SslPinner mit reqwest::Client für CT-Log-Abfragen
+    /// 
+    /// # Parameter
+    /// 
+    /// * `timeout` - Timeout für HTTP-Requests (Default: 10 Sekunden)
+    /// * `tls_config` - Optional: TLS-Konfiguration (für zukünftige Erweiterungen)
+    /// 
+    /// # Fehler
+    /// 
+    /// Gibt `Err` zurück wenn der reqwest::Client nicht erstellt werden kann
+    pub fn new(timeout: Option<std::time::Duration>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        // Erstelle reqwest::Client mit expliziter Timeout-Konfiguration
+        let client = Client::builder()
+            .timeout(timeout.unwrap_or_else(|| std::time::Duration::from_secs(10)))
+            .build()
+            .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+        
+        Ok(Self {
             pinned_certificates: Vec::new(),
             verification_active: true,
-        }
+            ct_log_client: client,
+        })
     }
     
     /// Berechne SHA-256 Pin für Certificate/Public Key Daten
@@ -834,23 +862,43 @@ impl SslPinner {
         // Certificate-Hash berechnen
         let cert_hash = self.compute_certificate_hash(cert)?;
         
-        // Prüfe jeden CT-Log
+        // Prüfe jeden CT-Log und tracke Fehler
+        let mut query_errors = Vec::new();
+        let mut found_in_log = false;
+        
         for ct_log_url in ct_logs {
             match self.query_ct_log(ct_log_url, &cert_hash).await {
                 Ok(found) => {
                     if found {
                         log::info!("Certificate in CT-Log gefunden: {}", ct_log_url);
-                        return Ok(true);
+                        found_in_log = true;
+                        break; // Certificate gefunden - keine weiteren Abfragen nötig
                     }
                 }
                 Err(e) => {
                     log::warn!("CT-Log-Abfrage fehlgeschlagen {}: {}", ct_log_url, e);
+                    query_errors.push((ct_log_url.to_string(), e));
                     continue;
                 }
             }
         }
         
-        Ok(false)
+        // Unterscheide zwischen "nicht gefunden" und "Verifikationsfehler"
+        if found_in_log {
+            Ok(true)
+        } else if !query_errors.is_empty() {
+            // Mindestens eine Abfrage ist fehlgeschlagen - Fehler zurückgeben
+            let error_msg = format!(
+                "CT log verification failed: {} queries failed (e.g., {}: {})",
+                query_errors.len(),
+                query_errors[0].0,
+                query_errors[0].1
+            );
+            Err(Box::new(std::io::Error::new(std::io::ErrorKind::Other, error_msg)))
+        } else {
+            // Keine Fehler, aber auch kein Certificate gefunden
+            Ok(false)
+        }
     }
     
     /// Berechnet SHA-256 Hash des Certificates
@@ -863,16 +911,13 @@ impl SslPinner {
         Ok(format!("{:x}", hash))
     }
     
-    /// Fragt einen CT-Log ab
+    /// Fragt einen CT-Log ab (RFC 6962 get-proof-by-hash)
     async fn query_ct_log(&self, ct_log_url: &str, cert_hash: &str) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        use reqwest::Client;
-        use std::time::Duration;
+        // FIX BUG 3: self ist bereits SslPinner, daher direkt ct_log_client verwenden
+        // Verwende gecachten Client aus SslPinner statt neuen Client pro Aufruf
+        let client = &self.ct_log_client;
         
-        let client = Client::builder()
-            .timeout(Duration::from_secs(10))
-            .build()?;
-        
-        // CT-Log-API-Aufruf
+        // CT-Log-API-Aufruf (RFC 6962 get-proof-by-hash Endpoint)
         let response = client
             .get(ct_log_url)
             .query(&[("hash", cert_hash)])
@@ -882,9 +927,19 @@ impl SslPinner {
         if response.status().is_success() {
             let json: Value = response.json().await?;
             
-            // Prüfe ob Certificate in CT-Log gefunden wurde
-            if let Some(entries) = json.get("entries").and_then(|v| v.as_array()) {
-                return Ok(!entries.is_empty());
+            // RFC 6962 Format: Prüfe auf leaf_index und audit_path (Inclusion Proof)
+            // Certificate ist im Log wenn leaf_index und audit_path vorhanden sind
+            let has_leaf_index = json.get("leaf_index").and_then(|v| v.as_u64()).is_some();
+            let has_audit_path = json.get("audit_path")
+                .and_then(|v| v.as_array())
+                .map(|arr| !arr.is_empty())
+                .unwrap_or(false);
+            let has_tree_size = json.get("tree_size").and_then(|v| v.as_u64()).is_some();
+            
+            // Certificate ist im Log wenn Inclusion Proof Felder vorhanden sind
+            if has_leaf_index && has_audit_path && has_tree_size {
+                // Validiere dass audit_path nicht leer ist (mindestens ein Element für gültigen Proof)
+                return Ok(true);
             }
         }
         
@@ -1076,7 +1131,7 @@ mod tests {
 
     #[test]
     fn test_enhanced_rasp_protection() {
-        let protection = RaspProtection::new();
+        let protection = RaspProtection::new().expect("RASP protection should initialize");
         // Test sollte in echter Umgebung durchgeführt werden
         let _result = protection.check_environment();
     }

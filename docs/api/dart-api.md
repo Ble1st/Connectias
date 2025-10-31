@@ -53,6 +53,10 @@ class PluginModel {
   final List<String> permissions;
   final DateTime lastUsed;
   final int memoryUsage;
+  /// Runtime-enabled/disabled state (mutable to allow user toggles and runtime changes)
+  /// 
+  /// **Thread Safety**: Updates should be synchronized if accessed from multiple threads.
+  /// Consider using synchronization mechanisms or immutable patterns (copyWith) if immutability is preferred.
   bool isEnabled;
   final Map<String, dynamic>? metadata;
 }
@@ -112,18 +116,6 @@ class NetworkSecurityService {
 - `Future<bool> validateUrl(Uri url)`
   - Validiert URL mit Certificate Pinning
   - X.509 Certificate-Chain-Parsing
-
-- `Future<bool> _validateCertificatePinning(Uri url, NetworkSecurityPolicy policy)`
-  - Implementiert Certificate Pinning
-  - SHA-256 SPKI-Hash-Validation
-
-- `bool _validateCertificatePin(X509Certificate cert, List<String> expectedPins)`
-  - Validiert einzelnes Zertifikat
-  - SPKI-Hash-Vergleich
-
-- `String _computeSpkiHash(List<int> derData)`
-  - Berechnet SHA-256 SPKI-Hash
-  - Base64-Encoding für Pin-Format
 
 #### `NetworkSecurityPolicy`
 

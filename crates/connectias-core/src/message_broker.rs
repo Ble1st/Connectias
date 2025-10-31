@@ -296,12 +296,23 @@ impl MessageBroker {
                             message_type: message_type.clone(),
                         };
                         
+                        // Message ebenfalls in lokale Queue einreihen, um dieselbe Reihenfolge/Verarbeitung
+                        // wie im SingleProcess-Pfad sicherzustellen
+                        {
+                            let mut queue = self.message_queue.lock().unwrap();
+                            queue.push_back(message.clone());
+                        }
+
                         // Benachrichtige lokale Subscriber trotz IPC-Fehler
                         // Dies stellt sicher, dass der publish-subscribe contract erfüllt wird
                         self.distribute_message(&message).await;
                         
-                        // Update History für lokale Nachverfolgung
-                        self.update_message_history(&message).await;
+                        // FIX BUG 1: History wird hier NICHT aktualisiert, um Duplikate zu vermeiden.
+                        // Die History wird bereits in publish_via_ipc bei erfolgreichem IPC-Publish
+                        // aktualisiert (Zeile 389). Bei IPC-Fehlern sollte die History nicht aktualisiert
+                        // werden, da die Message nicht erfolgreich an entfernte Prozesse geliefert wurde.
+                        // Lokale Subscriber werden dennoch benachrichtigt, aber ohne History-Update.
+                        // self.update_message_history(&message).await; // ENTFERNT - verhindert Duplikate
                     }
                 }
             }

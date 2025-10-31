@@ -78,5 +78,5 @@ Connectias complies with:
 
 ---
 
-**Last Updated**: December 2024  
-**Next Review**: March 2025
+**Last Updated**: October 2025  
+**Next Review**: January 2026

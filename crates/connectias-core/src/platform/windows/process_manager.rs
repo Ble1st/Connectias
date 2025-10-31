@@ -12,14 +12,43 @@ use log::{info, warn, error};
 #[cfg(windows)]
 pub struct WindowsProcessManager {
     processes: HashMap<String, PROCESS_INFORMATION>,
+    plugin_exe_path: PathBuf,
 }
 
 #[cfg(windows)]
 impl WindowsProcessManager {
-    pub fn new() -> Self {
-        Self {
-            processes: HashMap::new(),
+    /// Erstellt einen neuen WindowsProcessManager mit konfigurierbarem Plugin-Executable-Pfad
+    /// 
+    /// # Arguments
+    /// * `plugin_exe_path` - Pfad zur Plugin-Executable (z.B. "connectias_plugin.exe" oder vollständiger Pfad)
+    /// 
+    /// # Errors
+    /// Gibt einen Fehler zurück, wenn der Pfad nicht existiert oder nicht kanonisiert werden kann
+    pub fn new(plugin_exe_path: PathBuf) -> std::io::Result<Self> {
+        // Validiere und kanonisiere den Pfad
+        let canonical_path = plugin_exe_path.canonicalize()
+            .map_err(|e| std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("Plugin executable path not found or cannot be canonicalized: {:?}, error: {}", plugin_exe_path, e)
+            ))?;
+        
+        if !canonical_path.is_file() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("Plugin executable path is not a file: {:?}", canonical_path)
+            ));
         }
+        
+        Ok(Self {
+            processes: HashMap::new(),
+            plugin_exe_path: canonical_path,
+        })
+    }
+    
+    /// Erstellt einen WindowsProcessManager mit Standard-Pfad (für Backward-Compatibility)
+    #[deprecated(note = "Use new(PathBuf) instead with explicit path")]
+    pub fn new_default() -> std::io::Result<Self> {
+        Self::new(PathBuf::from("connectias_plugin.exe"))
     }
     
     pub fn spawn_plugin(&mut self, plugin_id: &str, plugin_path: &PathBuf) -> Result<u32, std::io::Error> {
@@ -46,10 +75,15 @@ impl WindowsProcessManager {
             ));
         }
         
-        // Erstelle sichere Command Line mit korrekter Quotierung
-        let exe_path = "connectias_plugin.exe";
+        // Verwende konfigurierten Plugin-Executable-Pfad
+        let exe_path_str = self.plugin_exe_path.to_string_lossy().to_string();
+        let exe_path_wide: Vec<u16> = self.plugin_exe_path.to_string_lossy()
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        
         let args = format!("\"{}\" \"{}\"", plugin_id, plugin_path.display());
-        let command_line = format!("{} {}", exe_path, args);
+        let command_line = format!("\"{}\" {}", exe_path_str, args);
         let command_line_wide: Vec<u16> = command_line.encode_utf16().chain(std::iter::once(0)).collect();
         
         let mut startup_info = STARTUPINFOW {
@@ -61,7 +95,7 @@ impl WindowsProcessManager {
         
         unsafe {
             let result = CreateProcessW(
-                Some(&windows::core::HSTRING::from(exe_path)),
+                Some(&windows::core::HSTRING::from(self.plugin_exe_path.to_string_lossy().as_ref())),
                 windows::core::PWSTR(command_line_wide.as_ptr() as *mut u16),
                 None,
                 None,

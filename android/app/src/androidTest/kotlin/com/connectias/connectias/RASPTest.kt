@@ -4,6 +4,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.connectias.connectias.security.RASPDetector
 import com.connectias.connectias.security.EnhancedRASPDetector
+import android.os.Debug
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.Assert.*
@@ -28,8 +29,10 @@ class RASPTest {
         val rasp = RASPDetector(context)
         val result = rasp.detectDebugger()
         
-        // Debugger sollte erkannt werden wenn Tests laufen
-        assertTrue("Debugger sollte erkannt werden während Tests", result)
+        // Vergleiche mit tatsächlichem Debugger-Status
+        val actualDebuggerState = Debug.isDebuggerConnected()
+        assertEquals("RASPDetector sollte Debugger-Status korrekt erkennen", 
+                   actualDebuggerState, result)
     }
     
     @Test
@@ -38,9 +41,23 @@ class RASPTest {
         val rasp = RASPDetector(context)
         val result = rasp.detectEmulator()
         
-        // Emulator-Erkennung hängt vom Test-Environment ab
-        // Teste nur, dass die Methode ohne Crash läuft
-        assertNotNull("Emulator-Detection sollte ein Boolean zurückgeben", result)
+        // Stelle sicher, dass ein Boolean-Wert zurückgegeben wird
+        assertTrue("detectEmulator sollte Boolean zurückgeben", 
+                  result == true || result == false)
+        
+        // Basierend auf Build-Properties sollte das Ergebnis deterministisch sein
+        val brand = android.os.Build.BRAND
+        val device = android.os.Build.DEVICE
+        val model = android.os.Build.MODEL
+        val product = android.os.Build.PRODUCT
+        
+        val expectedEmulator = (brand.startsWith("generic") && device.startsWith("generic")) ||
+                               "google_sdk" == product ||
+                               model.contains("Emulator") ||
+                               model.contains("Android SDK")
+        
+        assertEquals("Emulator-Erkennung sollte mit Build-Properties übereinstimmen",
+                    expectedEmulator, result)
     }
     
     @Test
@@ -66,9 +83,15 @@ class RASPTest {
         assertTrue("Details sollten 'emulator' enthalten", result.details.containsKey("emulator"))
         assertTrue("Details sollten 'integrity' enthalten", result.details.containsKey("integrity"))
         
-        // Debugger sollte erkannt werden (da Tests laufen)
-        assertTrue("Debugger sollte während Tests erkannt werden", 
-                  result.details["debugged"] == true)
+        // Debugger-Erkennung: Prüfe nur wenn tatsächlich Debugger verbunden ist
+        val actualDebuggerState = Debug.isDebuggerConnected()
+        if (actualDebuggerState) {
+            assertTrue("Debugger sollte erkannt werden wenn verbunden", 
+                      result.details["debugged"] == true)
+        } else {
+            assertFalse("Debugger sollte NICHT erkannt werden wenn nicht verbunden", 
+                       result.details["debugged"] == true)
+        }
     }
     
     @Test

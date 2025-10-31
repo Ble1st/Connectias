@@ -335,11 +335,14 @@ impl MonitoringService {
 
 impl MonitoringServiceTrait for MonitoringService {
     fn increase_sampling_rate_sync(&self, plugin_id: &str, factor: f64) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // Run in a blocking context to avoid Send issues
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            self.increase_sampling_rate(plugin_id, factor).await
-                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+        // Verwende spawn_blocking um deadlocks zu vermeiden
+        tokio::task::block_in_place(|| {
+            let rt = tokio::runtime::Runtime::new()
+                .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+            rt.block_on(async {
+                self.increase_sampling_rate(plugin_id, factor).await
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)
+            })
         })
     }
 }

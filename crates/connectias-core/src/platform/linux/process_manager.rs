@@ -70,15 +70,36 @@ impl LinuxProcessManager {
 }
 
 /// Setzt Resource-Limits im Child-Prozess
-fn set_resource_limits_in_child() -> Result<(), nix::errno::Errno> {
+fn set_resource_limits_in_child() -> std::io::Result<()> {
+    use nix::errno::Errno;
+    
     // Memory-Limit: 100MB (sowohl soft als auch hard limit)
-    setrlimit(Resource::RLIMIT_AS, Rlim::from_bytes(100 * 1024 * 1024), Rlim::from_bytes(100 * 1024 * 1024))?;
+    setrlimit(Resource::RLIMIT_AS, Rlim::from_bytes(100 * 1024 * 1024), Rlim::from_bytes(100 * 1024 * 1024))
+        .map_err(|e| {
+            // Extrahiere errno aus nix::Error
+            let errno = e.as_errno()
+                .map(|errno| errno as i32)
+                .unwrap_or(libc::EINVAL);
+            std::io::Error::from_raw_os_error(errno)
+        })?;
     
     // CPU-Limit: 10 Sekunden (sowohl soft als auch hard limit)
-    setrlimit(Resource::RLIMIT_CPU, Rlim::from_raw(10), Rlim::from_raw(10))?;
+    setrlimit(Resource::RLIMIT_CPU, Rlim::from_raw(10), Rlim::from_raw(10))
+        .map_err(|e| {
+            let errno = e.as_errno()
+                .map(|errno| errno as i32)
+                .unwrap_or(libc::EINVAL);
+            std::io::Error::from_raw_os_error(errno)
+        })?;
     
     // File-Descriptor-Limit: 50 (sowohl soft als auch hard limit)
-    setrlimit(Resource::RLIMIT_NOFILE, Rlim::from_raw(50), Rlim::from_raw(50))?;
+    setrlimit(Resource::RLIMIT_NOFILE, Rlim::from_raw(50), Rlim::from_raw(50))
+        .map_err(|e| {
+            let errno = e.as_errno()
+                .map(|errno| errno as i32)
+                .unwrap_or(libc::EINVAL);
+            std::io::Error::from_raw_os_error(errno)
+        })?;
     
     Ok(())
 }

@@ -325,57 +325,63 @@ class NetworkSecurityService {
       //   ...
       // }
       
-      // Finde subjectPublicKeyInfo durch Position (nicht durch Pattern-Matching)
-      // TBSCertificate Struktur ist immer gleich:
-      // [0] version (optional, EXPLICIT [0] - kann sein oder nicht)
-      // [1] serialNumber (INTEGER)
-      // [2] signature (AlgorithmIdentifier)
-      // [3] issuer (Name)
-      // [4] validity (Validity)
-      // [5] subject (Name)
-      // [6] subjectPublicKeyInfo (SubjectPublicKeyInfo) <-- Immer an Position 6 (oder 5 wenn keine version)
+      // FIX BUG 4: Robuste SPKI-Extraktion statt starrer Indizes
+      // Durchlaufe TBSCertificate-Elemente und suche nach subjectPublicKeyInfo
+      // durch Validierung der Struktur (SEQUENCE mit AlgorithmIdentifier + BIT STRING)
+      // Dies berücksichtigt optionale Felder und unterschiedliche Zertifikatsstrukturen
+      ASN1Sequence? subjectPublicKeyInfo;
+      bool foundSpki = false;
       
-      // Prüfe beide möglichen Positionen (5 oder 6, abhängig von optional version)
-      // Da wir nicht einfach auf Tag prüfen können, prüfen wir beide Positionen
-      int spkiIndex = -1;
-      
-      // Versuche Position 5 (wenn keine version vorhanden)
-      if (tbsSeq.elements.length > 5) {
-        final candidate5 = tbsSeq.elements[5];
-        if (candidate5 is ASN1Sequence) {
-          final candidateSeq = candidate5;
-          if (candidateSeq.elements.length >= 2 &&
-              candidateSeq.elements[0] is ASN1Sequence &&
-              candidateSeq.elements[1] is ASN1BitString) {
-            spkiIndex = 5;
+      for (final element in tbsSeq.elements) {
+        if (element is ASN1Sequence) {
+          // Prüfe ob dieses Element die SPKI-Struktur hat:
+          // AlgorithmIdentifier (SEQUENCE) + subjectPublicKey (BIT STRING)
+          if (element.elements.length >= 2 &&
+              element.elements[0] is ASN1Sequence &&
+              element.elements[1] is ASN1BitString) {
+            // Dies ist wahrscheinlich subjectPublicKeyInfo
+            // Zusätzliche Validierung: AlgorithmIdentifier sollte reasonable sein
+            final algoSeq = element.elements[0] as ASN1Sequence;
+            if (algoSeq.elements.isNotEmpty) {
+              subjectPublicKeyInfo = element;
+              foundSpki = true;
+              break;
+            }
           }
         }
       }
       
-      // Falls Position 5 kein SPKI ist, versuche Position 6 (wenn version vorhanden)
-      if (spkiIndex < 0 && tbsSeq.elements.length > 6) {
-        final candidate6 = tbsSeq.elements[6];
-        if (candidate6 is ASN1Sequence) {
-          final candidateSeq = candidate6;
-          if (candidateSeq.elements.length >= 2 &&
-              candidateSeq.elements[0] is ASN1Sequence &&
-              candidateSeq.elements[1] is ASN1BitString) {
-            spkiIndex = 6;
+      if (!foundSpki || subjectPublicKeyInfo == null) {
+        // Fallback: Versuche starre Indexierung als letzte Option
+        final first = tbsSeq.elements.isNotEmpty ? tbsSeq.elements.first : null;
+        final bool hasVersionTag = first != null && first.tag == 0xA0;
+        final spkiIndex = (hasVersionTag ? 6 : 5);
+        
+        if (tbsSeq.elements.length > spkiIndex) {
+          final candidate = tbsSeq.elements[spkiIndex];
+          if (candidate is ASN1Sequence &&
+              candidate.elements.length >= 2 &&
+              candidate.elements[0] is ASN1Sequence &&
+              candidate.elements[1] is ASN1BitString) {
+            subjectPublicKeyInfo = candidate;
           }
         }
+        
+        if (subjectPublicKeyInfo == null) {
+          throw Exception('Konnte subjectPublicKeyInfo nicht in TBSCertificate finden. Zertifikat hat möglicherweise unerwartete Struktur.');
+        }
       }
-      
-      // Wenn SPKI nicht gefunden, Fehler werfen
-      if (spkiIndex < 0) {
-        throw Exception('SubjectPublicKeyInfo nicht an erwarteter Position (5 oder 6) im TBSCertificate gefunden');
-      }
-      
-      final subjectPublicKeyInfo = tbsSeq.elements[spkiIndex];
-      // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert oben
+      // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert oben (wurde im Loop geprüft)
       
       // Extrahiere encoded bytes des SubjectPublicKeyInfo
       // subjectPublicKeyInfo ist bereits als ASN1Sequence validiert
-      final spkiSequence = subjectPublicKeyInfo as ASN1Sequence;
+      final spkiSequence = subjectPublicKeyInfo;
+      // Validierung der SPKI-Unterstruktur: AlgorithmIdentifier (SEQUENCE), subjectPublicKey (BIT STRING)
+      if (spkiSequence.elements.length < 2 ||
+          spkiSequence.elements[0] is! ASN1Sequence ||
+          spkiSequence.elements[1] is! ASN1BitString) {
+        throw Exception('Ungültige SPKI-Struktur: Erwartet (SEQUENCE, BIT STRING)');
+      }
       final spkiBytes = spkiSequence.encodedBytes;
       
       if (spkiBytes.isEmpty) {
