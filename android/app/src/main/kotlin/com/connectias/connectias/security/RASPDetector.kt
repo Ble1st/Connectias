@@ -112,7 +112,7 @@ class RASPDetector(private val context: Context) {
             val processExited = process.waitFor(timeout, java.util.concurrent.TimeUnit.MILLISECONDS)
             
             if (!processExited) {
-                // FIX BUG 5: Timeout - zerstöre Prozess und warte auf Stream-Threads vor Return
+                // FIX BUG 2: Timeout - zerstöre Prozess und FORCIERE Stream-Schließung VOR Thread-Wartezeit
                 android.util.Log.w("RASPDetector", "Process timeout after ${timeout}ms - destroying process")
                 process.destroy()
                 try {
@@ -125,18 +125,32 @@ class RASPDetector(private val context: Context) {
                     Thread.currentThread().interrupt()
                 }
                 
-                // FIX BUG 5: Warte auf Stream-Threads auch bei Timeout, um Leaks zu vermeiden
+                // FIX BUG 2: FORCIERE Stream-Schließung BEVOR auf Thread-Terminierung gewartet wird
+                // Dies unterbricht blockierende read() Calls in den Threads und verhindert Thread-Leaks
                 try {
-                    stdoutThread.join(2000) // Max 2 Sekunden
-                    stderrThread.join(2000) // Max 2 Sekunden
+                    process.inputStream.close()
+                } catch (e: Exception) {
+                    android.util.Log.d("RASPDetector", "Failed to close inputStream during timeout: ${e.message}")
+                }
+                try {
+                    process.errorStream.close()
+                } catch (e: Exception) {
+                    android.util.Log.d("RASPDetector", "Failed to close errorStream during timeout: ${e.message}")
+                }
+                
+                // FIX BUG 2: Warte auf Stream-Threads nach FORCIERTER Stream-Schließung
+                // Die Threads sollten jetzt schnell beenden, da Streams geschlossen sind
+                try {
+                    stdoutThread.join(500) // Max 500ms (Streams sind geschlossen, Threads sollten schnell beenden)
+                    stderrThread.join(500) // Max 500ms
                 } catch (e: InterruptedException) {
                     android.util.Log.w("RASPDetector", "Interrupted while waiting for stream threads after timeout: ${e.message}")
                     Thread.currentThread().interrupt()
                 }
                 
-                // Prüfe ob Threads noch laufen
+                // Prüfe ob Threads noch laufen (unwahrscheinlich nach forcierter Stream-Schließung)
                 if (stdoutThread.isAlive || stderrThread.isAlive) {
-                    android.util.Log.w("RASPDetector", "Stream threads still running after process timeout - potential leak")
+                    android.util.Log.w("RASPDetector", "Stream threads still running after timeout and forced stream close - daemon threads will terminate on VM exit")
                 }
                 
                 // Timeout = kein Root gefunden (fail-safe)
