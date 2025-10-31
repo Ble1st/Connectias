@@ -746,7 +746,8 @@ impl PluginManager {
             permissions: self.parse_permissions_from_manifest(&manifest)
                 .map_err(|e| format!("Failed to parse permissions: {}", e))?,
             entry_point: manifest["entry_point"].as_str().unwrap_or("plugin.wasm").to_string(),
-            dependencies: self.parse_dependencies_from_manifest(&manifest),
+            dependencies: self.parse_dependencies_from_manifest(&manifest)
+                .map_err(|e| format!("Failed to parse dependencies: {}", e))?,
         })
     }
     
@@ -1027,19 +1028,40 @@ impl PluginManager {
     }
     
     /// Parse Dependencies aus JSON-Manifest
-    fn parse_dependencies_from_manifest(&self, manifest: &serde_json::Value) -> Option<Vec<String>> {
+    /// FIX BUG 2: Gibt jetzt Result zurück um Plugin-Loading bei ungültigen Dependencies zu verhindern
+    /// Validierung verhindert Tippfehler in Dependency-Namen, die zu Runtime-Fehlern führen würden
+    fn parse_dependencies_from_manifest(&self, manifest: &serde_json::Value) -> Result<Vec<String>, String> {
         if let Some(deps) = manifest["dependencies"].as_array() {
             let mut dependencies = Vec::new();
+            let mut invalid_deps = Vec::new();
             for dep in deps {
                 if let Some(dep_str) = dep.as_str() {
-                    dependencies.push(dep_str.to_string());
+                    // FIX BUG 2: Validiere Dependency-Name (nicht leer, keine ungültigen Zeichen)
+                    if dep_str.is_empty() {
+                        invalid_deps.push("(empty string)".to_string());
+                    } else if !dep_str.chars().all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == '.') {
+                        invalid_deps.push(format!("'{}' (contains invalid characters)", dep_str));
+                    } else {
+                        dependencies.push(dep_str.to_string());
+                    }
+                } else {
+                    // FIX BUG 2: Dependency ist kein String
+                    invalid_deps.push(format!("{:?} (not a string)", dep));
                 }
             }
-            if !dependencies.is_empty() {
-                return Some(dependencies);
+            
+            // FIX BUG 2: Wenn ungültige Dependencies gefunden wurden, verhindere Plugin-Loading
+            if !invalid_deps.is_empty() {
+                return Err(format!(
+                    "Ungültige Dependencies im JSON-Manifest gefunden: {}. Dependencies müssen nicht-leere Strings mit nur alphanumerischen Zeichen, Bindestrichen, Unterstrichen oder Punkten sein.",
+                    invalid_deps.join(", ")
+                ));
             }
+            
+            Ok(dependencies)
+        } else {
+            Ok(Vec::new())
         }
-        None
     }
 
     /// Prüfe ob Dependencies verfügbar sind

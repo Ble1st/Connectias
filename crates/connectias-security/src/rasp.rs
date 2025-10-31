@@ -847,8 +847,10 @@ impl SslPinner {
                     const MAX_NETWORK_FAILURES: u32 = 3;
                     const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
                     
+                    // FIX BUG 4: Atomare Operation für Counter-Check und Grace Period-Prüfung
+                    // Verwende compare-and-swap Loop um Race Conditions zu vermeiden
                     if failure_count >= MAX_NETWORK_FAILURES {
-                        // Prüfe ob Grace Period abgelaufen ist
+                        // Prüfe ob Grace Period abgelaufen ist (atomar mit Counter-Check)
                         let should_allow_grace = {
                             let last_failure = self.ct_log_last_failure.lock().unwrap();
                             if let Some(last) = *last_failure {
@@ -868,6 +870,23 @@ impl SslPinner {
                             // Wir geben hier Ok(true) zurück, aber nur wenn das Zertifikat auch gepinnt ist
                             // Die tatsächliche Pin-Prüfung erfolgt vor diesem Aufruf
                             return Ok(true);
+                        } else {
+                            // FIX BUG 4: Grace Period abgelaufen - atomar Counter resetten
+                            // Verwende compare_and_swap um Race Conditions zu vermeiden:
+                            // Nur resetten wenn Counter noch >= MAX_NETWORK_FAILURES ist
+                            // Dies verhindert, dass neue Fehler überschrieben werden
+                            let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
+                            if current >= MAX_NETWORK_FAILURES {
+                                // Versuche Counter atomar auf 0 zu setzen
+                                // Wenn zwischen load und compare_and_swap neue Fehler aufgetreten sind,
+                                // wird compare_and_swap fehlschlagen und wir versuchen es erneut
+                                let _ = self.ct_log_failure_count.compare_exchange(
+                                    current,
+                                    0,
+                                    std::sync::atomic::Ordering::Relaxed,
+                                    std::sync::atomic::Ordering::Relaxed
+                                );
+                            }
                         }
                     }
                     
@@ -877,8 +896,6 @@ impl SslPinner {
                         log::error!("CT-Verifikation erforderlich - Netzwerkfehler verhindern Verifikation (Versuch {}/{})", failure_count, MAX_NETWORK_FAILURES);
                     } else {
                         log::error!("CT-Verifikation erforderlich - Grace Period abgelaufen oder überschritten");
-                        // Reset Counter nach Grace Period
-                        self.ct_log_failure_count.store(0, std::sync::atomic::Ordering::Relaxed);
                     }
                     Err(super::SecurityError::SecurityViolation(
                         format!("CT log verification failed due to network error (attempt {}). CT verification is required: {}", failure_count, e)

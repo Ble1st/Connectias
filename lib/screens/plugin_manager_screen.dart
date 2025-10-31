@@ -492,7 +492,8 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
       ),
     );
     
-    // Zeige SnackBar wenn Plugin aktualisiert wurde
+    // FIX BUG 1: Zeige SnackBar wenn Plugin aktualisiert wurde
+    // WICHTIG: Prüfe mounted vor JEDEM Zugriff auf context (auch ScaffoldMessenger)
     if (updatedPlugin != null && mounted) {
       setState(() {
         // Aktualisiere Plugin in der Liste
@@ -502,12 +503,16 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
         }
       });
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Plugin ${updatedPlugin.name} wurde ${updatedPlugin.status == PluginStatus.active ? 'aktiviert' : 'deaktiviert'}'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // FIX BUG 1: Prüfe mounted nochmal vor ScaffoldMessenger-Aufruf
+      // zwischen setState() und ScaffoldMessenger kann context ungültig werden
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Plugin ${updatedPlugin.name} wurde ${updatedPlugin.status == PluginStatus.active ? 'aktiviert' : 'deaktiviert'}'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     }
   }
 

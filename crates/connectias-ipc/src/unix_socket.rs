@@ -154,7 +154,13 @@ impl IPCTransport for UnixSocketTransport {
         // KEIN LEAK: Der FD wird korrekt verwaltet durch self.socket_fd und nur bei disconnect() geschlossen.
         use libc;
         
-        // Hole FD-Wert (RawFd ist Copy - Integer-Wert, keine echte FD-Duplikation)
+        // FIX BUG 3: Hole FD und prüfe ob noch gültig, bevor wir spawn_blocking starten
+        // Der Mutex bleibt NICHT gesperrt während des blocking reads, aber wir prüfen
+        // vorher ob der FD noch existiert. Wenn disconnect() während try_receive läuft,
+        // wird der FD geschlossen und libc::read gibt EBADF zurück.
+        // Problem: Race Condition führt zu unnötigen Retries. Lösung: FD duplizieren mit dup()
+        // oder besser: Mutex über gesamten Read-Zyklus halten (aber das blockiert async runtime)
+        // Für jetzt: EBADF wird behandelt, aber Caller muss möglicherweise retry
         let fd = {
             let socket_fd_guard = self.socket_fd.lock().await;
             *socket_fd_guard
@@ -162,12 +168,20 @@ impl IPCTransport for UnixSocketTransport {
                 .ok_or(IPCError::ConnectionFailed("No socket".into()))?
         };
         
-        // FIX BUG 3: Race Condition zwischen try_receive und disconnect verhindern
-        // Prüfe ob FD noch gültig ist, bevor wir spawn_blocking starten
-        // Der FD bleibt in self.socket_fd gespeichert und wird nur bei disconnect() geschlossen.
-        // WICHTIG: Wenn disconnect() während try_receive läuft, wird der FD geschlossen
-        // und libc::read gibt EBADF zurück. Wir behandeln das korrekt als Read-Fehler.
-        let fd_for_read = fd;
+        // FIX BUG 3: Dupliziere FD mit dup() um Race Condition zu vermeiden
+        // Der duplizierte FD wird am Ende der spawn_blocking Closure geschlossen
+        // Dies verhindert, dass disconnect() den FD schließt während wir noch lesen
+        let fd_dup = unsafe {
+            let dup_fd = libc::dup(fd);
+            if dup_fd < 0 {
+                return Err(IPCError::ConnectionFailed(format!("Failed to duplicate file descriptor: {}", std::io::Error::last_os_error())));
+            }
+            dup_fd
+        };
+        
+        // WICHTIG: Der originale FD bleibt in self.socket_fd und wird bei disconnect() geschlossen
+        // Der duplizierte FD wird nur in spawn_blocking verwendet und am Ende geschlossen
+        let fd_for_read = fd_dup;
         let result = tokio_timeout(timeout_duration, tokio::task::spawn_blocking(move || -> Result<IPCMessage, IPCError> {
             // FIX BUG 3: Prüfe vor jedem Read ob FD noch gültig ist (Race Condition Schutz)
             // Wenn disconnect() aufgerufen wurde, ist socket_fd None und der FD wurde geschlossen
@@ -230,6 +244,12 @@ impl IPCTransport for UnixSocketTransport {
             }
             
             let msg = bincode::deserialize(&data)?;
+            
+            // FIX BUG 3: Schließe duplizierten FD am Ende (verhindert Leak)
+            unsafe {
+                libc::close(fd_for_read);
+            }
+            
             Ok(msg)
         })).await;
         
@@ -259,12 +279,18 @@ impl IPCTransport for UnixSocketTransport {
         };
         
         // Verwende async connect statt blocking
+        // WICHTIG: socket_fd wird in spawn_blocking bewegt, daher müssen wir as_raw_fd() vorher aufrufen
+        let raw_fd = socket_fd.as_raw_fd();
         match tokio::task::spawn_blocking(move || {
-            connect(socket_fd.as_raw_fd(), &addr)
+            connect(raw_fd, &addr)
         }).await {
             Ok(Ok(())) => {
                 let mut fd = self.socket_fd.lock().await;
-                *fd = Some(socket_fd.into_raw_fd());
+                // socket_fd wurde in spawn_blocking bewegt, daher verwenden wir raw_fd
+                // ABER: Wir können nicht in move Closure auf socket_fd zugreifen
+                // Lösung: Wir müssen raw_fd außerhalb der Closure behalten
+                // Da wir as_raw_fd() vor spawn_blocking aufrufen, können wir es hier verwenden
+                *fd = Some(raw_fd);
                 Ok(())
             }
             Ok(Err(e)) => {
@@ -298,7 +324,7 @@ impl IPCTransport for UnixSocketTransport {
         let socket_fd_result = tokio::task::spawn_blocking(move || -> Result<_, IPCError> {
             let socket_fd = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None)
                 .map_err(|e| IPCError::SocketError(e))?;
-            let addr = UnixAddr::new(&path_clone)
+            let addr = UnixAddr::new(path_clone.as_str())
                 .map_err(|e| IPCError::SocketError(e))?;
             bind(socket_fd.as_raw_fd(), &addr)
                 .map_err(|e| IPCError::SocketError(e))?;
