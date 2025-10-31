@@ -37,6 +37,9 @@ pub struct PluginRegistryEntry {
     pub dependencies: Vec<String>,
     pub dependents: Vec<String>,
     pub permissions: Vec<String>,
+    /// FIX BUG 4: Unbekannte Permissions für Forward-Compatibility
+    /// Speichert Permissions die in zukünftigen Connectias-Versionen verfügbar sein werden
+    pub unknown_permissions: Vec<String>,
     pub resource_usage: ResourceUsage,
     pub performance_metrics: PerformanceMetrics,
 }
@@ -701,7 +704,9 @@ impl PluginManager {
         // Versuche zuerst, eine Begleitdatei zu finden
         let manifest_path = file_path.with_extension("json");
         if manifest_path.exists() {
-            return self.extract_from_manifest(&manifest_path).await;
+            // FIX BUG 4: extract_from_manifest gibt jetzt (PluginInfo, Vec<String>) zurück
+            let (plugin_info, _unknown_permissions) = self.extract_from_manifest(&manifest_path).await?;
+            return Ok(plugin_info);
         }
         
         let toml_path = file_path.with_extension("toml");
@@ -739,7 +744,8 @@ impl PluginManager {
     }
     
     /// Extrahiere Plugin-Info aus JSON-Manifest
-    async fn extract_from_manifest(&self, manifest_path: &std::path::Path) -> Result<PluginInfo, String> {
+    /// FIX BUG 4: Gibt auch unbekannte Permissions zurück für Speicherung in Registry
+    async fn extract_from_manifest(&self, manifest_path: &std::path::Path) -> Result<(PluginInfo, Vec<String>), String> {
         use std::fs;
         use serde_json;
         
@@ -748,21 +754,27 @@ impl PluginManager {
             
         let manifest: serde_json::Value = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse manifest JSON: {}", e))?;
+        
+        // FIX BUG 4: Parse Permissions (gibt Tuple zurück: bekannte + unbekannte)
+        let (permissions, unknown_permissions) = self.parse_permissions_from_manifest(&manifest)
+            .map_err(|e| format!("Failed to parse permissions: {}", e))?;
             
-        Ok(PluginInfo {
-            id: manifest["id"].as_str().unwrap_or("unknown").to_string(),
-            name: manifest["name"].as_str().unwrap_or("Unknown Plugin").to_string(),
-            version: manifest["version"].as_str().unwrap_or("1.0.0").to_string(),
-            author: manifest["author"].as_str().unwrap_or("Unknown").to_string(),
-            description: manifest["description"].as_str().unwrap_or("No description").to_string(),
-            min_core_version: manifest["min_core_version"].as_str().unwrap_or("1.0.0").to_string(),
-            max_core_version: manifest["max_core_version"].as_str().map(|s| s.to_string()),
-            permissions: self.parse_permissions_from_manifest(&manifest)
-                .map_err(|e| format!("Failed to parse permissions: {}", e))?,
-            entry_point: manifest["entry_point"].as_str().unwrap_or("plugin.wasm").to_string(),
-            dependencies: self.parse_dependencies_from_manifest(&manifest)
-                .map_err(|e| format!("Failed to parse dependencies: {}", e))?,
-        })
+        Ok((
+            PluginInfo {
+                id: manifest["id"].as_str().unwrap_or("unknown").to_string(),
+                name: manifest["name"].as_str().unwrap_or("Unknown Plugin").to_string(),
+                version: manifest["version"].as_str().unwrap_or("1.0.0").to_string(),
+                author: manifest["author"].as_str().unwrap_or("Unknown").to_string(),
+                description: manifest["description"].as_str().unwrap_or("No description").to_string(),
+                min_core_version: manifest["min_core_version"].as_str().unwrap_or("1.0.0").to_string(),
+                max_core_version: manifest["max_core_version"].as_str().map(|s| s.to_string()),
+                permissions,
+                entry_point: manifest["entry_point"].as_str().unwrap_or("plugin.wasm").to_string(),
+                dependencies: self.parse_dependencies_from_manifest(&manifest)
+                    .map_err(|e| format!("Failed to parse dependencies: {}", e))?,
+            },
+            unknown_permissions
+        ))
     }
     
     /// Extrahiere Plugin-Info aus TOML-Manifest
@@ -969,8 +981,10 @@ impl PluginManager {
     }
     
     /// Parse Permissions aus JSON-Manifest
-    /// FIX BUG 3: Respektiert den Strict-Mode Flag
-    fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Result<Vec<connectias_api::PluginPermission>, String> {
+    /// FIX BUG 3 + BUG 4: Respektiert den Strict-Mode Flag und gibt unbekannte Permissions zurück
+    /// 
+    /// Returns: (Vec<PluginPermission>, Vec<String>) - (bekannte Permissions, unbekannte Permissions)
+    fn parse_permissions_from_manifest(&self, manifest: &serde_json::Value) -> Result<(Vec<connectias_api::PluginPermission>, Vec<String>), String> {
         let mut permissions = Vec::new();
         let mut unknown_permissions = Vec::new();
         
@@ -989,7 +1003,7 @@ impl PluginManager {
             }
         }
         
-        // FIX BUG 3: Handling von unbekannten Permissions je nach Strict-Mode
+        // FIX BUG 3 + BUG 4: Handling von unbekannten Permissions je nach Strict-Mode
         if !unknown_permissions.is_empty() {
             if self.strict_mode {
                 // Strict Mode: Verweigere Plugin-Loading bei unbekannten Permissions (Standard)
@@ -998,11 +1012,13 @@ impl PluginManager {
                     unknown_permissions.join(", ")
                 ));
             } else {
-                // Non-Strict Mode: Warne, aber lade Plugin mit bekannten Permissions (Forward-Compatibility)
+                // FIX BUG 4: Non-Strict Mode: Warne, speichere unbekannte Permissions in Metadaten
+                // Dies ermöglicht späteres Verwenden wenn Connectias aktualisiert wird
                 log::warn!(
-                    "Unbekannte Permissions im JSON-Manifest gefunden: {} (ggf. aus zukünftiger Version). Plugin wird mit bekannten Permissions geladen.",
+                    "Unbekannte Permissions im JSON-Manifest gefunden: {} (ggf. aus zukünftiger Version). Plugin wird mit bekannten Permissions geladen, unbekannte werden in Metadaten gespeichert.",
                     unknown_permissions.join(", ")
                 );
+                // Unbekannte Permissions werden zurückgegeben (für Speicherung in Registry)
             }
         }
         
@@ -1010,7 +1026,8 @@ impl PluginManager {
             permissions.push(connectias_api::PluginPermission::Storage);
         }
         
-        Ok(permissions)
+        // FIX BUG 4: Gebe sowohl bekannte als auch unbekannte Permissions zurück
+        Ok((permissions, unknown_permissions))
     }
     
     /// Parse Permissions aus TOML-Manifest

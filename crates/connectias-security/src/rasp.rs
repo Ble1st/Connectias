@@ -832,50 +832,63 @@ impl SslPinner {
                 let is_network_error = Self::is_network_error(&*e);
                 
                 if is_network_error {
-                    // FIX BUG 1: Prüfe und resette Grace Period ATOMAR VOR dem Increment
-                    // Dies verhindert Race Conditions wo mehrere Threads den Counter über MAX_NETWORK_FAILURES
-                    // hinaus incrementieren können, bevor die Grace Period geprüft wird
+                    // FIX BUG 3: Atomare Grace Period Prüfung und Reset VOR Increment
+                    // Dies verhindert Race Conditions wo mehrere Threads zwischen Grace Period Prüfung
+                    // und Reset incrementieren können, was mehr Fehler als beabsichtigt erlaubt
                     let now = std::time::SystemTime::now();
                     const MAX_NETWORK_FAILURES: u32 = 3;
                     const GRACE_PERIOD_SECONDS: u64 = 300; // 5 Minuten
                     
-                    // Schritt 1: Prüfe Grace Period und resette atomar wenn abgelaufen (VOR Increment)
-                    let grace_period_expired = {
-                        let last_failure = self.ct_log_last_failure.lock().unwrap();
-                        if let Some(last) = *last_failure {
-                            now.duration_since(last)
-                                .map(|d| d.as_secs() >= GRACE_PERIOD_SECONDS)
-                                .unwrap_or(true) // Wenn Zeit nicht ermittelbar, Grace Period als abgelaufen betrachten
-                        } else {
-                            true // Kein vorheriger Fehler = Grace Period abgelaufen
-                        }
-                    };
-                    
-                    // Wenn Grace Period abgelaufen ist, resette Counter atomar
-                    if grace_period_expired {
-                        // Atomarer Reset: Prüfe und resette in einer atomaren Operation
-                        loop {
-                            let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
+                    // FIX BUG 3: Atomare Sequenz: Load Counter + Prüfe Grace Period + Reset wenn nötig
+                    // Dies verhindert Race Conditions zwischen Prüfung und Reset
+                    loop {
+                        let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
+                        
+                        // Prüfe Grace Period nur wenn Counter >= MAX (optimiert, vermeidet unnötige Locks)
+                        if current >= MAX_NETWORK_FAILURES {
+                            // Atomare Prüfung: Grace Period + Reset in einem Block
+                            let grace_period_expired = {
+                                let last_failure = self.ct_log_last_failure.lock().unwrap();
+                                if let Some(last) = *last_failure {
+                                    now.duration_since(last)
+                                        .map(|d| d.as_secs() >= GRACE_PERIOD_SECONDS)
+                                        .unwrap_or(true)
+                                } else {
+                                    true // Kein vorheriger Fehler = Grace Period abgelaufen
+                                }
+                            };
                             
-                            // Wenn bereits zurückgesetzt, sind wir fertig
-                            if current == 0 {
+                            if grace_period_expired {
+                                // Versuche atomar auf 0 zu setzen (nur wenn noch >= MAX)
+                                // Dies verhindert dass andere Threads zwischen Prüfung und Reset incrementieren
+                                match self.ct_log_failure_count.compare_exchange(
+                                    current,
+                                    0,
+                                    std::sync::atomic::Ordering::Relaxed,
+                                    std::sync::atomic::Ordering::Relaxed
+                                ) {
+                                    Ok(_) => break, // Erfolgreich zurückgesetzt, verlasse Loop
+                                    Err(actual_value) => {
+                                        // Zwischen load und compare_exchange wurde der Counter geändert
+                                        // Prüfe ob bereits zurückgesetzt oder unter Schwellwert
+                                        if actual_value < MAX_NETWORK_FAILURES {
+                                            break; // Bereits von anderem Thread zurückgesetzt
+                                        }
+                                        // Sonst: Retry mit neuem Wert (Loop läuft weiter)
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                // Grace Period noch aktiv, kein Reset nötig
                                 break;
                             }
-                            
-                            // Versuche atomar auf 0 zu setzen
-                            match self.ct_log_failure_count.compare_exchange(
-                                current,
-                                0,
-                                std::sync::atomic::Ordering::Relaxed,
-                                std::sync::atomic::Ordering::Relaxed
-                            ) {
-                                Ok(_) => break, // Erfolgreich zurückgesetzt
-                                Err(_) => continue, // Anderer Thread hat geändert, retry
-                            }
+                        } else {
+                            // Counter unter Schwellwert, kein Reset nötig
+                            break;
                         }
                     }
                     
-                    // Schritt 2: Incrementiere Counter NACH Grace Period Prüfung
+                    // Schritt 2: Incrementiere Counter NACH atomarer Grace Period Prüfung + Reset
                     let failure_count = self.ct_log_failure_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
                     
                     // Schritt 3: Aktualisiere letztes Fehler-Zeitstempel

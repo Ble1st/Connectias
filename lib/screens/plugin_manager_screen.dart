@@ -637,28 +637,34 @@ class _PluginManagerScreenState extends State<PluginManagerScreen> with TickerPr
   }
   
   Future<void> _installPlugin(File file) async {
+    // FIX BUG 1: Context atomar speichern um Race Conditions zu vermeiden
+    // Zwischen mounted Check und showDialog kann das Widget unmounted werden
+    if (!mounted) return; // Früher Ausstieg wenn nicht mehr mounted
+    
+    final navigatorContext = context; // Context atomar speichern
+    
     // Schließe Install-Dialog zuerst
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
+    Navigator.of(navigatorContext).pop();
+    
+    // Prüfe erneut ob mounted (nach async pop Operation)
+    if (!mounted) return;
     
     try {
-      // Zeige Progress-Dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const AlertDialog(
-            content: Row(
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 16),
-                Text('Installing plugin...'),
-              ],
-            ),
+      // Zeige Progress-Dialog mit gespeichertem Context
+      // FIX BUG 1: Verwendung von gespeichertem Context statt live context
+      showDialog(
+        context: navigatorContext,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Installing plugin...'),
+            ],
           ),
-        );
-      }
+        ),
+      );
       
       // Lade Plugin
       final pluginId = await connectiasService.loadPlugin(file.path);

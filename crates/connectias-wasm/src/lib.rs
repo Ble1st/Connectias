@@ -371,11 +371,20 @@ impl Plugin for WasmPlugin {
             current_offset
         };
         
-        // FIX BUG 1: State-Update NACH erfolgreichem plugin_init() verschieben
-        // Dadurch wird die Allokation nur getrackt, wenn die Initialisierung erfolgreich war
-        // Bei Fehler kann der Memory-Offset wiederverwendet werden (kein Leak)
+        // FIX BUG 2: Track Allokation SOFORT nach Memory-Write (bevor plugin_init)
+        // Bei Fehler werden wir die Allokation wieder entfernen, um Memory Leaks zu vermeiden
+        let data_size = context_json.len() as u32;
+        let old_offset = context_ptr;
         
-        // WASM init-Funktion aufrufen BEVOR State-Update (Reborrow store)
+        // Temporär tracken für Cleanup bei Fehler
+        let alloc_info = AllocationInfo {
+            offset: old_offset,
+            size: data_size,
+            allocated_at: std::time::SystemTime::now(),
+        };
+        self.allocations.insert(old_offset, alloc_info);
+        
+        // WASM init-Funktion aufrufen
         let instance = self.instance.as_ref()
             .ok_or_else(|| PluginError::InitializationFailed("Instance not initialized".to_string()))?;
         let store = self.store.as_mut()
@@ -384,24 +393,23 @@ impl Plugin for WasmPlugin {
             .map_err(|e| PluginError::InitializationFailed(format!("Init function not found: {}", e)))?;
         
         let result = init_func.call(&mut *store, (context_ptr as i32, context_json.len() as i32))
-            .map_err(|e| PluginError::InitializationFailed(format!("Init function call failed: {}", e)))?;
+            .map_err(|e| {
+                // FIX BUG 2: Cleanup bei Fehler - entferne getrackte Allokation
+                self.allocations.remove(&old_offset);
+                PluginError::InitializationFailed(format!("Init function call failed: {}", e))
+            })?;
         
         if result != 0 {
-            // Initialisierung fehlgeschlagen - next_offset wird NICHT inkrementiert
-            // Der Memory-Block kann bei nächstem Versuch wiederverwendet werden
+            // FIX BUG 2: Initialisierung fehlgeschlagen - entferne getrackte Allokation
+            // Memory-Block bleibt im WASM Memory, wird aber nicht mehr getrackt
+            // Bei nächstem init() wird derselbe Offset wiederverwendet und überschrieben
+            self.allocations.remove(&old_offset);
             return Err(PluginError::InitializationFailed("WASM plugin initialization failed".to_string()));
         }
         
-        // Nur bei erfolgreichem plugin_init(): State-Update durchführen
-        let data_size = context_json.len() as u32;
-        let old_offset = context_ptr;
+        // FIX BUG 2: Nur bei erfolgreichem plugin_init(): next_offset inkrementieren
+        // Allokation bleibt getrackt (wurde bereits oben eingefügt)
         self.next_offset = old_offset.saturating_add(data_size);
-        let alloc_info = AllocationInfo {
-            offset: old_offset,
-            size: data_size,
-            allocated_at: std::time::SystemTime::now(),
-        };
-        self.allocations.insert(old_offset, alloc_info);
         
         Ok(())
     }
