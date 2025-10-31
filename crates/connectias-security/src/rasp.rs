@@ -871,21 +871,42 @@ impl SslPinner {
                             // Die tatsächliche Pin-Prüfung erfolgt vor diesem Aufruf
                             return Ok(true);
                         } else {
-                            // FIX BUG 4: Grace Period abgelaufen - atomar Counter resetten
-                            // Verwende compare_and_swap um Race Conditions zu vermeiden:
-                            // Nur resetten wenn Counter noch >= MAX_NETWORK_FAILURES ist
-                            // Dies verhindert, dass neue Fehler überschrieben werden
-                            let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
-                            if current >= MAX_NETWORK_FAILURES {
+                            // FIX BUG 1: Grace Period abgelaufen - atomar Counter resetten mit Retry-Loop
+                            // Verwende compare_exchange mit Retry um Race Conditions zu vermeiden:
+                            // Wenn zwischen load und compare_exchange neue Fehler aufgetreten sind,
+                            // wird compare_exchange fehlschlagen und wir versuchen es erneut in einer Loop
+                            // Dies verhindert unbounded Counter-Wachstum, das sonst die Grace Period-Mechanik brechen würde
+                            loop {
+                                let current = self.ct_log_failure_count.load(std::sync::atomic::Ordering::Relaxed);
+                                
+                                // Wenn Counter bereits unter Schwellwert (von anderem Thread zurückgesetzt), sind wir fertig
+                                if current < MAX_NETWORK_FAILURES {
+                                    break;
+                                }
+                                
                                 // Versuche Counter atomar auf 0 zu setzen
-                                // Wenn zwischen load und compare_and_swap neue Fehler aufgetreten sind,
-                                // wird compare_and_swap fehlschlagen und wir versuchen es erneut
-                                let _ = self.ct_log_failure_count.compare_exchange(
+                                match self.ct_log_failure_count.compare_exchange(
                                     current,
                                     0,
                                     std::sync::atomic::Ordering::Relaxed,
                                     std::sync::atomic::Ordering::Relaxed
-                                );
+                                ) {
+                                    Ok(_) => {
+                                        // Erfolgreich zurückgesetzt
+                                        break;
+                                    }
+                                    Err(actual_value) => {
+                                        // Zwischen load und compare_exchange wurde der Counter geändert
+                                        // Aktueller Wert ist jetzt in actual_value
+                                        // Wenn actual_value < MAX_NETWORK_FAILURES, sind wir fertig
+                                        if actual_value < MAX_NETWORK_FAILURES {
+                                            break;
+                                        }
+                                        // Sonst: Retry mit neuem Wert (Loop läuft weiter)
+                                        // Dies stellt sicher, dass wir den Counter erfolgreich zurücksetzen,
+                                        // auch bei concurrent Zugriffen
+                                    }
+                                }
                             }
                         }
                     }
