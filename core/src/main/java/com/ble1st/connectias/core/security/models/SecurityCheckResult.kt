@@ -1,11 +1,11 @@
 package com.ble1st.connectias.core.security.models
 
-data class SecurityCheckResult(
+data class SecurityCheckResult private constructor(
     val isSecure: Boolean,
-    val threats: List<SecurityThreat>, // Defensive copy in companion factory
-    val failedChecks: List<String> = emptyList(), // Detector names that failed
-    val allChecksCompleted: Boolean = true, // Whether all checks completed successfully
-    val timestamp: Long = System.currentTimeMillis()
+    val threats: List<SecurityThreat>, // Immutable copy from factory
+    val failedChecks: List<String>, // Immutable copy from factory
+    val allChecksCompleted: Boolean, // Whether all checks completed successfully
+    val timestamp: Long
 ) {
     init {
         require(!isSecure || threats.isEmpty()) {
@@ -25,17 +25,21 @@ data class SecurityCheckResult(
         fun create(
             isSecure: Boolean,
             threats: Collection<SecurityThreat>,
-            failedChecks: List<String> = emptyList(),
+            failedChecks: Collection<String> = emptyList(),
             allChecksCompleted: Boolean = true,
             timestamp: Long = System.currentTimeMillis()
         ): SecurityCheckResult {
             // Fail-secure: if checks failed, mark as not secure
             val finalIsSecure = isSecure && allChecksCompleted && failedChecks.isEmpty()
             
+            // Perform defensive copies to ensure immutability
+            val immutableThreats = threats.toList()
+            val immutableFailedChecks = failedChecks.toList()
+            
             return SecurityCheckResult(
                 isSecure = finalIsSecure,
-                threats = threats.toList(), // Defensive copy
-                failedChecks = failedChecks.toList(), // Defensive copy
+                threats = immutableThreats,
+                failedChecks = immutableFailedChecks,
                 allChecksCompleted = allChecksCompleted,
                 timestamp = timestamp
             )

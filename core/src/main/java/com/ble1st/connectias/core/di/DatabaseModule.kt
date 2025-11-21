@@ -44,15 +44,12 @@ object DatabaseModule {
         
         // Migration strategy:
         // - Debug builds: fallbackToDestructiveMigration for development convenience
-        // - Production builds: Temporary fallback until explicit migrations are implemented
-        // TODO: Remove production fallback and add explicit migrations before first schema change
+        // - Production builds: No fallback - app will fail safely if schema changes without migrations
+        // TODO: Implement explicit Room migrations before any schema change to prevent data loss
         if (com.ble1st.connectias.core.BuildConfig.DEBUG) {
             builder.fallbackToDestructiveMigration()
-        } else {
-            // Temporary: fallback in production until migrations are added
-            // TODO: Remove this and add explicit migrations before first schema change
-            builder.fallbackToDestructiveMigration()
         }
+        // Production builds do not use fallbackToDestructiveMigration to prevent data loss
         
         return builder.build()
     }

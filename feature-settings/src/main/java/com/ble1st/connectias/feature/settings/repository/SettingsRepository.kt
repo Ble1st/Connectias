@@ -24,11 +24,9 @@ class SettingsRepository @Inject constructor(
 
     fun setTheme(theme: String) {
         synchronized(prefsLock) {
-            // Use commit() for synchronous write to ensure atomicity
-            val success = prefs.edit().putString("theme", theme).commit()
-            if (!success) {
-                throw IllegalStateException("Failed to commit theme preference")
-            }
+            // Use apply() for asynchronous write to avoid blocking the main thread
+            // apply() schedules the write asynchronously and returns immediately
+            prefs.edit().putString("theme", theme).apply()
         }
     }
 }

@@ -16,7 +16,14 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    private val _theme = MutableStateFlow(settingsRepository.getTheme())
+    private val _theme = MutableStateFlow(
+        runCatching {
+            settingsRepository.getTheme()
+        }.getOrElse { e ->
+            Timber.e(e, "Failed to get theme during ViewModel initialization")
+            "system" // Safe default fallback
+        }
+    )
     val theme: StateFlow<String> = _theme.asStateFlow()
     
     private val _error = MutableStateFlow<String?>(null)
@@ -30,6 +37,7 @@ class SettingsViewModel @Inject constructor(
                 _theme.value = theme
                 _error.value = null // Clear any previous errors
             } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) throw e
                 // Log error and surface to UI
                 Timber.e(e, "Failed to set theme: $theme")
                 _error.value = "Failed to save theme: ${e.message ?: "Unknown error"}"
