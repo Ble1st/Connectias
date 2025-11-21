@@ -1,3 +1,8 @@
 <resources>
     <string name="app_name">Connectias</string>
+    
+    <!-- Navigation -->
+    <string name="nav_security_dashboard">Security</string>
+    <string name="nav_device_info">Device Info</string>
+    <string name="nav_settings">Settings</string>
 </resources>
