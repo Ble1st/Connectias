@@ -24,7 +24,11 @@ class SettingsRepository @Inject constructor(
 
     fun setTheme(theme: String) {
         synchronized(prefsLock) {
-            prefs.edit().putString("theme", theme).apply()
+            // Use commit() for synchronous write to ensure atomicity
+            val success = prefs.edit().putString("theme", theme).commit()
+            if (!success) {
+                throw IllegalStateException("Failed to commit theme preference")
+            }
         }
     }
 }

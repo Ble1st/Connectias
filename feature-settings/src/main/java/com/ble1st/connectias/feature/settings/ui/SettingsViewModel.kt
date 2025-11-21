@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltViewModel
@@ -17,16 +18,26 @@ class SettingsViewModel @Inject constructor(
 
     private val _theme = MutableStateFlow(settingsRepository.getTheme())
     val theme: StateFlow<String> = _theme.asStateFlow()
+    
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
 
     fun setTheme(theme: String) {
         viewModelScope.launch {
             try {
+                // Pessimistic update: only update UI after repository succeeds
                 settingsRepository.setTheme(theme)
                 _theme.value = theme
+                _error.value = null // Clear any previous errors
             } catch (e: Exception) {
-                // Log error and/or emit error state to UI
-                // Consider reverting optimistic update if needed
+                // Log error and surface to UI
+                Timber.e(e, "Failed to set theme: $theme")
+                _error.value = "Failed to save theme: ${e.message ?: "Unknown error"}"
+                // UI remains unchanged (pessimistic approach)
             }
         }
-    }}
-
+    }
+    
+    fun clearError() {
+        _error.value = null
+    }

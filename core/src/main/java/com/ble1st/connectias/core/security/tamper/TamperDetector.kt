@@ -15,10 +15,9 @@ import java.io.File
  * - Frida server
  * - Other hooking frameworks
  * 
- * Note: This method performs blocking I/O and should be called from a background thread.
- * Use the suspend function variant for coroutine-based execution.
- */
-class TamperDetector(private val context: Context? = null) {
+ * Note: Detection performs I/O operations on Dispatchers.IO automatically.
+ * Call from any coroutine context; threading is handled internally.
+ */class TamperDetector(private val context: Context? = null) {
     
     /**
      * Detects tampering using multiple heuristics.
@@ -81,25 +80,34 @@ class TamperDetector(private val context: Context? = null) {
             }
         }
         
-        // Check for Xposed-related processes
+        // Check for Xposed-related processes (PII-redacted)
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
                 procDir.listFiles()?.forEach { pidDir ->
                     try {
+                        // Only check numeric PID directories to reduce resource usage
+                        val pid = pidDir.name.toIntOrNull() ?: return@forEach
+                        
                         val cmdlineFile = File(pidDir, "cmdline")
                         if (cmdlineFile.exists()) {
                             val cmdline = cmdlineFile.readText().trim()
                             val lowerCmdline = cmdline.lowercase()
+                            
+                            // Extract process name (first token before null/space) for safer detection
+                            val processName = cmdline.split('\u0000', ' ').firstOrNull()?.lowercase() ?: lowerCmdline
+                            
                             when {
-                                lowerCmdline.contains("edxposed") -> {
-                                    detectionMethods.add("EdXposed process detected: $cmdline")
+                                processName.contains("edxposed") -> {
+                                    // Redact cmdline to avoid PII exposure
+                                    detectionMethods.add("EdXposed process detected (pid=$pid)")
                                 }
-                                lowerCmdline.contains("lsposed") || lowerCmdline.contains("lsp") -> {
-                                    detectionMethods.add("LSPosed process detected: $cmdline")
+                                processName.contains("lsposed") -> {
+                                    // Use specific "lsposed" check instead of generic "lsp"
+                                    detectionMethods.add("LSPosed process detected (pid=$pid)")
                                 }
-                                lowerCmdline.contains("xposed") -> {
-                                    detectionMethods.add("Xposed process detected: $cmdline")
+                                processName.contains("xposed") -> {
+                                    detectionMethods.add("Xposed process detected (pid=$pid)")
                                 }
                             }
                         }
@@ -135,17 +143,21 @@ class TamperDetector(private val context: Context? = null) {
             }
         }
         
-        // Check for Frida processes
+        // Check for Frida processes (PII-redacted)
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
                 procDir.listFiles()?.forEach { pidDir ->
                     try {
+                        // Only check numeric PID directories to reduce resource usage
+                        val pid = pidDir.name.toIntOrNull() ?: return@forEach
+                        
                         val cmdlineFile = File(pidDir, "cmdline")
                         if (cmdlineFile.exists()) {
                             val cmdline = cmdlineFile.readText().trim()
                             if (cmdline.contains("frida", ignoreCase = true)) {
-                                detectionMethods.add("Frida process detected: $cmdline")
+                                // Redact cmdline to avoid PII exposure
+                                detectionMethods.add("Frida process detected (pid=$pid)")
                             }
                         }
                     } catch (e: Exception) {
@@ -159,15 +171,6 @@ class TamperDetector(private val context: Context? = null) {
         
         // Check for Frida server socket
         try {
-            val fridaSocket = File("/data/local/tmp/re.frida.server")
-            if (fridaSocket.exists()) {
-                detectionMethods.add("Frida server socket detected")
-            }
-        } catch (e: Exception) {
-            // Ignore
-        }
-    }
-    
     /**
      * Checks for other tampering indicators.
      */

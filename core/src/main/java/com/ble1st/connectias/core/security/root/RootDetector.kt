@@ -7,7 +7,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
-import java.util.concurrent.TimeUnit
 
 /**
  * Detects root access on Android devices using multiple heuristic checks.
@@ -53,8 +52,7 @@ class RootDetector(private val context: Context? = null) {
             checkRootApps(detectionMethods, context)
         }
         
-        // 7. Runtime exec probe (time-boxed)
-        checkRuntimeExec(detectionMethods)
+        // Note: Runtime exec probe removed to avoid triggering su permission dialogs
         
         return@withContext RootDetectionResult(
             isRooted = detectionMethods.isNotEmpty(),
@@ -137,28 +135,8 @@ class RootDetector(private val context: Context? = null) {
             // Silently ignore
         }
         
-        // Check for running Magisk processes (if we can access /proc)
-        try {
-            val procDir = File("/proc")
-            if (procDir.exists()) {
-                procDir.listFiles()?.forEach { pidDir ->
-                    try {
-                        val cmdlineFile = File(pidDir, "cmdline")
-                        if (cmdlineFile.exists()) {
-                            val cmdline = cmdlineFile.readText().trim()
-                            if (cmdline.contains("magisk", ignoreCase = true)) {
-                                detectionMethods.add("Magisk process detected: $cmdline")
-                                magiskFound = true
-                            }
-                        }
-                    } catch (e: Exception) {
-                        // Ignore individual process read errors
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // Silently ignore /proc access errors
-        }
+        // Note: /proc scanning for Magisk processes removed - resource intensive and redundant
+        // with file path and package checks above
         
         // Check for Magisk Manager package (if context available)
         if (context != null) {
@@ -236,36 +214,8 @@ class RootDetector(private val context: Context? = null) {
             }
         }
         
-        // Check for Xposed-related processes
-        try {
-            val procDir = File("/proc")
-            if (procDir.exists()) {
-                procDir.listFiles()?.forEach { pidDir ->
-                    try {
-                        val cmdlineFile = File(pidDir, "cmdline")
-                        if (cmdlineFile.exists()) {
-                            val cmdline = cmdlineFile.readText().trim()
-                            val lowerCmdline = cmdline.lowercase()
-                            when {
-                                lowerCmdline.contains("edxposed") -> {
-                                    detectionMethods.add("EdXposed process detected: $cmdline")
-                                }
-                                lowerCmdline.contains("lsposed") || lowerCmdline.contains("lsp") -> {
-                                    detectionMethods.add("LSPosed process detected: $cmdline")
-                                }
-                                lowerCmdline.contains("xposed") -> {
-                                    detectionMethods.add("Xposed process detected: $cmdline")
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        // Ignore individual process read errors
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            // Silently ignore /proc access errors
-        }
+        // Note: /proc scanning for Xposed processes removed - resource intensive and redundant
+        // with file path and package checks above
         
         // Check for Xposed-related packages (if context available)
         if (context != null) {
@@ -381,32 +331,6 @@ class RootDetector(private val context: Context? = null) {
         }
     }
     
-    /**
-     * Performs a time-boxed runtime exec probe to test for su availability.
-     * This check is time-limited to prevent blocking.
-     */
-    private fun checkRuntimeExec(detectionMethods: MutableList<String>) {
-        try {
-            val process = ProcessBuilder("su", "-c", "id").start()
-            val completed = process.waitFor(2, TimeUnit.SECONDS)
-            
-            if (completed) {
-                val exitCode = process.exitValue()
-                if (exitCode == 0) {
-                    // su command succeeded
-                    val output = process.inputStream.bufferedReader().readText()
-                    detectionMethods.add("Runtime exec probe succeeded: su -c id returned exit code 0 (output: ${output.trim()})")
-                }
-            } else {
-                // Process timed out or didn't complete
-                process.destroyForcibly()
-            }
-        } catch (e: SecurityException) {
-            // Expected if su is not available or access is denied
-        } catch (e: Exception) {
-            // Other errors (IO, etc.) - silently ignore
-        }
-    }
 }
 
 data class RootDetectionResult(

@@ -13,8 +13,8 @@ import java.io.File
  * - Android Debug API (Debug.isDebuggerConnected())
  * - /proc/self/status TracerPid check
  * 
- * Note: This method performs blocking I/O and should be called from a background thread.
- * Use the suspend function variant for coroutine-based execution.
+ * Note: This is a suspend function that performs blocking I/O on Dispatchers.IO.
+ * Must be called from a coroutine context.
  */
 class DebuggerDetector {
     
@@ -28,12 +28,9 @@ class DebuggerDetector {
         val detectionMethods = mutableListOf<String>()
         
         // 1. Check if debugger is attached via Android API
-        try {
-            if (Debug.isDebuggerConnected()) {
-                detectionMethods.add("Debugger connected via Debug.isDebuggerConnected()")
-            }
-        } catch (e: Exception) {
-            Timber.w(e, "Error checking Debug.isDebuggerConnected()")
+        // Debug.isDebuggerConnected() does not throw exceptions, no try-catch needed
+        if (Debug.isDebuggerConnected()) {
+            detectionMethods.add("Debugger connected via Debug.isDebuggerConnected()")
         }
         
         // 2. Check TracerPid in /proc/self/status

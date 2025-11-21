@@ -3,6 +3,7 @@ package com.ble1st.connectias.core.security.emulator
 import android.content.Context
 import android.os.Build
 import android.telephony.TelephonyManager
+import com.ble1st.connectias.core.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -39,14 +40,23 @@ class EmulatorDetector(private val context: Context? = null) {
         // 5. Check CPU/ABI anomalies
         checkCPUABI(detectionMethods)
         
+        // Build debug details map (only for debug builds, contains PII)
+        val debugDetails = if (BuildConfig.DEBUG) {
+            buildDebugDetails()
+        } else {
+            null
+        }
+        
         return@withContext EmulatorDetectionResult(
             isEmulator = detectionMethods.isNotEmpty(),
-            detectionMethods = detectionMethods
+            detectionMethodNames = detectionMethods,
+            debugDetails = debugDetails
         )
     }
     
     /**
      * Checks Build properties for emulator indicators.
+     * Note: Detection messages are sanitized to avoid exposing PII (device identifiers).
      */
     private fun checkBuildProperties(detectionMethods: MutableList<String>) {
         val model = Build.MODEL.lowercase()
@@ -57,47 +67,47 @@ class EmulatorDetector(private val context: Context? = null) {
         val brand = Build.BRAND.lowercase()
         val fingerprint = Build.FINGERPRINT.lowercase()
         
-        // Check model
+        // Check model (sanitized - no PII)
         if (model.contains("sdk") || model.contains("emulator") || 
             model.contains("google_sdk") || model.contains("droid4x") ||
             model.contains("genymotion") || model.contains("vbox")) {
-            detectionMethods.add("Emulator model detected: ${Build.MODEL}")
+            detectionMethods.add("BUILD_MODEL_CHECK")
         }
         
-        // Check manufacturer
+        // Check manufacturer (sanitized - no PII)
         if (manufacturer.contains("unknown") || manufacturer.contains("generic") ||
             manufacturer.contains("genymotion") || manufacturer.contains("vbox")) {
-            detectionMethods.add("Generic/suspicious manufacturer: $manufacturer")
+            detectionMethods.add("BUILD_MANUFACTURER_CHECK")
         }
         
-        // Check product
+        // Check product (sanitized - no PII)
         if (product.contains("sdk") || product.contains("emulator") ||
             product.contains("google_sdk") || product.contains("vbox") ||
             product.contains("genymotion")) {
-            detectionMethods.add("Emulator product detected: $product")
+            detectionMethods.add("BUILD_PRODUCT_CHECK")
         }
         
-        // Check device
+        // Check device (sanitized - no PII)
         if (device.contains("generic") || device.contains("emulator") ||
             device.contains("vbox") || device.contains("genymotion")) {
-            detectionMethods.add("Emulator device detected: $device")
+            detectionMethods.add("BUILD_DEVICE_CHECK")
         }
         
-        // Check hardware
+        // Check hardware (sanitized - no PII)
         if (hardware.contains("goldfish") || hardware.contains("ranchu") ||
             hardware.contains("vbox")) {
-            detectionMethods.add("Emulator hardware detected: $hardware")
+            detectionMethods.add("BUILD_HARDWARE_CHECK")
         }
         
-        // Check brand
+        // Check brand (sanitized - no PII)
         if (brand.contains("generic") || brand.contains("unknown")) {
-            detectionMethods.add("Generic brand: $brand")
+            detectionMethods.add("BUILD_BRAND_CHECK")
         }
         
-        // Check fingerprint
+        // Check fingerprint (sanitized - no PII)
         if (fingerprint.contains("generic") || fingerprint.contains("unknown") ||
             fingerprint.contains("vbox") || fingerprint.contains("test-keys")) {
-            detectionMethods.add("Suspicious fingerprint: $fingerprint")
+            detectionMethods.add("BUILD_FINGERPRINT_CHECK")
         }
     }
     
@@ -109,44 +119,45 @@ class EmulatorDetector(private val context: Context? = null) {
             val systemProperties = Class.forName("android.os.SystemProperties")
             val getMethod = systemProperties.getMethod("get", String::class.java)
             
-            // Check ro.kernel.qemu
+            // Check ro.kernel.qemu (sanitized - no PII)
             val qemu = getMethod.invoke(null, "ro.kernel.qemu") as? String
             if (qemu == "1") {
-                detectionMethods.add("System property ro.kernel.qemu = 1 (QEMU emulator)")
+                detectionMethods.add("SYSTEM_PROP_QEMU_CHECK")
             }
             
-            // Check ro.hardware
+            // Check ro.hardware (sanitized - no PII)
             val hardware = getMethod.invoke(null, "ro.hardware") as? String
             hardware?.let {
                 if (it.contains("goldfish", ignoreCase = true) ||
                     it.contains("ranchu", ignoreCase = true) ||
                     it.contains("vbox", ignoreCase = true)) {
-                    detectionMethods.add("Emulator hardware property: $it")
+                    detectionMethods.add("SYSTEM_PROP_HARDWARE_CHECK")
                 }
             }
             
-            // Check ro.product.model
+            // Check ro.product.model (sanitized - no PII)
             val productModel = getMethod.invoke(null, "ro.product.model") as? String
             productModel?.let {
                 if (it.contains("sdk", ignoreCase = true) ||
                     it.contains("emulator", ignoreCase = true) ||
                     it.contains("generic", ignoreCase = true)) {
-                    detectionMethods.add("Emulator product model property: $it")
+                    detectionMethods.add("SYSTEM_PROP_PRODUCT_MODEL_CHECK")
                 }
             }
             
-            // Check ro.build.characteristics
+            // Check ro.build.characteristics (sanitized - no PII)
             val characteristics = getMethod.invoke(null, "ro.build.characteristics") as? String
             characteristics?.let {
                 if (it.contains("emulator", ignoreCase = true)) {
-                    detectionMethods.add("Build characteristics indicate emulator: $it")
+                    detectionMethods.add("SYSTEM_PROP_CHARACTERISTICS_CHECK")
                 }
             }
-        } catch (e: Exception) {
-            // Reflection may fail, silently ignore
+        } catch (e: ClassNotFoundException) {
+            // SystemProperties not available
+        } catch (e: NoSuchMethodException) {
+            // Method signature changed
         }
-    }
-    
+    }    
     /**
      * Checks for emulator-specific files and libraries.
      */
@@ -202,30 +213,21 @@ class EmulatorDetector(private val context: Context? = null) {
                     detectionMethods.add("No telephony support (PHONE_TYPE_NONE)")
                 }
                 
-                // Check for IMEI/IMSI (emulators often return null or default values)
+                // Check for IMEI (emulators often return null or default values)
+                // Note: IMEI value is not included in message to avoid PII exposure
                 try {
                     val imei = tm.imei
                     if (imei == null || imei.isEmpty() || 
                         imei == "000000000000000" || imei == "012345678901234") {
-                        detectionMethods.add("Suspicious or missing IMEI: $imei")
+                        detectionMethods.add("TELEPHONY_IMEI_CHECK")
                     }
                 } catch (e: SecurityException) {
                     // Permission denied, ignore
                 } catch (e: Exception) {
                     // Other errors, ignore
                 }
-                
-                try {
-                    val subscriberId = tm.subscriberId
-                    if (subscriberId == null || subscriberId.isEmpty() ||
-                        subscriberId == "310260000000000") {
-                        detectionMethods.add("Suspicious or missing IMSI")
-                    }
-                } catch (e: SecurityException) {
-                    // Permission denied, ignore
-                } catch (e: Exception) {
-                    // Other errors, ignore
-                }
+                // IMSI check removed: TelephonyManager.subscriberId is deprecated and IMSI is PII
+                // Use SubscriptionManager/SubscriptionInfo for privacy-respecting alternatives if needed
             }
         } catch (e: Exception) {
             // Ignore telephony check errors
@@ -243,11 +245,11 @@ class EmulatorDetector(private val context: Context? = null) {
                 detectionMethods.add("No supported ABIs detected")
             }
             
-            // Check for unexpected architectures
+            // Check for unexpected architectures (sanitized - no PII)
             val abis = supportedABIs.joinToString(", ")
             if (abis.contains("x86") && !abis.contains("armeabi") && !abis.contains("arm64")) {
                 // x86 without ARM might indicate emulator (though some real devices are x86)
-                detectionMethods.add("x86 architecture without ARM support: $abis")
+                detectionMethods.add("CPU_ABI_ANOMALY_CHECK")
             }
             
             // Try to read /proc/cpuinfo
@@ -268,9 +270,68 @@ class EmulatorDetector(private val context: Context? = null) {
             // Ignore CPU/ABI check errors
         }
     }
+    
+    /**
+     * Builds debug details map containing PII (only for debug builds).
+     * This should never be logged or transmitted in production.
+     */
+    private fun buildDebugDetails(): Map<String, String> {
+        val details = mutableMapOf<String, String>()
+        
+        try {
+            details["build_model"] = Build.MODEL
+            details["build_manufacturer"] = Build.MANUFACTURER
+            details["build_product"] = Build.PRODUCT
+            details["build_device"] = Build.DEVICE
+            details["build_hardware"] = Build.HARDWARE
+            details["build_brand"] = Build.BRAND
+            details["build_fingerprint"] = Build.FINGERPRINT
+            
+            // System properties
+            try {
+                val systemProperties = Class.forName("android.os.SystemProperties")
+                val getMethod = systemProperties.getMethod("get", String::class.java)
+                
+                val qemu = getMethod.invoke(null, "ro.kernel.qemu") as? String
+                details["ro.kernel.qemu"] = qemu ?: "null"
+                
+                val hardware = getMethod.invoke(null, "ro.hardware") as? String
+                details["ro.hardware"] = hardware ?: "null"
+                
+                val productModel = getMethod.invoke(null, "ro.product.model") as? String
+                details["ro.product.model"] = productModel ?: "null"
+            } catch (e: Exception) {
+                // Ignore reflection errors
+            }
+            
+            // Telephony (if available and permitted)
+            context?.let {
+                try {
+                    val telephonyManager = it.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
+                    telephonyManager?.let { tm ->
+                        try {
+                            val imei = tm.imei
+                            details["imei"] = imei ?: "null"
+                        } catch (e: SecurityException) {
+                            details["imei"] = "permission_denied"
+                        } catch (e: Exception) {
+                            details["imei"] = "error"
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Ignore
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Error building debug details")
+        }
+        
+        return details
+    }
 }
 
 data class EmulatorDetectionResult(
     val isEmulator: Boolean,
-    val detectionMethods: List<String>
+    val detectionMethodNames: List<String>, // Non-PII identifiers
+    val debugDetails: Map<String, String>? = null // PII - only populated in debug builds
 )

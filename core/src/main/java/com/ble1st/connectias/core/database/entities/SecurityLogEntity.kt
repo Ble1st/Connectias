@@ -10,11 +10,9 @@ import java.util.Date
     indices = [
         Index(value = ["timestamp"]),
         Index(value = ["threatLevel"]),
-        Index(value = ["threatType"]),
         Index(value = ["threatType", "threatLevel"]) // Composite index for queries filtering by both
     ]
-)
-data class SecurityLogEntity(
+)data class SecurityLogEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),

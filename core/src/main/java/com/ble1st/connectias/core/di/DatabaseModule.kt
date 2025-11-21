@@ -24,6 +24,12 @@ object DatabaseModule {
     ): AppDatabase {
         // Get secure passphrase from KeyManager (stored in EncryptedSharedPreferences)
         val passphrase = keyManager.getDatabasePassphrase()
+        
+        // Validate passphrase before creating factory
+        require(passphrase.isNotEmpty()) {
+            "Database passphrase cannot be empty"
+        }
+        
         val factory = SupportOpenHelperFactory(passphrase)
         
         val builder = Room.databaseBuilder(
@@ -34,14 +40,19 @@ object DatabaseModule {
             .openHelperFactory(factory)
         
         // Add migrations here when schema changes
-        // Example: .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
-        // For now, we use fallbackToDestructiveMigration only in debug builds
-        // In production, you should always provide migrations
+        // Example: .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
+        
+        // Migration strategy:
+        // - Debug builds: fallbackToDestructiveMigration for development convenience
+        // - Production builds: Temporary fallback until explicit migrations are implemented
+        // TODO: Remove production fallback and add explicit migrations before first schema change
         if (com.ble1st.connectias.core.BuildConfig.DEBUG) {
             builder.fallbackToDestructiveMigration()
+        } else {
+            // Temporary: fallback in production until migrations are added
+            // TODO: Remove this and add explicit migrations before first schema change
+            builder.fallbackToDestructiveMigration()
         }
-        // TODO: Add explicit migrations when database schema changes
-        // builder.addMigrations(Migrations.MIGRATION_1_2)
         
         return builder.build()
     }

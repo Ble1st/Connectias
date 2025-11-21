@@ -2,18 +2,43 @@ package com.ble1st.connectias.core.security.models
 
 data class SecurityCheckResult(
     val isSecure: Boolean,
-    private val _threats: List<SecurityThreat>,
+    val threats: List<SecurityThreat>, // Defensive copy in companion factory
+    val failedChecks: List<String> = emptyList(), // Detector names that failed
+    val allChecksCompleted: Boolean = true, // Whether all checks completed successfully
     val timestamp: Long = System.currentTimeMillis()
 ) {
-    /**
-     * Immutable list of threats. The constructor parameter is copied to ensure
-     * the list cannot be modified after construction.
-     */
-    val threats: List<SecurityThreat> = _threats.toList()
-    
     init {
-        require(isSecure == threats.isEmpty()) {
-            "isSecure must be true only when threats is empty"
+        require(!isSecure || threats.isEmpty()) {
+            "isSecure can only be true when threats is empty"
+        }
+        // If checks failed, device is not secure
+        require(!(!allChecksCompleted || failedChecks.isNotEmpty()) || !isSecure) {
+            "isSecure cannot be true when checks failed or did not complete"
+        }
+    }
+    
+    companion object {
+        /**
+         * Factory method that creates SecurityCheckResult with defensive copy of threats.
+         * This ensures the threats list cannot be modified after construction.
+         */
+        fun create(
+            isSecure: Boolean,
+            threats: Collection<SecurityThreat>,
+            failedChecks: List<String> = emptyList(),
+            allChecksCompleted: Boolean = true,
+            timestamp: Long = System.currentTimeMillis()
+        ): SecurityCheckResult {
+            // Fail-secure: if checks failed, mark as not secure
+            val finalIsSecure = isSecure && allChecksCompleted && failedChecks.isEmpty()
+            
+            return SecurityCheckResult(
+                isSecure = finalIsSecure,
+                threats = threats.toList(), // Defensive copy
+                failedChecks = failedChecks.toList(), // Defensive copy
+                allChecksCompleted = allChecksCompleted,
+                timestamp = timestamp
+            )
         }
     }
 }
