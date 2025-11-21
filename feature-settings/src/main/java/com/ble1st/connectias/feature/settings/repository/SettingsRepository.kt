@@ -14,20 +14,18 @@ class SettingsRepository @Inject constructor(
         "connectias_settings",
         Context.MODE_PRIVATE
     )
-    
-    // Lock object for thread-safe writes
-    private val prefsLock = Any()
 
     fun getTheme(): String {
         return prefs.getString("theme", "system") ?: "system"
     }
 
+    /**
+     * Sets the theme preference asynchronously.
+     * SharedPreferences is thread-safe, so no explicit synchronization is needed.
+     * apply() schedules the write asynchronously and returns immediately.
+     */
     fun setTheme(theme: String) {
-        synchronized(prefsLock) {
-            // Use apply() for asynchronous write to avoid blocking the main thread
-            // apply() schedules the write asynchronously and returns immediately
-            prefs.edit().putString("theme", theme).apply()
-        }
+        prefs.edit().putString("theme", theme).apply()
     }
 }
 
