@@ -14,13 +14,18 @@ class SettingsRepository @Inject constructor(
         "connectias_settings",
         Context.MODE_PRIVATE
     )
+    
+    // Lock object for thread-safe writes
+    private val prefsLock = Any()
 
     fun getTheme(): String {
         return prefs.getString("theme", "system") ?: "system"
     }
 
     fun setTheme(theme: String) {
-        prefs.edit().putString("theme", theme).apply()
+        synchronized(prefsLock) {
+            prefs.edit().putString("theme", theme).apply()
+        }
     }
 }
 

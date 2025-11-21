@@ -1,6 +1,9 @@
 package com.ble1st.connectias.common.models
 
 /**
- * Base model classes for Connectias
+ * Common models package for Connectias.
+ * 
+ * This package contains shared data models and base classes
+ * used across multiple modules.
  */
 

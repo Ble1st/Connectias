@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="security_dashboard_title">Security Dashboard</string>
+    <string name="security_dashboard_description">Security Dashboard showing device security status</string>
+</resources>
+

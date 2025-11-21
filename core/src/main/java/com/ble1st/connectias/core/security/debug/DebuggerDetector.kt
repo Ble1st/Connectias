@@ -1,23 +1,55 @@
 package com.ble1st.connectias.core.security.debug
 
 import android.os.Debug
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 
-data class DebuggerDetectionResult(
-    val isDebuggerAttached: Boolean,
-    val detectionMethods: List<String>
-)
-
+/**
+ * Detects if a debugger is attached to the application.
+ * 
+ * This detector uses:
+ * - Android Debug API (Debug.isDebuggerConnected())
+ * - /proc/self/status TracerPid check
+ * 
+ * Note: This method performs blocking I/O and should be called from a background thread.
+ * Use the suspend function variant for coroutine-based execution.
+ */
 class DebuggerDetector {
-    fun detectDebugger(): DebuggerDetectionResult {
+    
+    /**
+     * Detects debugger attachment using multiple methods.
+     * This is a suspend function that performs I/O on Dispatchers.IO to avoid blocking.
+     * 
+     * @return DebuggerDetectionResult with detection status and methods
+     */
+    suspend fun detectDebugger(): DebuggerDetectionResult = withContext(Dispatchers.IO) {
         val detectionMethods = mutableListOf<String>()
-
-        // Check if debugger is attached
-        if (Debug.isDebuggerConnected()) {
-            detectionMethods.add("Debugger connected via Debug.isDebuggerConnected()")
+        
+        // 1. Check if debugger is attached via Android API
+        try {
+            if (Debug.isDebuggerConnected()) {
+                detectionMethods.add("Debugger connected via Debug.isDebuggerConnected()")
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "Error checking Debug.isDebuggerConnected()")
         }
-
-        // Check TracerPid in /proc/self/status
+        
+        // 2. Check TracerPid in /proc/self/status
+        checkTracerPid(detectionMethods)
+        
+        return@withContext DebuggerDetectionResult(
+            isDebuggerAttached = detectionMethods.isNotEmpty(),
+            detectionMethods = detectionMethods
+        )
+    }
+    
+    /**
+     * Checks TracerPid in /proc/self/status.
+     * A non-zero TracerPid indicates a debugger is attached.
+     */
+    private fun checkTracerPid(detectionMethods: MutableList<String>) {
         try {
             val statusFile = File("/proc/self/status")
             if (statusFile.exists()) {
@@ -30,14 +62,15 @@ class DebuggerDetector {
                     }
                 }
             }
+        } catch (e: SecurityException) {
+            // Permission denied, silently ignore
         } catch (e: Exception) {
-            // Ignore
+            Timber.w(e, "Error reading /proc/self/status")
         }
-
-        return DebuggerDetectionResult(
-            isDebuggerAttached = detectionMethods.isNotEmpty(),
-            detectionMethods = detectionMethods
-        )
     }
 }
 
+data class DebuggerDetectionResult(
+    val isDebuggerAttached: Boolean,
+    val detectionMethods: List<String>
+)

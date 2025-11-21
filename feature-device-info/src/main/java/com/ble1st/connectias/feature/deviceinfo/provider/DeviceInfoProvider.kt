@@ -4,60 +4,69 @@ import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
 import android.os.Environment
+import android.os.Parcelable
 import android.os.StatFs
+import android.provider.Settings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.parcelize.Parcelize
 import javax.inject.Inject
 import javax.inject.Singleton
 
+@Parcelize
 data class DeviceInfo(
     val osInfo: OSInfo,
     val cpuInfo: CPUInfo,
     val ramInfo: RAMInfo,
     val storageInfo: StorageInfo,
     val networkInfo: NetworkInfo
-)
+) : Parcelable
 
+@Parcelize
 data class OSInfo(
     val version: String,
     val sdkVersion: Int,
     val manufacturer: String,
     val model: String,
     val brand: String
-)
+) : Parcelable
 
+@Parcelize
 data class CPUInfo(
     val cores: Int,
     val architecture: String,
     val frequency: Long // MHz
-)
+) : Parcelable
 
+@Parcelize
 data class RAMInfo(
     val total: Long, // bytes
     val available: Long, // bytes
     val used: Long, // bytes
     val percentageUsed: Float
-)
+) : Parcelable
 
+@Parcelize
 data class StorageInfo(
     val total: Long, // bytes
     val available: Long, // bytes
     val used: Long, // bytes
     val percentageUsed: Float
-)
+) : Parcelable
 
+@Parcelize
 data class NetworkInfo(
     val ipAddress: String?,
-    val macAddress: String?
-)
+    val androidId: String? // Replaces MAC address for privacy compliance
+) : Parcelable
 
 @Singleton
 class DeviceInfoProvider @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val activityManager: ActivityManager by lazy {
-        context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+            ?: throw IllegalStateException("ActivityManager not available")
     }
-
     fun getDeviceInfo(): DeviceInfo {
         return DeviceInfo(
             osInfo = getOSInfo(),
@@ -90,6 +99,19 @@ class DeviceInfoProvider @Inject constructor(
         )
     }
 
+    /**
+     * Reads the maximum CPU frequency from /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq.
+     * 
+     * This method may return 0L when:
+     * - The file is missing or inaccessible (e.g., SELinux restrictions)
+     * - OEM variations in file system structure
+     * - Non-linux-like devices
+     * 
+     * Callers should treat 0L as "unknown/unavailable" and not as a valid frequency.
+     * The value is returned in MHz.
+     * 
+     * @return CPU frequency in MHz, or 0L if unavailable
+     */
     private fun getCPUFrequency(): Long {
         return try {
             val file = java.io.File("/sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq")
@@ -146,11 +168,12 @@ class DeviceInfoProvider @Inject constructor(
 
     private fun getNetworkInfo(): NetworkInfo {
         val ipAddress = getLocalIPAddress()
-        val macAddress = getMACAddress()
+        // Use ANDROID_ID instead of MAC address for privacy compliance (Android 10+)
+        val androidId = getAndroidId()
 
         return NetworkInfo(
             ipAddress = ipAddress,
-            macAddress = macAddress
+            androidId = androidId
         )
     }
 
@@ -173,21 +196,17 @@ class DeviceInfoProvider @Inject constructor(
         }
     }
 
-    private fun getMACAddress(): String? {
+    /**
+     * Gets the Android ID as a privacy-compliant device identifier.
+     * This replaces MAC address collection which is unreliable and disallowed
+     * for non-privileged apps on Android 10+.
+     * 
+     * @return Android ID string, or null if unavailable
+     */
+    private fun getAndroidId(): String? {
         return try {
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                val mac = networkInterface.hardwareAddress
-                if (mac != null) {
-                    val sb = StringBuilder()
-                    for (i in mac.indices) {
-                        sb.append(String.format("%02X%s", mac[i], if (i < mac.size - 1) ":" else ""))
-                    }
-                    return sb.toString()
-                }
-            }
-            null
+            Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+                .takeIf { it.isNotEmpty() }
         } catch (e: Exception) {
             null
         }

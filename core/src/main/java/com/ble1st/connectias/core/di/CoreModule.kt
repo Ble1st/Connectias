@@ -1,5 +1,6 @@
 package com.ble1st.connectias.core.di
 
+import android.content.Context
 import com.ble1st.connectias.core.security.RaspManager
 import com.ble1st.connectias.core.security.debug.DebuggerDetector
 import com.ble1st.connectias.core.security.emulator.EmulatorDetector
@@ -11,6 +12,7 @@ import com.ble1st.connectias.core.services.SystemService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
@@ -20,7 +22,9 @@ object CoreModule {
     
     @Provides
     @Singleton
-    fun provideRootDetector(): RootDetector = RootDetector()
+    fun provideRootDetector(
+        @ApplicationContext context: Context
+    ): RootDetector = RootDetector(context)
     
     @Provides
     @Singleton
@@ -28,11 +32,15 @@ object CoreModule {
     
     @Provides
     @Singleton
-    fun provideEmulatorDetector(): EmulatorDetector = EmulatorDetector()
+    fun provideEmulatorDetector(
+        @ApplicationContext context: Context
+    ): EmulatorDetector = EmulatorDetector(context)
     
     @Provides
     @Singleton
-    fun provideTamperDetector(): TamperDetector = TamperDetector()
+    fun provideTamperDetector(
+        @ApplicationContext context: Context
+    ): TamperDetector = TamperDetector(context)
     
     @Provides
     @Singleton

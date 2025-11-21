@@ -24,35 +24,51 @@ class RaspManager @Inject constructor(
         val threats = mutableListOf<SecurityThreat>()
         
         // Root Detection
-        val rootResult = rootDetector.detectRoot()
-        if (rootResult.isRooted) {
-            rootResult.detectionMethods.forEach { method ->
-                threats.add(SecurityThreat.RootDetected(method))
+        try {
+            val rootResult = rootDetector.detectRoot()
+            if (rootResult.isRooted) {
+                rootResult.detectionMethods.forEach { method ->
+                    threats.add(SecurityThreat.RootDetected(method))
+                }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Root detection failed")
         }
         
         // Debugger Detection
-        val debuggerResult = debuggerDetector.detectDebugger()
-        if (debuggerResult.isDebuggerAttached) {
-            debuggerResult.detectionMethods.forEach { method ->
-                threats.add(SecurityThreat.DebuggerDetected(method))
+        try {
+            val debuggerResult = debuggerDetector.detectDebugger()
+            if (debuggerResult.isDebuggerAttached) {
+                debuggerResult.detectionMethods.forEach { method ->
+                    threats.add(SecurityThreat.DebuggerDetected(method))
+                }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Debugger detection failed")
         }
         
         // Tamper Detection
-        val tamperResult = tamperDetector.detectTampering()
-        if (tamperResult.isTampered) {
-            tamperResult.detectionMethods.forEach { method ->
-                threats.add(SecurityThreat.TamperDetected(method))
+        try {
+            val tamperResult = tamperDetector.detectTampering()
+            if (tamperResult.isTampered) {
+                tamperResult.detectionMethods.forEach { method ->
+                    threats.add(SecurityThreat.TamperDetected(method))
+                }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Tamper detection failed")
         }
         
         // Emulator Detection
-        val emulatorResult = emulatorDetector.detectEmulator()
-        if (emulatorResult.isEmulator) {
-            emulatorResult.detectionMethods.forEach { method ->
-                threats.add(SecurityThreat.EmulatorDetected(method))
+        try {
+            val emulatorResult = emulatorDetector.detectEmulator()
+            if (emulatorResult.isEmulator) {
+                emulatorResult.detectionMethods.forEach { method ->
+                    threats.add(SecurityThreat.EmulatorDetected(method))
+                }
             }
+        } catch (e: Exception) {
+            Timber.e(e, "Emulator detection failed")
         }
         
         val isSecure = threats.isEmpty()
@@ -61,9 +77,8 @@ class RaspManager @Inject constructor(
         
         return SecurityCheckResult(
             isSecure = isSecure,
-            threats = threats,
+            _threats = threats.toList(),
             timestamp = System.currentTimeMillis()
         )
-    }
-}
+    }}
 

@@ -39,7 +39,7 @@ dependencies {
     // Room Database + SQLCipher
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
-    implementation("net.zetetic:android-database-sqlcipher:4.5.4")
+    implementation("net.zetetic:sqlcipher-android:4.11.0")
     ksp(libs.androidx.room.compiler)
 
     // Security

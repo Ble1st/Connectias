@@ -1,33 +1,224 @@
 package com.ble1st.connectias.core.security.tamper
 
+import android.content.Context
+import android.content.pm.PackageManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
+
+/**
+ * Detects tampering and hooking frameworks on the device.
+ * 
+ * This detector checks for:
+ * - Xposed frameworks (classic, EdXposed, LSPosed)
+ * - Frida server
+ * - Other hooking frameworks
+ * 
+ * Note: This method performs blocking I/O and should be called from a background thread.
+ * Use the suspend function variant for coroutine-based execution.
+ */
+class TamperDetector(private val context: Context? = null) {
+    
+    /**
+     * Detects tampering using multiple heuristics.
+     * This is a suspend function that performs I/O on Dispatchers.IO to avoid blocking.
+     * 
+     * @return TamperDetectionResult with detection status and methods
+     */
+    suspend fun detectTampering(): TamperDetectionResult = withContext(Dispatchers.IO) {
+        val detectionMethods = mutableListOf<String>()
+        
+        // 1. Check for hook frameworks (Xposed variants)
+        checkHookFrameworks(detectionMethods)
+        
+        // 2. Check for Frida server
+        checkFrida(detectionMethods)
+        
+        // 3. Check for other tampering indicators
+        checkOtherTamperingIndicators(detectionMethods)
+        
+        // 4. Check for installed hooking apps (if context available)
+        if (context != null) {
+            checkHookingApps(detectionMethods, context)
+        }
+        
+        return@withContext TamperDetectionResult(
+            isTampered = detectionMethods.isNotEmpty(),
+            detectionMethods = detectionMethods
+        )
+    }
+    
+    /**
+     * Checks for hook frameworks including Xposed, EdXposed, and LSPosed.
+     */
+    private fun checkHookFrameworks(detectionMethods: MutableList<String>) {
+        val hookIndicators = listOf(
+            "/system/xbin/xposed" to "Xposed framework detected",
+            "/system/lib/libxposed_art.so" to "Xposed library (32-bit) detected",
+            "/system/lib64/libxposed_art.so" to "Xposed library (64-bit) detected",
+            "/system/framework/XposedBridge.jar" to "XposedBridge.jar detected",
+            "/data/adb/modules/edxposed" to "EdXposed module detected",
+            "/data/adb/modules/lsposed" to "LSPosed module detected",
+            "/data/adb/modules/riru_edxposed" to "Riru EdXposed module detected",
+            "/data/adb/modules/riru_lsposed" to "Riru LSPosed module detected",
+            "/data/xposed.prop" to "Xposed properties file detected",
+            "/system/lib/libedxposed.so" to "EdXposed library (32-bit) detected",
+            "/system/lib64/libedxposed.so" to "EdXposed library (64-bit) detected",
+            "/vendor/lib/libedxposed.so" to "EdXposed vendor library (32-bit) detected",
+            "/vendor/lib64/libedxposed.so" to "EdXposed vendor library (64-bit) detected",
+            "/system/lib/libsupol.so" to "Xposed supol library (32-bit) detected",
+            "/system/lib64/libsupol.so" to "Xposed supol library (64-bit) detected"
+        )
+        
+        hookIndicators.forEach { (path, message) ->
+            try {
+                if (File(path).exists()) {
+                    detectionMethods.add(message)
+                }
+            } catch (e: Exception) {
+                // Silently ignore permission errors
+            }
+        }
+        
+        // Check for Xposed-related processes
+        try {
+            val procDir = File("/proc")
+            if (procDir.exists()) {
+                procDir.listFiles()?.forEach { pidDir ->
+                    try {
+                        val cmdlineFile = File(pidDir, "cmdline")
+                        if (cmdlineFile.exists()) {
+                            val cmdline = cmdlineFile.readText().trim()
+                            val lowerCmdline = cmdline.lowercase()
+                            when {
+                                lowerCmdline.contains("edxposed") -> {
+                                    detectionMethods.add("EdXposed process detected: $cmdline")
+                                }
+                                lowerCmdline.contains("lsposed") || lowerCmdline.contains("lsp") -> {
+                                    detectionMethods.add("LSPosed process detected: $cmdline")
+                                }
+                                lowerCmdline.contains("xposed") -> {
+                                    detectionMethods.add("Xposed process detected: $cmdline")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore individual process read errors
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore /proc access errors
+        }
+    }
+    
+    /**
+     * Checks for Frida server indicators.
+     */
+    private fun checkFrida(detectionMethods: MutableList<String>) {
+        val fridaIndicators = listOf(
+            "/data/local/tmp/frida-server",
+            "/data/local/tmp/re.frida.server",
+            "/sdcard/frida-server",
+            "/system/bin/frida-server",
+            "/system/xbin/frida-server"
+        )
+        
+        fridaIndicators.forEach { path ->
+            try {
+                if (File(path).exists()) {
+                    detectionMethods.add("Frida server detected: $path")
+                }
+            } catch (e: Exception) {
+                // Silently ignore
+            }
+        }
+        
+        // Check for Frida processes
+        try {
+            val procDir = File("/proc")
+            if (procDir.exists()) {
+                procDir.listFiles()?.forEach { pidDir ->
+                    try {
+                        val cmdlineFile = File(pidDir, "cmdline")
+                        if (cmdlineFile.exists()) {
+                            val cmdline = cmdlineFile.readText().trim()
+                            if (cmdline.contains("frida", ignoreCase = true)) {
+                                detectionMethods.add("Frida process detected: $cmdline")
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore individual process read errors
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore /proc access errors
+        }
+        
+        // Check for Frida server socket
+        try {
+            val fridaSocket = File("/data/local/tmp/re.frida.server")
+            if (fridaSocket.exists()) {
+                detectionMethods.add("Frida server socket detected")
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+    
+    /**
+     * Checks for other tampering indicators.
+     */
+    private fun checkOtherTamperingIndicators(detectionMethods: MutableList<String>) {
+        val otherIndicators = listOf(
+            "/system/lib/libsubstrate.so" to "Substrate framework detected",
+            "/system/lib64/libsubstrate.so" to "Substrate framework (64-bit) detected",
+            "/data/local/tmp/substrate" to "Substrate temporary files detected"
+        )
+        
+        otherIndicators.forEach { (path, message) ->
+            try {
+                if (File(path).exists()) {
+                    detectionMethods.add(message)
+                }
+            } catch (e: Exception) {
+                // Silently ignore
+            }
+        }
+    }
+    
+    /**
+     * Checks for installed hooking apps via PackageManager.
+     */
+    private fun checkHookingApps(detectionMethods: MutableList<String>, context: Context) {
+        val hookingApps = listOf(
+            "de.robv.android.xposed.installer" to "Xposed Installer",
+            "org.meowcat.edxposed.manager" to "EdXposed Manager",
+            "org.lsposed.manager" to "LSPosed Manager",
+            "com.saurik.substrate" to "Substrate"
+        )
+        
+        try {
+            val packageManager = context.packageManager
+            hookingApps.forEach { (packageName, appName) ->
+                try {
+                    packageManager.getPackageInfo(packageName, 0)
+                    detectionMethods.add("Hooking app installed: $appName ($packageName)")
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Package not found, continue
+                } catch (e: Exception) {
+                    // Other errors, ignore
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore package manager errors
+        }
+    }
+}
 
 data class TamperDetectionResult(
     val isTampered: Boolean,
     val detectionMethods: List<String>
 )
-
-class TamperDetector {
-    fun detectTampering(): TamperDetectionResult {
-        val detectionMethods = mutableListOf<String>()
-
-        // Check for hook frameworks
-        val hookIndicators = listOf(
-            "/system/xbin/xposed" to "Xposed framework detected",
-            "/system/lib/libxposed_art.so" to "Xposed library (32-bit) detected",
-            "/system/lib64/libxposed_art.so" to "Xposed library (64-bit) detected"
-        )
-
-        hookIndicators.forEach { (path, message) ->
-            if (File(path).exists()) {
-                detectionMethods.add(message)
-            }
-        }
-
-        return TamperDetectionResult(
-            isTampered = detectionMethods.isNotEmpty(),
-            detectionMethods = detectionMethods
-        )
-    }
-}
-

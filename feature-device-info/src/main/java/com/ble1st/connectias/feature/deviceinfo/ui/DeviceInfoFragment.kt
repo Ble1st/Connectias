@@ -6,10 +6,13 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.ble1st.connectias.feature.deviceinfo.databinding.FragmentDeviceInfoBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 @AndroidEntryPoint
 class DeviceInfoFragment : Fragment() {
@@ -30,17 +33,20 @@ class DeviceInfoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Lifecycle-aware collection: only collect when view is STARTED
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.deviceInfo.collect { state ->
-                when (state) {
-                    is DeviceInfoState.Loading -> {
-                        binding.textDeviceInfo.text = "Loading device information..."
-                    }
-                    is DeviceInfoState.Success -> {
-                        updateUI(state.info)
-                    }
-                    is DeviceInfoState.Error -> {
-                        binding.textDeviceInfo.text = "Error: ${state.message}"
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.deviceInfo.collect { state ->
+                    when (state) {
+                        is DeviceInfoState.Loading -> {
+                            binding.textDeviceInfo.text = "Loading device information..."
+                        }
+                        is DeviceInfoState.Success -> {
+                            updateUI(state.info)
+                        }
+                        is DeviceInfoState.Error -> {
+                            binding.textDeviceInfo.text = "Error: ${state.message}"
+                        }
                     }
                 }
             }
@@ -51,8 +57,7 @@ class DeviceInfoFragment : Fragment() {
         }
     }
 
-    private fun updateUI(info: com.ble1st.connectias.feature.deviceinfo.provider.DeviceInfo) {
-        val osInfo = info.osInfo
+    private fun updateUI(info: DeviceInfo) {        val osInfo = info.osInfo
         val cpuInfo = info.cpuInfo
         val ramInfo = info.ramInfo
         val storageInfo = info.storageInfo
@@ -66,31 +71,21 @@ class DeviceInfoFragment : Fragment() {
             CPU: ${cpuInfo.cores} cores, ${cpuInfo.architecture}
             Frequency: ${cpuInfo.frequency} MHz
             
-            RAM: ${formatBytes(ramInfo.used)} / ${formatBytes(ramInfo.total)} (${String.format("%.1f", ramInfo.percentageUsed)}%)
+            RAM: ${formatBytes(ramInfo.used)} / ${formatBytes(ramInfo.total)} (${String.format(Locale.getDefault(), "%.1f", ramInfo.percentageUsed)}%)
             
-            Storage: ${formatBytes(storageInfo.used)} / ${formatBytes(storageInfo.total)} (${String.format("%.1f", storageInfo.percentageUsed)}%)
+            Storage: ${formatBytes(storageInfo.used)} / ${formatBytes(storageInfo.total)} (${String.format(Locale.getDefault(), "%.1f", storageInfo.percentageUsed)}%)
             
             Network:
             IP: ${networkInfo.ipAddress ?: "Not available"}
-            MAC: ${networkInfo.macAddress ?: "Not available"}
+            Android ID: ${networkInfo.androidId ?: "Not available"}
         """.trimIndent()
 
         binding.textDeviceInfo.text = deviceInfoText
     }
 
     private fun formatBytes(bytes: Long): String {
-        val kb = bytes / 1024.0
-        val mb = kb / 1024.0
-        val gb = mb / 1024.0
-
-        return when {
-            gb >= 1 -> String.format("%.2f GB", gb)
-            mb >= 1 -> String.format("%.2f MB", mb)
-            kb >= 1 -> String.format("%.2f KB", kb)
-            else -> "$bytes B"
-        }
+        return android.text.format.Formatter.formatShortFileSize(requireContext(), bytes)
     }
-
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

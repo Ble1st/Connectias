@@ -1,18 +1,71 @@
 package com.ble1st.connectias.core.security.root
 
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
+import java.util.concurrent.TimeUnit
 
-data class RootDetectionResult(
-    val isRooted: Boolean,
-    val detectionMethods: List<String>
-)
-
-class RootDetector {
-    fun detectRoot(): RootDetectionResult {
+/**
+ * Detects root access on Android devices using multiple heuristic checks.
+ * 
+ * This detector uses a combination of:
+ * - File system checks (su binaries, Magisk paths, Xposed frameworks)
+ * - Build properties (test-keys, release-keys)
+ * - SELinux status
+ * - Package manager checks (known root apps)
+ * - Runtime execution probes
+ * 
+ * Note: Root-hiding tools like Magisk Hide can bypass some of these checks.
+ * This is a best-effort detection and should be combined with server-side validation.
+ */
+class RootDetector(private val context: Context? = null) {
+    
+    /**
+     * Detects root access using multiple heuristics.
+     * This method performs blocking I/O and should be called from a background thread.
+     * 
+     * @return RootDetectionResult with detection status and methods
+     */
+    suspend fun detectRoot(): RootDetectionResult = withContext(Dispatchers.IO) {
         val detectionMethods = mutableListOf<String>()
-
-        // Check for su binary in common locations
+        
+        // 1. Check for su binaries in common locations
+        checkSuBinaries(detectionMethods)
+        
+        // 2. Check for Magisk using multiple heuristics
+        checkMagisk(detectionMethods)
+        
+        // 3. Check for Xposed frameworks (classic, EdXposed, LSPosed)
+        checkXposed(detectionMethods)
+        
+        // 4. Check Build.TAGS for test-keys
+        checkBuildTags(detectionMethods)
+        
+        // 5. Check SELinux status
+        checkSELinux(detectionMethods)
+        
+        // 6. Check for known root apps via PackageManager
+        if (context != null) {
+            checkRootApps(detectionMethods, context)
+        }
+        
+        // 7. Runtime exec probe (time-boxed)
+        checkRuntimeExec(detectionMethods)
+        
+        return@withContext RootDetectionResult(
+            isRooted = detectionMethods.isNotEmpty(),
+            detectionMethods = detectionMethods
+        )
+    }
+    
+    /**
+     * Checks for su binaries in common locations.
+     */
+    private fun checkSuBinaries(detectionMethods: MutableList<String>) {
         val suPaths = listOf(
             "/system/app/Superuser.apk",
             "/system/xbin/su",
@@ -22,30 +75,341 @@ class RootDetector {
             "/data/local/xbin/su",
             "/data/local/bin/su",
             "/system/sd/xbin/su",
-            "/system/bin/failsafe/su",
-            "/data/local/su"
+            "/data/local/su",
+            "/vendor/bin/su",
+            "/vendor/xbin/su"
         )
-
+        
         suPaths.forEach { path ->
-            if (File(path).exists()) {
-                detectionMethods.add("SU binary found at: $path")
+            try {
+                if (File(path).exists()) {
+                    detectionMethods.add("SU binary found at: $path")
+                }
+            } catch (e: Exception) {
+                // Silently ignore permission errors
             }
         }
-
-        // Check for Magisk
-        if (File("/data/adb/magisk").exists()) {
-            detectionMethods.add("Magisk detected")
-        }
-
-        // Check for Xposed
-        if (File("/system/framework/XposedBridge.jar").exists()) {
-            detectionMethods.add("Xposed framework detected")
-        }
-
-        return RootDetectionResult(
-            isRooted = detectionMethods.isNotEmpty(),
-            detectionMethods = detectionMethods
+    }
+    
+    /**
+     * Checks for Magisk using multiple heuristics:
+     * - Multiple known Magisk paths
+     * - Magisk-related processes
+     * - System properties
+     * - Installed packages (Magisk Manager)
+     */
+    private fun checkMagisk(detectionMethods: MutableList<String>) {
+        // Check multiple Magisk paths
+        val magiskPaths = listOf(
+            "/data/adb/magisk",
+            "/sbin/.magisk",
+            "/sbin/magisk",
+            "/sbin/magiskhide",
+            "/system/bin/magisk",
+            "/data/adb/modules",
+            "/cache/magisk.log",
+            "/data/magisk/magisk.db"
         )
+        
+        var magiskFound = false
+        magiskPaths.forEach { path ->
+            try {
+                if (File(path).exists()) {
+                    detectionMethods.add("Magisk path detected: $path")
+                    magiskFound = true
+                }
+            } catch (e: Exception) {
+                // Silently ignore
+            }
+        }
+        
+        // Check for Magisk modules directory structure
+        try {
+            val modulesDir = File("/data/adb/modules")
+            if (modulesDir.exists() && modulesDir.isDirectory) {
+                val modules = modulesDir.listFiles()
+                if (modules != null && modules.isNotEmpty()) {
+                    detectionMethods.add("Magisk modules directory found with ${modules.size} modules")
+                    magiskFound = true
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore
+        }
+        
+        // Check for running Magisk processes (if we can access /proc)
+        try {
+            val procDir = File("/proc")
+            if (procDir.exists()) {
+                procDir.listFiles()?.forEach { pidDir ->
+                    try {
+                        val cmdlineFile = File(pidDir, "cmdline")
+                        if (cmdlineFile.exists()) {
+                            val cmdline = cmdlineFile.readText().trim()
+                            if (cmdline.contains("magisk", ignoreCase = true)) {
+                                detectionMethods.add("Magisk process detected: $cmdline")
+                                magiskFound = true
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore individual process read errors
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore /proc access errors
+        }
+        
+        // Check for Magisk Manager package (if context available)
+        if (context != null) {
+            try {
+                val packageManager = context.packageManager
+                val magiskPackages = listOf(
+                    "com.topjohnwu.magisk",
+                    "com.topjohnwu.magisk.debug"
+                )
+                
+                magiskPackages.forEach { packageName ->
+                    try {
+                        packageManager.getPackageInfo(packageName, 0)
+                        detectionMethods.add("Magisk Manager package installed: $packageName")
+                        magiskFound = true
+                    } catch (e: PackageManager.NameNotFoundException) {
+                        // Package not found, continue
+                    } catch (e: Exception) {
+                        // Other errors, ignore
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore package manager errors
+            }
+        }
+    }
+    
+    /**
+     * Checks for Xposed frameworks including classic Xposed, EdXposed, and LSPosed.
+     */
+    private fun checkXposed(detectionMethods: MutableList<String>) {
+        // Classic Xposed paths
+        val xposedPaths = listOf(
+            "/system/framework/XposedBridge.jar",
+            "/system/bin/app_process32_xposed",
+            "/system/bin/app_process64_xposed",
+            "/system/lib/libxposed_art.so",
+            "/system/lib64/libxposed_art.so"
+        )
+        
+        // EdXposed/LSPosed paths
+        val modernXposedPaths = listOf(
+            "/data/adb/modules/edxposed",
+            "/data/adb/modules/lsposed",
+            "/data/adb/modules/riru_edxposed",
+            "/data/adb/modules/riru_lsposed",
+            "/data/xposed.prop",
+            "/system/lib/libedxposed.so",
+            "/system/lib64/libedxposed.so",
+            "/vendor/lib/libedxposed.so",
+            "/vendor/lib64/libedxposed.so",
+            "/system/lib/libsupol.so",
+            "/system/lib64/libsupol.so"
+        )
+        
+        // Check all paths
+        val allXposedPaths = xposedPaths + modernXposedPaths
+        allXposedPaths.forEach { path ->
+            try {
+                if (File(path).exists()) {
+                    when {
+                        path.contains("edxposed", ignoreCase = true) -> {
+                            detectionMethods.add("EdXposed framework detected: $path")
+                        }
+                        path.contains("lsposed", ignoreCase = true) || path.contains("lsp", ignoreCase = true) -> {
+                            detectionMethods.add("LSPosed framework detected: $path")
+                        }
+                        else -> {
+                            detectionMethods.add("Xposed framework detected: $path")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                // Silently ignore
+            }
+        }
+        
+        // Check for Xposed-related processes
+        try {
+            val procDir = File("/proc")
+            if (procDir.exists()) {
+                procDir.listFiles()?.forEach { pidDir ->
+                    try {
+                        val cmdlineFile = File(pidDir, "cmdline")
+                        if (cmdlineFile.exists()) {
+                            val cmdline = cmdlineFile.readText().trim()
+                            val lowerCmdline = cmdline.lowercase()
+                            when {
+                                lowerCmdline.contains("edxposed") -> {
+                                    detectionMethods.add("EdXposed process detected: $cmdline")
+                                }
+                                lowerCmdline.contains("lsposed") || lowerCmdline.contains("lsp") -> {
+                                    detectionMethods.add("LSPosed process detected: $cmdline")
+                                }
+                                lowerCmdline.contains("xposed") -> {
+                                    detectionMethods.add("Xposed process detected: $cmdline")
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // Ignore individual process read errors
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore /proc access errors
+        }
+        
+        // Check for Xposed-related packages (if context available)
+        if (context != null) {
+            try {
+                val packageManager = context.packageManager
+                val xposedPackages = listOf(
+                    "de.robv.android.xposed.installer",
+                    "org.meowcat.edxposed.manager",
+                    "org.lsposed.manager"
+                )
+                
+                xposedPackages.forEach { packageName ->
+                    try {
+                        packageManager.getPackageInfo(packageName, 0)
+                        detectionMethods.add("Xposed-related package installed: $packageName")
+                    } catch (e: PackageManager.NameNotFoundException) {
+                        // Package not found, continue
+                    } catch (e: Exception) {
+                        // Other errors, ignore
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore package manager errors
+            }
+        }
+    }
+    
+    /**
+     * Checks Build.TAGS for test-keys (indicates custom/rooted ROM).
+     */
+    private fun checkBuildTags(detectionMethods: MutableList<String>) {
+        try {
+            val tags = Build.TAGS
+            if (tags != null) {
+                when {
+                    tags.contains("test-keys") -> {
+                        detectionMethods.add("Build.TAGS contains 'test-keys' (custom ROM)")
+                    }
+                    !tags.contains("release-keys") -> {
+                        detectionMethods.add("Build.TAGS missing 'release-keys' (suspicious)")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore
+        }
+    }
+    
+    /**
+     * Checks SELinux status. Non-enforcing SELinux can indicate root access.
+     */
+    private fun checkSELinux(detectionMethods: MutableList<String>) {
+        try {
+            // Try to read SELinux enforce status
+            val enforceFile = File("/sys/fs/selinux/enforce")
+            if (enforceFile.exists()) {
+                val enforceStatus = enforceFile.readText().trim()
+                if (enforceStatus == "0") {
+                    detectionMethods.add("SELinux is not enforcing (status: $enforceStatus)")
+                }
+            }
+        } catch (e: Exception) {
+            // Silently ignore - SELinux status may not be accessible
+        }
+        
+        // Try using Android API if available (API 23+)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val selinux = Class.forName("android.os.SELinux")
+                val isEnforced = selinux.getMethod("isSELinuxEnforced").invoke(null) as? Boolean
+                if (isEnforced == false) {
+                    detectionMethods.add("SELinux is not enforcing (via API)")
+                }
+            }
+        } catch (e: Exception) {
+            // Reflection may fail, ignore
+        }
+    }
+    
+    /**
+     * Checks for known root management apps via PackageManager.
+     */
+    private fun checkRootApps(detectionMethods: MutableList<String>, context: Context) {
+        val rootApps = listOf(
+            "com.noshufou.android.su",
+            "com.noshufou.android.su.elite",
+            "eu.chainfire.supersu",
+            "com.koushikdutta.superuser",
+            "com.thirdparty.superuser",
+            "com.yellowes.su",
+            "com.topjohnwu.magisk",
+            "com.kingroot.kinguser",
+            "com.kingo.root",
+            "com.smedialink.oneclickroot",
+            "com.zhiqupk.root.global",
+            "com.alephzain.framaroot"
+        )
+        
+        try {
+            val packageManager = context.packageManager
+            rootApps.forEach { packageName ->
+                try {
+                    packageManager.getPackageInfo(packageName, 0)
+                    detectionMethods.add("Root management app installed: $packageName")
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Package not found, continue
+                } catch (e: Exception) {
+                    // Other errors, ignore
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore package manager errors
+        }
+    }
+    
+    /**
+     * Performs a time-boxed runtime exec probe to test for su availability.
+     * This check is time-limited to prevent blocking.
+     */
+    private fun checkRuntimeExec(detectionMethods: MutableList<String>) {
+        try {
+            val process = ProcessBuilder("su", "-c", "id").start()
+            val completed = process.waitFor(2, TimeUnit.SECONDS)
+            
+            if (completed) {
+                val exitCode = process.exitValue()
+                if (exitCode == 0) {
+                    // su command succeeded
+                    val output = process.inputStream.bufferedReader().readText()
+                    detectionMethods.add("Runtime exec probe succeeded: su -c id returned exit code 0 (output: ${output.trim()})")
+                }
+            } else {
+                // Process timed out or didn't complete
+                process.destroyForcibly()
+            }
+        } catch (e: SecurityException) {
+            // Expected if su is not available or access is denied
+        } catch (e: Exception) {
+            // Other errors (IO, etc.) - silently ignore
+        }
     }
 }
 
+data class RootDetectionResult(
+    val isRooted: Boolean,
+    val detectionMethods: List<String>
+)

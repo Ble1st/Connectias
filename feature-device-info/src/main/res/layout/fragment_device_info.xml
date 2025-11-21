@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
-            android:text="Loading..."
+            android:text="@string/device_info_loading"
             android:textSize="14sp" />
     </ScrollView>
 
@@ -26,7 +26,8 @@
         android:id="@+id/button_refresh"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Refresh"
+        android:text="@string/button_refresh"
+        android:contentDescription="@string/button_refresh_description"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

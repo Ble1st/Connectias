@@ -31,27 +31,28 @@ class SecurityDashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.securityState.collect { state ->
-                when (state) {
-                    is SecurityState.Loading -> {
-                        // Show loading
-                    }
-                    is SecurityState.Success -> {
-                        // Update UI with security result
-                        binding.textSecurityStatus.text = if (state.result.isSecure) {
-                            "Secure"
-                        } else {
-                            "Threats detected: ${state.result.threats.size}"
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.securityState.collect { state ->
+                    when (state) {
+                        is SecurityState.Loading -> {
+                            // Show loading
                         }
-                    }
-                    is SecurityState.Error -> {
-                        // Show error
-                        binding.textSecurityStatus.text = "Error: ${state.message}"
+                        is SecurityState.Success -> {
+                            // Update UI with security result
+                            binding.textSecurityStatus.text = if (state.result.isSecure) {
+                                "Secure"
+                            } else {
+                                "Threats detected: ${state.result.threats.size}"
+                            }
+                        }
+                        is SecurityState.Error -> {
+                            // Show error
+                            binding.textSecurityStatus.text = "Error: ${state.message}"
+                        }
                     }
                 }
             }
-        }
-    }
+        }    }
 
     override fun onDestroyView() {
         super.onDestroyView()

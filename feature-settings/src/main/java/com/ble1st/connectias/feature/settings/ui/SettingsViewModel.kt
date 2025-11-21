@@ -20,9 +20,13 @@ class SettingsViewModel @Inject constructor(
 
     fun setTheme(theme: String) {
         viewModelScope.launch {
-            settingsRepository.setTheme(theme)
-            _theme.value = theme
+            try {
+                settingsRepository.setTheme(theme)
+                _theme.value = theme
+            } catch (e: Exception) {
+                // Log error and/or emit error state to UI
+                // Consider reverting optimistic update if needed
+            }
         }
-    }
-}
+    }}
 

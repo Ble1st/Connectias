@@ -7,9 +7,10 @@ data class ModuleInfo(
     val isActive: Boolean
 )
 
-class ModuleRegistry {
-    private val modules = mutableMapOf<String, ModuleInfo>()
+import java.util.concurrent.ConcurrentHashMap
 
+class ModuleRegistry {
+    private val modules = ConcurrentHashMap<String, ModuleInfo>()
     fun registerModule(moduleInfo: ModuleInfo) {
         modules[moduleInfo.id] = moduleInfo
     }
