@@ -6,8 +6,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.navigation.findNavController
-import androidx.navigation.ui.AppBarConfiguration
-import androidx.navigation.ui.setupActionBarWithNavController
 import androidx.navigation.ui.setupWithNavController
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.databinding.ActivityMainBinding
@@ -48,25 +46,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupNavigation() {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
-        
-        // AppBarConfiguration für Top-Level-Destinations
-        val topLevelDestinations = mutableSetOf(
-            R.id.nav_security_dashboard,
-            R.id.nav_settings
-        )
-        
-        // Add Device Info if module is available (check if class exists)
-        try {
-            Class.forName("com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment")
-            topLevelDestinations.add(R.id.nav_device_info)
-            Timber.d("Device Info module detected and added to navigation")
-        } catch (e: ClassNotFoundException) {
-            Timber.d("Device Info module not available")
-        }
-        
-        val appBarConfiguration = AppBarConfiguration(topLevelDestinations)
-        
-        setupActionBarWithNavController(navController, appBarConfiguration)
         
         // Bottom Navigation mit NavController verbinden
         val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)

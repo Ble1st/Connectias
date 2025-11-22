@@ -6,7 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.ble1st.connectias.core.security.models.SecurityThreat
 import com.ble1st.connectias.feature.security.databinding.FragmentSecurityDashboardBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -30,30 +33,74 @@ class SecurityDashboardFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Setup refresh button
+        binding.buttonRefresh.setOnClickListener {
+            viewModel.performSecurityCheck()
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            viewLifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.securityState.collect { state ->
                     when (state) {
                         is SecurityState.Loading -> {
-                            // Show loading
+                            binding.textSecurityStatus.text = "Checking security..."
+                            binding.textThreatsDetails.text = ""
+                            binding.buttonRefresh.isEnabled = false
                         }
                         is SecurityState.Success -> {
-                            // Update UI with security result
-                            binding.textSecurityStatus.text = if (state.result.isSecure) {
-                                "Secure"
-                            } else {
-                                "Threats detected: ${state.result.threats.size}"
-                            }
+                            binding.buttonRefresh.isEnabled = true
+                            updateSecurityStatus(state.result)
                         }
                         is SecurityState.Error -> {
-                            // Show error
+                            binding.buttonRefresh.isEnabled = true
                             binding.textSecurityStatus.text = "Error: ${state.message}"
+                            binding.textThreatsDetails.text = ""
                         }
                     }
                 }
             }
         }
     }
+
+    private fun updateSecurityStatus(result: com.ble1st.connectias.core.security.models.SecurityCheckResult) {
+        // Update status text
+        binding.textSecurityStatus.text = if (result.isSecure) {
+            "✓ Secure - No threats detected"
+        } else {
+            "⚠ Threats detected: ${result.threats.size}"
+        }
+
+        // Update threats details
+        if (result.threats.isEmpty()) {
+            binding.textThreatsDetails.text = "No threats detected.\nAll security checks passed."
+        } else {
+            val threatsText = buildString {
+                append("Detected Threats:\n\n")
+                result.threats.forEachIndexed { index, threat ->
+                    append("${index + 1}. ${formatThreat(threat)}\n")
+                }
+                
+                if (result.failedChecks.isNotEmpty()) {
+                    append("\nFailed Checks:\n")
+                    result.failedChecks.forEachIndexed { index, failedCheck ->
+                        append("${index + 1}. $failedCheck\n")
+                    }
+                }
+            }
+            binding.textThreatsDetails.text = threatsText
+        }
+    }
+
+    private fun formatThreat(threat: SecurityThreat): String {
+        return when (threat) {
+            is SecurityThreat.RootDetected -> "Root Detected - Method: ${threat.method}"
+            is SecurityThreat.DebuggerDetected -> "Debugger Detected - Method: ${threat.method}"
+            is SecurityThreat.EmulatorDetected -> "Emulator Detected - Method: ${threat.method}"
+            is SecurityThreat.TamperDetected -> "Tamper Detected - Method: ${threat.method}"
+            is SecurityThreat.HookDetected -> "Hook Detected - Method: ${threat.method}"
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null

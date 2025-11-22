@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.telephony.TelephonyManager
 import com.ble1st.connectias.core.BuildConfig
+import com.scottyab.rootbeer.RootBeer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -11,33 +12,42 @@ import java.io.File
 
 /**
  * Detects if the device is running in an emulator environment.
- * Uses multiple heuristics including Build properties, system properties,
+ * Uses RootBeer library and multiple heuristics including Build properties, system properties,
  * file system checks, hardware sensors, and telephony information.
  */
 class EmulatorDetector(private val context: Context? = null) {
     
+    private val rootBeer: RootBeer? by lazy {
+        context?.let { RootBeer(it) }
+    }
+    
     /**
-     * Detects emulator using multiple heuristics.
+     * Detects emulator using RootBeer library and multiple heuristics.
      * This method performs blocking I/O and should be called from a background thread.
      */
     suspend fun detectEmulator(): EmulatorDetectionResult = withContext(Dispatchers.IO) {
         val detectionMethods = mutableListOf<String>()
         
-        // 1. Check Build properties
+        // 1. RootBeer check (can detect emulators via isRootedWithoutBusyBoxCheck)
+        if (context != null && rootBeer != null) {
+            checkRootBeer(detectionMethods)
+        }
+        
+        // 2. Check Build properties
         checkBuildProperties(detectionMethods)
         
-        // 2. Check system properties via reflection
+        // 3. Check system properties via reflection
         checkSystemProperties(detectionMethods)
         
-        // 3. Check for emulator-specific files
+        // 4. Check for emulator-specific files
         checkEmulatorFiles(detectionMethods)
         
-        // 4. Check telephony (emulators often lack proper telephony)
+        // 5. Check telephony (emulators often lack proper telephony)
         if (context != null) {
             checkTelephony(detectionMethods, context)
         }
         
-        // 5. Check CPU/ABI anomalies
+        // 6. Check CPU/ABI anomalies
         checkCPUABI(detectionMethods)
         
         // Build debug details map (only for debug builds, contains PII)
@@ -52,6 +62,29 @@ class EmulatorDetector(private val context: Context? = null) {
             detectionMethodNames = detectionMethods,
             debugDetails = debugDetails
         )
+    }
+    
+    /**
+     * Checks for emulator using RootBeer library.
+     * RootBeer's isRootedWithoutBusyBoxCheck can also detect some emulators.
+     */
+    private fun checkRootBeer(detectionMethods: MutableList<String>) {
+        try {
+            rootBeer?.let { rb ->
+                // RootBeer can detect emulators via isRootedWithoutBusyBoxCheck
+                // Some emulators trigger root detection due to their nature
+                if (rb.isRootedWithoutBusyBoxCheck && !rb.isRooted) {
+                    // If detected without busybox but not with full check, might be emulator
+                    detectionMethods.add("RootBeer: Possible emulator detected")
+                } else if (rb.isRootedWithoutBusyBoxCheck) {
+                    // Could be both rooted and emulator
+                    detectionMethods.add("RootBeer: Root/Emulator indicators detected")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "RootBeer emulator check failed")
+            // Continue with other checks
+        }
     }
     
     /**

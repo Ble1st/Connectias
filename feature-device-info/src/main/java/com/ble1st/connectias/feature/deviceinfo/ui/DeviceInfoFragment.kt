@@ -10,6 +10,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.ble1st.connectias.feature.deviceinfo.databinding.FragmentDeviceInfoBinding
+import com.ble1st.connectias.feature.deviceinfo.provider.DeviceInfo
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -57,7 +58,8 @@ class DeviceInfoFragment : Fragment() {
         }
     }
 
-    private fun updateUI(info: DeviceInfo) {        val osInfo = info.osInfo
+    private fun updateUI(info: DeviceInfo) {
+        val osInfo = info.osInfo
         val cpuInfo = info.cpuInfo
         val ramInfo = info.ramInfo
         val storageInfo = info.storageInfo

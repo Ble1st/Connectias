@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.deviceinfo.provider
 
 import android.app.ActivityManager
 import android.content.Context
+import android.net.ConnectivityManager
 import android.os.Build
 import android.os.Environment
 import android.os.Parcelable
@@ -9,6 +10,7 @@ import android.os.StatFs
 import android.provider.Settings
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.parcelize.Parcelize
+import java.net.InetAddress
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -177,21 +179,53 @@ class DeviceInfoProvider @Inject constructor(
         )
     }
 
+    /**
+     * Gets the local IP address using ConnectivityManager (Android 10+ compatible).
+     * Falls back to NetworkInterface if ConnectivityManager is unavailable.
+     * 
+     * This method avoids the "Operation not permitted" error on Android 10+ by using
+     * the recommended ConnectivityManager API instead of direct NetworkInterface access.
+     * 
+     * @return Local IPv4 address, or null if unavailable
+     */
     private fun getLocalIPAddress(): String? {
         return try {
-            val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
-            while (interfaces.hasMoreElements()) {
-                val networkInterface = interfaces.nextElement()
-                val addresses = networkInterface.inetAddresses
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
-                        return address.hostAddress
+            // Try ConnectivityManager first (recommended for Android 10+)
+            val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            if (connectivityManager != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                val network = connectivityManager.activeNetwork
+                if (network != null) {
+                    val linkProperties = connectivityManager.getLinkProperties(network)
+                    linkProperties?.linkAddresses?.forEach { linkAddress ->
+                        val address = linkAddress.address
+                        if (address is InetAddress && !address.isLoopbackAddress && address is java.net.Inet4Address) {
+                            return address.hostAddress
+                        }
                     }
                 }
             }
+            
+            // Fallback to NetworkInterface (may fail on Android 10+ due to permissions)
+            try {
+                val interfaces = java.net.NetworkInterface.getNetworkInterfaces()
+                while (interfaces.hasMoreElements()) {
+                    val networkInterface = interfaces.nextElement()
+                    val addresses = networkInterface.inetAddresses
+                    while (addresses.hasMoreElements()) {
+                        val address = addresses.nextElement()
+                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
+                            return address.hostAddress
+                        }
+                    }
+                }
+            } catch (e: SecurityException) {
+                // Ignore SecurityException on Android 10+ - expected behavior
+                // The error "Operation not permitted" is normal for non-privileged apps
+            }
+            
             null
         } catch (e: Exception) {
+            // Silently return null if IP address cannot be determined
             null
         }
     }

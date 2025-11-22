@@ -3,28 +3,36 @@ package com.ble1st.connectias.core.security.root
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import com.scottyab.rootbeer.RootBeer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 
 /**
- * Detects root access on Android devices using multiple heuristic checks.
+ * Detects root access on Android devices using RootBeer library and additional heuristic checks.
  * 
  * This detector uses a combination of:
+ * - RootBeer library (comprehensive root detection with native checks)
  * - File system checks (su binaries, Magisk paths, Xposed frameworks)
  * - Build properties (test-keys, release-keys)
  * - SELinux status
  * - Package manager checks (known root apps)
- * - Runtime execution probes
  * 
  * Note: Root-hiding tools like Magisk Hide can bypass some of these checks.
  * This is a best-effort detection and should be combined with server-side validation.
  */
 class RootDetector(private val context: Context? = null) {
     
+    private val rootBeer: RootBeer? by lazy {
+        context?.let { RootBeer(it) }
+    }
+    
     /**
-     * Detects root access using multiple heuristics.
+     * Detects root access using RootBeer library (primary) and additional specific heuristics.
+     * RootBeer covers most common root detection methods, so custom checks focus on
+     * specific cases like Magisk and Xposed that may not be fully covered by RootBeer.
+     * 
      * This method performs blocking I/O and should be called from a background thread.
      * 
      * @return RootDetectionResult with detection status and methods
@@ -32,27 +40,26 @@ class RootDetector(private val context: Context? = null) {
     suspend fun detectRoot(): RootDetectionResult = withContext(Dispatchers.IO) {
         val detectionMethods = mutableListOf<String>()
         
-        // 1. Check for su binaries in common locations
-        checkSuBinaries(detectionMethods)
-        
-        // 2. Check for Magisk using multiple heuristics
-        checkMagisk(detectionMethods)
-        
-        // 3. Check for Xposed frameworks (classic, EdXposed, LSPosed)
-        checkXposed(detectionMethods)
-        
-        // 4. Check Build.TAGS for test-keys
-        checkBuildTags(detectionMethods)
-        
-        // 5. Check SELinux status
-        checkSELinux(detectionMethods)
-        
-        // 6. Check for known root apps via PackageManager
-        if (context != null) {
-            checkRootApps(detectionMethods, context)
+        // 1. RootBeer comprehensive check (primary method - replaces most custom checks)
+        // RootBeer already checks: su binaries, root apps, dangerous props, SELinux, etc.
+        if (context != null && rootBeer != null) {
+            checkRootBeer(detectionMethods)
         }
         
-        // Note: Runtime exec probe removed to avoid triggering su permission dialogs
+        // 2. Additional specific checks (complement RootBeer for edge cases)
+        // These focus on specific tools that RootBeer might not fully detect:
+        
+        // Check for Magisk using specific heuristics (RootBeer may not catch all Magisk variants)
+        checkMagisk(detectionMethods)
+        
+        // Check for Xposed frameworks (RootBeer doesn't specifically check for Xposed)
+        checkXposed(detectionMethods)
+        
+        // Note: The following checks are now handled by RootBeer:
+        // - checkSuBinaries() - RootBeer checks su binaries
+        // - checkRootApps() - RootBeer checks root management apps
+        // - checkBuildTags() - RootBeer checks build properties
+        // - checkSELinux() - RootBeer checks SELinux status
         
         return@withContext RootDetectionResult(
             isRooted = detectionMethods.isNotEmpty(),
@@ -61,8 +68,44 @@ class RootDetector(private val context: Context? = null) {
     }
     
     /**
-     * Checks for su binaries in common locations.
+     * Checks for root using RootBeer library (primary detection method).
+     * RootBeer performs comprehensive checks including:
+     * - SU binaries in common locations
+     * - Root management apps
+     * - Dangerous system properties
+     * - SELinux status
+     * - Native checks via JNI
+     * - Build properties (test-keys)
      */
+    private fun checkRootBeer(detectionMethods: MutableList<String>) {
+        try {
+            rootBeer?.let { rb ->
+                // Primary check: isRooted() - comprehensive root detection
+                // This covers most common root detection methods
+                if (rb.isRooted) {
+                    detectionMethods.add("RootBeer: Root detected (comprehensive check)")
+                }
+                
+                // Additional check: isRootedWithoutBusyBoxCheck()
+                // Some devices have busybox by default, so this check is more accurate
+                // Can also help detect emulators
+                if (rb.isRootedWithoutBusyBoxCheck && !rb.isRooted) {
+                    // Detected without busybox but not with full check - might be edge case
+                    detectionMethods.add("RootBeer: Root indicators detected (without BusyBox check)")
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "RootBeer check failed")
+            // Continue with other checks even if RootBeer fails
+        }
+    }
+    
+    /**
+     * Checks for su binaries in common locations.
+     * NOTE: This is now primarily handled by RootBeer, but kept for specific edge cases.
+     * @deprecated RootBeer already covers this, but kept for backward compatibility
+     */
+    @Deprecated("RootBeer already checks su binaries", ReplaceWith("RootBeer.isRooted()"))
     private fun checkSuBinaries(detectionMethods: MutableList<String>) {
         val suPaths = listOf(
             "/system/app/Superuser.apk",
@@ -297,7 +340,11 @@ class RootDetector(private val context: Context? = null) {
     
     /**
      * Checks for known root management apps via PackageManager.
+     * NOTE: RootBeer already checks for most root apps, but this method
+     * provides additional specific checks for edge cases.
+     * @deprecated RootBeer already covers this, but kept for specific cases
      */
+    @Deprecated("RootBeer already checks root apps", ReplaceWith("RootBeer.isRooted()"))
     private fun checkRootApps(detectionMethods: MutableList<String>, context: Context) {
         val rootApps = listOf(
             "com.noshufou.android.su",

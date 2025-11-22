@@ -168,9 +168,8 @@ import java.io.File
         } catch (e: Exception) {
             // Silently ignore /proc access errors
         }
-        
-        // Check for Frida server socket
-        try {
+    }
+    
     /**
      * Checks for other tampering indicators.
      */

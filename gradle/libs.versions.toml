@@ -11,11 +11,12 @@ activity = "1.12.0"
 constraintlayout = "2.1.4"
 
 # Hilt Dependency Injection
-hilt = "2.57.2"
+# Downgraded to 2.56.1 due to JavaPoet compatibility issue with 2.57.2
+hilt = "2.56.1"
 hiltNavigation = "1.3.0"
 
 # Room Database
-room = "2.8.2"
+room = "2.7.0"
 
 # Navigation Component
 navigation = "2.9.5"
@@ -43,9 +44,13 @@ timber = "5.0.1"
 
 # Security
 securityCrypto = "1.1.0"
+rootbeer = "0.1.1"
+
+# JavaPoet (for Hilt code generation)
+javapoet = "1.13.0"
 
 # Kotlin Serialization
-kotlinxSerialization = "1.9.0"
+kotlinxSerialization = "1.6.3"
 
 # KSP (Kotlin Symbol Processing)
 ksp = "2.0.21-1.0.28"
@@ -55,7 +60,7 @@ testRunner = "1.7.0"
 testRules = "1.7.0"
 mockk = "1.14.6"
 coroutinesTest = "1.10.2"
-hiltTesting = "2.57.2"
+hiltTesting = "2.56.1"
 
 [libraries]
 # Android Core
@@ -101,6 +106,10 @@ timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "tim
 
 # Security
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+rootbeer = { group = "com.scottyab", name = "rootbeer-lib", version.ref = "rootbeer" }
+
+# JavaPoet (for Hilt code generation)
+javapoet = { group = "com.squareup", name = "javapoet", version.ref = "javapoet" }
 
 # Kotlin Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }

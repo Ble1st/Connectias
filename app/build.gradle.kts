@@ -42,6 +42,16 @@ android {
     }
 }
 
+// Force JavaPoet version for Hilt compatibility
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "com.squareup" && requested.name == "javapoet") {
+            useVersion(libs.versions.javapoet.get())
+            because("Hilt requires JavaPoet 1.13.0")
+        }
+    }
+}
+
 dependencies {
     // Core Modules (always included)
     implementation(project(":core"))
@@ -65,6 +75,8 @@ dependencies {
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    // Explicitly add JavaPoet 1.13.0 for Hilt compatibility
+    implementation(libs.javapoet)
 
     // Navigation
     implementation(libs.androidx.navigation.fragment.ktx)
@@ -72,6 +84,9 @@ dependencies {
 
     // Fragment
     implementation(libs.androidx.fragment.ktx)
+
+    // Logging
+    implementation(libs.timber)
 
     // Testing
     testImplementation(libs.junit)

@@ -1,13 +1,13 @@
 package com.ble1st.connectias.core.module
 
+import java.util.concurrent.ConcurrentHashMap
+
 data class ModuleInfo(
     val id: String,
     val name: String,
     val version: String,
     val isActive: Boolean
 )
-
-import java.util.concurrent.ConcurrentHashMap
 
 class ModuleRegistry {
     private val modules = ConcurrentHashMap<String, ModuleInfo>()

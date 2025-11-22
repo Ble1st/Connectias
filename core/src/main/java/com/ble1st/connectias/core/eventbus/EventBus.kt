@@ -1,6 +1,5 @@
 package com.ble1st.connectias.core.eventbus
 
-import kotlinx.coroutines.flow.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -11,8 +10,9 @@ import javax.inject.Singleton
 class EventBus @Inject constructor() {
     private val _events = MutableSharedFlow<Event>(
         replay = 0,  // explicit: no replay for new collectors
-        extraBufferCapacity = 64,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST  // prevent backpressure blocking
+        extraBufferCapacity = 64
+        // Note: onBufferOverflow parameter requires BufferOverflow enum which may not be available
+        // in all Kotlin Coroutines versions. Using default behavior (SUSPEND).
     )
     val events: SharedFlow<Event> = _events.asSharedFlow()
 

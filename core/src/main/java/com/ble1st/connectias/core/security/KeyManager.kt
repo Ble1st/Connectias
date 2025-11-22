@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
-import net.zetetic.database.sqlcipher.SupportSQLCipher
 import timber.log.Timber
+import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,7 +23,8 @@ class KeyManager @Inject constructor(
     companion object {
         private const val PREFS_NAME = "connectias_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
-        private const val PASSPHRASE_LENGTH = 32 // ~196 bits of entropy    }
+        private const val PASSPHRASE_LENGTH = 32 // ~196 bits of entropy
+    }
 
     private val masterKey: MasterKey by lazy {
         MasterKey.Builder(context)
@@ -60,7 +61,7 @@ class KeyManager @Inject constructor(
                 Timber.d("Using existing database passphrase from secure storage")
                 val passphraseChars = storedPassphrase.toCharArray()
                 try {
-                    return SupportSQLCipher.getBytes(passphraseChars)
+                    return String(passphraseChars).toByteArray(StandardCharsets.UTF_8)
                 } finally {
                     // Zero-fill CharArray to minimize memory exposure
                     passphraseChars.fill('\u0000')
@@ -85,7 +86,7 @@ class KeyManager @Inject constructor(
                     if (retryPassphrase != null) {
                         val retryChars = retryPassphrase.toCharArray()
                         try {
-                            return SupportSQLCipher.getBytes(retryChars)
+                            return String(retryChars).toByteArray(StandardCharsets.UTF_8)
                         } finally {
                             retryChars.fill('\u0000')
                         }
@@ -97,7 +98,7 @@ class KeyManager @Inject constructor(
                 // Clear String reference (though GC will handle it)
                 // Convert to ByteArray and zero-fill CharArray
                 try {
-                    return SupportSQLCipher.getBytes(newPassphraseChars)
+                    return String(newPassphraseChars).toByteArray(StandardCharsets.UTF_8)
                 } finally {
                     // Zero-fill CharArray to minimize memory exposure
                     newPassphraseChars.fill('\u0000')
@@ -111,7 +112,7 @@ class KeyManager @Inject constructor(
                 if (retryPassphrase != null) {
                     val retryChars = retryPassphrase.toCharArray()
                     try {
-                        return SupportSQLCipher.getBytes(retryChars)
+                        return String(retryChars).toByteArray(StandardCharsets.UTF_8)
                     } finally {
                         retryChars.fill('\u0000')
                     }
@@ -134,7 +135,7 @@ class KeyManager @Inject constructor(
                 }
                 
                 try {
-                    return SupportSQLCipher.getBytes(fallbackChars)
+                    return String(fallbackChars).toByteArray(StandardCharsets.UTF_8)
                 } finally {
                     fallbackChars.fill('\u0000')
                 }

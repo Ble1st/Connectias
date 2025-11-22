@@ -44,10 +44,13 @@ dependencies {
 
     // Security
     implementation(libs.security.crypto)
+    implementation(libs.rootbeer)
 
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
+    // Explicitly add JavaPoet 1.13.0 for Hilt compatibility
+    implementation(libs.javapoet)
 
     // Logging
     implementation(libs.timber)

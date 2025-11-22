@@ -73,3 +73,4 @@ class SettingsViewModel @Inject constructor(
     fun clearError() {
         _error.value = null
     }
+}
