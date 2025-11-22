@@ -19,5 +19,8 @@ object ServiceModule {
     @Provides
     @Singleton
     fun provideModuleRegistry(): ModuleRegistry = ModuleRegistry()
+    
+    // LoggingService is provided via @Inject constructor, no explicit provider needed
+    // SecurityService is provided via @Inject constructor, no explicit provider needed
 }
 

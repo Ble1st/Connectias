@@ -16,6 +16,10 @@ interface SecurityLogDao {
 
     @Query("SELECT * FROM security_logs WHERE threatType = :threatType ORDER BY timestamp DESC LIMIT :limit")
     fun getLogsByThreatType(threatType: String, limit: Int = 100): Flow<List<SecurityLogEntity>>
+    
+    @Query("SELECT * FROM security_logs WHERE threatLevel = :threatLevel ORDER BY timestamp DESC LIMIT :limit")
+    fun getLogsByThreatLevel(threatLevel: String, limit: Int = 100): Flow<List<SecurityLogEntity>>
+    
     @Query("DELETE FROM security_logs WHERE timestamp < :beforeTimestamp")
     suspend fun deleteOldLogs(beforeTimestamp: Long)
 }
