@@ -38,6 +38,11 @@ data class LocationPrivacyInfo(
 
 /**
  * Information about an app's location access.
+ * 
+ * Note: Background location permission (ACCESS_BACKGROUND_LOCATION) can be granted
+ * in addition to foreground permissions (ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION),
+ * not as a mutually exclusive level. This model correctly represents apps that may have
+ * both foreground and background location access simultaneously.
  */
 @Parcelize
 data class LocationAccess(
@@ -45,24 +50,29 @@ data class LocationAccess(
     val appName: String,
     val hasFineLocation: Boolean,
     val hasCoarseLocation: Boolean,
-    val permissionLevel: LocationPermissionLevel
-) : Parcelable {
+    /**
+     * Foreground location permission level.
+     * Represents the highest foreground permission granted (FINE > COARSE > NONE).
+     * Background access is tracked separately via hasBackgroundAccess.
+     */
+    val permissionLevel: LocationPermissionLevel,
     /**
      * Whether the app has background location access (ACCESS_BACKGROUND_LOCATION).
-     * Derived from permissionLevel to maintain single source of truth.
+     * This can be true in addition to foreground permissions (hasFineLocation/hasCoarseLocation).
      * Available on Android 10+ (API 29+).
+     * Background location requires a foreground location permission as a prerequisite.
      */
-    val hasBackgroundAccess: Boolean
-        get() = permissionLevel == LocationPermissionLevel.BACKGROUND
-}
+    val hasBackgroundAccess: Boolean = false
+) : Parcelable
 
 /**
- * Location permission level.
+ * Foreground location permission level.
+ * Represents the highest foreground permission granted.
+ * Note: Background location access is tracked separately and can coexist with any foreground level.
  */
 enum class LocationPermissionLevel {
     NONE,
     COARSE,    // ACCESS_COARSE_LOCATION
-    FINE,      // ACCESS_FINE_LOCATION
-    BACKGROUND // ACCESS_BACKGROUND_LOCATION (Android 10+)
+    FINE       // ACCESS_FINE_LOCATION
 }
 

@@ -51,6 +51,7 @@ class BackgroundActivityProvider @Inject constructor(
     suspend fun getBackgroundActivityInfo(): BackgroundActivityInfo = withContext(Dispatchers.IO) {
         try {
             // Get installed packages once and reuse
+            var isIncomplete = false
             val installedPackages = try {
                 packageManager.getInstalledPackages(0)
                     .filter { 
@@ -58,8 +59,14 @@ class BackgroundActivityProvider @Inject constructor(
                         (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) == 0) ||
                         (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
                     }
+            } catch (e: SecurityException) {
+                // System API failure - treat as fatal, will be caught by outer catch
+                Timber.e(e, "SecurityException getting installed packages - system API failure")
+                throw e
             } catch (e: Exception) {
-                Timber.w(e, "Error getting installed packages, falling back to empty list")
+                // Recoverable error (e.g., filtering issues) - mark as incomplete
+                Timber.e(e, "Error getting installed packages, falling back to empty list")
+                isIncomplete = true
                 emptyList<android.content.pm.PackageInfo>()
             }
             
@@ -71,7 +78,8 @@ class BackgroundActivityProvider @Inject constructor(
                 runningServices = runningServices,
                 appsWithBackgroundRestrictions = appsWithBackgroundRestrictions,
                 appsIgnoringBatteryOptimization = appsIgnoringBatteryOptimization,
-                totalRunningServices = runningServices.size
+                totalRunningServices = runningServices.size,
+                isIncomplete = isIncomplete
             )
         } catch (e: Exception) {
             Timber.e(e, "Error getting background activity info")
@@ -79,7 +87,8 @@ class BackgroundActivityProvider @Inject constructor(
                 runningServices = emptyList(),
                 appsWithBackgroundRestrictions = emptyList(),
                 appsIgnoringBatteryOptimization = emptyList(),
-                totalRunningServices = 0
+                totalRunningServices = 0,
+                isIncomplete = true
             )
         }
     }

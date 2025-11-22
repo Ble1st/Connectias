@@ -120,8 +120,8 @@ class LocationPrivacyProvider @Inject constructor(
                         val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() } 
                             ?: packageInfo.packageName
                         
+                        // Determine foreground permission level (highest granted)
                         val permissionLevel = when {
-                            backgroundGranted -> LocationPermissionLevel.BACKGROUND
                             fineGranted -> LocationPermissionLevel.FINE
                             coarseGranted -> LocationPermissionLevel.COARSE
                             else -> LocationPermissionLevel.NONE
@@ -132,7 +132,8 @@ class LocationPrivacyProvider @Inject constructor(
                             appName = appName,
                             hasFineLocation = fineGranted,
                             hasCoarseLocation = coarseGranted,
-                            permissionLevel = permissionLevel
+                            permissionLevel = permissionLevel,
+                            hasBackgroundAccess = backgroundGranted
                         )
                     } else {
                         null

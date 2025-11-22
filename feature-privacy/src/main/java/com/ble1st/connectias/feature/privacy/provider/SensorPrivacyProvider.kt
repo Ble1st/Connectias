@@ -103,8 +103,8 @@ class SensorPrivacyProvider @Inject constructor(
             sensorTypes.add("body_sensors")
         }
         
-        // ACTIVITY_RECOGNITION permission indicates step counter/detector access        if (packageManager.checkPermission(
-                android.Manifest.permission.ACTIVITY_RECOGNITION,
+        // ACTIVITY_RECOGNITION permission indicates step counter/detector access
+        if (packageManager.checkPermission(                android.Manifest.permission.ACTIVITY_RECOGNITION,
                 packageName
             ) == PackageManager.PERMISSION_GRANTED
         ) {

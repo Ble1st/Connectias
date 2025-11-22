@@ -11,7 +11,14 @@ data class BackgroundActivityInfo(
     val runningServices: List<RunningService>,
     val appsWithBackgroundRestrictions: List<String>,
     val appsIgnoringBatteryOptimization: List<String>,
-    val totalRunningServices: Int
+    val totalRunningServices: Int,
+    /**
+     * Indicates if the data is incomplete due to errors during retrieval.
+     * When true, some information may be missing (e.g., empty lists) due to
+     * recoverable errors (like package filtering issues). When false, all data
+     * was successfully retrieved.
+     */
+    val isIncomplete: Boolean = false
 ) : Parcelable
 
 /**

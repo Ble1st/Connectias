@@ -24,7 +24,6 @@
 }
 
 # Keep enum classes for serialization
-# Keep enum classes for serialization
 -keep class com.ble1st.connectias.feature.privacy.models.PrivacyLevel { *; }
 -keep class com.ble1st.connectias.feature.privacy.models.LocationPermissionLevel { *; }
 -keep class com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel { *; }
