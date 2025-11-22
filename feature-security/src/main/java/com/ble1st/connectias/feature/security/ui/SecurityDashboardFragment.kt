@@ -13,12 +13,15 @@ import com.ble1st.connectias.core.security.models.SecurityThreat
 import com.ble1st.connectias.feature.security.databinding.FragmentSecurityDashboardBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @AndroidEntryPoint
 class SecurityDashboardFragment : Fragment() {
 
     private var _binding: FragmentSecurityDashboardBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding ?: throw IllegalStateException(
+        "Binding is null. Fragment view not created yet or already destroyed."
+    )
     private val viewModel: SecurityDashboardViewModel by viewModels()
 
     override fun onCreateView(
@@ -63,6 +66,13 @@ class SecurityDashboardFragment : Fragment() {
     }
 
     private fun updateSecurityStatus(result: com.ble1st.connectias.core.security.models.SecurityCheckResult) {
+        // Lifecycle guarantees binding is non-null when view is created
+        // But add defensive check for safety
+        val binding = _binding ?: run {
+            Timber.w("Binding is null in updateSecurityStatus - view may be destroyed")
+            return
+        }
+        
         // Update status text
         binding.textSecurityStatus.text = if (result.isSecure) {
             "✓ Secure - No threats detected"

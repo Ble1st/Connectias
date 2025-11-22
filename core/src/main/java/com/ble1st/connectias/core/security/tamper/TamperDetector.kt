@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.io.File
 
@@ -51,7 +52,7 @@ import java.io.File
     /**
      * Checks for hook frameworks including Xposed, EdXposed, and LSPosed.
      */
-    private fun checkHookFrameworks(detectionMethods: MutableList<String>) {
+    private suspend fun checkHookFrameworks(detectionMethods: MutableList<String>) {
         val hookIndicators = listOf(
             "/system/xbin/xposed" to "Xposed framework detected",
             "/system/lib/libxposed_art.so" to "Xposed library (32-bit) detected",
@@ -80,51 +81,56 @@ import java.io.File
             }
         }
         
-        // Check for Xposed-related processes (PII-redacted)
+        // Check for Xposed-related processes (PII-redacted) with timeout and limit
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
-                procDir.listFiles()?.forEach { pidDir ->
-                    try {
-                        // Only check numeric PID directories to reduce resource usage
-                        val pid = pidDir.name.toIntOrNull() ?: return@forEach
-                        
-                        val cmdlineFile = File(pidDir, "cmdline")
-                        if (cmdlineFile.exists()) {
-                            val cmdline = cmdlineFile.readText().trim()
-                            val lowerCmdline = cmdline.lowercase()
+                val pidDirs = procDir.listFiles()?.take(100) // Limit to 100 processes
+                pidDirs?.forEach { pidDir ->
+                    withTimeoutOrNull(2000) {
+                        try {
+                            // Only check numeric PID directories to reduce resource usage
+                            val pid = pidDir.name.toIntOrNull() ?: return@withTimeoutOrNull
                             
-                            // Extract process name (first token before null/space) for safer detection
-                            val processName = cmdline.split('\u0000', ' ').firstOrNull()?.lowercase() ?: lowerCmdline
-                            
-                            when {
-                                processName.contains("edxposed") -> {
-                                    // Redact cmdline to avoid PII exposure
-                                    detectionMethods.add("EdXposed process detected (pid=$pid)")
-                                }
-                                processName.contains("lsposed") -> {
-                                    // Use specific "lsposed" check instead of generic "lsp"
-                                    detectionMethods.add("LSPosed process detected (pid=$pid)")
-                                }
-                                processName.contains("xposed") -> {
-                                    detectionMethods.add("Xposed process detected (pid=$pid)")
+                            val cmdlineFile = File(pidDir, "cmdline")
+                            if (cmdlineFile.exists()) {
+                                val cmdline = cmdlineFile.readText().trim()
+                                val lowerCmdline = cmdline.lowercase()
+                                
+                                // Extract process name (first token before null/space) for safer detection
+                                val processName = cmdline.split('\u0000', ' ').firstOrNull()?.lowercase() ?: lowerCmdline
+                                
+                                when {
+                                    processName.contains("edxposed") -> {
+                                        // Redact cmdline to avoid PII exposure
+                                        detectionMethods.add("EdXposed process detected (pid=$pid)")
+                                    }
+                                    processName.contains("lsposed") -> {
+                                        // Use specific "lsposed" check instead of generic "lsp"
+                                        detectionMethods.add("LSPosed process detected (pid=$pid)")
+                                    }
+                                    processName.contains("xposed") -> {
+                                        detectionMethods.add("Xposed process detected (pid=$pid)")
+                                    }
                                 }
                             }
+                        } catch (e: Exception) {
+                            // Ignore individual process read errors
                         }
-                    } catch (e: Exception) {
-                        // Ignore individual process read errors
+                    } ?: run {
+                        Timber.w("Process scan timed out for PID directory: ${pidDir.name}")
                     }
                 }
             }
         } catch (e: Exception) {
-            // Silently ignore /proc access errors
+            Timber.w(e, "Error scanning /proc for hook frameworks")
         }
     }
     
     /**
      * Checks for Frida server indicators.
      */
-    private fun checkFrida(detectionMethods: MutableList<String>) {
+    private suspend fun checkFrida(detectionMethods: MutableList<String>) {
         val fridaIndicators = listOf(
             "/data/local/tmp/frida-server",
             "/data/local/tmp/re.frida.server",
@@ -143,30 +149,35 @@ import java.io.File
             }
         }
         
-        // Check for Frida processes (PII-redacted)
+        // Check for Frida processes (PII-redacted) with timeout and limit
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
-                procDir.listFiles()?.forEach { pidDir ->
-                    try {
-                        // Only check numeric PID directories to reduce resource usage
-                        val pid = pidDir.name.toIntOrNull() ?: return@forEach
-                        
-                        val cmdlineFile = File(pidDir, "cmdline")
-                        if (cmdlineFile.exists()) {
-                            val cmdline = cmdlineFile.readText().trim()
-                            if (cmdline.contains("frida", ignoreCase = true)) {
-                                // Redact cmdline to avoid PII exposure
-                                detectionMethods.add("Frida process detected (pid=$pid)")
+                val pidDirs = procDir.listFiles()?.take(100) // Limit to 100 processes
+                pidDirs?.forEach { pidDir ->
+                    withTimeoutOrNull(2000) {
+                        try {
+                            // Only check numeric PID directories to reduce resource usage
+                            val pid = pidDir.name.toIntOrNull() ?: return@withTimeoutOrNull
+                            
+                            val cmdlineFile = File(pidDir, "cmdline")
+                            if (cmdlineFile.exists()) {
+                                val cmdline = cmdlineFile.readText().trim()
+                                if (cmdline.contains("frida", ignoreCase = true)) {
+                                    // Redact cmdline to avoid PII exposure
+                                    detectionMethods.add("Frida process detected (pid=$pid)")
+                                }
                             }
+                        } catch (e: Exception) {
+                            // Ignore individual process read errors
                         }
-                    } catch (e: Exception) {
-                        // Ignore individual process read errors
+                    } ?: run {
+                        Timber.w("Process scan timed out for PID directory: ${pidDir.name}")
                     }
                 }
             }
         } catch (e: Exception) {
-            // Silently ignore /proc access errors
+            Timber.w(e, "Error scanning /proc for Frida processes")
         }
     }
     

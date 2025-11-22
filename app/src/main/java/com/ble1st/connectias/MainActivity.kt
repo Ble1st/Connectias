@@ -5,12 +5,17 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
+import com.ble1st.connectias.core.BuildConfig
 import com.ble1st.connectias.core.module.ModuleRegistry
+import com.ble1st.connectias.core.services.LoggingService
+import com.ble1st.connectias.core.services.SecurityService
 import com.ble1st.connectias.databinding.ActivityMainBinding
-import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -21,9 +26,42 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var moduleRegistry: ModuleRegistry
+    
+    @Inject
+    lateinit var loggingService: LoggingService
+    
+    @Inject
+    lateinit var securityService: SecurityService
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        super.onCreate(savedInstanceState) // Hilt injection happens here
+        
+        // Perform security checks before UI initialization
+        lifecycleScope.launch {
+            try {
+                val result = withTimeoutOrNull(5000) {
+                    securityService.performSecurityCheckWithTermination()
+                }
+                
+                if (result == null) {
+                    Timber.w("Security check timed out - continuing with app start")
+                    // Continue app start even if check timed out
+                } else if (result.threats.isNotEmpty() && !BuildConfig.DEBUG) {
+                    // App will be terminated by SecurityService
+                    // This code should not be reached, but kept for safety
+                    Timber.e("Security threats detected - app should have been terminated")
+                    return@launch
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Security check failed during app start")
+                // In production: decide whether to continue or terminate
+                // For now: continue with app start to avoid blocking users
+                if (!BuildConfig.DEBUG) {
+                    // In production, consider terminating on security check failure
+                    // For MVP: log and continue
+                }
+            }
+        }
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -42,14 +80,22 @@ class MainActivity : AppCompatActivity() {
         
         // Module Discovery
         setupModuleDiscovery()
+        
+        // Log rotation (Hilt injection is guaranteed after super.onCreate())
+        lifecycleScope.launch {
+            try {
+                loggingService.rotateLogs()
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to perform log rotation on app start")
+            }
+        }
     }
 
     private fun setupNavigation() {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         
         // Bottom Navigation mit NavController verbinden
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        bottomNav?.setupWithNavController(navController)
+        binding.bottomNavigation.setupWithNavController(navController)
         
         Timber.d("Navigation setup completed")
     }
