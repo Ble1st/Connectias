@@ -51,9 +51,7 @@ class SecurityService @Inject constructor(
         if (result.threats.isNotEmpty() && !BuildConfig.DEBUG) {
             Timber.e("Security threat detected - terminating app. Threats: ${result.threats.size}")
             Process.killProcess(Process.myPid())
-            System.exit(1)
-        }
-        
+        }        
         return result
     }
 }

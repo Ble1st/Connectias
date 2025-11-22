@@ -81,16 +81,21 @@ import java.io.File
             }
         }
         
-        // Check for Xposed-related processes (PII-redacted) with timeout and limit
+        // Check for Xposed-related processes (PII-redacted) with global timeout
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
-                val pidDirs = procDir.listFiles()?.take(100) // Limit to 100 processes
-                pidDirs?.forEach { pidDir ->
-                    withTimeoutOrNull(2000) {
+                // Filter to only numeric PID directories and sort deterministically
+                val pidDirs = procDir.listFiles()
+                    ?.filter { it.name.all { char -> char.isDigit() } } // Only numeric PIDs
+                    ?.sortedBy { it.name.toIntOrNull() ?: Int.MAX_VALUE } // Sort by PID
+                    ?: emptyList()
+                
+                // Apply global timeout to entire scan (5 seconds)
+                withTimeoutOrNull(5000) {
+                    pidDirs.forEach { pidDir ->
                         try {
-                            // Only check numeric PID directories to reduce resource usage
-                            val pid = pidDir.name.toIntOrNull() ?: return@withTimeoutOrNull
+                            val pid = pidDir.name.toIntOrNull() ?: return@forEach
                             
                             val cmdlineFile = File(pidDir, "cmdline")
                             if (cmdlineFile.exists()) {
@@ -117,9 +122,9 @@ import java.io.File
                         } catch (e: Exception) {
                             // Ignore individual process read errors
                         }
-                    } ?: run {
-                        Timber.w("Process scan timed out for PID directory: ${pidDir.name}")
                     }
+                } ?: run {
+                    Timber.w("Process scan timed out after 5 seconds")
                 }
             }
         } catch (e: Exception) {
@@ -149,16 +154,21 @@ import java.io.File
             }
         }
         
-        // Check for Frida processes (PII-redacted) with timeout and limit
+        // Check for Frida processes (PII-redacted) with global timeout
         try {
             val procDir = File("/proc")
             if (procDir.exists()) {
-                val pidDirs = procDir.listFiles()?.take(100) // Limit to 100 processes
-                pidDirs?.forEach { pidDir ->
-                    withTimeoutOrNull(2000) {
+                // Filter to only numeric PID directories and sort deterministically
+                val pidDirs = procDir.listFiles()
+                    ?.filter { it.name.all { char -> char.isDigit() } } // Only numeric PIDs
+                    ?.sortedBy { it.name.toIntOrNull() ?: Int.MAX_VALUE } // Sort by PID
+                    ?: emptyList()
+                
+                // Apply global timeout to entire scan (5 seconds)
+                withTimeoutOrNull(5000) {
+                    pidDirs.forEach { pidDir ->
                         try {
-                            // Only check numeric PID directories to reduce resource usage
-                            val pid = pidDir.name.toIntOrNull() ?: return@withTimeoutOrNull
+                            val pid = pidDir.name.toIntOrNull() ?: return@forEach
                             
                             val cmdlineFile = File(pidDir, "cmdline")
                             if (cmdlineFile.exists()) {
@@ -171,9 +181,9 @@ import java.io.File
                         } catch (e: Exception) {
                             // Ignore individual process read errors
                         }
-                    } ?: run {
-                        Timber.w("Process scan timed out for PID directory: ${pidDir.name}")
                     }
+                } ?: run {
+                    Timber.w("Process scan timed out after 5 seconds")
                 }
             }
         } catch (e: Exception) {

@@ -14,7 +14,10 @@ import com.ble1st.connectias.core.services.LoggingService
 import com.ble1st.connectias.core.services.SecurityService
 import com.ble1st.connectias.databinding.ActivityMainBinding
 import dagger.hilt.android.AndroidEntryPoint
+import android.os.Process
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
@@ -36,33 +39,56 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // Hilt injection happens here
         
-        // Perform security checks before UI initialization
-        lifecycleScope.launch {
+        // Perform security checks asynchronously before UI initialization
+        // This does not block the main thread, but UI initialization waits for completion
+        lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = withTimeoutOrNull(5000) {
                     securityService.performSecurityCheckWithTermination()
                 }
                 
-                if (result == null) {
-                    Timber.w("Security check timed out - continuing with app start")
-                    // Continue app start even if check timed out
-                } else if (result.threats.isNotEmpty() && !BuildConfig.DEBUG) {
-                    // App will be terminated by SecurityService
-                    // This code should not be reached, but kept for safety
-                    Timber.e("Security threats detected - app should have been terminated")
-                    return@launch
+                // Switch back to Main thread for UI operations and termination
+                withContext(Dispatchers.Main) {
+                    if (result == null) {
+                        // Timeout occurred - treat as failure in production
+                        Timber.e("Security check timed out - terminating app in production")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                    } else if (result.threats.isNotEmpty()) {
+                        // Threats detected - app should be terminated by SecurityService
+                        // But ensure termination if it didn't happen
+                        Timber.e("Security threats detected - ensuring app termination")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                    }
+                    
+                    // Security check passed - initialize UI
+                    initializeUI()
                 }
             } catch (e: Exception) {
-                Timber.e(e, "Security check failed during app start")
-                // In production: decide whether to continue or terminate
-                // For now: continue with app start to avoid blocking users
-                if (!BuildConfig.DEBUG) {
-                    // In production, consider terminating on security check failure
-                    // For MVP: log and continue
+                // Exception during security check - treat as failure in production
+                Timber.e(e, "Security check failed during app start - terminating app in production")
+                withContext(Dispatchers.Main) {
+                    if (!BuildConfig.DEBUG) {
+                        terminateApp()
+                    } else {
+                        // In debug mode, still initialize UI even on error
+                        initializeUI()
+                    }
                 }
             }
         }
-        
+    }
+    
+    /**
+     * Initializes the UI after security checks have passed.
+     * This method is called from the coroutine after security validation.
+     */
+    private fun initializeUI() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -158,5 +184,20 @@ class MainActivity : AppCompatActivity() {
         activeModules.forEach { module ->
             Timber.d("  - ${module.name} (${module.id}) v${module.version}")
         }
+    }
+    
+    /**
+     * Terminates the app when security checks fail or threats are detected.
+     * Uses finishAffinity() to close all activities and then kills the process.
+     */
+    private fun terminateApp() {
+        Timber.e("Terminating app due to security failure")
+        try {
+            finishAffinity() // Close all activities in the task
+        } catch (e: Exception) {
+            Timber.e(e, "Error calling finishAffinity")
+        }
+        Process.killProcess(Process.myPid())
+        System.exit(1)
     }
 }
