@@ -8,7 +8,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.ui.setupWithNavController
-import com.ble1st.connectias.core.BuildConfig
+import com.ble1st.connectias.BuildConfig
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.services.LoggingService
 import com.ble1st.connectias.core.services.SecurityService
@@ -39,56 +39,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // Hilt injection happens here
         
-        // Perform security checks asynchronously before UI initialization
-        // This does not block the main thread, but UI initialization waits for completion
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val result = withTimeoutOrNull(5000) {
-                    securityService.performSecurityCheckWithTermination()
-                }
-                
-                // Switch back to Main thread for UI operations and termination
-                withContext(Dispatchers.Main) {
-                    if (result == null) {
-                        // Timeout occurred - treat as failure in production
-                        Timber.e("Security check timed out - terminating app in production")
-                        if (!BuildConfig.DEBUG) {
-                            terminateApp()
-                            return@withContext
-                        }
-                    } else if (result.threats.isNotEmpty()) {
-                        // Threats detected - app should be terminated by SecurityService
-                        // But ensure termination if it didn't happen
-                        Timber.e("Security threats detected - ensuring app termination")
-                        if (!BuildConfig.DEBUG) {
-                            terminateApp()
-                            return@withContext
-                        }
-                    }
-                    
-                    // Security check passed - initialize UI
-                    initializeUI()
-                }
-            } catch (e: Exception) {
-                // Exception during security check - treat as failure in production
-                Timber.e(e, "Security check failed during app start - terminating app in production")
-                withContext(Dispatchers.Main) {
-                    if (!BuildConfig.DEBUG) {
-                        terminateApp()
-                    } else {
-                        // In debug mode, still initialize UI even on error
-                        initializeUI()
-                    }
-                }
-            }
-        }
-    }
-    
-    /**
-     * Initializes the UI after security checks have passed.
-     * This method is called from the coroutine after security validation.
-     */
-    private fun initializeUI() {
+        // Initialize UI immediately to prevent empty/white screen
+        // Security checks run in parallel and will terminate app if threats detected
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -113,6 +65,46 @@ class MainActivity : AppCompatActivity() {
                 loggingService.rotateLogs()
             } catch (e: Exception) {
                 Timber.e(e, "Failed to perform log rotation on app start")
+            }
+        }
+        
+        // Perform security checks asynchronously (UI is already initialized)
+        // If threats are detected, app will be terminated
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = withTimeoutOrNull(5000) {
+                    securityService.performSecurityCheckWithTermination()
+                }
+                
+                // Switch back to Main thread for termination if needed
+                withContext(Dispatchers.Main) {
+                    if (result == null) {
+                        // Timeout occurred - treat as failure in production
+                        Timber.e("Security check timed out - terminating app in production")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                    } else if (result.threats.isNotEmpty()) {
+                        // Threats detected - app should be terminated by SecurityService
+                        // But ensure termination if it didn't happen
+                        Timber.e("Security threats detected - ensuring app termination")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                    }
+                    // Security check passed - UI is already initialized and ready
+                }
+            } catch (e: Exception) {
+                // Exception during security check - treat as failure in production
+                Timber.e(e, "Security check failed during app start - terminating app in production")
+                withContext(Dispatchers.Main) {
+                    if (!BuildConfig.DEBUG) {
+                        terminateApp()
+                    }
+                    // In debug mode, continue with already-initialized UI
+                }
             }
         }
     }
