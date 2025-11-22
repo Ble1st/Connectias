@@ -63,7 +63,19 @@ data class LocationAccess(
      * Background location requires a foreground location permission as a prerequisite.
      */
     val hasBackgroundAccess: Boolean = false
-) : Parcelable
+) : Parcelable {
+    init {
+        // Validate that background access requires a foreground permission
+        // Android's permission model requires ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION
+        // as a prerequisite for ACCESS_BACKGROUND_LOCATION
+        require(
+            !hasBackgroundAccess || permissionLevel != LocationPermissionLevel.NONE
+        ) {
+            "Invalid combination: hasBackgroundAccess=true requires a foreground permission " +
+                    "(permissionLevel must be COARSE or FINE, not NONE)"
+        }
+    }
+}
 
 /**
  * Foreground location permission level.

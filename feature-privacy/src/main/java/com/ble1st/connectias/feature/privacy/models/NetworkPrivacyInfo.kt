@@ -20,25 +20,16 @@ data class NetworkPrivacyInfo(
     val isConnected: Boolean,
     /**
      * Whether private DNS is enabled (user setting).
-     * This represents the user's configuration preference.
-     * Note: This may differ from dnsStatus if private DNS is enabled but not active
-     * (e.g., due to network conditions or configuration issues).
-     * Derived from dnsStatus for consistency: privateDnsEnabled = (dnsStatus == DNSStatus.PRIVATE)
+     * This is an explicit constructor parameter representing the user's configured preference
+     * for private DNS (whether they have enabled private DNS in system settings).
+     * This is not computed from dnsStatus.
+     * 
+     * Note: The runtime DNS state (dnsStatus) may differ from this user preference.
+     * For example, private DNS may be enabled by the user but not active at runtime
+     * due to network conditions, configuration issues, or DNS resolution failures.
      */
     val privateDnsEnabled: Boolean
-) : Parcelable {
-    init {
-        // Validate consistency between privateDnsEnabled and dnsStatus
-        // If privateDnsEnabled is true, dnsStatus should be PRIVATE (or UNKNOWN if status couldn't be determined)
-        // If privateDnsEnabled is false, dnsStatus should be STANDARD (or UNKNOWN if status couldn't be determined)
-        require(
-            (privateDnsEnabled && (dnsStatus == DNSStatus.PRIVATE || dnsStatus == DNSStatus.UNKNOWN)) ||
-            (!privateDnsEnabled && (dnsStatus == DNSStatus.STANDARD || dnsStatus == DNSStatus.UNKNOWN))
-        ) {
-            "Inconsistent state: privateDnsEnabled=$privateDnsEnabled but dnsStatus=$dnsStatus"
-        }
-    }
-}
+) : Parcelable
 /**
  * DNS configuration status.
  */
