@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.os.Build
 import android.provider.Settings
 import com.ble1st.connectias.feature.privacy.models.LocationAccess
 import com.ble1st.connectias.feature.privacy.models.LocationPermissionLevel
@@ -26,10 +27,9 @@ class LocationPrivacyProvider @Inject constructor(
         context.packageManager
     }
 
-    private val locationManager: LocationManager by lazy {
-        context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val locationManager: LocationManager? by lazy {
+        context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
     }
-
     /**
      * Gets location privacy information.
      * This method performs blocking I/O and should be called from a background thread.
@@ -37,10 +37,10 @@ class LocationPrivacyProvider @Inject constructor(
     suspend fun getLocationPrivacyInfo(): LocationPrivacyInfo = withContext(Dispatchers.IO) {
         try {
             val mockLocationEnabled = isMockLocationEnabled()
-            val locationServicesEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-            val gpsEnabled = locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)
-            val networkLocationEnabled = locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            val locationMgr = locationManager
+            val gpsEnabled = locationMgr?.isProviderEnabled(LocationManager.GPS_PROVIDER) == true
+            val networkLocationEnabled = locationMgr?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true
+            val locationServicesEnabled = gpsEnabled || networkLocationEnabled
             
             val appsWithLocationAccess = getAppsWithLocationAccess()
 
@@ -63,17 +63,23 @@ class LocationPrivacyProvider @Inject constructor(
         }
     }
 
+    /**
+     * Checks if mock location is enabled using deprecated Settings API.
+     * 
+     * @deprecated Settings.Secure.ALLOW_MOCK_LOCATION is ineffective on API 23+.
+     * Mock detection should be done per-Location via Location.isFromMockProvider() (API 18+)
+     * in location callbacks where Location objects are available.
+     * This method returns false on modern Android versions as the settings-based approach
+     * is unreliable.
+     */
+    @Deprecated(
+        message = "Use Location.isFromMockProvider() for per-location mock detection",
+        level = DeprecationLevel.WARNING
+    )
     private fun isMockLocationEnabled(): Boolean {
-        return try {
-            Settings.Secure.getInt(
-                context.contentResolver,
-                Settings.Secure.ALLOW_MOCK_LOCATION,
-                0
-            ) != 0
-        } catch (e: Exception) {
-            Timber.w(e, "Error checking mock location")
-            false
-        }
+        // Settings.Secure.ALLOW_MOCK_LOCATION is ineffective on API 23+
+        // Return false and rely on per-Location mock detection via Location.isFromMockProvider()
+        return false
     }
 
     private fun getAppsWithLocationAccess(): List<LocationAccess> {
@@ -90,12 +96,6 @@ class LocationPrivacyProvider @Inject constructor(
                     ) == true
 
                     if (hasFineLocation || hasCoarseLocation) {
-                        val permissionLevel = when {
-                            hasFineLocation -> LocationPermissionLevel.FINE
-                            hasCoarseLocation -> LocationPermissionLevel.COARSE
-                            else -> LocationPermissionLevel.NONE
-                        }
-
                         // Check if permission is actually granted
                         val fineGranted = packageManager.checkPermission(
                             android.Manifest.permission.ACCESS_FINE_LOCATION,
@@ -107,18 +107,33 @@ class LocationPrivacyProvider @Inject constructor(
                             packageInfo.packageName
                         ) == PackageManager.PERMISSION_GRANTED
 
+                        val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            packageManager.checkPermission(
+                                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                                packageInfo.packageName
+                            ) == PackageManager.PERMISSION_GRANTED
+                        } else {
+                            false
+                        }
+
                         val appInfo = packageInfo.applicationInfo
                         val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() } 
                             ?: packageInfo.packageName
+                        
+                        val permissionLevel = when {
+                            backgroundGranted -> LocationPermissionLevel.BACKGROUND
+                            fineGranted -> LocationPermissionLevel.FINE
+                            coarseGranted -> LocationPermissionLevel.COARSE
+                            else -> LocationPermissionLevel.NONE
+                        }
                         
                         LocationAccess(
                             packageName = packageInfo.packageName,
                             appName = appName,
                             hasFineLocation = fineGranted,
                             hasCoarseLocation = coarseGranted,
-                            permissionLevel = if (fineGranted) LocationPermissionLevel.FINE
-                                else if (coarseGranted) LocationPermissionLevel.COARSE
-                                else LocationPermissionLevel.NONE
+                            permissionLevel = permissionLevel,
+                            hasBackgroundAccess = backgroundGranted
                         )
                     } else {
                         null

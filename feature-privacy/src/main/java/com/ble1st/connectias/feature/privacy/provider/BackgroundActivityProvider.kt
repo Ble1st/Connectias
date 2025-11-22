@@ -23,8 +23,8 @@ import javax.inject.Singleton
 class BackgroundActivityProvider @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val activityManager: ActivityManager by lazy {
-        context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+    private val activityManager: ActivityManager? by lazy {
+        context.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
     }
 
     private val packageManager: PackageManager by lazy {
@@ -35,8 +35,13 @@ class BackgroundActivityProvider @Inject constructor(
         context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
     }
 
-    private val powerManager: PowerManager by lazy {
-        context.getSystemService(Context.POWER_SERVICE) as PowerManager
+    private val powerManager: PowerManager? by lazy {
+        context.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    }
+    
+    private companion object {
+        // Fallback constant for minSdk < 28
+        private const val OPSTR_RUN_IN_BACKGROUND_FALLBACK = "android:run_in_background"
     }
 
     /**
@@ -45,9 +50,22 @@ class BackgroundActivityProvider @Inject constructor(
      */
     suspend fun getBackgroundActivityInfo(): BackgroundActivityInfo = withContext(Dispatchers.IO) {
         try {
+            // Get installed packages once and reuse
+            val installedPackages = try {
+                packageManager.getInstalledPackages(0)
+                    .filter { 
+                        // Filter out system packages for better performance
+                        (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) == 0) ||
+                        (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+                    }
+            } catch (e: Exception) {
+                Timber.w(e, "Error getting installed packages, using all packages")
+                packageManager.getInstalledPackages(0)
+            }
+            
             val runningServices = getRunningServices()
-            val appsWithBackgroundRestrictions = getAppsWithBackgroundRestrictions()
-            val appsIgnoringBatteryOptimization = getAppsIgnoringBatteryOptimization()
+            val appsWithBackgroundRestrictions = getAppsWithBackgroundRestrictions(installedPackages)
+            val appsIgnoringBatteryOptimization = getAppsIgnoringBatteryOptimization(installedPackages)
 
             BackgroundActivityInfo(
                 runningServices = runningServices,
@@ -66,16 +84,13 @@ class BackgroundActivityProvider @Inject constructor(
         }
     }
 
-    private fun getRunningServices(): List<RunningService> {
+    @androidx.annotation.VisibleForTesting
+    internal fun getRunningServices(): List<RunningService> {
         return try {
-            val services = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                // getRunningServices is deprecated on API 26+, but we use it for compatibility
-                @Suppress("DEPRECATION")
-                activityManager.getRunningServices(Integer.MAX_VALUE)
-            } else {
-                @Suppress("DEPRECATION")
-                activityManager.getRunningServices(Integer.MAX_VALUE)
-            }
+            val activityMgr = activityManager ?: return emptyList()
+            // getRunningServices is deprecated on API 26+, but we use it for compatibility
+            @Suppress("DEPRECATION")
+            val services = activityMgr.getRunningServices(Integer.MAX_VALUE)
 
             services
                 .filter { it.service.packageName != context.packageName } // Exclude our own app
@@ -83,11 +98,10 @@ class BackgroundActivityProvider @Inject constructor(
                     val packageName = serviceInfo.service.packageName
                     val appName = try {
                         val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                        appInfo?.let { packageManager.getApplicationLabel(it).toString() } ?: packageName
+                        packageManager.getApplicationLabel(appInfo).toString()
                     } catch (e: Exception) {
                         packageName
                     }
-
                     RunningService(
                         packageName = packageName,
                         appName = appName,
@@ -100,32 +114,37 @@ class BackgroundActivityProvider @Inject constructor(
         }
     }
 
-    private fun getAppsWithBackgroundRestrictions(): List<String> {
+    @androidx.annotation.VisibleForTesting
+    internal fun getAppsWithBackgroundRestrictions(installedPackages: List<android.content.pm.PackageInfo>): List<String> {
         return try {
-            if (appOpsManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            val appOpsMgr = appOpsManager ?: return emptyList()
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                 return emptyList()
             }
 
-            val installedPackages = packageManager.getInstalledPackages(0)
+            val opString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                AppOpsManager.OPSTR_RUN_IN_BACKGROUND
+            } else {
+                OPSTR_RUN_IN_BACKGROUND_FALLBACK
+            }
+
             installedPackages
                 .mapNotNull { packageInfo ->
                     try {
                         val appInfo = packageInfo.applicationInfo ?: return@mapNotNull null
                         val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            appOpsManager!!.unsafeCheckOpNoThrow(
-                                "android:run_in_background",
-                                appInfo.uid,
-                                packageInfo.packageName
-                            )
-                        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            @Suppress("DEPRECATION")
-                            appOpsManager!!.checkOpNoThrow(
-                                "android:run_in_background",
+                            appOpsMgr.unsafeCheckOpNoThrow(
+                                opString,
                                 appInfo.uid,
                                 packageInfo.packageName
                             )
                         } else {
-                            AppOpsManager.MODE_ALLOWED
+                            @Suppress("DEPRECATION")
+                            appOpsMgr.checkOpNoThrow(
+                                opString,
+                                appInfo.uid,
+                                packageInfo.packageName
+                            )
                         }
 
                         if (mode == AppOpsManager.MODE_IGNORED || mode == AppOpsManager.MODE_ERRORED) {
@@ -143,17 +162,18 @@ class BackgroundActivityProvider @Inject constructor(
         }
     }
 
-    private fun getAppsIgnoringBatteryOptimization(): List<String> {
+    @androidx.annotation.VisibleForTesting
+    internal fun getAppsIgnoringBatteryOptimization(installedPackages: List<android.content.pm.PackageInfo>): List<String> {
         return try {
+            val powerMgr = powerManager ?: return emptyList()
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                 return emptyList()
             }
 
-            val installedPackages = packageManager.getInstalledPackages(0)
             installedPackages
                 .mapNotNull { packageInfo ->
                     try {
-                        val isIgnoring = powerManager.isIgnoringBatteryOptimizations(packageInfo.packageName)
+                        val isIgnoring = powerMgr.isIgnoringBatteryOptimizations(packageInfo.packageName)
                         if (isIgnoring) {
                             packageInfo.packageName
                         } else {

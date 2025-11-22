@@ -44,14 +44,14 @@ class StoragePrivacyProvider @Inject constructor(
             )
         } catch (e: Exception) {
             Timber.e(e, "Error getting storage privacy info")
+            val isAndroidQPlus = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
             StoragePrivacyInfo(
-                scopedStorageEnabled = true,
+                scopedStorageEnabled = isAndroidQPlus,
                 legacyStorageMode = false,
                 appsWithStorageAccess = emptyList(),
-                mediaStoreAccessEnabled = false
+                mediaStoreAccessEnabled = isAndroidQPlus
             )
-        }
-    }
+        }    }
 
     private fun isScopedStorageEnabled(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -99,22 +99,16 @@ class StoragePrivacyProvider @Inject constructor(
                         packageInfo,
                         android.Manifest.permission.READ_EXTERNAL_STORAGE
                     ) || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_IMAGES) ||
+                        (hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_IMAGES) ||
                         hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_VIDEO) ||
-                        hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_AUDIO))
+                        hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_AUDIO)))
 
                     val hasWriteStorage = hasStoragePermission(
                         packageInfo,
                         android.Manifest.permission.WRITE_EXTERNAL_STORAGE
                     )
 
-                    val hasMediaAccess = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        hasReadStorage || hasWriteStorage
-                    } else {
-                        false
-                    }
-
-                    if (hasReadStorage || hasWriteStorage || hasMediaAccess) {
+                    if (hasReadStorage || hasWriteStorage) {
                         val appInfo = packageInfo.applicationInfo
                         val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() }
                             ?: packageInfo.packageName
@@ -124,7 +118,7 @@ class StoragePrivacyProvider @Inject constructor(
                             appName = appName,
                             hasReadStorage = hasReadStorage,
                             hasWriteStorage = hasWriteStorage,
-                            hasMediaAccess = hasMediaAccess
+                            hasMediaAccess = hasReadStorage || hasWriteStorage
                         )
                     } else {
                         null

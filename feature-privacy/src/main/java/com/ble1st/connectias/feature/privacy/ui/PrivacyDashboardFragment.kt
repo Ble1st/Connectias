@@ -9,7 +9,9 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.ble1st.connectias.feature.privacy.R
 import com.ble1st.connectias.feature.privacy.databinding.FragmentPrivacyDashboardBinding
+import com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel
 import com.ble1st.connectias.feature.privacy.models.PrivacyLevel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -22,7 +24,7 @@ import timber.log.Timber
 class PrivacyDashboardFragment : Fragment() {
 
     private var _binding: FragmentPrivacyDashboardBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = requireNotNull(_binding) { "Binding accessed after onDestroyView" }
     private val viewModel: PrivacyDashboardViewModel by viewModels()
 
     override fun onCreateView(
@@ -48,7 +50,7 @@ class PrivacyDashboardFragment : Fragment() {
                 viewModel.uiState.collect { state ->
                     when (state) {
                         is PrivacyDashboardState.Loading -> {
-                            binding.textPrivacyStatus.text = "Loading privacy information..."
+                            binding.textPrivacyStatus.text = getString(R.string.privacy_loading)
                             binding.textPrivacyDetails.text = ""
                             binding.buttonRefresh.isEnabled = false
                         }
@@ -57,8 +59,9 @@ class PrivacyDashboardFragment : Fragment() {
                             updatePrivacyStatus(state.data)
                         }
                         is PrivacyDashboardState.Error -> {
+                            Timber.e("Privacy dashboard error: ${state.message}")
                             binding.buttonRefresh.isEnabled = true
-                            binding.textPrivacyStatus.text = "Error: ${state.message}"
+                            binding.textPrivacyStatus.text = getString(R.string.privacy_error_format, state.message)
                             binding.textPrivacyDetails.text = ""
                         }
                     }
@@ -70,13 +73,12 @@ class PrivacyDashboardFragment : Fragment() {
     private fun updatePrivacyStatus(uiState: UiState) {
         val overallLevel = uiState.overallStatus.overallLevel
         val statusText = when (overallLevel) {
-            PrivacyLevel.SECURE -> "✓ Privacy Status: Secure"
-            PrivacyLevel.WARNING -> "⚠ Privacy Status: Warning"
-            PrivacyLevel.CRITICAL -> "⚠ Privacy Status: Critical"
-            PrivacyLevel.UNKNOWN -> "? Privacy Status: Unknown"
+            PrivacyLevel.SECURE -> getString(R.string.privacy_status_secure)
+            PrivacyLevel.WARNING -> getString(R.string.privacy_status_warning)
+            PrivacyLevel.CRITICAL -> getString(R.string.privacy_status_critical)
+            PrivacyLevel.UNKNOWN -> getString(R.string.privacy_status_unknown)
         }
         binding.textPrivacyStatus.text = statusText
-
         // Build detailed privacy information
         val detailsText = buildString {
             append("Privacy Overview\n\n")
@@ -96,9 +98,8 @@ class PrivacyDashboardFragment : Fragment() {
 
             append("Permissions Privacy: ${formatPrivacyLevel(uiState.overallStatus.permissionsPrivacy)}\n")
             append("  - Total apps: ${uiState.appPermissions.size}\n")
-            val highRiskApps = uiState.appPermissions.count { it.riskLevel == com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel.HIGH }
+            val highRiskApps = uiState.appPermissions.count { it.riskLevel == PermissionRiskLevel.HIGH }
             append("  - High risk apps: $highRiskApps\n\n")
-
             append("Background Activity: ${formatPrivacyLevel(uiState.overallStatus.backgroundPrivacy)}\n")
             append("  - Running services: ${uiState.backgroundActivity.totalRunningServices}\n")
             append("  - Apps ignoring battery optimization: ${uiState.backgroundActivity.appsIgnoringBatteryOptimization.size}\n\n")
@@ -114,10 +115,10 @@ class PrivacyDashboardFragment : Fragment() {
 
     private fun formatPrivacyLevel(level: PrivacyLevel): String {
         return when (level) {
-            PrivacyLevel.SECURE -> "✓ Secure"
-            PrivacyLevel.WARNING -> "⚠ Warning"
-            PrivacyLevel.CRITICAL -> "⚠ Critical"
-            PrivacyLevel.UNKNOWN -> "? Unknown"
+            PrivacyLevel.SECURE -> getString(R.string.privacy_level_secure)
+            PrivacyLevel.WARNING -> getString(R.string.privacy_level_warning)
+            PrivacyLevel.CRITICAL -> getString(R.string.privacy_level_critical)
+            PrivacyLevel.UNKNOWN -> getString(R.string.privacy_level_unknown)
         }
     }
 

@@ -3,5 +3,11 @@
     <string name="privacy_dashboard_title">Privacy Dashboard</string>
     <string name="privacy_dashboard_description">Privacy information and status</string>
     <string name="refresh">Refresh</string>
+    <string name="privacy_loading">Loading privacy information…</string>
+    <string name="privacy_error_format">Error: %1$s</string>
+    <string name="privacy_level_secure">✓ Secure</string>
+    <string name="privacy_level_warning">⚠ Warning</string>
+    <string name="privacy_level_critical">⚠ Critical</string>
+    <string name="privacy_level_unknown">? Unknown</string>
 </resources>
 

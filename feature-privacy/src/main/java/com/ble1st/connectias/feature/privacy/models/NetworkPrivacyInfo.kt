@@ -7,14 +7,13 @@ import kotlinx.parcelize.Parcelize
  * Network privacy information including DNS, VPN, and connection status.
  */
 @Parcelize
+@Parcelize
 data class NetworkPrivacyInfo(
     val dnsStatus: DNSStatus,
     val vpnActive: Boolean,
     val networkType: NetworkType,
-    val isConnected: Boolean,
-    val privateDnsEnabled: Boolean
+    val isConnected: Boolean
 ) : Parcelable
-
 /**
  * DNS configuration status.
  */

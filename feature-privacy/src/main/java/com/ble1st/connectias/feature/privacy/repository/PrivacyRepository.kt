@@ -14,11 +14,15 @@ import com.ble1st.connectias.feature.privacy.provider.LocationPrivacyProvider
 import com.ble1st.connectias.feature.privacy.provider.NetworkPrivacyProvider
 import com.ble1st.connectias.feature.privacy.provider.SensorPrivacyProvider
 import com.ble1st.connectias.feature.privacy.provider.StoragePrivacyProvider
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -43,89 +47,97 @@ class PrivacyRepository @Inject constructor(
     private val appPermissionsCache = MutableStateFlow<List<AppPermissionInfo>?>(null)
     private val backgroundActivityCache = MutableStateFlow<BackgroundActivityInfo?>(null)
     private val storagePrivacyCache = MutableStateFlow<StoragePrivacyInfo?>(null)
+    
+    // Mutexes for thread-safe cache access
+    private val networkPrivacyMutex = Mutex()
+    private val sensorPrivacyMutex = Mutex()
+    private val locationPrivacyMutex = Mutex()
+    private val appPermissionsMutex = Mutex()
+    private val backgroundActivityMutex = Mutex()
+    private val storagePrivacyMutex = Mutex()
 
     /**
      * Gets network privacy information with caching.
      */
-    fun getNetworkPrivacyInfo(): Flow<NetworkPrivacyInfo> = flow {
+    suspend fun getNetworkPrivacyInfo(): NetworkPrivacyInfo = networkPrivacyMutex.withLock {
         val cached = networkPrivacyCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = networkPrivacyProvider.getNetworkPrivacyInfo()
         networkPrivacyCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
      * Gets sensor privacy information with caching.
      */
-    fun getSensorPrivacyInfo(): Flow<SensorPrivacyInfo> = flow {
+    suspend fun getSensorPrivacyInfo(): SensorPrivacyInfo = sensorPrivacyMutex.withLock {
         val cached = sensorPrivacyCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = sensorPrivacyProvider.getSensorPrivacyInfo()
         sensorPrivacyCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
      * Gets location privacy information with caching.
      */
-    fun getLocationPrivacyInfo(): Flow<LocationPrivacyInfo> = flow {
+    suspend fun getLocationPrivacyInfo(): LocationPrivacyInfo = locationPrivacyMutex.withLock {
         val cached = locationPrivacyCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = locationPrivacyProvider.getLocationPrivacyInfo()
         locationPrivacyCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
      * Gets app permissions information with caching.
      */
-    fun getAppPermissionsInfo(): Flow<List<AppPermissionInfo>> = flow {
+    suspend fun getAppPermissionsInfo(): List<AppPermissionInfo> = appPermissionsMutex.withLock {
         val cached = appPermissionsCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = appPermissionsProvider.getAppPermissionsInfo()
         appPermissionsCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
      * Gets background activity information with caching.
      */
-    fun getBackgroundActivityInfo(): Flow<BackgroundActivityInfo> = flow {
+    suspend fun getBackgroundActivityInfo(): BackgroundActivityInfo = backgroundActivityMutex.withLock {
         val cached = backgroundActivityCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = backgroundActivityProvider.getBackgroundActivityInfo()
         backgroundActivityCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
      * Gets storage privacy information with caching.
      */
-    fun getStoragePrivacyInfo(): Flow<StoragePrivacyInfo> = flow {
+    suspend fun getStoragePrivacyInfo(): StoragePrivacyInfo = storagePrivacyMutex.withLock {
         val cached = storagePrivacyCache.value
         if (cached != null) {
-            emit(cached)
+            return@withLock cached
         }
         
         val fresh = storagePrivacyProvider.getStoragePrivacyInfo()
         storagePrivacyCache.value = fresh
-        emit(fresh)
+        fresh
     }
 
     /**
@@ -133,34 +145,45 @@ class PrivacyRepository @Inject constructor(
      */
     suspend fun getOverallPrivacyStatus(): PrivacyStatus {
         return try {
-            val networkInfo = networkPrivacyProvider.getNetworkPrivacyInfo()
-            val sensorInfo = sensorPrivacyProvider.getSensorPrivacyInfo()
-            val locationInfo = locationPrivacyProvider.getLocationPrivacyInfo()
-            val appPermissionsInfo = appPermissionsProvider.getAppPermissionsInfo()
-            val backgroundInfo = backgroundActivityProvider.getBackgroundActivityInfo()
-            val storageInfo = storagePrivacyProvider.getStoragePrivacyInfo()
+            coroutineScope {
+                // Fetch all privacy information in parallel
+                val networkInfoDeferred = async { getNetworkPrivacyInfo() }
+                val sensorInfoDeferred = async { getSensorPrivacyInfo() }
+                val locationInfoDeferred = async { getLocationPrivacyInfo() }
+                val appPermissionsInfoDeferred = async { getAppPermissionsInfo() }
+                val backgroundInfoDeferred = async { getBackgroundActivityInfo() }
+                val storageInfoDeferred = async { getStoragePrivacyInfo() }
 
-            val networkLevel = calculateNetworkPrivacyLevel(networkInfo)
-            val sensorLevel = calculateSensorPrivacyLevel(sensorInfo)
-            val locationLevel = calculateLocationPrivacyLevel(locationInfo)
-            val permissionsLevel = calculatePermissionsPrivacyLevel(appPermissionsInfo)
-            val backgroundLevel = calculateBackgroundPrivacyLevel(backgroundInfo)
-            val storageLevel = calculateStoragePrivacyLevel(storageInfo)
+                // Await all results
+                val networkInfo = networkInfoDeferred.await()
+                val sensorInfo = sensorInfoDeferred.await()
+                val locationInfo = locationInfoDeferred.await()
+                val appPermissionsInfo = appPermissionsInfoDeferred.await()
+                val backgroundInfo = backgroundInfoDeferred.await()
+                val storageInfo = storageInfoDeferred.await()
 
-            val overallLevel = calculateOverallLevel(
-                networkLevel, sensorLevel, locationLevel,
-                permissionsLevel, backgroundLevel, storageLevel
-            )
+                val networkLevel = calculateNetworkPrivacyLevel(networkInfo)
+                val sensorLevel = calculateSensorPrivacyLevel(sensorInfo)
+                val locationLevel = calculateLocationPrivacyLevel(locationInfo)
+                val permissionsLevel = calculatePermissionsPrivacyLevel(appPermissionsInfo)
+                val backgroundLevel = calculateBackgroundPrivacyLevel(backgroundInfo)
+                val storageLevel = calculateStoragePrivacyLevel(storageInfo)
 
-            PrivacyStatus(
-                networkPrivacy = networkLevel,
-                sensorPrivacy = sensorLevel,
-                locationPrivacy = locationLevel,
-                permissionsPrivacy = permissionsLevel,
-                backgroundPrivacy = backgroundLevel,
-                storagePrivacy = storageLevel,
-                overallLevel = overallLevel
-            )
+                val overallLevel = calculateOverallLevel(
+                    networkLevel, sensorLevel, locationLevel,
+                    permissionsLevel, backgroundLevel, storageLevel
+                )
+
+                PrivacyStatus(
+                    networkPrivacy = networkLevel,
+                    sensorPrivacy = sensorLevel,
+                    locationPrivacy = locationLevel,
+                    permissionsPrivacy = permissionsLevel,
+                    backgroundPrivacy = backgroundLevel,
+                    storagePrivacy = storageLevel,
+                    overallLevel = overallLevel
+                )
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error getting overall privacy status")
             PrivacyStatus(
@@ -250,14 +273,16 @@ class PrivacyRepository @Inject constructor(
         storage: PrivacyLevel
     ): PrivacyLevel {
         val levels = listOf(network, sensor, location, permissions, background, storage)
+        val unknownCount = levels.count { it == PrivacyLevel.UNKNOWN }
         val criticalCount = levels.count { it == PrivacyLevel.CRITICAL }
         val warningCount = levels.count { it == PrivacyLevel.WARNING }
 
         return when {
+            unknownCount == levels.size -> PrivacyLevel.UNKNOWN
             criticalCount > 0 -> PrivacyLevel.CRITICAL
             warningCount >= 3 -> PrivacyLevel.WARNING
+            unknownCount > 0 -> PrivacyLevel.WARNING
             else -> PrivacyLevel.SECURE
         }
-    }
-}
+    }}
 

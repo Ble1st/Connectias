@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.privacy.provider
 
+import android.app.AppOpsManager
 import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
@@ -25,6 +26,10 @@ class AppPermissionsProvider @Inject constructor(
 ) {
     private val packageManager: PackageManager by lazy {
         context.packageManager
+    }
+    
+    private val appOpsManager: AppOpsManager? by lazy {
+        context.getSystemService(Context.APP_OPS_SERVICE) as? AppOpsManager
     }
 
     /**
@@ -77,8 +82,7 @@ class AppPermissionsProvider @Inject constructor(
         requestedPermissions.forEach { permission ->
             try {
                 val permissionInfo = packageManager.getPermissionInfo(permission, 0)
-                val isDangerous = (permissionInfo.protectionFlags and PermissionInfo.PROTECTION_DANGEROUS) != 0
-                val isGranted = packageInfo.requestedPermissionsFlags?.let { flags ->
+                val isDangerous = (permissionInfo.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE) == PermissionInfo.PROTECTION_DANGEROUS                val isGranted = packageInfo.requestedPermissionsFlags?.let { flags ->
                     val index = requestedPermissions.indexOf(permission)
                     if (index >= 0 && index < flags.size) {
                         (flags[index] and PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0
@@ -105,7 +109,7 @@ class AppPermissionsProvider @Inject constructor(
             }
         }
 
-        val specialPermissions = getSpecialPermissions(packageName)
+        val specialPermissions = getSpecialPermissions(packageInfo)
         val riskLevel = calculateRiskLevel(runtimePermissions, specialPermissions)
 
         return AppPermissionInfo(
@@ -118,16 +122,47 @@ class AppPermissionsProvider @Inject constructor(
         )
     }
 
-    private fun getSpecialPermissions(packageName: String): List<SpecialPermission> {
+    private fun getSpecialPermissions(packageInfo: PackageInfo): List<SpecialPermission> {
         val specialPermissions = mutableListOf<SpecialPermission>()
 
-        // Check SYSTEM_ALERT_WINDOW
+        // Check SYSTEM_ALERT_WINDOW per package using AppOpsManager
         try {
+            val appInfo = packageInfo.applicationInfo ?: return specialPermissions
+            
+            // Check if the manifest declares SYSTEM_ALERT_WINDOW permission
+            val hasPermissionDeclared = packageInfo.requestedPermissions?.contains(
+                android.Manifest.permission.SYSTEM_ALERT_WINDOW
+            ) == true
+            
+            if (!hasPermissionDeclared) {
+                return specialPermissions
+            }
+            
             val canDrawOverlays = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                android.provider.Settings.canDrawOverlays(context)
+                val appOpsMgr = appOpsManager ?: return specialPermissions
+                val uid = appInfo.uid
+                val opString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW
+                } else {
+                    "android:system_alert_window"
+                }
+                
+                try {
+                    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        appOpsMgr.unsafeCheckOpNoThrow(opString, uid, packageInfo.packageName)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        appOpsMgr.checkOpNoThrow(opString, uid, packageInfo.packageName)
+                    }
+                    mode == AppOpsManager.MODE_ALLOWED
+                } catch (e: Exception) {
+                    Timber.w(e, "Error checking overlay permission for ${packageInfo.packageName}")
+                    false
+                }
             } else {
                 false
             }
+            
             specialPermissions.add(
                 SpecialPermission(
                     permission = android.Manifest.permission.SYSTEM_ALERT_WINDOW,
@@ -135,7 +170,7 @@ class AppPermissionsProvider @Inject constructor(
                 )
             )
         } catch (e: Exception) {
-            // Ignore
+            Timber.w(e, "Error getting special permissions for ${packageInfo.packageName}")
         }
 
         return specialPermissions

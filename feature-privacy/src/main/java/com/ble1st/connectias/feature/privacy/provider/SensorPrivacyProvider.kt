@@ -24,10 +24,9 @@ class SensorPrivacyProvider @Inject constructor(
         context.packageManager
     }
 
-    private val sensorManager: SensorManager by lazy {
-        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val sensorManager: SensorManager? by lazy {
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
     }
-
     /**
      * Gets sensor privacy information.
      * This method performs blocking I/O and should be called from a background thread.
@@ -58,11 +57,16 @@ class SensorPrivacyProvider @Inject constructor(
             installedPackages
                 .filter { it.requestedPermissions != null }
                 .mapNotNull { packageInfo ->
-                    val hasSensorPermissions = packageInfo.requestedPermissions?.any { permission ->
-                        permission.contains("SENSOR", ignoreCase = true) ||
-                        permission == android.Manifest.permission.CAMERA ||
-                        permission == android.Manifest.permission.RECORD_AUDIO
-                    } == true
+                    val relevantPermissions = listOf(
+                        android.Manifest.permission.CAMERA,
+                        android.Manifest.permission.RECORD_AUDIO,
+                        android.Manifest.permission.BODY_SENSORS,
+                        android.Manifest.permission.ACTIVITY_RECOGNITION
+                    )
+                    
+                    val hasSensorPermissions = relevantPermissions.any { permission ->
+                        packageManager.checkPermission(permission, packageInfo.packageName) == PackageManager.PERMISSION_GRANTED
+                    }
 
                     if (hasSensorPermissions) {
                         packageInfo.applicationInfo
@@ -75,18 +79,40 @@ class SensorPrivacyProvider @Inject constructor(
             emptyList()
         }
     }
-
+    
+    /**
+     * Creates SensorAccess by inferring sensor types from granted permissions.
+     * This is an inference based on declared/granted permissions, as Android doesn't
+     * provide a direct API to query which sensors an app is actively using.
+     */
     private fun createSensorAccess(appInfo: ApplicationInfo): SensorAccess {
         val packageName = appInfo.packageName
+        require(packageName.isNotBlank()) { "Package name cannot be blank" }
+        
         val appName = packageManager.getApplicationLabel(appInfo).toString()
+        require(appName.isNotBlank()) { "App name cannot be blank" }
 
         val sensorTypes = mutableListOf<String>()
-        val availableSensors = sensorManager.getSensorList(android.hardware.Sensor.TYPE_ALL)
         
-        // Check which sensors are available (this doesn't tell us which apps use them,
-        // but we can list available sensor types)
-        availableSensors.forEach { sensor ->
-            sensorTypes.add(sensor.name)
+        // Permission-to-sensor mapping: infer sensor types from granted permissions
+        // BODY_SENSORS permission indicates access to body sensors (heart rate, etc.)
+        if (packageManager.checkPermission(
+                android.Manifest.permission.BODY_SENSORS,
+                packageName
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            sensorTypes.add("heart_rate")
+            sensorTypes.add("body_sensors")
+        }
+        
+        // STEP_COUNTER and STEP_DETECTOR permissions indicate step counter access
+        if (packageManager.checkPermission(
+                android.Manifest.permission.ACTIVITY_RECOGNITION,
+                packageName
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            sensorTypes.add("step_counter")
+            sensorTypes.add("step_detector")
         }
 
         // Check camera and microphone permissions
@@ -94,18 +120,24 @@ class SensorPrivacyProvider @Inject constructor(
             android.Manifest.permission.CAMERA,
             packageName
         ) == PackageManager.PERMISSION_GRANTED
+        
+        if (hasCameraAccess) {
+            sensorTypes.add("camera")
+        }
 
         val hasMicrophoneAccess = packageManager.checkPermission(
             android.Manifest.permission.RECORD_AUDIO,
             packageName
         ) == PackageManager.PERMISSION_GRANTED
+        
+        if (hasMicrophoneAccess) {
+            sensorTypes.add("microphone")
+        }
 
         return SensorAccess(
             packageName = packageName,
             appName = appName,
-            sensorTypes = sensorTypes.distinct(),
-            hasCameraAccess = hasCameraAccess,
-            hasMicrophoneAccess = hasMicrophoneAccess
+            sensorTypes = sensorTypes.distinct()
         )
     }
 }

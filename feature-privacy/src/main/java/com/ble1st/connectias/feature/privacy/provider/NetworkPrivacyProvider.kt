@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.privacy.provider
 
 import android.content.Context
 import android.net.ConnectivityManager
+import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -9,39 +10,50 @@ import com.ble1st.connectias.feature.privacy.models.DNSStatus
 import com.ble1st.connectias.feature.privacy.models.NetworkPrivacyInfo
 import com.ble1st.connectias.feature.privacy.models.NetworkType
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Provides network privacy information including DNS, VPN, and connection status.
+ * 
+ * This provider uses ConnectivityManager APIs (getActiveNetwork, getNetworkCapabilities)
+ * and requires the Android permission android.permission.ACCESS_NETWORK_STATE to avoid
+ * SecurityException at runtime.
  */
 @Singleton
 class NetworkPrivacyProvider @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    private val connectivityManager: ConnectivityManager by lazy {
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val connectivityManager: ConnectivityManager? by lazy {
+        context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     }
 
     /**
      * Gets current network privacy information.
-     * This method performs blocking I/O and should be called from a background thread.
+     * This is a synchronous cached-state read that should be called off the main thread
+     * if used from UI code.
      */
-    suspend fun getNetworkPrivacyInfo(): NetworkPrivacyInfo = withContext(Dispatchers.IO) {
-        try {
-            val activeNetwork = connectivityManager.activeNetwork
+    suspend fun getNetworkPrivacyInfo(): NetworkPrivacyInfo {
+        return try {
+            val connectivityMgr = connectivityManager ?: return NetworkPrivacyInfo(
+                dnsStatus = DNSStatus.UNKNOWN,
+                vpnActive = false,
+                networkType = NetworkType.UNKNOWN,
+                isConnected = false,
+                privateDnsEnabled = false
+            )
+            
+            val activeNetwork = connectivityMgr.activeNetwork
             val networkCapabilities = activeNetwork?.let {
-                connectivityManager.getNetworkCapabilities(it)
+                connectivityMgr.getNetworkCapabilities(it)
             }
 
             val isConnected = networkCapabilities != null
             val vpnActive = networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
             val networkType = determineNetworkType(networkCapabilities)
             val dnsStatus = determineDNSStatus()
-            val privateDnsEnabled = isPrivateDnsEnabled()
+            val privateDnsEnabled = isPrivateDnsEnabled(activeNetwork, connectivityMgr)
 
             NetworkPrivacyInfo(
                 dnsStatus = dnsStatus,
@@ -77,25 +89,24 @@ class NetworkPrivacyProvider @Inject constructor(
     }
 
     private fun determineDNSStatus(): DNSStatus {
-        return try {
-            if (isPrivateDnsEnabled()) {
-                DNSStatus.PRIVATE
-            } else {
-                DNSStatus.STANDARD
-            }
-        } catch (e: Exception) {
-            Timber.w(e, "Error determining DNS status")
-            DNSStatus.UNKNOWN
+        return if (isPrivateDnsEnabled(null, connectivityManager)) {
+            DNSStatus.PRIVATE
+        } else {
+            DNSStatus.STANDARD
         }
     }
-
-    private fun isPrivateDnsEnabled(): Boolean {
+    
+    private fun isPrivateDnsEnabled(network: Network?, connectivityMgr: ConnectivityManager?): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val systemProperties = Class.forName("android.os.SystemProperties")
-                val getMethod = systemProperties.getMethod("get", String::class.java)
-                val privateDnsMode = getMethod.invoke(null, "net.dns_mode") as? String
-                privateDnsMode != null && privateDnsMode != "off"
+                val activeNetwork = network ?: connectivityMgr?.activeNetwork
+                if (activeNetwork != null) {
+                    val linkProperties: LinkProperties? = connectivityMgr?.getLinkProperties(activeNetwork)
+                    linkProperties?.isPrivateDnsActive == true
+                } else {
+                    // Fallback to false if network is not available
+                    false
+                }
             } else {
                 false
             }

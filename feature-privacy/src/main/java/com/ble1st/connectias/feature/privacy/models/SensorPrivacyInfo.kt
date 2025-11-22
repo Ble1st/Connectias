@@ -10,7 +10,22 @@ import kotlinx.parcelize.Parcelize
 data class SensorPrivacyInfo(
     val activeSensorAccesses: List<SensorAccess>,
     val totalAppsWithSensorAccess: Int
-) : Parcelable
+) : Parcelable {
+    init {
+        // Validate consistency: totalAppsWithSensorAccess should match distinct package count
+        require(totalAppsWithSensorAccess >= 0) { "totalAppsWithSensorAccess must be non-negative" }
+        require(totalAppsWithSensorAccess == activeSensorAccesses.distinctBy { it.packageName }.size) {
+            "totalAppsWithSensorAccess must match distinct package count"
+        }
+    }
+    
+    /**
+     * Computed property for total apps with sensor access.
+     * Returns the count of distinct packages in activeSensorAccesses.
+     */
+    val totalAppsWithSensorAccessComputed: Int
+        get() = activeSensorAccesses.distinctBy { it.packageName }.size
+}
 
 /**
  * Information about an app's access to sensors.
@@ -19,8 +34,25 @@ data class SensorPrivacyInfo(
 data class SensorAccess(
     val packageName: String,
     val appName: String,
-    val sensorTypes: List<String>,
-    val hasCameraAccess: Boolean,
+    val sensorTypes: List<String>
+) : Parcelable {
+    init {
+        require(packageName.isNotBlank()) { "Package name cannot be blank" }
+        require(appName.isNotBlank()) { "App name cannot be blank" }
+    }
+    
+    /**
+     * Whether the app has camera access.
+     * Derived from sensorTypes containing "camera".
+     */
+    val hasCameraAccess: Boolean
+        get() = "camera" in sensorTypes
+    
+    /**
+     * Whether the app has microphone access.
+     * Derived from sensorTypes containing "microphone".
+     */
     val hasMicrophoneAccess: Boolean
-) : Parcelable
+        get() = "microphone" in sensorTypes
+}
 
