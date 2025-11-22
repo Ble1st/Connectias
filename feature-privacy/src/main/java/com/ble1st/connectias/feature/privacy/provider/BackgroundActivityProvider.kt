@@ -59,8 +59,8 @@ class BackgroundActivityProvider @Inject constructor(
                         (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
                     }
             } catch (e: Exception) {
-                Timber.w(e, "Error getting installed packages, using all packages")
-                packageManager.getInstalledPackages(0)
+                Timber.w(e, "Error getting installed packages, falling back to empty list")
+                emptyList<android.content.pm.PackageInfo>()
             }
             
             val runningServices = getRunningServices()

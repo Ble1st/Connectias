@@ -14,10 +14,9 @@
 # Repository public API
 -keep,allowobfuscation,allowshrinking class com.ble1st.connectias.feature.privacy.repository.PrivacyRepository {
     <init>(...);
-    public suspend fun get*(...);
-    public fun refreshAll();
+    public *** get*(...);
+    public *** refreshAll();
 }
-
 # Model classes (Parcelable - used for data transfer)
 -keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.** {
     <init>(...);
@@ -25,9 +24,9 @@
 }
 
 # Keep enum classes for serialization
--keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.PrivacyLevel { *; }
--keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.LocationPermissionLevel { *; }
--keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel { *; }
--keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.DNSStatus { *; }
--keep,allowobfuscation class com.ble1st.connectias.feature.privacy.models.NetworkType { *; }
-
+# Keep enum classes for serialization
+-keep class com.ble1st.connectias.feature.privacy.models.PrivacyLevel { *; }
+-keep class com.ble1st.connectias.feature.privacy.models.LocationPermissionLevel { *; }
+-keep class com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel { *; }
+-keep class com.ble1st.connectias.feature.privacy.models.DNSStatus { *; }
+-keep class com.ble1st.connectias.feature.privacy.models.NetworkType { *; }

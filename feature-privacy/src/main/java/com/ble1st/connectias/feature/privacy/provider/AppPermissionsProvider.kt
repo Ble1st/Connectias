@@ -148,12 +148,8 @@ class AppPermissionsProvider @Inject constructor(
                 }
                 
                 try {
-                    val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        appOpsMgr.unsafeCheckOpNoThrow(opString, uid, packageInfo.packageName)
-                    } else {
-                        @Suppress("DEPRECATION")
-                        appOpsMgr.checkOpNoThrow(opString, uid, packageInfo.packageName)
-                    }
+                    val mode = @Suppress("DEPRECATION")
+                    appOpsMgr.checkOpNoThrow(opString, uid, packageInfo.packageName)
                     mode == AppOpsManager.MODE_ALLOWED
                 } catch (e: Exception) {
                     Timber.w(e, "Error checking overlay permission for ${packageInfo.packageName}")

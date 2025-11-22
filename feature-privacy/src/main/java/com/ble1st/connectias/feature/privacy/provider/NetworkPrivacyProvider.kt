@@ -52,8 +52,12 @@ class NetworkPrivacyProvider @Inject constructor(
             val isConnected = networkCapabilities != null
             val vpnActive = networkCapabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
             val networkType = determineNetworkType(networkCapabilities)
-            val dnsStatus = determineDNSStatus()
             val privateDnsEnabled = isPrivateDnsEnabled(activeNetwork, connectivityMgr)
+            val dnsStatus = if (privateDnsEnabled) {
+                DNSStatus.PRIVATE
+            } else {
+                DNSStatus.STANDARD
+            }
 
             NetworkPrivacyInfo(
                 dnsStatus = dnsStatus,
@@ -88,14 +92,6 @@ class NetworkPrivacyProvider @Inject constructor(
         }
     }
 
-    private fun determineDNSStatus(): DNSStatus {
-        return if (isPrivateDnsEnabled(null, connectivityManager)) {
-            DNSStatus.PRIVATE
-        } else {
-            DNSStatus.STANDARD
-        }
-    }
-    
     private fun isPrivateDnsEnabled(network: Network?, connectivityMgr: ConnectivityManager?): Boolean {
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

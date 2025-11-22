@@ -132,8 +132,7 @@ class LocationPrivacyProvider @Inject constructor(
                             appName = appName,
                             hasFineLocation = fineGranted,
                             hasCoarseLocation = coarseGranted,
-                            permissionLevel = permissionLevel,
-                            hasBackgroundAccess = backgroundGranted
+                            permissionLevel = permissionLevel
                         )
                     } else {
                         null

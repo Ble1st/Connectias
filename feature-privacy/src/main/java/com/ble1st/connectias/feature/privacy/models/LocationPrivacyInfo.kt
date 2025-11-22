@@ -11,7 +11,7 @@ data class LocationPrivacyInfo(
     val mockLocationEnabled: Boolean,
     /**
      * Overall location services enabled status.
-     * This represents the OS-level setting and is derived from gpsEnabled || networkLocationEnabled.
+     * This represents the OS-level setting from the Android system.
      * It may differ from individual provider statuses (gpsEnabled/networkLocationEnabled) in edge cases
      * where the system-level setting is disabled but individual providers may still be configured.
      */
@@ -45,13 +45,16 @@ data class LocationAccess(
     val appName: String,
     val hasFineLocation: Boolean,
     val hasCoarseLocation: Boolean,
-    val permissionLevel: LocationPermissionLevel,
+    val permissionLevel: LocationPermissionLevel
+) : Parcelable {
     /**
      * Whether the app has background location access (ACCESS_BACKGROUND_LOCATION).
+     * Derived from permissionLevel to maintain single source of truth.
      * Available on Android 10+ (API 29+).
      */
-    val hasBackgroundAccess: Boolean = false
-) : Parcelable
+    val hasBackgroundAccess: Boolean
+        get() = permissionLevel == LocationPermissionLevel.BACKGROUND
+}
 
 /**
  * Location permission level.

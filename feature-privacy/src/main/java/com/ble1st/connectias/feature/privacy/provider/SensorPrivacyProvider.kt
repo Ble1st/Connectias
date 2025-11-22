@@ -34,19 +34,17 @@ class SensorPrivacyProvider @Inject constructor(
     suspend fun getSensorPrivacyInfo(): SensorPrivacyInfo = withContext(Dispatchers.IO) {
         try {
             val appsWithSensorAccess = getAppsWithSensorAccess()
-            val activeSensorAccesses = appsWithSensorAccess.map { appInfo ->
+            val potentialSensorAccesses = appsWithSensorAccess.map { appInfo ->
                 createSensorAccess(appInfo)
             }
 
             SensorPrivacyInfo(
-                activeSensorAccesses = activeSensorAccesses,
-                totalAppsWithSensorAccess = activeSensorAccesses.size
+                potentialSensorAccesses = potentialSensorAccesses
             )
         } catch (e: Exception) {
             Timber.e(e, "Error getting sensor privacy info")
             SensorPrivacyInfo(
-                activeSensorAccesses = emptyList(),
-                totalAppsWithSensorAccess = 0
+                potentialSensorAccesses = emptyList()
             )
         }
     }
@@ -105,8 +103,7 @@ class SensorPrivacyProvider @Inject constructor(
             sensorTypes.add("body_sensors")
         }
         
-        // STEP_COUNTER and STEP_DETECTOR permissions indicate step counter access
-        if (packageManager.checkPermission(
+        // ACTIVITY_RECOGNITION permission indicates step counter/detector access        if (packageManager.checkPermission(
                 android.Manifest.permission.ACTIVITY_RECOGNITION,
                 packageName
             ) == PackageManager.PERMISSION_GRANTED

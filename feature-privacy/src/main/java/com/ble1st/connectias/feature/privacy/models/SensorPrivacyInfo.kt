@@ -4,29 +4,19 @@ import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
 /**
- * Sensor privacy information including active sensor accesses.
+ * Sensor privacy information including apps with sensor permissions.
+ * 
+ * Note: The list represents apps with granted sensor permissions, not real-time active usage.
+ * Android doesn't provide a direct API to query which sensors an app is actively using.
  */
 @Parcelize
 data class SensorPrivacyInfo(
-    val activeSensorAccesses: List<SensorAccess>,
-    val totalAppsWithSensorAccess: Int
+    val potentialSensorAccesses: List<SensorAccess>
 ) : Parcelable {
-    init {
-        // Validate consistency: totalAppsWithSensorAccess should match distinct package count
-        require(totalAppsWithSensorAccess >= 0) { "totalAppsWithSensorAccess must be non-negative" }
-        require(totalAppsWithSensorAccess == activeSensorAccesses.distinctBy { it.packageName }.size) {
-            "totalAppsWithSensorAccess must match distinct package count"
-        }
-    }
     
-    /**
-     * Computed property for total apps with sensor access.
-     * Returns the count of distinct packages in activeSensorAccesses.
-     */
-    val totalAppsWithSensorAccessComputed: Int
-        get() = activeSensorAccesses.distinctBy { it.packageName }.size
+    val totalAppsWithSensorAccess: Int
+        get() = potentialSensorAccesses.distinctBy { it.packageName }.size
 }
-
 /**
  * Information about an app's access to sensors.
  */

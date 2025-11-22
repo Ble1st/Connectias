@@ -59,9 +59,9 @@ class PrivacyDashboardFragment : Fragment() {
                             updatePrivacyStatus(state.data)
                         }
                         is PrivacyDashboardState.Error -> {
-                            Timber.e("Privacy dashboard error: ${state.message}")
+                            Timber.e("Privacy dashboard error: %s", state.message)
                             binding.buttonRefresh.isEnabled = true
-                            binding.textPrivacyStatus.text = getString(R.string.privacy_error_format, state.message)
+                            binding.textPrivacyStatus.text = getString(R.string.privacy_error_generic)
                             binding.textPrivacyDetails.text = ""
                         }
                     }
@@ -81,33 +81,34 @@ class PrivacyDashboardFragment : Fragment() {
         binding.textPrivacyStatus.text = statusText
         // Build detailed privacy information
         val detailsText = buildString {
-            append("Privacy Overview\n\n")
+            append(getString(R.string.privacy_overview))
+            append("\n\n")
             
-            append("Network Privacy: ${formatPrivacyLevel(uiState.overallStatus.networkPrivacy)}\n")
-            append("  - DNS: ${uiState.networkPrivacy.dnsStatus}\n")
-            append("  - VPN: ${if (uiState.networkPrivacy.vpnActive) "Active" else "Inactive"}\n")
-            append("  - Type: ${uiState.networkPrivacy.networkType}\n\n")
+            append("${getString(R.string.privacy_network)}: ${formatPrivacyLevel(uiState.overallStatus.networkPrivacy)}\n")
+            append("  - ${getString(R.string.privacy_dns)}: ${uiState.networkPrivacy.dnsStatus}\n")
+            append("  - ${getString(R.string.privacy_vpn)}: ${if (uiState.networkPrivacy.vpnActive) getString(R.string.privacy_active) else getString(R.string.privacy_inactive)}\n")
+            append("  - ${getString(R.string.privacy_type)}: ${uiState.networkPrivacy.networkType}\n\n")
 
-            append("Sensor Privacy: ${formatPrivacyLevel(uiState.overallStatus.sensorPrivacy)}\n")
-            append("  - Apps with sensor access: ${uiState.sensorPrivacy.totalAppsWithSensorAccess}\n\n")
+            append("${getString(R.string.privacy_sensor)}: ${formatPrivacyLevel(uiState.overallStatus.sensorPrivacy)}\n")
+            append("  - ${getString(R.string.privacy_apps_with_sensor_access)}: ${uiState.sensorPrivacy.totalAppsWithSensorAccess}\n\n")
 
-            append("Location Privacy: ${formatPrivacyLevel(uiState.overallStatus.locationPrivacy)}\n")
-            append("  - Mock location: ${if (uiState.locationPrivacy.mockLocationEnabled) "Enabled" else "Disabled"}\n")
-            append("  - Location services: ${if (uiState.locationPrivacy.locationServicesEnabled) "Enabled" else "Disabled"}\n")
-            append("  - Apps with location access: ${uiState.locationPrivacy.appsWithLocationAccess.size}\n\n")
+            append("${getString(R.string.privacy_location)}: ${formatPrivacyLevel(uiState.overallStatus.locationPrivacy)}\n")
+            append("  - ${getString(R.string.privacy_mock_location)}: ${if (uiState.locationPrivacy.mockLocationEnabled) getString(R.string.privacy_enabled) else getString(R.string.privacy_disabled)}\n")
+            append("  - ${getString(R.string.privacy_location_services)}: ${if (uiState.locationPrivacy.locationServicesEnabled) getString(R.string.privacy_enabled) else getString(R.string.privacy_disabled)}\n")
+            append("  - ${getString(R.string.privacy_apps_with_location_access)}: ${uiState.locationPrivacy.appsWithLocationAccess.size}\n\n")
 
-            append("Permissions Privacy: ${formatPrivacyLevel(uiState.overallStatus.permissionsPrivacy)}\n")
-            append("  - Total apps: ${uiState.appPermissions.size}\n")
+            append("${getString(R.string.privacy_permissions)}: ${formatPrivacyLevel(uiState.overallStatus.permissionsPrivacy)}\n")
+            append("  - ${getString(R.string.privacy_total_apps)}: ${uiState.appPermissions.size}\n")
             val highRiskApps = uiState.appPermissions.count { it.riskLevel == PermissionRiskLevel.HIGH }
-            append("  - High risk apps: $highRiskApps\n\n")
-            append("Background Activity: ${formatPrivacyLevel(uiState.overallStatus.backgroundPrivacy)}\n")
-            append("  - Running services: ${uiState.backgroundActivity.totalRunningServices}\n")
-            append("  - Apps ignoring battery optimization: ${uiState.backgroundActivity.appsIgnoringBatteryOptimization.size}\n\n")
+            append("  - ${getString(R.string.privacy_high_risk_apps)}: $highRiskApps\n\n")
+            append("${getString(R.string.privacy_background)}: ${formatPrivacyLevel(uiState.overallStatus.backgroundPrivacy)}\n")
+            append("  - ${getString(R.string.privacy_running_services)}: ${uiState.backgroundActivity.totalRunningServices}\n")
+            append("  - ${getString(R.string.privacy_apps_ignoring_battery)}: ${uiState.backgroundActivity.appsIgnoringBatteryOptimization.size}\n\n")
 
-            append("Storage Privacy: ${formatPrivacyLevel(uiState.overallStatus.storagePrivacy)}\n")
-            append("  - Scoped storage: ${if (uiState.storagePrivacy.scopedStorageEnabled) "Enabled" else "Disabled"}\n")
-            append("  - Legacy mode: ${if (uiState.storagePrivacy.legacyStorageMode) "Enabled" else "Disabled"}\n")
-            append("  - Apps with storage access: ${uiState.storagePrivacy.appsWithStorageAccess.size}\n")
+            append("${getString(R.string.privacy_storage)}: ${formatPrivacyLevel(uiState.overallStatus.storagePrivacy)}\n")
+            append("  - ${getString(R.string.privacy_scoped_storage)}: ${if (uiState.storagePrivacy.scopedStorageEnabled) getString(R.string.privacy_enabled) else getString(R.string.privacy_disabled)}\n")
+            append("  - ${getString(R.string.privacy_legacy_mode)}: ${if (uiState.storagePrivacy.legacyStorageMode) getString(R.string.privacy_enabled) else getString(R.string.privacy_disabled)}\n")
+            append("  - ${getString(R.string.privacy_apps_with_storage_access)}: ${uiState.storagePrivacy.appsWithStorageAccess.size}\n")
         }
 
         binding.textPrivacyDetails.text = detailsText

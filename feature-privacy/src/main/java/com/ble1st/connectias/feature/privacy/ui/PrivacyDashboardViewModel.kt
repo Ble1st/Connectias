@@ -130,7 +130,13 @@ class PrivacyDashboardViewModel @Inject constructor(
                     }
 
                     // Get overall privacy status
-                    val overallStatus = privacyRepository.getOverallPrivacyStatus()
+                    val overallStatus = try {
+                        privacyRepository.getOverallPrivacyStatus()
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error loading overall privacy status")
+                        _uiState.value = PrivacyDashboardState.Error("Failed to load overall privacy status. Please try again.")
+                        return@coroutineScope
+                    }
 
                     _uiState.value = PrivacyDashboardState.Success(
                         UiState(
