@@ -43,14 +43,19 @@ class KeyManager @Inject constructor(
         val byteBuffer = ByteBuffer.allocate(charArray.size * 4)
         
         try {
-            encoder.encode(charBuffer, byteBuffer, true)
-            encoder.flush(byteBuffer)
+            val encodeResult = encoder.encode(charBuffer, byteBuffer, true)
+            if (encodeResult.isError) {
+                encodeResult.throwException()
+            }
+            val flushResult = encoder.flush(byteBuffer)
+            if (flushResult.isError) {
+                flushResult.throwException()
+            }
             byteBuffer.flip()
             
             val result = ByteArray(byteBuffer.remaining())
             byteBuffer.get(result)
-            return result
-        } finally {
+            return result        } finally {
             // Explicitly zero ByteBuffer to minimize memory exposure
             if (byteBuffer.hasArray()) {
                 val array = byteBuffer.array()

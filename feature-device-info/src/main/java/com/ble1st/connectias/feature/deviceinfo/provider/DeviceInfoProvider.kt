@@ -198,11 +198,11 @@ class DeviceInfoProvider @Inject constructor(
                 if (network != null) {
                     val linkProperties = connectivityManager.getLinkProperties(network)
                     linkProperties?.linkAddresses?.forEach { linkAddress ->
-                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {                        if (address is InetAddress && !address.isLoopbackAddress && address is java.net.Inet4Address) {
+                        val address = linkAddress.address
+                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
                             return address.hostAddress
                         }
-                    }
-                }
+                    }                }
             }
             
             // Fallback to NetworkInterface (may fail on Android 10+ due to permissions)
