@@ -47,7 +47,8 @@ object DatabaseModule {
         // - Production builds: No fallback - app will fail safely if schema changes without migrations
         // TODO: Implement explicit Room migrations before any schema change to prevent data loss
         if (com.ble1st.connectias.core.BuildConfig.DEBUG) {
-            builder.fallbackToDestructiveMigration()
+            // Use new overloaded version that explicitly indicates all tables should be dropped
+            builder.fallbackToDestructiveMigration(true)
         }
         // Production builds do not use fallbackToDestructiveMigration to prevent data loss
         

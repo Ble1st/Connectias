@@ -18,8 +18,13 @@ import javax.inject.Singleton
  * Manages secure key generation and storage for database encryption.
  * Uses Android Keystore and EncryptedSharedPreferences to securely store
  * the database passphrase.
+ * 
+ * Note: EncryptedSharedPreferences and MasterKey are deprecated but still the recommended
+ * approach until Google provides an official replacement. Suppressing deprecation warnings
+ * until migration path is available.
  */
 @Singleton
+@Suppress("DEPRECATION")
 class KeyManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {

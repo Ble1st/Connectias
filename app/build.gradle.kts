@@ -77,8 +77,10 @@ dependencies {
     // Fragment
     implementation(libs.androidx.fragment.ktx)
 
-    // Logging (provided transitively by :core module)
-    // Timber is already included in :core, so no explicit dependency needed here
+    // Logging
+    // Note: Timber is used directly in app module (ConnectiasApplication, MainActivity)
+    // so explicit dependency is needed even though :core also provides it
+    implementation(libs.timber)
 
     // Testing
     testImplementation(libs.junit)

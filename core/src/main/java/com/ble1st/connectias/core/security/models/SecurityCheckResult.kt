@@ -1,5 +1,8 @@
 package com.ble1st.connectias.core.security.models
 
+import kotlin.ConsistentCopyVisibility
+
+@ConsistentCopyVisibility
 data class SecurityCheckResult private constructor(
     val isSecure: Boolean,
     val threats: List<SecurityThreat>, // Immutable copy from factory
