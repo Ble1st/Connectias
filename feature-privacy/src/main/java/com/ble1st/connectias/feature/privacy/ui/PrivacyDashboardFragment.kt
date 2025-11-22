@@ -73,10 +73,10 @@ class PrivacyDashboardFragment : Fragment() {
     private fun updatePrivacyStatus(uiState: UiState) {
         val overallLevel = uiState.overallStatus.overallLevel
         val statusText = when (overallLevel) {
-            PrivacyLevel.SECURE -> getString(R.string.privacy_status_secure)
-            PrivacyLevel.WARNING -> getString(R.string.privacy_status_warning)
-            PrivacyLevel.CRITICAL -> getString(R.string.privacy_status_critical)
-            PrivacyLevel.UNKNOWN -> getString(R.string.privacy_status_unknown)
+            PrivacyLevel.SECURE -> getString(R.string.privacy_level_secure)
+            PrivacyLevel.WARNING -> getString(R.string.privacy_level_warning)
+            PrivacyLevel.CRITICAL -> getString(R.string.privacy_level_critical)
+            PrivacyLevel.UNKNOWN -> getString(R.string.privacy_level_unknown)
         }
         binding.textPrivacyStatus.text = statusText
         // Build detailed privacy information

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.hardware.SensorManager
+import android.os.Build
 import com.ble1st.connectias.feature.privacy.models.SensorAccess
 import com.ble1st.connectias.feature.privacy.models.SensorPrivacyInfo
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -51,27 +52,56 @@ class SensorPrivacyProvider @Inject constructor(
 
     private fun getAppsWithSensorAccess(): List<ApplicationInfo> {
         return try {
-            val installedPackages = packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            val installedPackages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(
+                    PackageManager.GET_PERMISSIONS.toLong()
+                ))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            }
             installedPackages
                 .filter { it.requestedPermissions != null }
                 .mapNotNull { packageInfo ->
-                    val relevantPermissions = listOf(
-                        android.Manifest.permission.CAMERA,
-                        android.Manifest.permission.RECORD_AUDIO,
-                        android.Manifest.permission.BODY_SENSORS,
-                        android.Manifest.permission.ACTIVITY_RECOGNITION
-                    )
-                    
-                    val hasSensorPermissions = relevantPermissions.any { permission ->
-                        packageManager.checkPermission(permission, packageInfo.packageName) == PackageManager.PERMISSION_GRANTED
-                    }
+                    try {
+                        val relevantPermissions = listOf(
+                            android.Manifest.permission.CAMERA,
+                            android.Manifest.permission.RECORD_AUDIO,
+                            android.Manifest.permission.BODY_SENSORS,
+                            android.Manifest.permission.ACTIVITY_RECOGNITION
+                        )
+                        
+                        val hasSensorPermissions = relevantPermissions.any { permission ->
+                            packageManager.checkPermission(permission, packageInfo.packageName) == PackageManager.PERMISSION_GRANTED
+                        }
 
-                    if (hasSensorPermissions) {
-                        packageInfo.applicationInfo
-                    } else {
+                        if (hasSensorPermissions) {
+                            packageInfo.applicationInfo
+                        } else {
+                            null
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error processing package ${packageInfo.packageName} for sensor access")
                         null
                     }
                 }
+        } catch (e: android.os.BadParcelableException) {
+            Timber.e(e, "Binder transaction failed: too many packages. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadSystemException) {
+            Timber.e(e, "Binder transaction failed: system is dead. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadObjectException) {
+            Timber.e(e, "Binder transaction failed: remote process died or buffer full. Returning empty list.")
+            emptyList()
+        } catch (e: RuntimeException) {
+            // Catch DeadSystemRuntimeException and other runtime exceptions
+            if (e.cause is android.os.DeadSystemException) {
+                Timber.e(e, "Binder transaction failed: system runtime is dead. Returning empty list.")
+            } else {
+                Timber.e(e, "Runtime exception during binder transaction. Returning empty list.")
+            }
+            emptyList()
         } catch (e: Exception) {
             Timber.e(e, "Error getting apps with sensor access")
             emptyList()

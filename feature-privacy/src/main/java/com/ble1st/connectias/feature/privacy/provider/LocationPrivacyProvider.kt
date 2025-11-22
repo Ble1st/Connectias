@@ -84,61 +84,90 @@ class LocationPrivacyProvider @Inject constructor(
 
     private fun getAppsWithLocationAccess(): List<LocationAccess> {
         return try {
-            val installedPackages = packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            val installedPackages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(
+                    PackageManager.GET_PERMISSIONS.toLong()
+                ))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+            }
             installedPackages
                 .filter { it.requestedPermissions != null }
                 .mapNotNull { packageInfo ->
-                    val hasFineLocation = packageInfo.requestedPermissions?.contains(
-                        android.Manifest.permission.ACCESS_FINE_LOCATION
-                    ) == true
-                    val hasCoarseLocation = packageInfo.requestedPermissions?.contains(
-                        android.Manifest.permission.ACCESS_COARSE_LOCATION
-                    ) == true
+                    try {
+                        val hasFineLocation = packageInfo.requestedPermissions?.contains(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION
+                        ) == true
+                        val hasCoarseLocation = packageInfo.requestedPermissions?.contains(
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION
+                        ) == true
 
-                    if (hasFineLocation || hasCoarseLocation) {
-                        // Check if permission is actually granted
-                        val fineGranted = packageManager.checkPermission(
-                            android.Manifest.permission.ACCESS_FINE_LOCATION,
-                            packageInfo.packageName
-                        ) == PackageManager.PERMISSION_GRANTED
-
-                        val coarseGranted = packageManager.checkPermission(
-                            android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                            packageInfo.packageName
-                        ) == PackageManager.PERMISSION_GRANTED
-
-                        val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                            packageManager.checkPermission(
-                                android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                        if (hasFineLocation || hasCoarseLocation) {
+                            // Check if permission is actually granted
+                            val fineGranted = packageManager.checkPermission(
+                                android.Manifest.permission.ACCESS_FINE_LOCATION,
                                 packageInfo.packageName
                             ) == PackageManager.PERMISSION_GRANTED
-                        } else {
-                            false
-                        }
 
-                        val appInfo = packageInfo.applicationInfo
-                        val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() } 
-                            ?: packageInfo.packageName
-                        
-                        // Determine foreground permission level (highest granted)
-                        val permissionLevel = when {
-                            fineGranted -> LocationPermissionLevel.FINE
-                            coarseGranted -> LocationPermissionLevel.COARSE
-                            else -> LocationPermissionLevel.NONE
+                            val coarseGranted = packageManager.checkPermission(
+                                android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                                packageInfo.packageName
+                            ) == PackageManager.PERMISSION_GRANTED
+
+                            val backgroundGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                packageManager.checkPermission(
+                                    android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+                                    packageInfo.packageName
+                                ) == PackageManager.PERMISSION_GRANTED
+                            } else {
+                                false
+                            }
+
+                            val appInfo = packageInfo.applicationInfo
+                            val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() } 
+                                ?: packageInfo.packageName
+                            
+                            // Determine foreground permission level (highest granted)
+                            val permissionLevel = when {
+                                fineGranted -> LocationPermissionLevel.FINE
+                                coarseGranted -> LocationPermissionLevel.COARSE
+                                else -> LocationPermissionLevel.NONE
+                            }
+                            
+                            LocationAccess(
+                                packageName = packageInfo.packageName,
+                                appName = appName,
+                                hasFineLocation = fineGranted,
+                                hasCoarseLocation = coarseGranted,
+                                permissionLevel = permissionLevel,
+                                hasBackgroundAccess = backgroundGranted
+                            )
+                        } else {
+                            null
                         }
-                        
-                        LocationAccess(
-                            packageName = packageInfo.packageName,
-                            appName = appName,
-                            hasFineLocation = fineGranted,
-                            hasCoarseLocation = coarseGranted,
-                            permissionLevel = permissionLevel,
-                            hasBackgroundAccess = backgroundGranted
-                        )
-                    } else {
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error processing package ${packageInfo.packageName} for location access")
                         null
                     }
                 }
+        } catch (e: android.os.BadParcelableException) {
+            Timber.e(e, "Binder transaction failed: too many packages. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadSystemException) {
+            Timber.e(e, "Binder transaction failed: system is dead. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadObjectException) {
+            Timber.e(e, "Binder transaction failed: remote process died or buffer full. Returning empty list.")
+            emptyList()
+        } catch (e: RuntimeException) {
+            // Catch DeadSystemRuntimeException and other runtime exceptions
+            if (e.cause is android.os.DeadSystemException) {
+                Timber.e(e, "Binder transaction failed: system runtime is dead. Returning empty list.")
+            } else {
+                Timber.e(e, "Runtime exception during binder transaction. Returning empty list.")
+            }
+            emptyList()
         } catch (e: Exception) {
             Timber.e(e, "Error getting apps with location access")
             emptyList()

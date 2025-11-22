@@ -53,16 +53,42 @@ class BackgroundActivityProvider @Inject constructor(
             // Get installed packages once and reuse
             var isIncomplete = false
             val installedPackages = try {
-                packageManager.getInstalledPackages(0)
-                    .filter { 
-                        // Filter out system packages for better performance
-                        (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) == 0) ||
-                        (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
-                    }
+                val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.getInstalledPackages(PackageManager.PackageInfoFlags.of(0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.getInstalledPackages(0)
+                }
+                packages.filter { 
+                    // Filter out system packages for better performance
+                    (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_SYSTEM) == 0) ||
+                    (it.applicationInfo?.flags?.and(ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0)
+                }
             } catch (e: SecurityException) {
                 // System API failure - treat as fatal, will be caught by outer catch
                 Timber.e(e, "SecurityException getting installed packages - system API failure")
                 throw e
+            } catch (e: android.os.BadParcelableException) {
+                Timber.e(e, "Binder transaction failed: too many packages. Returning empty list.")
+                isIncomplete = true
+                emptyList<android.content.pm.PackageInfo>()
+            } catch (e: android.os.DeadSystemException) {
+                Timber.e(e, "Binder transaction failed: system is dead. Returning empty list.")
+                isIncomplete = true
+                emptyList<android.content.pm.PackageInfo>()
+            } catch (e: android.os.DeadObjectException) {
+                Timber.e(e, "Binder transaction failed: remote process died or buffer full. Returning empty list.")
+                isIncomplete = true
+                emptyList<android.content.pm.PackageInfo>()
+            } catch (e: RuntimeException) {
+                // Catch DeadSystemRuntimeException and other runtime exceptions
+                if (e.cause is android.os.DeadSystemException) {
+                    Timber.e(e, "Binder transaction failed: system runtime is dead. Returning empty list.")
+                } else {
+                    Timber.e(e, "Runtime exception during binder transaction. Returning empty list.")
+                }
+                isIncomplete = true
+                emptyList<android.content.pm.PackageInfo>()
             } catch (e: Exception) {
                 // Recoverable error (e.g., filtering issues) - mark as incomplete
                 Timber.e(e, "Error getting installed packages, falling back to empty list")
@@ -131,8 +157,9 @@ class BackgroundActivityProvider @Inject constructor(
                 return emptyList()
             }
 
+            // OPSTR_RUN_IN_BACKGROUND is only available on API 28+, use string literal for compatibility
             val opString = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                AppOpsManager.OPSTR_RUN_IN_BACKGROUND
+                "android:run_in_background"
             } else {
                 OPSTR_RUN_IN_BACKGROUND_FALLBACK
             }

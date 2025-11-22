@@ -37,8 +37,8 @@
             android:textSize="14sp"
             android:fontFamily="monospace"
             android:padding="8dp"
-            android:background="?attr/colorSurfaceVariant"
-            android:textColor="?attr/colorOnSurface" />
+            android:background="?android:attr/colorBackground"
+            android:textColor="?android:attr/textColorPrimary" />
 
     </androidx.core.widget.NestedScrollView>
 

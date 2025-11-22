@@ -57,6 +57,23 @@ class AppPermissionsProvider @Inject constructor(
                         null
                     }
                 }
+        } catch (e: android.os.BadParcelableException) {
+            Timber.e(e, "Binder transaction failed: too many packages. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadSystemException) {
+            Timber.e(e, "Binder transaction failed: system is dead. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadObjectException) {
+            Timber.e(e, "Binder transaction failed: remote process died or buffer full. Returning empty list.")
+            emptyList()
+        } catch (e: RuntimeException) {
+            // Catch DeadSystemRuntimeException and other runtime exceptions
+            if (e.cause is android.os.DeadSystemException) {
+                Timber.e(e, "Binder transaction failed: system runtime is dead. Returning empty list.")
+            } else {
+                Timber.e(e, "Runtime exception during binder transaction. Returning empty list.")
+            }
+            emptyList()
         } catch (e: Exception) {
             Timber.e(e, "Error getting app permissions info")
             emptyList()
@@ -82,7 +99,8 @@ class AppPermissionsProvider @Inject constructor(
         requestedPermissions.forEach { permission ->
             try {
                 val permissionInfo = packageManager.getPermissionInfo(permission, 0)
-                val isDangerous = (permissionInfo.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE) == PermissionInfo.PROTECTION_DANGEROUS                val isGranted = packageInfo.requestedPermissionsFlags?.let { flags ->
+                val isDangerous = (permissionInfo.protectionLevel and PermissionInfo.PROTECTION_MASK_BASE) == PermissionInfo.PROTECTION_DANGEROUS
+                val isGranted = packageInfo.requestedPermissionsFlags?.let { flags ->
                     val index = requestedPermissions.indexOf(permission)
                     if (index >= 0 && index < flags.size) {
                         (flags[index] and PackageInfo.REQUESTED_PERMISSION_GRANTED) != 0

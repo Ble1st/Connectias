@@ -95,35 +95,57 @@ class StoragePrivacyProvider @Inject constructor(
             installedPackages
                 .filter { it.requestedPermissions != null }
                 .mapNotNull { packageInfo ->
-                    val hasReadStorage = hasStoragePermission(
-                        packageInfo,
-                        android.Manifest.permission.READ_EXTERNAL_STORAGE
-                    ) || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                        (hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_IMAGES) ||
-                        hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_VIDEO) ||
-                        hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_AUDIO)))
+                    try {
+                        val hasReadStorage = hasStoragePermission(
+                            packageInfo,
+                            android.Manifest.permission.READ_EXTERNAL_STORAGE
+                        ) || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                            (hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_IMAGES) ||
+                            hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_VIDEO) ||
+                            hasStoragePermission(packageInfo, android.Manifest.permission.READ_MEDIA_AUDIO)))
 
-                    val hasWriteStorage = hasStoragePermission(
-                        packageInfo,
-                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
-                    )
-
-                    if (hasReadStorage || hasWriteStorage) {
-                        val appInfo = packageInfo.applicationInfo
-                        val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() }
-                            ?: packageInfo.packageName
-                        
-                        StorageAccess(
-                            packageName = packageInfo.packageName,
-                            appName = appName,
-                            hasReadStorage = hasReadStorage,
-                            hasWriteStorage = hasWriteStorage,
-                            hasMediaAccess = hasReadStorage || hasWriteStorage
+                        val hasWriteStorage = hasStoragePermission(
+                            packageInfo,
+                            android.Manifest.permission.WRITE_EXTERNAL_STORAGE
                         )
-                    } else {
+
+                        if (hasReadStorage || hasWriteStorage) {
+                            val appInfo = packageInfo.applicationInfo
+                            val appName = appInfo?.let { packageManager.getApplicationLabel(it).toString() }
+                                ?: packageInfo.packageName
+                            
+                            StorageAccess(
+                                packageName = packageInfo.packageName,
+                                appName = appName,
+                                hasReadStorage = hasReadStorage,
+                                hasWriteStorage = hasWriteStorage,
+                                hasMediaAccess = hasReadStorage || hasWriteStorage
+                            )
+                        } else {
+                            null
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error processing package ${packageInfo.packageName} for storage access")
                         null
                     }
                 }
+        } catch (e: android.os.BadParcelableException) {
+            Timber.e(e, "Binder transaction failed: too many packages. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadSystemException) {
+            Timber.e(e, "Binder transaction failed: system is dead. Returning empty list.")
+            emptyList()
+        } catch (e: android.os.DeadObjectException) {
+            Timber.e(e, "Binder transaction failed: remote process died or buffer full. Returning empty list.")
+            emptyList()
+        } catch (e: RuntimeException) {
+            // Catch DeadSystemRuntimeException and other runtime exceptions
+            if (e.cause is android.os.DeadSystemException) {
+                Timber.e(e, "Binder transaction failed: system runtime is dead. Returning empty list.")
+            } else {
+                Timber.e(e, "Runtime exception during binder transaction. Returning empty list.")
+            }
+            emptyList()
         } catch (e: Exception) {
             Timber.e(e, "Error getting apps with storage access")
             emptyList()
