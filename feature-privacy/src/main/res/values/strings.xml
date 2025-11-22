@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="privacy_dashboard_title">Privacy Dashboard</string>
+    <string name="privacy_dashboard_description">Privacy information and status</string>
+    <string name="refresh">Refresh</string>
+</resources>
+

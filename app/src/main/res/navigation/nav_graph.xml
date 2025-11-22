@@ -26,5 +26,12 @@
         android:label="@string/nav_device_info"
         tools:layout="@layout/fragment_device_info" />
 
+    <!-- Privacy Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_privacy_dashboard"
+        android:name="com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment"
+        android:label="@string/nav_privacy_dashboard"
+        tools:layout="@layout/fragment_privacy_dashboard" />
+
 </navigation>
 

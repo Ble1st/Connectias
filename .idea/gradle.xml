@@ -14,6 +14,7 @@
             <option value="$PROJECT_DIR$/common" />
             <option value="$PROJECT_DIR$/core" />
             <option value="$PROJECT_DIR$/feature-device-info" />
+            <option value="$PROJECT_DIR$/feature-privacy" />
             <option value="$PROJECT_DIR$/feature-security" />
             <option value="$PROJECT_DIR$/feature-settings" />
           </set>

@@ -57,6 +57,11 @@ dependencies {
         implementation(project(":feature-device-info"))
     }
 
+    val featurePrivacyEnabled = project.findProperty("feature.privacy.enabled") == "true"
+    if (featurePrivacyEnabled) {
+        implementation(project(":feature-privacy"))
+    }
+
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

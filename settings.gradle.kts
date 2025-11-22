@@ -52,3 +52,8 @@ val featureBackupEnabled = providers.gradleProperty("feature.backup.enabled").or
 if (featureBackupEnabled) {
     include(":feature-backup")
 }
+
+val featurePrivacyEnabled = providers.gradleProperty("feature.privacy.enabled").orNull == "true"
+if (featurePrivacyEnabled) {
+    include(":feature-privacy")
+}

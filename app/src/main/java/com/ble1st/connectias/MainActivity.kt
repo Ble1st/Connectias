@@ -89,6 +89,22 @@ class MainActivity : AppCompatActivity() {
         } catch (e: ClassNotFoundException) {
             Timber.d("Device Info module not available (not compiled)")
         }
+
+        // Register Privacy module if available (optional)
+        try {
+            Class.forName("com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment")
+            moduleRegistry.registerModule(
+                com.ble1st.connectias.core.module.ModuleInfo(
+                    id = "privacy",
+                    name = "Privacy Dashboard",
+                    version = "1.0.0",
+                    isActive = true
+                )
+            )
+            Timber.d("Privacy module registered")
+        } catch (e: ClassNotFoundException) {
+            Timber.d("Privacy module not available (not compiled)")
+        }
         
         // Log active modules
         val activeModules = moduleRegistry.getActiveModules()
