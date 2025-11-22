@@ -14,6 +14,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Internal data class for threat log information.
+ */
+private data class ThreatLogInfo(
+    val threatType: String,
+    val threatLevel: String,
+    val description: String,
+    val details: String
+)
+
+/**
  * Service for logging security events to the database.
  * Provides automatic logging of security checks and log management functionality.
  * 
@@ -61,31 +71,36 @@ class LoggingService @Inject constructor(
                     // Log each threat individually
                     result.threats.forEach { threat ->
                         val (threatType, threatLevel, description, details) = when (threat) {
-                            is SecurityThreat.RootDetected -> {
-                                "ROOT_DETECTED" to "CRITICAL" to
-                                "Root access detected" to
-                                "Detection method: ${threat.method}"
-                            }
-                            is SecurityThreat.DebuggerDetected -> {
-                                "DEBUGGER_DETECTED" to "HIGH" to
-                                "Debugger attached" to
-                                "Detection method: ${threat.method}"
-                            }
-                            is SecurityThreat.EmulatorDetected -> {
-                                "EMULATOR_DETECTED" to "MEDIUM" to
-                                "Running on emulator" to
-                                "Detection method: ${threat.method}"
-                            }
-                            is SecurityThreat.TamperDetected -> {
-                                "TAMPER_DETECTED" to "CRITICAL" to
-                                "Application tampering detected" to
-                                "Detection method: ${threat.method}"
-                            }
-                            is SecurityThreat.HookDetected -> {
-                                "HOOK_DETECTED" to "HIGH" to
-                                "Code hooking detected" to
-                                "Detection method: ${threat.method}"
-                            }
+                            is SecurityThreat.RootDetected -> ThreatLogInfo(
+                                threatType = "ROOT_DETECTED",
+                                threatLevel = "CRITICAL",
+                                description = "Root access detected",
+                                details = "Detection method: ${threat.method}"
+                            )
+                            is SecurityThreat.DebuggerDetected -> ThreatLogInfo(
+                                threatType = "DEBUGGER_DETECTED",
+                                threatLevel = "HIGH",
+                                description = "Debugger attached",
+                                details = "Detection method: ${threat.method}"
+                            )
+                            is SecurityThreat.EmulatorDetected -> ThreatLogInfo(
+                                threatType = "EMULATOR_DETECTED",
+                                threatLevel = "MEDIUM",
+                                description = "Running on emulator",
+                                details = "Detection method: ${threat.method}"
+                            )
+                            is SecurityThreat.TamperDetected -> ThreatLogInfo(
+                                threatType = "TAMPER_DETECTED",
+                                threatLevel = "CRITICAL",
+                                description = "Application tampering detected",
+                                details = "Detection method: ${threat.method}"
+                            )
+                            is SecurityThreat.HookDetected -> ThreatLogInfo(
+                                threatType = "HOOK_DETECTED",
+                                threatLevel = "HIGH",
+                                description = "Code hooking detected",
+                                details = "Detection method: ${threat.method}"
+                            )
                         }
                         
                         val logEntry = SecurityLogEntity(

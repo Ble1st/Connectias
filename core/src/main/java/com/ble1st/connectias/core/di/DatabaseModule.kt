@@ -3,6 +3,7 @@ package com.ble1st.connectias.core.di
 import android.content.Context
 import androidx.room.Room
 import com.ble1st.connectias.core.database.AppDatabase
+import com.ble1st.connectias.core.database.dao.SecurityLogDao
 import com.ble1st.connectias.core.security.KeyManager
 import dagger.Module
 import dagger.Provides
@@ -10,11 +11,24 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import timber.log.Timber
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
+    
+    init {
+        // Load SQLCipher native library early
+        // This ensures the library is available before database operations
+        try {
+            System.loadLibrary("sqlcipher")
+            Timber.d("SQLCipher native library loaded successfully")
+        } catch (e: UnsatisfiedLinkError) {
+            Timber.e(e, "Failed to load SQLCipher native library")
+            // Don't throw here - let it fail when database is opened if library is truly missing
+        }
+    }
     
     @Provides
     @Singleton
@@ -53,6 +67,12 @@ object DatabaseModule {
         // Production builds do not use fallbackToDestructiveMigration to prevent data loss
         
         return builder.build()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideSecurityLogDao(database: AppDatabase): SecurityLogDao {
+        return database.securityLogDao()
     }
 }
 
