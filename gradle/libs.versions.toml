@@ -50,7 +50,8 @@ rootbeer = "0.1.1"
 javapoet = "1.13.0"
 
 # Kotlin Serialization
-kotlinxSerialization = "1.6.3"
+# Updated to 1.7.1+ for Kotlin 2.0.21 compatibility
+kotlinxSerialization = "1.7.1"
 
 # KSP (Kotlin Symbol Processing)
 ksp = "2.0.21-1.0.28"

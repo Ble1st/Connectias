@@ -186,9 +186,10 @@ class DeviceInfoProvider @Inject constructor(
      * This method avoids the "Operation not permitted" error on Android 10+ by using
      * the recommended ConnectivityManager API instead of direct NetworkInterface access.
      * 
+     * Requires ACCESS_NETWORK_STATE permission for ConnectivityManager approach.
+     * 
      * @return Local IPv4 address, or null if unavailable
-     */
-    private fun getLocalIPAddress(): String? {
+     */    private fun getLocalIPAddress(): String? {
         return try {
             // Try ConnectivityManager first (recommended for Android 10+)
             val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
@@ -197,8 +198,7 @@ class DeviceInfoProvider @Inject constructor(
                 if (network != null) {
                     val linkProperties = connectivityManager.getLinkProperties(network)
                     linkProperties?.linkAddresses?.forEach { linkAddress ->
-                        val address = linkAddress.address
-                        if (address is InetAddress && !address.isLoopbackAddress && address is java.net.Inet4Address) {
+                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {                        if (address is InetAddress && !address.isLoopbackAddress && address is java.net.Inet4Address) {
                             return address.hostAddress
                         }
                     }

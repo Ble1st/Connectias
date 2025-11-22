@@ -42,15 +42,7 @@ android {
     }
 }
 
-// Force JavaPoet version for Hilt compatibility
-configurations.all {
-    resolutionStrategy.eachDependency {
-        if (requested.group == "com.squareup" && requested.name == "javapoet") {
-            useVersion(libs.versions.javapoet.get())
-            because("Hilt requires JavaPoet 1.13.0")
-        }
-    }
-}
+
 
 dependencies {
     // Core Modules (always included)
@@ -85,8 +77,8 @@ dependencies {
     // Fragment
     implementation(libs.androidx.fragment.ktx)
 
-    // Logging
-    implementation(libs.timber)
+    // Logging (provided transitively by :core module)
+    // Timber is already included in :core, so no explicit dependency needed here
 
     // Testing
     testImplementation(libs.junit)

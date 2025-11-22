@@ -6,6 +6,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
+import java.nio.ByteBuffer
+import java.nio.CharBuffer
+import java.nio.charset.CharsetEncoder
 import java.nio.charset.StandardCharsets
 import java.security.SecureRandom
 import javax.inject.Inject
@@ -24,6 +27,47 @@ class KeyManager @Inject constructor(
         private const val PREFS_NAME = "connectias_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
         private const val PASSPHRASE_LENGTH = 32 // ~196 bits of entropy
+    }
+    
+    /**
+     * Converts CharArray to ByteArray using CharsetEncoder to avoid creating intermediate String objects.
+     * All buffers are explicitly zeroed after use to minimize memory exposure.
+     * 
+     * @param charArray The CharArray to convert
+     * @return ByteArray representation in UTF-8 encoding
+     */
+    private fun charArrayToByteArray(charArray: CharArray): ByteArray {
+        val encoder: CharsetEncoder = StandardCharsets.UTF_8.newEncoder()
+        val charBuffer = CharBuffer.wrap(charArray)
+        // UTF-8 max 4 bytes per char, but typically 1 byte for ASCII
+        val byteBuffer = ByteBuffer.allocate(charArray.size * 4)
+        
+        try {
+            encoder.encode(charBuffer, byteBuffer, true)
+            encoder.flush(byteBuffer)
+            byteBuffer.flip()
+            
+            val result = ByteArray(byteBuffer.remaining())
+            byteBuffer.get(result)
+            return result
+        } finally {
+            // Explicitly zero ByteBuffer to minimize memory exposure
+            if (byteBuffer.hasArray()) {
+                val array = byteBuffer.array()
+                java.util.Arrays.fill(array, 0.toByte())
+            } else {
+                // Direct buffer - clear and overwrite with zeros
+                val capacity = byteBuffer.capacity()
+                byteBuffer.clear()
+                for (i in 0 until capacity) {
+                    byteBuffer.put(i, 0.toByte())
+                }
+            }
+            byteBuffer.clear()
+            charBuffer.clear()
+            // Note: CharBuffer.wrap() doesn't own the array, so the original charArray
+            // must be zeroed separately by the caller
+        }
     }
 
     private val masterKey: MasterKey by lazy {
@@ -61,7 +105,7 @@ class KeyManager @Inject constructor(
                 Timber.d("Using existing database passphrase from secure storage")
                 val passphraseChars = storedPassphrase.toCharArray()
                 try {
-                    return String(passphraseChars).toByteArray(StandardCharsets.UTF_8)
+                    return charArrayToByteArray(passphraseChars)
                 } finally {
                     // Zero-fill CharArray to minimize memory exposure
                     passphraseChars.fill('\u0000')
@@ -86,7 +130,7 @@ class KeyManager @Inject constructor(
                     if (retryPassphrase != null) {
                         val retryChars = retryPassphrase.toCharArray()
                         try {
-                            return String(retryChars).toByteArray(StandardCharsets.UTF_8)
+                            return charArrayToByteArray(retryChars)
                         } finally {
                             retryChars.fill('\u0000')
                         }
@@ -95,10 +139,10 @@ class KeyManager @Inject constructor(
                     throw IllegalStateException("Failed to store database passphrase")
                 }
                 
-                // Clear String reference (though GC will handle it)
-                // Convert to ByteArray and zero-fill CharArray
+                // Convert to ByteArray using CharsetEncoder (avoids String intermediate)
+                // Zero-fill CharArray after conversion
                 try {
-                    return String(newPassphraseChars).toByteArray(StandardCharsets.UTF_8)
+                    return charArrayToByteArray(newPassphraseChars)
                 } finally {
                     // Zero-fill CharArray to minimize memory exposure
                     newPassphraseChars.fill('\u0000')
@@ -112,7 +156,7 @@ class KeyManager @Inject constructor(
                 if (retryPassphrase != null) {
                     val retryChars = retryPassphrase.toCharArray()
                     try {
-                        return String(retryChars).toByteArray(StandardCharsets.UTF_8)
+                        return charArrayToByteArray(retryChars)
                     } finally {
                         retryChars.fill('\u0000')
                     }
@@ -135,7 +179,7 @@ class KeyManager @Inject constructor(
                 }
                 
                 try {
-                    return String(fallbackChars).toByteArray(StandardCharsets.UTF_8)
+                    return charArrayToByteArray(fallbackChars)
                 } finally {
                     fallbackChars.fill('\u0000')
                 }

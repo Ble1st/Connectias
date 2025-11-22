@@ -44,6 +44,14 @@ dependencies {
 
     // Security
     implementation(libs.security.crypto)
+    
+    // Root detection heuristics (non-security boundary - client-side only)
+    // NOTE: RootBeer is a heuristic detection tool with known limitations and vulnerabilities.
+    // This is NOT a security boundary. For production, consider:
+    // - Google Play Integrity API or SafetyNet attestation with server-side verification
+    // - Combining multiple signals server-side rather than relying on client-only heuristics
+    // - Regular security audits and dependency monitoring (Dependabot/Snyk)
+    // Version pinned to 0.1.1 - verify security posture before upgrading
     implementation(libs.rootbeer)
 
     // Hilt

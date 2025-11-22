@@ -85,14 +85,6 @@ class RootDetector(private val context: Context? = null) {
                 if (rb.isRooted) {
                     detectionMethods.add("RootBeer: Root detected (comprehensive check)")
                 }
-                
-                // Additional check: isRootedWithoutBusyBoxCheck()
-                // Some devices have busybox by default, so this check is more accurate
-                // Can also help detect emulators
-                if (rb.isRootedWithoutBusyBoxCheck && !rb.isRooted) {
-                    // Detected without busybox but not with full check - might be edge case
-                    detectionMethods.add("RootBeer: Root indicators detected (without BusyBox check)")
-                }
             }
         } catch (e: Exception) {
             Timber.w(e, "RootBeer check failed")
