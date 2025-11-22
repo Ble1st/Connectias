@@ -6,4 +6,8 @@
     <string name="nav_device_info">Device Info</string>
     <string name="nav_settings">Settings</string>
     <string name="nav_privacy_dashboard">Privacy</string>
+    
+    <!-- Splash Screen -->
+    <string name="loading">Loading</string>
+    <string name="checking_security">Checking security...</string>
 </resources>

@@ -41,9 +41,9 @@ class MainActivity : AppCompatActivity() {
         
         // Show splash screen immediately to prevent empty/white screen
         // This is a secure, non-interactive screen while security checks run
+        // Note: Splash screen intentionally does not use edge-to-edge to avoid system bar overlap
+        // Edge-to-edge is enabled only for the main UI after security checks pass
         setContentView(R.layout.activity_splash)
-        
-        enableEdgeToEdge()
         
         // Perform security checks before initializing main UI
         // This prevents security vulnerabilities from race conditions
@@ -104,6 +104,9 @@ class MainActivity : AppCompatActivity() {
         val mainBinding = ActivityMainBinding.inflate(layoutInflater)
         binding = mainBinding
         setContentView(mainBinding.root)
+        
+        // Enable edge-to-edge for main UI (splash screen intentionally does not use it)
+        enableEdgeToEdge()
         
         // Handle system UI insets
         ViewCompat.setOnApplyWindowInsetsListener(mainBinding.root) { v, insets ->
