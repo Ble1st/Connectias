@@ -25,7 +25,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binding: ActivityMainBinding
+    private var binding: ActivityMainBinding? = null
 
     @Inject
     lateinit var moduleRegistry: ModuleRegistry
@@ -39,15 +39,74 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState) // Hilt injection happens here
         
-        // Initialize UI immediately to prevent empty/white screen
-        // Security checks run in parallel and will terminate app if threats detected
-        binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-
+        // Show splash screen immediately to prevent empty/white screen
+        // This is a secure, non-interactive screen while security checks run
+        setContentView(R.layout.activity_splash)
+        
         enableEdgeToEdge()
         
-        // System UI Insets handhaben
-        ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
+        // Perform security checks before initializing main UI
+        // This prevents security vulnerabilities from race conditions
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val result = withTimeoutOrNull(5000) {
+                    securityService.performSecurityCheckWithTermination()
+                }
+                
+                // Switch back to Main thread for UI initialization or termination
+                withContext(Dispatchers.Main) {
+                    if (result == null) {
+                        // Timeout occurred - treat as failure in production
+                        Timber.e("Security check timed out - terminating app in production")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                        // In debug mode, continue with UI initialization
+                        initializeMainUI()
+                    } else if (result.threats.isNotEmpty()) {
+                        // Threats detected - app should be terminated by SecurityService
+                        // But ensure termination if it didn't happen
+                        Timber.e("Security threats detected - ensuring app termination")
+                        if (!BuildConfig.DEBUG) {
+                            terminateApp()
+                            return@withContext
+                        }
+                        // In debug mode, continue with UI initialization
+                        initializeMainUI()
+                    } else {
+                        // Security check passed - safe to initialize main UI
+                        initializeMainUI()
+                    }
+                }
+            } catch (e: Exception) {
+                // Exception during security check - treat as failure in production
+                Timber.e(e, "Security check failed during app start - terminating app in production")
+                withContext(Dispatchers.Main) {
+                    if (!BuildConfig.DEBUG) {
+                        terminateApp()
+                    } else {
+                        // In debug mode, continue with UI initialization
+                        initializeMainUI()
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Initializes the main UI after security checks have passed.
+     * This method is only called after successful security validation.
+     * This ensures no sensitive UI components are accessible before security validation.
+     */
+    private fun initializeMainUI() {
+        // Initialize main UI binding
+        val mainBinding = ActivityMainBinding.inflate(layoutInflater)
+        binding = mainBinding
+        setContentView(mainBinding.root)
+        
+        // Handle system UI insets
+        ViewCompat.setOnApplyWindowInsetsListener(mainBinding.root) { v, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
@@ -67,53 +126,13 @@ class MainActivity : AppCompatActivity() {
                 Timber.e(e, "Failed to perform log rotation on app start")
             }
         }
-        
-        // Perform security checks asynchronously (UI is already initialized)
-        // If threats are detected, app will be terminated
-        lifecycleScope.launch(Dispatchers.IO) {
-            try {
-                val result = withTimeoutOrNull(5000) {
-                    securityService.performSecurityCheckWithTermination()
-                }
-                
-                // Switch back to Main thread for termination if needed
-                withContext(Dispatchers.Main) {
-                    if (result == null) {
-                        // Timeout occurred - treat as failure in production
-                        Timber.e("Security check timed out - terminating app in production")
-                        if (!BuildConfig.DEBUG) {
-                            terminateApp()
-                            return@withContext
-                        }
-                    } else if (result.threats.isNotEmpty()) {
-                        // Threats detected - app should be terminated by SecurityService
-                        // But ensure termination if it didn't happen
-                        Timber.e("Security threats detected - ensuring app termination")
-                        if (!BuildConfig.DEBUG) {
-                            terminateApp()
-                            return@withContext
-                        }
-                    }
-                    // Security check passed - UI is already initialized and ready
-                }
-            } catch (e: Exception) {
-                // Exception during security check - treat as failure in production
-                Timber.e(e, "Security check failed during app start - terminating app in production")
-                withContext(Dispatchers.Main) {
-                    if (!BuildConfig.DEBUG) {
-                        terminateApp()
-                    }
-                    // In debug mode, continue with already-initialized UI
-                }
-            }
-        }
     }
 
     private fun setupNavigation() {
         val navController = findNavController(R.id.nav_host_fragment_content_main)
         
         // Bottom Navigation mit NavController verbinden
-        binding.bottomNavigation.setupWithNavController(navController)
+        binding?.bottomNavigation?.setupWithNavController(navController)
         
         Timber.d("Navigation setup completed")
     }
