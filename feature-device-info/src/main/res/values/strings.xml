@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_info_loading">Loading device information...</string>
+    <string name="button_refresh">Refresh</string>
+    <string name="button_refresh_description">Refresh device information</string>
+</resources>
+

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="screen_padding">16dp</dimen>
+    <dimen name="section_margin_vertical">8dp</dimen>
+    <dimen name="section_header_text_size">18sp</dimen>
+    <dimen name="section_content_text_size">14sp</dimen>
+    <dimen name="section_content_min_height">48dp</dimen>
+    <dimen name="button_margin_top">8dp</dimen>
+    <dimen name="button_margin_bottom">16dp</dimen>
+</resources>
+

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="nav_network_dashboard">Network</string>
+    <string name="wifi_networks_title">Wi‑Fi Networks</string>
+    <string name="lan_devices_title">LAN Devices</string>
+    <string name="network_analysis_title">Network Analysis</string>
+    <string name="permission_location_required">Location permission is required for Wi‑Fi scanning</string>
+    <string name="no_wifi_networks">No Wi‑Fi networks found</string>
+    <string name="wifi_networks_header">Wi‑Fi Networks</string>
+    <string name="loading_wifi_networks">Loading Wi‑Fi networks…</string>
+    <string name="loading_lan_devices">Loading LAN devices…</string>
+    <string name="loading_network_analysis">Loading network analysis…</string>
+    <string name="refresh_wifi">Refresh Wi‑Fi</string>
+    <string name="refresh_lan">Refresh LAN</string>
+    <string name="refresh_analysis">Refresh Analysis</string>
+    <string name="desc_refresh_wifi">Refresh Wi‑Fi network list</string>
+    <string name="desc_refresh_lan">Refresh local network devices list</string>
+    <string name="desc_refresh_analysis">Refresh network analysis information</string>
+    <string name="location_permission_required">Location permission is required for Wi‑Fi scanning</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="gateway_not_available">Not available</string>
+    <string name="dns_servers_not_available">Not available</string>
+    <string name="no_lan_devices">No devices found on local network</string>
+    <string name="partial_success_prefix">Warning: %1$s</string>
+    <string name="unknown_error">An unknown error occurred</string>
+</resources>
+

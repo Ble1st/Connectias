@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nav_security_dashboard">
+
+    <!-- Security Dashboard (Core - always available) -->
+    <fragment
+        android:id="@+id/nav_security_dashboard"
+        android:name="com.ble1st.connectias.feature.security.ui.SecurityDashboardFragment"
+        android:label="@string/nav_security_dashboard"
+        tools:layout="@layout/fragment_security_dashboard" />
+
+    <!-- Settings (Core - always available) -->
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
+        android:label="@string/nav_settings"
+        tools:layout="@layout/fragment_settings" />
+
+    <!-- Device Info (Optional - MVP Proof of Concept) -->
+    <fragment
+        android:id="@+id/nav_device_info"
+        android:name="com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
+        android:label="@string/nav_device_info"
+        tools:layout="@layout/fragment_device_info" />
+
+    <!-- Privacy Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_privacy_dashboard"
+        android:name="com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment"
+        android:label="@string/nav_privacy_dashboard"
+        tools:layout="@layout/fragment_privacy_dashboard" />
+
+    <!-- Network Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_network_dashboard"
+        android:name="com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment"
+        android:label="@string/nav_network_dashboard"
+        tools:layout="@layout/fragment_network_dashboard" />
+
+</navigation>
+
