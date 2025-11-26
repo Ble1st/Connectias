@@ -1,8 +1,10 @@
 package com.ble1st.connectias.feature.network.provider
 
+import android.Manifest
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.Build
+import androidx.annotation.RequiresPermission
 import com.ble1st.connectias.core.services.NetworkService
 import com.ble1st.connectias.feature.network.BuildConfig
 import com.ble1st.connectias.feature.network.exceptions.PermissionDeniedException
@@ -76,6 +78,7 @@ class WifiScannerProvider @Inject constructor(
         }
     }
     
+    @RequiresPermission(Manifest.permission.ACCESS_FINE_LOCATION)
     private suspend fun getAvailableWifiNetworks(): List<WifiNetwork> {
         // Uses scan results (may be cached on Android 9+)
         // Consider WifiNetworkSuggestion API for future enhancement
