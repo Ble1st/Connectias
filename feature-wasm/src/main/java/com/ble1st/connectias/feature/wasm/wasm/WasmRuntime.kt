@@ -1,15 +1,17 @@
 package com.ble1st.connectias.feature.wasm.wasm
 
 import com.ble1st.connectias.feature.wasm.plugin.models.ResourceLimits
+import com.dylibso.chicory.wasm.Parser
+import com.dylibso.chicory.runtime.Instance
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.io.ByteArrayInputStream
 
 /**
  * WASM Runtime wrapper for executing WASM modules.
  * 
- * This is an interface-based implementation that can be replaced with
- * a real WASM runtime (e.g., Wasmtime via JNI) in the future.
+ * Implementation using Chicory (Pure JVM WASM runtime).
  */
 @Singleton
 class WasmRuntime @Inject constructor() {
@@ -27,9 +29,8 @@ class WasmRuntime @Inject constructor() {
         Timber.d(tag, "Loading WASM module (${wasmBytes.size} bytes)")
         
         return try {
-            // TODO: Replace with real WASM runtime implementation
-            // For now, use mock implementation
-            MockWasmModule(wasmBytes)
+            val chicoryModule = Parser.parse(ByteArrayInputStream(wasmBytes))
+            ChicoryWasmModule(wasmBytes, chicoryModule)
         } catch (e: Exception) {
             Timber.e(e, "Failed to load WASM module")
             throw WasmRuntimeException.ModuleLoadFailed(
@@ -49,7 +50,16 @@ class WasmRuntime @Inject constructor() {
     fun createStore(module: WasmModule, resourceLimits: ResourceLimits): WasmStore {
         Timber.d(tag, "Creating WASM store for module")
         
-        return MockWasmStore(module, resourceLimits)
+        if (module !is ChicoryWasmModule) {
+            throw IllegalStateException("Invalid module type: ${module::class.java.name}")
+        }
+
+        return try {
+            val instance = Instance.builder(module.chicoryModule).build()
+            ChicoryWasmStore(module, instance, resourceLimits)
+        } catch (e: Exception) {
+            throw WasmRuntimeException.ExecutionFailed("init", "Failed to instantiate module", e)
+        }
     }
     
     /**
@@ -68,16 +78,22 @@ class WasmRuntime @Inject constructor() {
     ): String {
         Timber.d(tag, "Executing function '$functionName' in WASM store")
         
-        if (!store.module.hasFunction(functionName)) {
-            throw WasmRuntimeException.FunctionNotFound(functionName)
+        if (store !is ChicoryWasmStore) {
+            throw IllegalStateException("Invalid store type: ${store::class.java.name}")
         }
+
+        val instance = store.instance
+        val export = instance.export(functionName)
         
         return try {
-            // TODO: Replace with real WASM runtime execution
-            // For now, use mock implementation
-            executeMockFunction(store, functionName, args)
-        } catch (e: WasmRuntimeException) {
-            throw e
+            // Execute the function. 
+            // Note: This basic implementation assumes the function accepts 0 arguments
+            // and returns a value or nothing. Complex ABI handling (strings/pointers) 
+            // would require memory manipulation which is beyond this basic integration.
+            val results = export.apply()
+            
+            val resultVal = if (results != null && results.isNotEmpty()) results[0] else 0
+            """{"status":"success","result":$resultVal}"""
         } catch (e: Exception) {
             Timber.e(e, "Failed to execute WASM function '$functionName'")
             throw WasmRuntimeException.ExecutionFailed(
@@ -87,40 +103,25 @@ class WasmRuntime @Inject constructor() {
             )
         }
     }
-    
-    /**
-     * Mock function execution (temporary implementation).
-     */
-    private fun executeMockFunction(
-        store: WasmStore,
-        functionName: String,
-        args: Map<String, String>
-    ): String {
-        // Mock implementation - returns JSON response
-        return when (functionName) {
-            "plugin_init" -> """{"status":"success","result":0}"""
-            "plugin_execute" -> {
-                val command = args["command"] ?: "unknown"
-                """{"status":"success","result":"Executed command: $command"}"""
-            }
-            "plugin_cleanup" -> """{"status":"success"}"""
-            else -> """{"status":"error","message":"Unknown function: $functionName"}"""
-        }
-    }
 }
 
 /**
- * Mock WASM module implementation.
- * TODO: Replace with real WASM runtime implementation.
+ * Chicory WASM module implementation.
  */
-private class MockWasmModule(
-    override val wasmBytes: ByteArray
+private class ChicoryWasmModule(
+    override val wasmBytes: ByteArray,
+    val chicoryModule: com.dylibso.chicory.wasm.Module
 ) : WasmModule {
-    override val exportedFunctions: List<String> = listOf(
-        "plugin_init",
-        "plugin_execute",
-        "plugin_cleanup"
-    )
+    override val exportedFunctions: List<String> by lazy {
+        val exportSection = chicoryModule.exportSection()
+        if (exportSection != null) {
+             (0 until exportSection.exportCount()).map { index ->
+                 exportSection.getExport(index).name()
+             }
+        } else {
+             emptyList()
+        }
+    }
     
     override fun hasFunction(functionName: String): Boolean {
         return exportedFunctions.contains(functionName)
@@ -128,39 +129,18 @@ private class MockWasmModule(
 }
 
 /**
- * Mock WASM store implementation.
- * TODO: Replace with real WASM runtime implementation.
+ * Chicory WASM store implementation.
  */
-private class MockWasmStore(
+private class ChicoryWasmStore(
     override val module: WasmModule,
+    val instance: Instance,
     private val resourceLimits: ResourceLimits
 ) : WasmStore {
-    override var memoryUsage: Long = 0
-        private set
+    override val memoryUsage: Long 
+        get() = instance.memory().pages().toLong() * 65536L
     
-    override var fuelConsumption: Long = 0
-        private set
+    override val fuelConsumption: Long = 0 // Not supported in this basic implementation
     
     override fun isValid(): Boolean = true
-    
-    fun incrementMemoryUsage(bytes: Long) {
-        memoryUsage += bytes
-        if (memoryUsage > resourceLimits.maxMemory) {
-            throw WasmRuntimeException.MemoryLimitExceeded(
-                used = memoryUsage,
-                limit = resourceLimits.maxMemory
-            )
-        }
-    }
-    
-    fun incrementFuelConsumption(fuel: Long) {
-        fuelConsumption += fuel
-        if (fuelConsumption > resourceLimits.maxFuel) {
-            throw WasmRuntimeException.FuelLimitExceeded(
-                used = fuelConsumption,
-                limit = resourceLimits.maxFuel
-            )
-        }
-    }
 }
 

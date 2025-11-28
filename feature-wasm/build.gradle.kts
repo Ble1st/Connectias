@@ -78,6 +78,9 @@ dependencies {
     implementation(libs.bouncycastle.bcprov)
     implementation(libs.bouncycastle.bcpkix)
 
+    // Chicory WASM Runtime
+    implementation(libs.chicory.runtime)
+
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
 
