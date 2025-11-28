@@ -9,7 +9,7 @@ Alle 16 Schritte aus dem Plan wurden erfolgreich implementiert.
 ### Core-Komponenten (25 Kotlin-Dateien)
 
 1. **WASM Runtime** (`wasm/`)
-   - ✅ `WasmRuntime.kt` - Haupt-Runtime mit Mock-Implementation
+   - ✅ `WasmRuntime.kt` - Haupt-Runtime (implementiert mit Chicory JVM WASM-Runtime)
    - ✅ `WasmModule.kt` - Interface für WASM-Module
    - ✅ `WasmStore.kt` - Interface für WASM Stores
    - ✅ `WasmRuntimeException.kt` - Exception-Hierarchie
