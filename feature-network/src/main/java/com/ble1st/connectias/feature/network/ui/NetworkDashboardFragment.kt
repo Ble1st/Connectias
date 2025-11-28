@@ -14,6 +14,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.databinding.FragmentNetworkDashboardBinding
 import com.ble1st.connectias.feature.network.models.DeviceType
@@ -23,6 +24,7 @@ import com.ble1st.connectias.feature.network.models.WifiNetwork
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Fragment for Network Dashboard.
@@ -85,6 +87,61 @@ class NetworkDashboardFragment : Fragment() {
 
         binding.buttonRefreshAnalysis.setOnClickListener {
             viewModel.refreshAnalysis()
+        }
+
+        // Setup network tools navigation
+        // Note: Navigation IDs are defined in app module's nav_graph.xml
+        // Resolve navigation IDs at runtime to avoid compile-time dependency on app module's R class
+        binding.buttonPortScanner.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_port_scanner", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_port_scanner not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to port scanner")
+            }
+        }
+
+        binding.buttonDnsLookup.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_dns_lookup", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_dns_lookup not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to DNS lookup")
+            }
+        }
+
+        binding.buttonNetworkMonitor.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_network_monitor", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_network_monitor not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to network monitor")
+            }
+        }
+
+        binding.buttonWifiAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_wifi_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_wifi_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to WiFi analyzer")
+            }
         }
     }
 

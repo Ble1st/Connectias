@@ -48,10 +48,57 @@
         android:layout_height="wrap_content"
         android:text="@string/refresh"
         android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/privacyToolsSection"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/scrollViewPrivacy" />
+
+    <TextView
+        android:id="@+id/privacyToolsSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Privacy Tools"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonRefresh" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonTrackerDetection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Tracker Detection"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/privacyToolsSection" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonPermissionsAnalyzer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Permissions Analyzer"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonTrackerDetection" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonDataLeakage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Data Leakage Scanner"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonPermissionsAnalyzer" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

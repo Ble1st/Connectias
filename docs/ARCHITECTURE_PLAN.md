@@ -271,7 +271,7 @@ feature-device-info/
 - Navigation-Integration
 - Hilt-Modul
 
-### 6.3 :feature-backup Modul
+
 
 - Backup Manager
 - Restore Functionality

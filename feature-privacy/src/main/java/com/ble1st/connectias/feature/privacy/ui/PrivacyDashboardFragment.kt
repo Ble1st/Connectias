@@ -9,6 +9,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.feature.privacy.R
 import com.ble1st.connectias.feature.privacy.databinding.FragmentPrivacyDashboardBinding
 import com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel
@@ -42,6 +43,48 @@ class PrivacyDashboardFragment : Fragment() {
         // Setup refresh button
         binding.buttonRefresh.setOnClickListener {
             viewModel.refresh()
+        }
+
+        // Setup privacy tools navigation
+        // Note: Navigation IDs are defined in app module's nav_graph.xml
+        // Resolve navigation IDs at runtime to avoid compile-time dependency on app module's R class
+        binding.buttonTrackerDetection.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_tracker_detection", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_tracker_detection not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to tracker detection")
+            }
+        }
+
+        binding.buttonPermissionsAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_permissions_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_permissions_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to permissions analyzer")
+            }
+        }
+
+        binding.buttonDataLeakage.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_data_leakage", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_data_leakage not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to data leakage")
+            }
         }
 
         // Observe UI state

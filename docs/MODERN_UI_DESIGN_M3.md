@@ -109,6 +109,37 @@ fun ConnectiasTheme(useDynamicColor: Boolean = true, content: @Composable () -> 
 - [Material Theme Builder](https://material-foundation.github.io/material-theme-builder/)  
 - [Material Design Motion](https://m3.material.io/styles/motion/overview)  
 - [Material Design Accessibility](https://m3.material.io/foundations/accessibility/overview)
+- [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive)
+
+## 10. M3 Expressive Highlights (Addendum)
+Die offiziellen Material-Texte betonen mehrere neue Patterns, die wir ergänzend berücksichtigen müssen:
+
+### 10.1 Expressive Color Stories
+- Plane Layouts in „Color Stories“ (Sections, die sich klar durch Primär-/Tertiärflächen unterscheiden) und nutze dynamische Gradienten nur dort, wo sie eine semantische Grenze markieren.  
+- Kombiniere neutrale `surfaceContainer`-Layer mit kontrastreichen Akzentflächen, um wichtige Aufgaben (Security Alerts, Scan-Status) hervorzuheben.  
+- Farbwechsel sollen konsequent über Theme-Tokens erfolgen, damit Dynamic Color weiterhin funktioniert.  
+(vgl. [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive))
+
+### 10.2 Variable Typography & Scale
+- Nutze variable Fonts (z. B. Google Sans Text) für feinere Gewichtsanpassungen. Headlines können mit optischem Gewicht „Bold+“ gestaltet werden, solange Barrierefreiheit eingehalten wird.  
+- Richte Typo-Cluster visuell an Card-Breite aus: Display/Text-Kombinationen dürfen die gesamte Card-Höhe einnehmen, während Body-Text maximal 60 % belegen darf.  
+(vgl. [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive))
+
+### 10.3 Shape Language & Adaptive Corners
+- Arbeite mit Shape-Token-Serien (`extraSmall` bis `extraLarge`). M3 Expressive schlägt vor, Eckenradien als Teil der Story zu nutzen: heroische Cards → extraLarge, Toolpanels → medium.  
+- Für zusammengesetzte Layouts (z. B. Split Views) dürfen angrenzende Module unterschiedliche Radien haben, solange die horizontale Achse konsistent bleibt.  
+(vgl. [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive))
+
+### 10.4 Motion Patterns
+- Verwende „Emphasized Spring“-Bewegungen für Schlüsselinteraktionen (z. B. Scans starten/stoppen).  
+- Führe Content-Transitions mit überlappenden Crossfades + Scale (max +4 dp Elevation) aus, um emotionale Highlights zu setzen.  
+- Mikroanimationen (Icons, FAB) sollen in 120–160 ms abgeschlossen sein, damit Security-Flows reaktionsschnell bleiben.  
+(vgl. [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive))
+
+### 10.5 Layout Modules & Storyboards
+- Material 3 Expressive empfiehlt „Storyboards“: Sequenzen von Screens, die gemeinsam eine visuelle Erzählung bilden. Dokumentiere pro Feature (z. B. Network Scanner) mindestens drei States (Empty, In Progress, Success/Alert).  
+- Nutze modulare Layout-Blöcke (Hero, Grid, Detail, Utility). In Compose lassen sich diese als Slot-APIs modellieren (z. B. `HeroScaffold` mit `headlineSlot`, `actionSlot`).  
+(vgl. [Building with Material 3 Expressive](https://m3.material.io/blog/building-with-m3-expressive))
 
 ---
 *Stand: November 2025. Bitte Änderungen über PR einreichen und hier dokumentieren.*

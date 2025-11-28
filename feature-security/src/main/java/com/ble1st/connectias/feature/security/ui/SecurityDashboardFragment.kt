@@ -9,12 +9,12 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.core.security.models.SecurityThreat
 import com.ble1st.connectias.feature.security.databinding.FragmentSecurityDashboardBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import timber.log.Timber
-
 @AndroidEntryPoint
 class SecurityDashboardFragment : Fragment() {
 
@@ -39,6 +39,61 @@ class SecurityDashboardFragment : Fragment() {
         // Setup refresh button
         binding.buttonRefresh.setOnClickListener {
             viewModel.performSecurityCheck()
+        }
+
+        // Setup security tools navigation
+        // Note: Navigation IDs are defined in app module's nav_graph.xml
+        // Resolve navigation IDs at runtime to avoid compile-time dependency on app module's R class
+        binding.buttonCertificateAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_certificate_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_certificate_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to certificate analyzer")
+            }
+        }
+
+        binding.buttonPasswordStrength.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_password_strength", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_password_strength not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to password strength")
+            }
+        }
+
+        binding.buttonEncryptionTools.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_encryption_tools", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_encryption_tools not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to encryption tools")
+            }
+        }
+
+        binding.buttonFirewallAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_firewall_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_firewall_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to firewall analyzer")
+            }
         }
 
         viewLifecycleOwner.lifecycleScope.launch {

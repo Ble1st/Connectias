@@ -1,35 +1,35 @@
 [versions]
 agp = "8.13.1"
-kotlin = "2.1.21"
+kotlin = "2.2.21"
 coreKtx = "1.17.0"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
-appcompat = "1.6.1"
-material = "1.10.0"
+appcompat = "1.7.1"
+material = "1.13.0"
 activity = "1.12.0"
-constraintlayout = "2.1.4"
+constraintlayout = "2.2.1"
 
 # Hilt Dependency Injection
 # Downgraded to 2.56.1 due to JavaPoet compatibility issue with 2.57.2
-hilt = "2.56.1"
+hilt = "2.57.2"
 hiltNavigation = "1.3.0"
 
 # Room Database
-room = "2.7.0"
+room = "2.8.4"
 
 # Navigation Component
-navigation = "2.9.5"
-navigationFragmentKtx = "2.9.5"
-navigationUiKtx = "2.9.5"
+navigation = "2.9.6"
+navigationFragmentKtx = "2.9.6"
+navigationUiKtx = "2.9.6"
 
 # Coroutines
 coroutinesAndroid = "1.10.2"
 coroutinesCore = "1.10.2"
 
 # Lifecycle
-lifecycleLivedataKtx = "2.9.4"
-lifecycleViewmodelKtx = "2.9.4"
+lifecycleLivedataKtx = "2.10.0"
+lifecycleViewmodelKtx = "2.10.0"
 
 # Fragment
 fragment = "1.8.9"
@@ -51,17 +51,33 @@ javapoet = "1.13.0"
 
 # Kotlin Serialization
 # Updated to 1.7.1+ for Kotlin 2.0.21 compatibility
-kotlinxSerialization = "1.7.3"
+kotlinxSerialization = "1.9.0"
 
 # KSP (Kotlin Symbol Processing)
-ksp = "2.1.21-2.0.1"
+# Updated to match Kotlin 2.2.21
+ksp = "2.2.21-2.0.4"
+
+# Kotlin Reflect (required by KSP)
+kotlinReflect = "2.2.21"
 
 # Testing
 testRunner = "1.7.0"
 testRules = "1.7.0"
 mockk = "1.14.6"
 coroutinesTest = "1.10.2"
-hiltTesting = "2.56.1"
+hiltTesting = "2.57.2"
+
+# FOSS Feature Libraries
+zxing = "3.5.4"
+bouncycastle = "1.83"
+dnsjava = "3.6.3"
+okhttp = "5.3.2"
+itext = "9.4.0"
+mpandroidchart = "3.1.0"
+
+# Jetpack Compose
+composeBom = "2025.11.01"
+composeCompiler = "1.5.15"
 
 [libraries]
 # Android Core
@@ -115,6 +131,9 @@ javapoet = { group = "com.squareup", name = "javapoet", version.ref = "javapoet"
 # Kotlin Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
+# Kotlin Reflect (required by KSP)
+kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
+
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
@@ -125,13 +144,31 @@ mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hiltTesting" }
 
+# FOSS Feature Libraries
+zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
+zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version = "4.3.0" }
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
+dnsjava = { group = "dnsjava", name = "dnsjava", version.ref = "dnsjava" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+itext-core = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
+mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
+
+# Jetpack Compose
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-activity = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
+
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
-

@@ -61,6 +61,13 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
+    // Kotlin Reflect (required by KSP)
+    implementation(libs.kotlin.reflect)
+
+    // Network-specific dependencies
+    // DNS Java for DNS lookups
+    implementation(libs.dnsjava)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

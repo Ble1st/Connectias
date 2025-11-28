@@ -218,19 +218,6 @@ class EmulatorDetector(private val context: Context? = null) {
                     detectionMethods.add("No telephony support (PHONE_TYPE_NONE)")
                 }
                 
-                // Check for IMEI (emulators often return null or default values)
-                // Note: IMEI value is not included in message to avoid PII exposure
-                try {
-                    val imei = tm.imei
-                    if (imei == null || imei.isEmpty() || 
-                        imei == "000000000000000" || imei == "012345678901234") {
-                        detectionMethods.add("TELEPHONY_IMEI_CHECK")
-                    }
-                } catch (e: SecurityException) {
-                    // Permission denied, ignore
-                } catch (e: Exception) {
-                    // Other errors, ignore
-                }
                 // IMSI check removed: TelephonyManager.subscriberId is deprecated and IMSI is PII
                 // Use SubscriptionManager/SubscriptionInfo for privacy-respecting alternatives if needed
             }
@@ -309,24 +296,6 @@ class EmulatorDetector(private val context: Context? = null) {
                 // Ignore reflection errors
             }
             
-            // Telephony (if available and permitted)
-            context?.let {
-                try {
-                    val telephonyManager = it.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
-                    telephonyManager?.let { tm ->
-                        try {
-                            val imei = tm.imei
-                            details["imei"] = imei ?: "null"
-                        } catch (e: SecurityException) {
-                            details["imei"] = "permission_denied"
-                        } catch (e: Exception) {
-                            details["imei"] = "error"
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Ignore
-                }
-            }
         } catch (e: Exception) {
             Timber.w(e, "Error building debug details")
         }

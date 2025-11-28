@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="utilities_module_name">Utilities</string>
+    <string name="hash_tool_title">Hash &amp; Checksum</string>
+    <string name="encoding_tool_title">Encoding/Decoding</string>
+    <string name="qrcode_tool_title">QR Code</string>
+    <string name="color_tool_title">Color Tools</string>
+    <string name="text_tool_title">Text Tools</string>
+    <string name="api_tester_title">API Tester</string>
+    <string name="log_viewer_title">Log Viewer</string>
+</resources>
+

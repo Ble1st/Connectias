@@ -199,6 +199,10 @@ class NetworkDashboardViewModel @Inject constructor(
                 "Location permission is required for Wi‑Fi scanning"
             ErrorType.NetworkError -> 
                 "Network error. Please check your connection and try again."
+            ErrorType.ConfigurationUnavailable -> 
+                "Network configuration unavailable. Please ensure you are connected to a network."
+            ErrorType.Timeout -> 
+                "Scan operation timed out. Please try again."
             ErrorType.Unknown -> 
                 "Unable to load network information. Please try again."
         }

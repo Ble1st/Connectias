@@ -28,7 +28,6 @@ include(":app")
 include(":common")
 include(":core")
 include(":feature-security")
-include(":feature-settings")
 
 // ============================================================================
 // Optional Modules (included based on gradle.properties)
@@ -50,10 +49,15 @@ if (featureUtilitiesEnabled) {
 
 val featureBackupEnabled = providers.gradleProperty("feature.backup.enabled").orNull == "true"
 if (featureBackupEnabled) {
-    include(":feature-backup")
+    
 }
 
 val featurePrivacyEnabled = providers.gradleProperty("feature.privacy.enabled").orNull == "true"
 if (featurePrivacyEnabled) {
     include(":feature-privacy")
+}
+
+val featureWasmEnabled = providers.gradleProperty("feature.wasm.enabled").orNull == "true"
+if (featureWasmEnabled) {
+    include(":feature-wasm")
 }

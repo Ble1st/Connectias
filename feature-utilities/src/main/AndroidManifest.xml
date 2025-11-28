@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Permissions for QR Code Scanner (Camera) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    
+    <!-- Permissions for API Tester (Internet) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Permissions for Log Viewer (Logcat access) -->
+    <uses-permission android:name="android.permission.READ_LOGS" 
+        android:maxSdkVersion="25" />
+    
+    <!-- Permissions for File Hash Calculator (Storage) -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" 
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+
+</manifest>
+

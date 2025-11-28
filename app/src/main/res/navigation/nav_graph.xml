@@ -12,12 +12,26 @@
         android:label="@string/nav_security_dashboard"
         tools:layout="@layout/fragment_security_dashboard" />
 
-    <!-- Settings (Core - always available) -->
+    <!-- Security Tools -->
     <fragment
-        android:id="@+id/nav_settings"
-        android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
-        android:label="@string/nav_settings"
-        tools:layout="@layout/fragment_settings" />
+        android:id="@+id/nav_certificate_analyzer"
+        android:name="com.ble1st.connectias.feature.security.certificate.CertificateAnalyzerFragment"
+        android:label="Certificate Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_password_strength"
+        android:name="com.ble1st.connectias.feature.security.password.PasswordStrengthFragment"
+        android:label="Password Strength" />
+
+    <fragment
+        android:id="@+id/nav_encryption_tools"
+        android:name="com.ble1st.connectias.feature.security.encryption.EncryptionFragment"
+        android:label="Encryption Tools" />
+
+    <fragment
+        android:id="@+id/nav_firewall_analyzer"
+        android:name="com.ble1st.connectias.feature.security.firewall.FirewallAnalyzerFragment"
+        android:label="Firewall Analyzer" />
 
     <!-- Device Info (Optional - MVP Proof of Concept) -->
     <fragment
@@ -26,6 +40,27 @@
         android:label="@string/nav_device_info"
         tools:layout="@layout/fragment_device_info" />
 
+    <!-- Device Info Tools -->
+    <fragment
+        android:id="@+id/nav_battery_analyzer"
+        android:name="com.ble1st.connectias.feature.deviceinfo.battery.BatteryAnalyzerFragment"
+        android:label="Battery Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_storage_analyzer"
+        android:name="com.ble1st.connectias.feature.deviceinfo.storage.StorageAnalyzerFragment"
+        android:label="Storage Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_process_monitor"
+        android:name="com.ble1st.connectias.feature.deviceinfo.process.ProcessMonitorFragment"
+        android:label="Process Monitor" />
+
+    <fragment
+        android:id="@+id/nav_sensor_monitor"
+        android:name="com.ble1st.connectias.feature.deviceinfo.sensor.SensorMonitorFragment"
+        android:label="Sensor Monitor" />
+
     <!-- Privacy Dashboard (Optional) -->
     <fragment
         android:id="@+id/nav_privacy_dashboard"
@@ -33,12 +68,116 @@
         android:label="@string/nav_privacy_dashboard"
         tools:layout="@layout/fragment_privacy_dashboard" />
 
+    <!-- Privacy Tools -->
+    <fragment
+        android:id="@+id/nav_tracker_detection"
+        android:name="com.ble1st.connectias.feature.privacy.tracker.TrackerDetectionFragment"
+        android:label="Tracker Detection" />
+
+    <fragment
+        android:id="@+id/nav_permissions_analyzer"
+        android:name="com.ble1st.connectias.feature.privacy.permissions.PermissionsAnalyzerFragment"
+        android:label="Permissions Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_data_leakage"
+        android:name="com.ble1st.connectias.feature.privacy.leakage.DataLeakageFragment"
+        android:label="Data Leakage Scanner" />
+
     <!-- Network Dashboard (Optional) -->
     <fragment
         android:id="@+id/nav_network_dashboard"
         android:name="com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment"
         android:label="@string/nav_network_dashboard"
         tools:layout="@layout/fragment_network_dashboard" />
+
+    <!-- Network Tools -->
+    <fragment
+        android:id="@+id/nav_port_scanner"
+        android:name="com.ble1st.connectias.feature.network.ui.PortScannerFragment"
+        android:label="Port Scanner" />
+
+    <fragment
+        android:id="@+id/nav_dns_lookup"
+        android:name="com.ble1st.connectias.feature.network.ui.DnsLookupFragment"
+        android:label="DNS Lookup" />
+
+    <fragment
+        android:id="@+id/nav_network_monitor"
+        android:name="com.ble1st.connectias.feature.network.ui.NetworkMonitorFragment"
+        android:label="Network Monitor" />
+
+    <fragment
+        android:id="@+id/nav_wifi_analyzer"
+        android:name="com.ble1st.connectias.feature.network.ui.WifiAnalyzerFragment"
+        android:label="WiFi Analyzer" />
+
+    <!-- Utilities Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_utilities_dashboard"
+        android:name="com.ble1st.connectias.feature.utilities.ui.UtilitiesDashboardFragment"
+        android:label="@string/utilities_module_name"
+        tools:layout="@layout/fragment_utilities_dashboard" />
+
+    <!-- Utilities Tools -->
+    <fragment
+        android:id="@+id/nav_hash_tool"
+        android:name="com.ble1st.connectias.feature.utilities.hash.HashFragment"
+        android:label="@string/hash_tool_title" />
+
+    <fragment
+        android:id="@+id/nav_encoding_tool"
+        android:name="com.ble1st.connectias.feature.utilities.encoding.EncodingFragment"
+        android:label="@string/encoding_tool_title" />
+
+    <fragment
+        android:id="@+id/nav_qrcode_tool"
+        android:name="com.ble1st.connectias.feature.utilities.qrcode.QrCodeFragment"
+        android:label="@string/qrcode_tool_title" />
+
+    <fragment
+        android:id="@+id/nav_text_tool"
+        android:name="com.ble1st.connectias.feature.utilities.text.TextFragment"
+        android:label="@string/text_tool_title" />
+
+    <fragment
+        android:id="@+id/nav_api_tester"
+        android:name="com.ble1st.connectias.feature.utilities.api.ApiTesterFragment"
+        android:label="@string/api_tester_title" />
+
+    <fragment
+        android:id="@+id/nav_log_viewer"
+        android:name="com.ble1st.connectias.feature.utilities.log.LogFragment"
+        android:label="@string/log_viewer_title" />
+
+    <fragment
+        android:id="@+id/nav_color_tool"
+        android:name="com.ble1st.connectias.feature.utilities.color.ColorFragment"
+        android:label="@string/color_tool_title" />
+
+    <!-- Backup Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_backup_dashboard"
+        android:name="com.ble1st.connectias.feature.backup.ui.BackupDashboardFragment"
+        android:label="Backup &amp; Restore"
+        tools:layout="@layout/fragment_backup_dashboard" />
+
+    <!-- Backup Tools -->
+    <fragment
+        android:id="@+id/nav_export"
+        android:name="com.ble1st.connectias.feature.backup.export.ExportFragment"
+        android:label="Export Data" />
+
+    <fragment
+        android:id="@+id/nav_import"
+        android:name="com.ble1st.connectias.feature.backup.import.ImportFragment"
+        android:label="Import Data" />
+
+    <!-- WASM Plugin Manager (Optional) -->
+    <fragment
+        android:id="@+id/nav_plugin_manager"
+        android:name="com.ble1st.connectias.feature.wasm.ui.PluginManagerFragment"
+        android:label="@string/nav_plugin_manager" />
 
 </navigation>
 

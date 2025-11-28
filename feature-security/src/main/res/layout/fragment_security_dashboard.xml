@@ -48,10 +48,68 @@
         android:layout_height="wrap_content"
         android:text="Refresh"
         android:layout_marginTop="16dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/securityToolsSection"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/scrollViewThreats" />
+
+    <TextView
+        android:id="@+id/securityToolsSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Security Tools"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonRefresh" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonCertificateAnalyzer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Certificate Analyzer"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/securityToolsSection" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonPasswordStrength"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Password Strength"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonCertificateAnalyzer" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonEncryptionTools"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Encryption Tools"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonPasswordStrength" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonFirewallAnalyzer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Firewall Analyzer"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/buttonEncryptionTools" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

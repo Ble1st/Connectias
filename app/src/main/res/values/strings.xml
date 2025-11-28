@@ -7,6 +7,9 @@
     <string name="nav_settings">Settings</string>
     <string name="nav_privacy_dashboard">Privacy</string>
     <string name="nav_network_dashboard">Network</string>
+    <string name="nav_utilities_dashboard">Utilities</string>
+    <string name="nav_backup_dashboard">Backup</string>
+    <string name="nav_plugin_manager">Plugins</string>
     
     <!-- Splash Screen -->
     <string name="loading">Loading</string>

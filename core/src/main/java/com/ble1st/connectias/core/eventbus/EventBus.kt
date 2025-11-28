@@ -25,7 +25,9 @@ class EventBus @Inject constructor() {
     }
 }
 
-sealed class Event {
+// Note: Changed from sealed class to open class to allow extension from other modules
+// Sealed classes cannot be extended from different modules in Kotlin
+open class Event {
     data class SecurityCheckCompleted(val isSecure: Boolean) : Event()
     data class ModuleLoaded(val moduleId: String) : Event()
     data class ModuleUnloaded(val moduleId: String) : Event()

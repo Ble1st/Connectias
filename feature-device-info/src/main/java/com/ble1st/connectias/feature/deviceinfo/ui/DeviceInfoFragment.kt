@@ -9,10 +9,12 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.feature.deviceinfo.databinding.FragmentDeviceInfoBinding
 import com.ble1st.connectias.feature.deviceinfo.provider.DeviceInfo
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import timber.log.Timber
 import java.util.Locale
 
 @AndroidEntryPoint
@@ -55,6 +57,61 @@ class DeviceInfoFragment : Fragment() {
 
         binding.buttonRefresh.setOnClickListener {
             viewModel.refresh()
+        }
+
+        // Setup device info tools navigation
+        // Note: Navigation IDs are defined in app module's nav_graph.xml
+        // Resolve navigation IDs at runtime to avoid compile-time dependency on app module's R class
+        binding.buttonBatteryAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_battery_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_battery_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to battery analyzer")
+            }
+        }
+
+        binding.buttonStorageAnalyzer.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_storage_analyzer", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_storage_analyzer not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to storage analyzer")
+            }
+        }
+
+        binding.buttonProcessMonitor.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_process_monitor", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_process_monitor not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to process monitor")
+            }
+        }
+
+        binding.buttonSensorMonitor.setOnClickListener {
+            try {
+                val navId = resources.getIdentifier("nav_sensor_monitor", "id", requireContext().packageName)
+                if (navId != 0) {
+                    findNavController().navigate(navId)
+                } else {
+                    Timber.w("Navigation ID nav_sensor_monitor not found")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to navigate to sensor monitor")
+            }
         }
     }
 

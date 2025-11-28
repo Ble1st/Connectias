@@ -1,0 +1,83 @@
+plugins {
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.parcelize)
+}
+
+android {
+    namespace = "com.ble1st.connectias.feature.utilities"
+    compileSdk = 36
+
+    defaultConfig {
+        minSdk = 33
+        targetSdk = 36
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+    buildFeatures {
+        viewBinding = true
+        buildConfig = true
+    }
+}
+
+dependencies {
+    // Core Modules
+    implementation(project(":core"))
+    implementation(project(":common"))
+
+    // Android Core
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+
+    // Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+
+    // Navigation
+    implementation(libs.androidx.navigation.fragment.ktx)
+    implementation(libs.androidx.navigation.ui.ktx)
+
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+
+    // Fragment
+    implementation(libs.androidx.fragment.ktx)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
+
+    // Logging
+    implementation(libs.timber)
+
+    // Utilities-specific dependencies
+    // ZXing for QR Code generation and scanning
+    implementation(libs.zxing.core)
+    implementation(libs.zxing.android.embedded)
+    
+    // OkHttp for API Tester
+    implementation(libs.okhttp)
+    
+    // Kotlin Serialization for JSON handling
+    implementation(libs.kotlinx.serialization.json)
+
+    // Kotlin Reflect (required by KSP)
+    implementation(libs.kotlin.reflect)
+
+    // Testing
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+}
+

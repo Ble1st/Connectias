@@ -28,9 +28,67 @@
         android:layout_height="wrap_content"
         android:text="@string/button_refresh"
         android:contentDescription="@string/button_refresh_description"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/deviceToolsSection"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/deviceToolsSection"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Device Info Tools"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginTop="16dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_refresh" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_battery_analyzer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Battery Analyzer"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/deviceToolsSection" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_storage_analyzer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Storage Analyzer"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_battery_analyzer" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_process_monitor"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Process Monitor"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_storage_analyzer" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/button_sensor_monitor"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Sensor Monitor"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_marginTop="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/button_process_monitor" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
 

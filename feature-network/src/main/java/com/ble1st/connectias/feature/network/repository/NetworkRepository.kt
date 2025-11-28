@@ -68,9 +68,13 @@ class NetworkRepository @Inject constructor(
             NetworkResult.Error.fromThrowable(e)
         }
         
-        // Atomic cache update
-        Timber.d("Updating cache with fresh data")
-        setCache(fresh)
+        // Only cache successful results to avoid persisting permission/network errors
+        if (fresh is NetworkResult.Success) {
+            Timber.d("Caching successful result")
+            setCache(fresh)
+        } else {
+            Timber.d("Skipping cache update due to error result")
+        }
         fresh
     }
     
@@ -85,19 +89,17 @@ class NetworkRepository @Inject constructor(
             cache = { wifiNetworksCache },
             setCache = { wifiNetworksCache = it },
             fetch = {
-                try {
-                    Timber.d("Fetching Wi‑Fi networks from provider")
-                    val networks = wifiScannerProvider.scanWifiNetworks()
-                    Timber.d("Provider returned ${networks.size} Wi‑Fi networks")
-                    // Empty list is a valid successful result (no networks found)
-                    // Wrap in ParcelableList for Parcelable support
-                    val result = NetworkResult.Success(ParcelableList(networks))
-                    Timber.d("Wrapped ${networks.size} networks in ParcelableList")
-                    result
-                } catch (e: Exception) {
-                    // Critical exception - wrap it in Error result
-                    Timber.e(e, "Failed to get Wi‑Fi networks")
-                    NetworkResult.Error.fromThrowable(e)
+                Timber.d("Fetching Wi‑Fi networks from provider")
+                val result = wifiScannerProvider.scanWifiNetworks()
+                when (result) {
+                    is NetworkResult.Success -> {
+                        Timber.d("Provider returned ${result.data.items.size} Wi‑Fi networks")
+                        result
+                    }
+                    is NetworkResult.Error -> {
+                        Timber.w("Provider returned error: ${result.message}")
+                        result
+                    }
                 }
             }
         )
@@ -114,19 +116,17 @@ class NetworkRepository @Inject constructor(
             cache = { localDevicesCache },
             setCache = { localDevicesCache = it },
             fetch = {
-                try {
-                    Timber.d("Fetching local network devices from provider")
-                    val devices = lanScannerProvider.scanLocalNetwork()
-                    Timber.d("Provider returned ${devices.size} local network devices")
-                    // Empty list is a valid successful result (no devices found)
-                    // Wrap in ParcelableList for Parcelable support
-                    val result = NetworkResult.Success(ParcelableList(devices))
-                    Timber.d("Wrapped ${devices.size} devices in ParcelableList")
-                    result
-                } catch (e: Exception) {
-                    // Critical exception - wrap it in Error result
-                    Timber.e(e, "Failed to get local network devices")
-                    NetworkResult.Error.fromThrowable(e)
+                Timber.d("Fetching local network devices from provider")
+                val result = lanScannerProvider.scanLocalNetwork()
+                when (result) {
+                    is NetworkResult.Success -> {
+                        Timber.d("Provider returned ${result.data.items.size} local network devices")
+                        result
+                    }
+                    is NetworkResult.Error -> {
+                        Timber.w("Provider returned error: ${result.message}")
+                        result
+                    }
                 }
             }
         )

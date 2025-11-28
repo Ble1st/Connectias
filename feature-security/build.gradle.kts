@@ -58,6 +58,9 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
+    // Kotlin Reflect (required by KSP)
+    implementation(libs.kotlin.reflect)
+
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

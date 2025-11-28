@@ -302,7 +302,7 @@ Nach erfolgreichem MVP können folgende Features hinzugefügt werden:
 1. **Weitere optionale Features:**
    - :feature-network (WLAN/LAN Scanner)
    - :feature-utilities (Hash, Encoding, QR)
-   - :feature-backup (Backup/Restore)
+   
 
 2. **Build-Varianten:**
    - full (alle Module)

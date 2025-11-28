@@ -38,6 +38,8 @@ sealed class NetworkResult<out T> : Parcelable {
                     is PermissionDeniedException -> ErrorType.PermissionDenied
                     is NetworkUnavailableException -> ErrorType.NetworkError
                     is IOException -> ErrorType.NetworkError
+                    is java.util.concurrent.TimeoutException -> ErrorType.Timeout
+                    is kotlinx.coroutines.TimeoutCancellationException -> ErrorType.Timeout
                     else -> ErrorType.Unknown
                 }
                 return Error(
@@ -64,6 +66,16 @@ enum class ErrorType : Parcelable {
      * Network operation failed due to network unavailability or connectivity issues.
      */
     NetworkError,
+    
+    /**
+     * Gateway or network configuration is unavailable (e.g., for LAN scans).
+     */
+    ConfigurationUnavailable,
+    
+    /**
+     * Scan operation timed out.
+     */
+    Timeout,
     
     /**
      * Unknown or unexpected error occurred.

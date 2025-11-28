@@ -97,6 +97,48 @@
             android:layout_marginTop="@dimen/button_margin_top"
             android:layout_marginBottom="@dimen/button_margin_bottom" />
 
+        <!-- Network Tools Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Network Tools"
+            android:textSize="@dimen/section_header_text_size"
+            android:textStyle="bold"
+            android:layout_marginTop="@dimen/section_margin_vertical"
+            android:layout_marginBottom="@dimen/section_margin_vertical" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_port_scanner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Port Scanner"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_dns_lookup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="DNS Lookup"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_network_monitor"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Network Monitor"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_wifi_analyzer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="WiFi Analyzer"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_marginBottom="8dp" />
+
     </LinearLayout>
 
 </ScrollView>

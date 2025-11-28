@@ -49,7 +49,6 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":common"))
     implementation(project(":feature-security"))
-    implementation(project(":feature-settings"))
 
     // Optional Modules (included based on gradle.properties)
     val featureDeviceInfoEnabled = project.findProperty("feature.device.info.enabled") == "true"
@@ -67,6 +66,21 @@ dependencies {
         implementation(project(":feature-network"))
     }
 
+    val featureUtilitiesEnabled = project.findProperty("feature.utilities.enabled") == "true"
+    if (featureUtilitiesEnabled) {
+        implementation(project(":feature-utilities"))
+    }
+
+    val featureBackupEnabled = project.findProperty("feature.backup.enabled") == "true"
+    if (featureBackupEnabled) {
+        
+    }
+
+    val featureWasmEnabled = project.findProperty("feature.wasm.enabled") == "true"
+    if (featureWasmEnabled) {
+        implementation(project(":feature-wasm"))
+    }
+
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -79,6 +93,9 @@ dependencies {
     ksp(libs.hilt.compiler)
     // Explicitly add JavaPoet 1.13.0 for Hilt compatibility
     implementation(libs.javapoet)
+    
+    // Kotlin Reflect (required by KSP)
+    implementation(libs.kotlin.reflect)
 
     // Navigation
     implementation(libs.androidx.navigation.fragment.ktx)

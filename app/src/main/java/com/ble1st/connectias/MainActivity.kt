@@ -141,84 +141,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupModuleDiscovery() {
-        // Register core modules (always active)
-        moduleRegistry.registerModule(
-            com.ble1st.connectias.core.module.ModuleInfo(
-                id = "security",
-                name = "Security Dashboard",
-                version = "1.0.0",
-                isActive = true
-            )
-        )
+        Timber.d("Starting module discovery from ModuleCatalog")
         
-        moduleRegistry.registerModule(
-            com.ble1st.connectias.core.module.ModuleInfo(
-                id = "settings",
-                name = "Settings",
-                version = "1.0.0",
-                isActive = true
-            )
-        )
-        
-        // Register Device Info module if available (optional - MVP)
-        try {
-            Class.forName("com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment")
-            moduleRegistry.registerModule(
-                com.ble1st.connectias.core.module.ModuleInfo(
-                    id = "device-info",
-                    name = "Device Info",
-                    version = "1.0.0",
-                    isActive = true
-                )
-            )
-            Timber.d("Device Info module registered")
-        } catch (e: ClassNotFoundException) {
-            Timber.d("Device Info module not available (not compiled)")
+        // Register all core modules (always active)
+        com.ble1st.connectias.core.module.ModuleCatalog.CORE_MODULES.forEach { metadata ->
+            moduleRegistry.registerFromMetadata(metadata, isActive = true)
+            Timber.d("Core module registered: ${metadata.name} (${metadata.id})")
         }
-
-        // Register optional modules
-        registerOptionalModule(
-            className = "com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment",
-            moduleId = "privacy",
-            moduleName = "Privacy Dashboard"
-        )
         
-        registerOptionalModule(
-            className = "com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment",
-            moduleId = "network",
-            moduleName = "Network Dashboard"
-        )
+        // Register available optional modules
+        val availableModules = com.ble1st.connectias.core.module.ModuleCatalog.getAvailableModules()
+        availableModules.forEach { metadata ->
+            if (!metadata.isCore) {
+                moduleRegistry.registerFromMetadata(metadata, isActive = true)
+                Timber.d("Optional module registered: ${metadata.name} (${metadata.id})")
+            }
+        }
         
-        // Log active modules
+        // Log summary
         val activeModules = moduleRegistry.getActiveModules()
-        Timber.d("Active modules: ${activeModules.size}")
+        Timber.d("Module discovery completed: ${activeModules.size} active modules")
         activeModules.forEach { module ->
-            Timber.d("  - ${module.name} (${module.id}) v${module.version}")
-        }
-    }
-    
-    /**
-     * Helper function to register an optional module if its class is available.
-     * Reduces code duplication for module discovery.
-     * 
-     * @param className Fully qualified class name of the module's fragment
-     * @param moduleId Unique identifier for the module
-     * @param moduleName Display name of the module
-     */
-    private fun registerOptionalModule(className: String, moduleId: String, moduleName: String) {
-        try {
-            Class.forName(className)
-            moduleRegistry.registerModule(
-                com.ble1st.connectias.core.module.ModuleInfo(
-                    id = moduleId,
-                    name = moduleName,
-                    version = "1.0.0",
-                    isActive = true
-                )
-            )
-            Timber.d("$moduleName module registered")
-        } catch (e: ClassNotFoundException) {
-            Timber.d("$moduleName module not available (not compiled)")
+            val metadata = com.ble1st.connectias.core.module.ModuleCatalog.findById(module.id)
+            val category = metadata?.category?.name ?: "UNKNOWN"
+            Timber.d("  - ${module.name} (${module.id}) v${module.version} [${category}]")
         }
     }
     

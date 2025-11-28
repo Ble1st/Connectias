@@ -70,6 +70,10 @@ dependencies {
 
     // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)
+    
+    // Kotlin Reflect (required by KSP)
+    implementation(libs.kotlin.reflect)
+    api(libs.kotlin.reflect)
 
     // Testing
     testImplementation(libs.junit)
@@ -78,4 +82,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-
