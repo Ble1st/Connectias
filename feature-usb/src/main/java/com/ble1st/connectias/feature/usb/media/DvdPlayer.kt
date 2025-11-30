@@ -77,12 +77,17 @@ class DvdPlayer @Inject constructor(
                 throw IllegalArgumentException("Video stream URI cannot be null or empty")
             }
             
-            // Create MediaItem from stream URI
-            val parsedUri = try {
-                Uri.parse(uri)
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to parse URI: $uri")
-                throw IllegalArgumentException("Invalid video stream URI: $uri", e)
+            // Parse and validate URI
+            val parsedUri = Uri.parse(uri)
+            val scheme = parsedUri.scheme
+            if (scheme.isNullOrBlank()) {
+                Timber.e("Video stream URI has no scheme: $uri")
+                throw IllegalArgumentException("Video stream URI must have a valid scheme (http, https, file, or content): $uri")
+            }
+            val validSchemes = setOf("http", "https", "file", "content")
+            if (scheme !in validSchemes) {
+                Timber.e("Video stream URI has invalid scheme '$scheme': $uri")
+                throw IllegalArgumentException("Video stream URI scheme must be one of [${validSchemes.joinToString()}], but was '$scheme': $uri")
             }
             
             val mediaItem = MediaItem.fromUri(parsedUri)

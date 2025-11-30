@@ -43,7 +43,10 @@ class DvdVideoContentProvider : ContentProvider() {
         }
     }
     
+    @Volatile
     private var handleRegistry: DvdHandleRegistry? = null
+    
+    private val registryLock = Any()
     
     override fun onCreate(): Boolean {
         Timber.d("DvdVideoContentProvider onCreate")
@@ -74,30 +77,43 @@ class DvdVideoContentProvider : ContentProvider() {
     
     /**
      * Gets the handle registry, initializing it lazily if needed.
+     * Uses double-check locking pattern for thread-safe lazy initialization.
      * 
      * @return The DvdHandleRegistry instance
      * @throws IllegalStateException if registry cannot be initialized
      */
     private fun getHandleRegistry(): DvdHandleRegistry {
-        if (handleRegistry != null) {
-            return handleRegistry!!
+        // First check (outside synchronized block) for performance
+        val registry = handleRegistry
+        if (registry != null) {
+            return registry
         }
         
-        // Lazy initialization if onCreate() failed
-        val context = context ?: throw IllegalStateException("ContentProvider context is null")
-        val appContext = context.applicationContext
-        
-        try {
-            val entryPoint = EntryPoints.get(
-                appContext,
-                DvdHandleRegistryEntryPoint::class.java
-            )
-            handleRegistry = entryPoint.dvdHandleRegistry()
-            Timber.d("DvdVideoContentProvider registry initialized lazily")
-            return handleRegistry!!
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize DvdVideoContentProvider registry")
-            throw IllegalStateException("ContentProvider registry not available", e)
+        // Synchronized block for thread-safe initialization
+        synchronized(registryLock) {
+            // Double-check inside synchronized block
+            val registryAgain = handleRegistry
+            if (registryAgain != null) {
+                return registryAgain
+            }
+            
+            // Lazy initialization if onCreate() failed
+            val context = context ?: throw IllegalStateException("ContentProvider context is null")
+            val appContext = context.applicationContext
+            
+            try {
+                val entryPoint = EntryPoints.get(
+                    appContext,
+                    DvdHandleRegistryEntryPoint::class.java
+                )
+                val newRegistry = entryPoint.dvdHandleRegistry()
+                handleRegistry = newRegistry
+                Timber.d("DvdVideoContentProvider registry initialized lazily")
+                return newRegistry
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to initialize DvdVideoContentProvider registry")
+                throw IllegalStateException("ContentProvider registry not available", e)
+            }
         }
     }
     
@@ -208,8 +224,8 @@ class DvdVideoContentProvider : ContentProvider() {
         Timber.d("openFile called for URI: $uri, mode: $mode")
         
         // Only support read mode
-        if (mode != "r" && mode != "rt") {
-            Timber.w("Unsupported file mode: $mode (only 'r' and 'rt' are supported)")
+        if (mode != "r") {
+            Timber.w("Unsupported file mode: $mode (only 'r' is supported)")
             throw FileNotFoundException("Only read mode is supported")
         }
         
@@ -231,40 +247,35 @@ class DvdVideoContentProvider : ContentProvider() {
             throw FileNotFoundException("Invalid DVD handle")
         }
         
-        // Extract video stream using native library
-        // Note: The native implementation may not be complete yet, but we prepare the structure
-        try {
-            val videoStream = DvdNative.dvdExtractVideoStream(
-                handle,
-                parsedData.titleNumber,
-                parsedData.chapterNumber
-            )
-            
-            if (videoStream == null) {
-                Timber.w("Video stream extraction returned null for title ${parsedData.titleNumber}, chapter ${parsedData.chapterNumber}")
-                throw FileNotFoundException("Video stream not available")
-            }
-            
-            // TODO: Create a ParcelFileDescriptor that streams the video data
-            // For now, we need to implement a custom InputStream that reads from the native library
-            // This is a placeholder - the actual implementation depends on how dvdExtractVideoStream works
-            // If it returns metadata only, we need a separate method to stream the actual video bytes
-            
-            // Since the native implementation is not complete, we throw UnsupportedOperationException
-            // Once the native code is implemented, this should create a ParcelFileDescriptor
-            // that wraps an InputStream reading from the DVD video stream
-            throw UnsupportedOperationException(
-                "Video streaming not yet implemented. Native dvdExtractVideoStream needs to return " +
-                "an InputStream or file descriptor for streaming."
-            )
-            
-        } catch (e: UnsupportedOperationException) {
-            // Re-throw as-is
-            throw e
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to extract video stream")
-            throw FileNotFoundException("Failed to extract video stream: ${e.message}")
-        }
+        // Video streaming is not yet implemented
+        // Throw exception before calling native method to avoid unnecessary native invocation
+        // and potential side effects
+        throw UnsupportedOperationException(
+            "Video streaming not yet implemented. Native dvdExtractVideoStream needs to return " +
+            "an InputStream or file descriptor for streaming."
+        )
+        
+        // TODO: Once streaming support is implemented, uncomment and use the following:
+        // try {
+        //     val videoStream = DvdNative.dvdExtractVideoStream(
+        //         handle,
+        //         parsedData.titleNumber,
+        //         parsedData.chapterNumber
+        //     )
+        //     
+        //     if (videoStream == null) {
+        //         Timber.w("Video stream extraction returned null for title ${parsedData.titleNumber}, chapter ${parsedData.chapterNumber}")
+        //         throw FileNotFoundException("Video stream not available")
+        //     }
+        //     
+        //     // Create a ParcelFileDescriptor that streams the video data
+        //     // Implementation depends on how dvdExtractVideoStream works
+        //     // If it returns metadata only, we need a separate method to stream the actual video bytes
+        //     
+        // } catch (e: Exception) {
+        //     Timber.e(e, "Failed to extract video stream")
+        //     throw FileNotFoundException("Failed to extract video stream: ${e.message}")
+        // }
     }
     
     override fun getType(uri: Uri): String? {
@@ -316,10 +327,16 @@ class DvdVideoContentProvider : ContentProvider() {
         val chapterNumber: Int
     )
     
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+
     /**
      * Hilt entry point for accessing DvdHandleRegistry.
      * This is needed because ContentProvider is created before Application.
      */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
     interface DvdHandleRegistryEntryPoint {
         fun dvdHandleRegistry(): DvdHandleRegistry
     }

@@ -30,7 +30,7 @@ class AudioCdPlayer @Inject constructor(
     
     /**
      * Initializes ExoPlayer if not already initialized.
-     * This method can be called to reinitialize the player after release().
+     * This method can be called to reinitialize the player after releasePlayer().
      */
     private fun ensurePlayerInitialized() {
         synchronized(exoPlayerLock) {
@@ -48,9 +48,21 @@ class AudioCdPlayer @Inject constructor(
         try {
             Timber.d("Playing Audio CD track ${track.number}: ${track.title}")
             
+            // Find the audio file for this track (file I/O outside synchronized block)
+            val trackFile = findTrackFile(drive.mountPoint, track.number)
+            if (trackFile == null || !trackFile.exists()) {
+                Timber.e("Track file not found for track ${track.number} in ${drive.mountPoint}")
+                return
+            }
+            
+            // Create MediaItem from file URI (outside synchronized block)
+            val mediaItem = MediaItem.fromUri(Uri.fromFile(trackFile))
+            Timber.d("Created MediaItem from file: ${trackFile.absolutePath}")
+            
             // Create ExoPlayer if needed
             ensurePlayerInitialized()
             
+            // Synchronized block only for player operations
             synchronized(exoPlayerLock) {
                 val player = exoPlayer ?: run {
                     Timber.e("ExoPlayer is null after initialization")
@@ -64,17 +76,6 @@ class AudioCdPlayer @Inject constructor(
                         player.stop()
                     }
                     player.clearMediaItems()
-                    
-                    // Find the audio file for this track
-                    val trackFile = findTrackFile(drive.mountPoint, track.number)
-                    if (trackFile == null || !trackFile.exists()) {
-                        Timber.e("Track file not found for track ${track.number} in ${drive.mountPoint}")
-                        return
-                    }
-                    
-                    // Create MediaItem from file URI
-                    val mediaItem = MediaItem.fromUri(Uri.fromFile(trackFile))
-                    Timber.d("Created MediaItem from file: ${trackFile.absolutePath}")
                     
                     // Set media item and prepare
                     player.setMediaItem(mediaItem)
@@ -111,7 +112,7 @@ class AudioCdPlayer @Inject constructor(
         }
         
         val files = rootDir.listFiles() ?: return null
-        val audioExtensions = setOf("wav", "mp3", "flac", "ogg", "m4a", "aac", "cda")
+        val audioExtensions = setOf("wav", "mp3", "flac", "ogg", "m4a", "aac")
         
         // Try common patterns: track01.wav, track1.wav, 01.wav, 1.wav, etc.
         val trackNumberStr = String.format("%02d", trackNumber)
@@ -219,9 +220,11 @@ class AudioCdPlayer @Inject constructor(
     /**
      * Releases ExoPlayer resources when under memory pressure.
      * The player will be automatically reinitialized on next use.
+     * 
      * This method is public for application-level components that need to manage
-     * resource pressure, but should not be called by ViewModels or Services
-     * as the singleton manages the player lifecycle.
+     * resource pressure. It is intended for use by application lifecycle managers
+     * or memory pressure handlers, but can be called by any component that needs
+     * to free player resources.
      */
     fun releasePlayer() {
         try {
@@ -236,11 +239,4 @@ class AudioCdPlayer @Inject constructor(
         }
     }
     
-    /**
-     * Internal method to release all resources.
-     * Only for use by application-level lifecycle management.
-     */
-    internal fun release() {
-        releasePlayer()
-    }
 }

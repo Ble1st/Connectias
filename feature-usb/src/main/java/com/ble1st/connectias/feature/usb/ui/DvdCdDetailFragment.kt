@@ -135,9 +135,9 @@ class DvdCdDetailFragment : Fragment() {
                                         val currentDrive = drive
                                         if (currentDvdInfo == null || currentDrive == null) {
                                             Timber.e("Cannot play title: DvdInfo or Drive is null")
-                                            view?.post {
+                                            view?.let { v ->
                                                 Snackbar.make(
-                                                    requireView(),
+                                                    v,
                                                     "Cannot play title: Drive or DVD information is missing",
                                                     Snackbar.LENGTH_LONG
                                                 ).show()
@@ -158,9 +158,9 @@ class DvdCdDetailFragment : Fragment() {
                                     } catch (e: Exception) {
                                         Timber.e(e, "Error navigating to DVD player")
                                         if (isAdded) {
-                                            view?.post {
+                                            view?.let { v ->
                                                 Snackbar.make(
-                                                    requireView(),
+                                                    v,
                                                     "Playback failed: ${e.message ?: "Unknown error"}",
                                                     Snackbar.LENGTH_LONG
                                                 ).show()
@@ -178,9 +178,9 @@ class DvdCdDetailFragment : Fragment() {
                                         val currentDrive = drive
                                         if (currentDrive == null) {
                                             Timber.e("Cannot play track: Drive is null")
-                                            view?.post {
+                                            view?.let { v ->
                                                 Snackbar.make(
-                                                    requireView(),
+                                                    v,
                                                     "Cannot play track: Drive is not available",
                                                     Snackbar.LENGTH_LONG
                                                 ).show()
@@ -199,9 +199,9 @@ class DvdCdDetailFragment : Fragment() {
                                     } catch (e: Exception) {
                                         Timber.e(e, "Error starting audio playback")
                                         if (isAdded) {
-                                            view?.post {
+                                            view?.let { v ->
                                                 Snackbar.make(
-                                                    requireView(),
+                                                    v,
                                                     "Playback failed: ${e.message ?: "Unknown error"}",
                                                     Snackbar.LENGTH_LONG
                                                 ).show()

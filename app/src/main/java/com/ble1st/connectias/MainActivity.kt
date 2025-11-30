@@ -1,3 +1,4 @@
+
 package com.ble1st.connectias
 
 import android.content.Intent
@@ -58,7 +59,7 @@ class MainActivity : AppCompatActivity() {
 
     private var isSecurityCheckPending = true
     private var isMainUIInitialized = false
-    private var lastHandledNavigationIntent: Intent? = null
+    private var lastHandledNavigateTo: String? = null
 
 
 
@@ -288,13 +289,13 @@ class MainActivity : AppCompatActivity() {
      * Extracted to a separate method to be called from both setupNavigation() and onNewIntent().
      */
     private fun handleNavigateIntent(intent: Intent?) {
-        // Skip if this intent was already handled
-        if (intent === lastHandledNavigationIntent) {
-            Timber.d("Navigation intent already handled, skipping duplicate navigation")
+        val navigateTo = intent?.getStringExtra("navigate_to") ?: return
+        
+        // Skip if this navigation target was already handled (null-safe string comparison)
+        if (navigateTo == lastHandledNavigateTo) {
+            Timber.d("Navigation target already handled: $navigateTo, skipping duplicate navigation")
             return
         }
-        
-        val navigateTo = intent?.getStringExtra("navigate_to") ?: return
         
         try {
             val navController = findNavController(R.id.nav_host_fragment_content_main)
@@ -308,8 +309,8 @@ class MainActivity : AppCompatActivity() {
             Timber.d("Navigating to: $navigateTo")
             navController.navigate(navId)
             
-            // Mark this intent as handled to prevent duplicate navigations
-            lastHandledNavigationIntent = intent
+            // Mark this navigation target as handled to prevent duplicate navigations
+            lastHandledNavigateTo = navigateTo
         } catch (e: Exception) {
             Timber.e(e, "Error navigating to: $navigateTo")
         }

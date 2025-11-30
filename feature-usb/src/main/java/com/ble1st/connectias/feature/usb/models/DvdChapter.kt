@@ -8,8 +8,7 @@ import kotlinx.parcelize.Parcelize
  */
 @Parcelize
 data class DvdChapter(
-@Parcelize
-data class DvdChapter(
+    val number: Int,
     val number: Int,
     val titleNumber: Int,
     val startTime: Long, // milliseconds

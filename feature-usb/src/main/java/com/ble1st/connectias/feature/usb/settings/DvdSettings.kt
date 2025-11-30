@@ -24,18 +24,23 @@ class DvdSettings @Inject constructor(
     
     private val _cssDecryptionEnabled = MutableStateFlow(false)
     
-    private val prefs: SharedPreferences by lazy {
-        context.getSharedPreferences("dvd_settings", Context.MODE_PRIVATE).also {
-            // Initialize StateFlow with current value
-            _cssDecryptionEnabled.value = it.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false)
-            
-            // Listen for SharedPreferences changes and update StateFlow
-            it.registerOnSharedPreferenceChangeListener { _, key ->
-                if (key == KEY_CSS_DECRYPTION_ENABLED) {
-                    _cssDecryptionEnabled.value = it.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false)
-                }
+    private val prefs: SharedPreferences = context.getSharedPreferences("dvd_settings", Context.MODE_PRIVATE)
+    
+    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == KEY_CSS_DECRYPTION_ENABLED) {
+            prefs.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false).let { newValue ->
+                _cssDecryptionEnabled.value = newValue
             }
         }
+    }
+    
+    init {
+        // Initialize StateFlow with current value
+        _cssDecryptionEnabled.value = prefs.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false)
+        
+        // Listen for SharedPreferences changes and update StateFlow
+        // Keep listener as a field to prevent garbage collection
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
     }
     
     /**

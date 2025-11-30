@@ -6,6 +6,7 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
+import java.io.File
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Inject
@@ -27,27 +28,83 @@ class SettingsRepository @Inject constructor(
     
     private val encryptedPrefs: SharedPreferences by lazy {
         try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            
-            val encrypted = EncryptedSharedPreferences.create(
-                context,
-                "connectias_settings_encrypted",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-            
-            performMigration(encrypted)
-            
-            encrypted
+            createEncryptedPrefs()
         } catch (e: GeneralSecurityException) {
             Timber.e(e, "Failed to create EncryptedSharedPreferences")
+            // Attempt recovery by deleting corrupted prefs
+            if (deleteCorruptedPrefs()) {
+                Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
+                try {
+                    return@lazy createEncryptedPrefs()
+                } catch (e2: Exception) {
+                    Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
+                    throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
+                }
+            }
             throw IllegalStateException("Cannot initialize encrypted storage", e)
         } catch (e: IOException) {
             Timber.e(e, "IO error creating EncryptedSharedPreferences")
+            // Attempt recovery by deleting corrupted prefs
+            if (deleteCorruptedPrefs()) {
+                Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
+                try {
+                    return@lazy createEncryptedPrefs()
+                } catch (e2: Exception) {
+                    Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
+                    throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
+                }
+            }
             throw IllegalStateException("Cannot initialize encrypted storage", e)
+        }
+    }
+    
+    /**
+     * Creates EncryptedSharedPreferences instance.
+     * Extracted to a separate method to allow retry after recovery.
+     */
+    private fun createEncryptedPrefs(): SharedPreferences {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        
+        val encrypted = EncryptedSharedPreferences.create(
+            context,
+            "connectias_settings_encrypted",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        
+        performMigration(encrypted)
+        
+        return encrypted
+    }
+    
+    /**
+     * Attempts to delete corrupted encrypted preferences file.
+     * This is used for recovery when keystore corruption is detected (e.g., after OS updates,
+     * backup restores, or device migrations).
+     * 
+     * @return true if deletion was successful or file didn't exist, false otherwise
+     */
+    private fun deleteCorruptedPrefs(): Boolean {
+        return try {
+            val prefsFile = File(context.filesDir.parent, "shared_prefs/connectias_settings_encrypted.xml")
+            if (prefsFile.exists()) {
+                val deleted = prefsFile.delete()
+                if (deleted) {
+                    Timber.d("Deleted corrupted encrypted preferences file")
+                } else {
+                    Timber.w("Failed to delete corrupted encrypted preferences file")
+                }
+                deleted
+            } else {
+                Timber.d("Encrypted preferences file does not exist, nothing to delete")
+                true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error attempting to delete corrupted encrypted preferences")
+            false
         }
     }
     

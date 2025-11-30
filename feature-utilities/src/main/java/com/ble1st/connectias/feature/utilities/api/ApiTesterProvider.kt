@@ -3,11 +3,13 @@ package com.ble1st.connectias.feature.utilities.api
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.CertificatePinner
+import okhttp3.Dns
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
+import java.net.InetAddress
 import java.net.URL
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -23,19 +25,69 @@ data class ApiTesterConfig(
 )
 
 /**
+ * Custom DNS resolver that uses pre-validated IP addresses to prevent DNS rebinding attacks.
+ * Stores validated hostname -> InetAddress mappings in ThreadLocal for thread-safe, per-request scoping.
+ */
+private class ValidatedDns : Dns {
+    companion object {
+        // ThreadLocal storage for validated hostname -> InetAddress mappings
+        // This ensures each request thread has its own isolated mapping
+        private val validatedAddresses = ThreadLocal<MutableMap<String, InetAddress>>()
+        
+        /**
+         * Sets the validated InetAddress for a hostname in the current thread's context.
+         * Must be called before making the HTTP request.
+         */
+        fun setValidatedAddress(hostname: String, address: InetAddress) {
+            val map = validatedAddresses.get() ?: mutableMapOf<String, InetAddress>().also {
+                validatedAddresses.set(it)
+            }
+            map[hostname.lowercase()] = address
+        }
+        
+        /**
+         * Clears all validated addresses for the current thread.
+         * Should be called after the request completes to prevent cross-request reuse.
+         */
+        fun clearValidatedAddresses() {
+            validatedAddresses.get()?.clear()
+        }
+    }
+    
+    override fun lookup(hostname: String): List<InetAddress> {
+        // First, check if we have a pre-validated address for this hostname
+        val validatedMap = validatedAddresses.get()
+        val validatedAddress = validatedMap?.get(hostname.lowercase())
+        
+        if (validatedAddress != null) {
+            // Use the pre-validated address to prevent DNS rebinding
+            return listOf(validatedAddress)
+        }
+        
+        // Fallback to system DNS for hostnames not in our validated set
+        // This should not happen in normal operation, but provides a fallback
+        return Dns.SYSTEM.lookup(hostname)
+    }
+}
+
+/**
  * Provider for API testing operations.
  * Uses OkHttp for HTTP requests.
  * Supports optional SSL certificate pinning for enhanced security.
+ * Implements DNS rebinding protection by using pre-validated IP addresses.
  */
 @Singleton
 class ApiTesterProvider @Inject constructor(
     private val config: ApiTesterConfig
 ) {
 
+    private val validatedDns = ValidatedDns()
+    
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .dns(validatedDns) // Use custom DNS resolver to prevent DNS rebinding
         .apply {
             // Configure SSL pinning if enabled
             if (config.enableSslPinning && config.pinnedDomains.isNotEmpty()) {
@@ -77,8 +129,8 @@ class ApiTesterProvider @Inject constructor(
         body: String? = null
     ): ApiResponse = withContext(Dispatchers.IO) {
         try {
-            // Validate URL to prevent SSRF attacks
-            val validatedUrl = validateUrl(url) ?: return@withContext ApiResponse(
+            // Validate URL and resolve hostname to prevent SSRF and DNS rebinding attacks
+            val validationResult = validateUrlAndResolve(url) ?: return@withContext ApiResponse(
                 statusCode = 0,
                 statusMessage = "Invalid or blocked URL",
                 headers = emptyMap(),
@@ -88,48 +140,62 @@ class ApiTesterProvider @Inject constructor(
                 error = "URL validation failed"
             )
             
-            val requestBuilder = Request.Builder().url(validatedUrl)
+            val (validatedUrl, hostname, resolvedAddress) = validationResult
+            
+            // Store the validated hostname -> InetAddress mapping before making the request
+            // This ensures OkHttp uses the pre-validated IP address, preventing DNS rebinding
+            ValidatedDns.setValidatedAddress(hostname, resolvedAddress)
+            
+            try {
+                val requestBuilder = Request.Builder().url(validatedUrl)
 
-            // Add headers
-            headers.forEach { (key, value) ->
-                requestBuilder.addHeader(key, value)
-            }
-
-            // Add body for methods that support it
-            if (body != null && method in listOf(HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH)) {
-                val mediaType = "application/json; charset=utf-8".toMediaType()
-                val requestBody = body.toRequestBody(mediaType)
-                when (method) {
-                    HttpMethod.POST -> requestBuilder.post(requestBody)
-                    HttpMethod.PUT -> requestBuilder.put(requestBody)
-                    HttpMethod.PATCH -> requestBuilder.patch(requestBody)
-                    else -> requestBuilder
+                // Add headers
+                headers.forEach { (key, value) ->
+                    requestBuilder.addHeader(key, value)
                 }
-            } else {
-                when (method) {
-                    HttpMethod.GET -> requestBuilder.get()
-                    HttpMethod.DELETE -> requestBuilder.delete()
-                    else -> requestBuilder
+
+                // Add body for methods that support it
+                if (body != null && method in listOf(HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH)) {
+                    val mediaType = "application/json; charset=utf-8".toMediaType()
+                    val requestBody = body.toRequestBody(mediaType)
+                    when (method) {
+                        HttpMethod.POST -> requestBuilder.post(requestBody)
+                        HttpMethod.PUT -> requestBuilder.put(requestBody)
+                        HttpMethod.PATCH -> requestBuilder.patch(requestBody)
+                        else -> requestBuilder
+                    }
+                } else {
+                    when (method) {
+                        HttpMethod.GET -> requestBuilder.get()
+                        HttpMethod.DELETE -> requestBuilder.delete()
+                        else -> requestBuilder
+                    }
                 }
+
+                val request = requestBuilder.build()
+                val startTime = System.currentTimeMillis()
+                val response = client.newCall(request).execute()
+                val duration = System.currentTimeMillis() - startTime
+
+                val responseBody = response.body?.string() ?: ""
+                val responseHeaders = response.headers.toMultimap()
+
+                ApiResponse(
+                    statusCode = response.code,
+                    statusMessage = response.message,
+                    headers = responseHeaders,
+                    body = responseBody,
+                    duration = duration,
+                    isSuccess = response.isSuccessful
+                )
+            } finally {
+                // Clear the validated address mapping after request completes
+                // This prevents cross-request reuse and ensures thread-safety
+                ValidatedDns.clearValidatedAddresses()
             }
-
-            val request = requestBuilder.build()
-            val startTime = System.currentTimeMillis()
-            val response = client.newCall(request).execute()
-            val duration = System.currentTimeMillis() - startTime
-
-            val responseBody = response.body?.string() ?: ""
-            val responseHeaders = response.headers.toMultimap()
-
-            ApiResponse(
-                statusCode = response.code,
-                statusMessage = response.message,
-                headers = responseHeaders,
-                body = responseBody,
-                duration = duration,
-                isSuccess = response.isSuccessful
-            )
         } catch (e: Exception) {
+            // Ensure mapping is cleared even on error
+            ValidatedDns.clearValidatedAddresses()
             Timber.e(e, "Failed to execute HTTP request")
             ApiResponse(
                 statusCode = 0,
@@ -146,11 +212,12 @@ class ApiTesterProvider @Inject constructor(
     /**
      * Validates URL to prevent SSRF (Server-Side Request Forgery) attacks.
      * Blocks private IPs, localhost, and non-HTTP(S) protocols.
+     * Resolves hostname to IP address and returns both for DNS rebinding protection.
      * 
      * @param urlString The URL to validate
-     * @return Validated URL string or null if validation fails
+     * @return Triple of (validated URL string, hostname, resolved InetAddress) or null if validation fails
      */
-    private fun validateUrl(urlString: String): String? {
+    private fun validateUrlAndResolve(urlString: String): Triple<String, String, InetAddress>? {
         return try {
             val url = URL(urlString)
             
@@ -171,8 +238,9 @@ class ApiTesterProvider @Inject constructor(
             
             // Resolve host to IP address for proper validation
             // This prevents SSRF bypass via hostname manipulation (e.g., "127.evil.com")
+            // The resolved address will be used by OkHttp to prevent DNS rebinding attacks
             val inetAddress = try {
-                java.net.InetAddress.getByName(host)
+                InetAddress.getByName(host)
             } catch (e: Exception) {
                 Timber.w("Failed to resolve host: $host")
                 return null
@@ -195,7 +263,9 @@ class ApiTesterProvider @Inject constructor(
                 return null
             }
             
-            urlString
+            // Return validated URL, hostname, and resolved address
+            // The resolved address will be used by the custom DNS resolver to prevent DNS rebinding
+            Triple(urlString, host, inetAddress)
         } catch (e: Exception) {
             Timber.e(e, "Invalid URL format: $urlString")
             null

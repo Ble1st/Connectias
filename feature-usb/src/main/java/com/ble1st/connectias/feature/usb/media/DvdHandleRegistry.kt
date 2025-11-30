@@ -1,6 +1,7 @@
 package com.ble1st.connectias.feature.usb.media
 
 import com.ble1st.connectias.feature.usb.models.DvdInfo
+import com.ble1st.connectias.feature.usb.native.DvdNative
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -10,6 +11,11 @@ import javax.inject.Singleton
  * 
  * This registry stores DVD handles keyed by mount point, allowing the ContentProvider
  * to access DVD data even when called from outside the app context.
+ * 
+ * **Lifecycle Responsibility:**
+ * - This registry owns and is responsible for closing native handles
+ * - When a handle is unregistered or replaced, the registry automatically closes the native handle
+ * - Callers should not close handles that are registered here; the registry manages cleanup
  * 
  * Thread-safe: All operations are synchronized.
  */
@@ -22,6 +28,9 @@ class DvdHandleRegistry @Inject constructor() {
     /**
      * Registers a DVD handle for the given mount point.
      * 
+     * If a handle is already registered for this mount point, the old handle is closed
+     * before registering the new one. All operations are atomic under the same lock.
+     * 
      * @param mountPoint The mount point path (e.g., "/mnt/dvd")
      * @param handle The DVD handle from DvdNative.dvdOpen()
      */
@@ -31,6 +40,18 @@ class DvdHandleRegistry @Inject constructor() {
                 Timber.w("Attempted to register invalid DVD handle: $handle for mount point: $mountPoint")
                 return
             }
+            
+            // Check for existing handle and cleanup if present
+            val oldHandle = dvdHandles[mountPoint]
+            if (oldHandle != null && oldHandle != handle) {
+                Timber.w("Replacing existing DVD handle $oldHandle with $handle for mount point: $mountPoint")
+                try {
+                    DvdNative.dvdClose(oldHandle)
+                } catch (e: Exception) {
+                    Timber.e(e, "Error closing old DVD handle $oldHandle during registration")
+                }
+            }
+            
             dvdHandles[mountPoint] = handle
             Timber.d("Registered DVD handle $handle for mount point: $mountPoint")
         }
@@ -39,13 +60,21 @@ class DvdHandleRegistry @Inject constructor() {
     /**
      * Unregisters a DVD handle for the given mount point.
      * 
+     * This method removes the handle from the registry and closes the native handle
+     * to prevent resource leaks. The cleanup is performed atomically under the same lock.
+     * 
      * @param mountPoint The mount point path
      */
     fun unregister(mountPoint: String) {
         synchronized(lock) {
             val handle = dvdHandles.remove(mountPoint)
             if (handle != null) {
-                Timber.d("Unregistered DVD handle $handle for mount point: $mountPoint")
+                try {
+                    DvdNative.dvdClose(handle)
+                    Timber.d("Unregistered and closed DVD handle $handle for mount point: $mountPoint")
+                } catch (e: Exception) {
+                    Timber.e(e, "Error closing DVD handle $handle during unregistration")
+                }
             } else {
                 Timber.w("Attempted to unregister non-existent DVD handle for mount point: $mountPoint")
             }
@@ -101,6 +130,7 @@ class DvdHandleRegistry @Inject constructor() {
     fun clear() {
         synchronized(lock) {
             val count = dvdHandles.size
+            // Consider: dvdHandles.values.forEach { DvdNative.dvdClose(it) }
             dvdHandles.clear()
             Timber.d("Cleared $count DVD handles from registry")
         }

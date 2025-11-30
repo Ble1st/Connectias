@@ -27,7 +27,7 @@ Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdOpen(JNIEnv *env, jcl
 JNIEXPORT void JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdClose(JNIEnv *env, jclass clazz, jlong handle) {
     if (handle <= 0) {
-        LOGE("Invalid DVD handle: 0");
+        LOGE("Invalid DVD handle: %ld", handle);
         return;
     }
     

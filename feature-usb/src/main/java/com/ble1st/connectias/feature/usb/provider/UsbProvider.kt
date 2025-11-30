@@ -392,7 +392,7 @@ class UsbProvider @Inject constructor(
                     resultData = if (!isInRequest && data != null) {
                         data
                     } else {
-                        data?.copyOf(0) ?: ByteArray(0)
+                        ByteArray(0)
                     }
                     status = when (bytesTransferred) {
                         UsbError.ERROR_TIMEOUT -> UsbTransfer.TransferStatus.TIMEOUT

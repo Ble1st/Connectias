@@ -20,6 +20,9 @@
         </activity>
         
         <!-- ContentProvider for DVD video streaming -->
+        <!-- Note: writePermission is intentionally omitted because all write methods
+             (insert/update/delete) throw UnsupportedOperationException and no write
+             operations are actually implemented. Only read operations are supported. -->
         <provider
             android:name=".media.DvdVideoContentProvider"
             android:authorities="com.ble1st.connectias.dvd"

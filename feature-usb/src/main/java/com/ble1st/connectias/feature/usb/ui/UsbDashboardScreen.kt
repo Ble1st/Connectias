@@ -60,7 +60,10 @@ fun UsbDashboardScreen(
         Timber.d("Detected devices changed: ${detectedDevices.size} devices")
         // Merge detected devices with enumerated devices
         val allDevices = (devices + detectedDevices).distinctBy { "${it.vendorId}-${it.productId}" }
-        if (allDevices.toSet() != devices.toSet()) {
+        // Compare using the same dedupe key to avoid mismatches from UsbDevice.equals() differences
+        val allKeys = allDevices.map { "${it.vendorId}-${it.productId}" }.toSet()
+        val currentKeys = devices.map { "${it.vendorId}-${it.productId}" }.toSet()
+        if (allKeys != currentKeys) {
             Timber.d("Updating device list with ${allDevices.size} devices")
             devices = allDevices
         }

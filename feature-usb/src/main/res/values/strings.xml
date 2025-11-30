@@ -64,7 +64,7 @@ By enabling this feature, you confirm that you:
     <string name="usb_unknown_manufacturer">Unknown Manufacturer</string>
     <string name="usb_vendor_product_format">Vendor: 0x%1$04X, Product: 0x%2$04X</string>
     <string name="usb_mass_storage_device">Mass Storage Device</string>
-    <string name="usb_view_details">View details</string>
+    <string name="usb_view_details">View Details</string>
     
     <!-- USB Device Action Dialog -->
     <string name="usb_device_connected">USB Device Connected</string>
