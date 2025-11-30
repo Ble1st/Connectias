@@ -31,7 +31,6 @@ class DhcpLeaseViewModel @Inject constructor(
      */
     fun analyzeLeases(devices: List<NetworkDevice>) {
         currentAnalysisJob?.cancel()
-        currentAnalysisJob?.join()
         
         currentAnalysisJob = viewModelScope.launch {
             _uiState.value = DhcpLeaseState.Loading

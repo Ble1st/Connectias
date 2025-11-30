@@ -8,6 +8,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.feature.network.models.HypervisorInfo
 import com.ble1st.connectias.feature.network.models.VmInfo
@@ -33,13 +35,14 @@ fun HypervisorDetectorScreen(
 
         when (state) {
             is HypervisorDetectorState.Loading -> {
+                val loadingDescription = stringResource(R.string.hypervisor_loading_description)
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
                     CircularProgressIndicator(
                         modifier = Modifier.semantics {
-                            contentDescription = stringResource(R.string.hypervisor_loading_description)
+                            contentDescription = loadingDescription
                         }
                     )
                 }

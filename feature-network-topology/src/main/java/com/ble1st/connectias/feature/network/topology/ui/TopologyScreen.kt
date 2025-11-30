@@ -8,14 +8,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.feature.network.topology.models.NetworkTopology
 import com.ble1st.connectias.feature.network.topology.models.TopologyNode
 import com.ble1st.connectias.feature.network.topology.ui.components.TopologyGraph
 
 @Composable
 fun TopologyScreen(
     state: TopologyState,
-    onBuildTopology: () -> Unit
+    onBuildTopology: () -> Unit,
+    onResetState: () -> Unit
 ) {
     var selectedNode by remember { mutableStateOf<TopologyNode?>(null) }
     

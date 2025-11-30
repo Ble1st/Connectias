@@ -24,7 +24,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
         freeCompilerArgs += listOf(
-            "-Xopt-in=kotlin.RequiresOptIn",
+            "-opt-in=kotlin.RequiresOptIn",
             "-Xannotation-default-target=param-property"
         )
     }

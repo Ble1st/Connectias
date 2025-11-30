@@ -92,6 +92,8 @@ fun BandwidthMonitorScreen(
             }
         }
     }
+}
+
 @Composable
 private fun InterfaceStatsCard(stats: InterfaceStats) {
     Card(modifier = Modifier.fillMaxWidth()) {

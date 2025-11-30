@@ -22,7 +22,6 @@ data class NetworkTopology(
     }
 
     fun getNodeById(id: String): TopologyNode? {
-    fun getNodeById(id: String): TopologyNode? {
         return nodes.find { it.id == id }
     }
 
