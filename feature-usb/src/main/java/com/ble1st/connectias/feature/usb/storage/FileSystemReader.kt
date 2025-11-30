@@ -58,11 +58,25 @@ class FileSystemReader @Inject constructor() {
             }
             
             val files = dir.listFiles()?.map { file ->
+                // file.length() can return negative values for special files (device files, etc.)
+                // or when there are file system errors. Validate and use 0L as fallback.
+                val fileSize = if (file.isFile) {
+                    val size = file.length()
+                    if (size < 0) {
+                        Timber.w("File size is negative for ${file.absolutePath}, using 0L as fallback")
+                        0L
+                    } else {
+                        size
+                    }
+                } else {
+                    0L
+                }
+                
                 FileInfo(
                     name = file.name,
                     path = file.absolutePath,
                     isDirectory = file.isDirectory,
-                    size = if (file.isFile) file.length() else 0L,
+                    size = fileSize,
                     lastModified = file.lastModified()
                 )
             } ?: emptyList()
@@ -73,6 +87,34 @@ class FileSystemReader @Inject constructor() {
             Timber.e(e, "Error listing files")
             emptyList()
         }
+    }
+    
+    /**
+     * Decodes octal escape sequences in /proc/mounts strings.
+     * Handles sequences like \040 (space), \011 (tab), etc.
+     * Format: backslash followed by exactly 3 octal digits
+     * 
+     * @param input String that may contain octal escape sequences
+     * @return Decoded string with escape sequences replaced by their character equivalents
+     */
+    private fun decodeOctalEscapes(input: String): String {
+        val result = StringBuilder()
+        var i = 0
+        while (i < input.length) {
+            if (input[i] == '\\' && i + 3 < input.length) {
+                // Check if next 3 characters are octal digits
+                val octalStr = input.substring(i + 1, i + 4)
+                if (octalStr.all { it in '0'..'7' }) {
+                    val charCode = octalStr.toInt(8)
+                    result.append(charCode.toChar())
+                    i += 4
+                    continue
+                }
+            }
+            result.append(input[i])
+            i++
+        }
+        return result.toString()
     }
     
     /**
@@ -99,14 +141,15 @@ class FileSystemReader @Inject constructor() {
                 // Format: device mount_point file_system_type options dump pass
                 // Need at least 3 fields: device, mount_point, file_system_type
                 if (parts.size >= 3) {
-                    val lineMountPoint = parts[1]
-                    val fileSystemType = parts[2]
+                    // Decode octal escape sequences in device, mount_point, and file_system_type
+                    val device = decodeOctalEscapes(parts[0])
+                    val lineMountPoint = decodeOctalEscapes(parts[1])
+                    val fileSystemType = decodeOctalEscapes(parts[2])
                     
                     // Check if mount point matches (handle both with and without trailing slash)
-                    if (lineMountPoint == normalizedMountPoint || 
-                        lineMountPoint == "$normalizedMountPoint/" ||
-                        "$lineMountPoint/" == normalizedMountPoint) {
-                        Timber.d("Found mount entry: device=${parts[0]}, mount=$lineMountPoint, fs=$fileSystemType")
+                    val normalizedLineMountPoint = lineMountPoint.trimEnd('/')
+                    if (normalizedLineMountPoint == normalizedMountPoint) {
+                        Timber.d("Found mount entry: device=$device, mount=$lineMountPoint, fs=$fileSystemType")
                         return when (fileSystemType.lowercase()) {
                             "iso9660" -> FileSystem.ISO9660
                             "udf" -> FileSystem.UDF

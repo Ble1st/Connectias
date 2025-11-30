@@ -4,6 +4,7 @@ import timber.log.Timber
 import java.io.Closeable
 import java.util.concurrent.atomic.AtomicBoolean
 
+
 /**
  * Native interface for USB operations via libusb.
  * 
@@ -53,6 +54,14 @@ object UsbNative {
     
     /**
      * Checks if the native library is available.
+     * 
+     * **Note:** This method does NOT attempt to load the library. It only returns the status
+     * of a previous load attempt. If the library has not been loaded yet, this will return false.
+     * 
+     * To ensure the library is loaded, call [enumerateDevices], [openDevice], or any other
+     * method that requires the library - they will automatically attempt to load it.
+     * 
+     * @return true if the library was successfully loaded in a previous attempt, false otherwise
      */
     fun isLibraryAvailable(): Boolean = libraryLoaded && libraryAvailable
     
@@ -114,6 +123,9 @@ object UsbNative {
         if (!ensureLibraryLoaded()) {
             throw IllegalStateException("USB native library not available")
         }
+        if (length < 0 || length > data.size) {
+            throw IllegalArgumentException("length must be in range [0, ${data.size}], but was $length")
+        }
         return bulkTransferNative(handle, endpoint, data, length, timeoutMs)
     }
     
@@ -133,6 +145,7 @@ object UsbNative {
         if (!ensureLibraryLoaded()) {
             throw IllegalStateException("USB native library not available")
         }
+        require(length >= 0 && length <= data.size) { "length must be in range [0, ${data.size}]" }
         return interruptTransferNative(handle, endpoint, data, length, timeoutMs)
     }
     
@@ -191,6 +204,8 @@ class UsbDeviceHandle private constructor(
     private val handle: Long
 ) : Closeable {
     
+    private val closed = AtomicBoolean(false)
+    
     companion object {
         /**
          * Opens a USB device by vendor and product ID.
@@ -220,10 +235,10 @@ class UsbDeviceHandle private constructor(
     
     /**
      * Closes the USB device handle.
-     * Safe to call multiple times.
+     * Thread-safe and idempotent - safe to call multiple times from any thread.
      */
     override fun close() {
-        if (handle >= 0) {
+        if (closed.compareAndSet(false, true) && handle >= 0) {
             UsbNative.closeDevice(handle)
         }
     }
@@ -302,13 +317,16 @@ enum class UsbClass(val value: Int) {
     UNKNOWN(-1);
     
     companion object {
+        // Cache enum values to avoid repeated allocations
+        private val cachedValues = entries.toTypedArray()
+        
         /**
          * Creates a UsbClass from a USB class integer value.
          * @param value USB class integer value
          * @return Corresponding UsbClass enum, or UNKNOWN if not mapped
          */
         fun fromValue(value: Int): UsbClass {
-            return values().find { it.value == value } ?: UNKNOWN
+            return cachedValues.find { it.value == value } ?: UNKNOWN
         }
     }
 }

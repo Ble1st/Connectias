@@ -19,25 +19,17 @@ fun CssDecryptionSettingsCard(
     disclaimerText: String,
     modifier: Modifier = Modifier
 ) {
-    // Read initial state and sync with external changes
-    val initialCssEnabled = remember(dvdSettings) { dvdSettings.isCssDecryptionEnabled() }
-    var cssEnabled by remember { mutableStateOf(initialCssEnabled) }
-    var showDisclaimer by remember { mutableStateOf(false) }
+    // Observe CSS decryption enabled state from DvdSettings
+    val cssEnabled by dvdSettings.cssDecryptionEnabled.collectAsState()
     
-    // Sync with external changes to DvdSettings
-    LaunchedEffect(dvdSettings) {
-        val currentEnabled = dvdSettings.isCssDecryptionEnabled()
-        if (currentEnabled != cssEnabled) {
-            cssEnabled = currentEnabled
-        }
-    }
+    // Local UI-only state for showing disclaimer dialog
+    var showDisclaimer by remember { mutableStateOf(false) }
     
     if (showDisclaimer) {
         CssDecryptionDisclaimerDialog(
             disclaimerText = disclaimerText,
             onAccept = {
                 dvdSettings.setCssDecryptionEnabled(true, true)
-                cssEnabled = true
                 showDisclaimer = false
                 Timber.i("CSS decryption enabled after disclaimer acceptance")
             },
@@ -81,7 +73,6 @@ fun CssDecryptionSettingsCard(
                             // When disabling, disclaimer state doesn't matter
                             // When enabling here, disclaimer is already accepted
                             dvdSettings.setCssDecryptionEnabled(enabled, enabled && dvdSettings.isDisclaimerAccepted())
-                            cssEnabled = enabled
                         }
                     }
                 )

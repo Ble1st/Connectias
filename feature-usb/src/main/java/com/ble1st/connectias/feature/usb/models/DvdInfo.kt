@@ -15,16 +15,4 @@ data class DvdInfo(
     val handle: Long,
     val mountPoint: String,
     val titles: List<DvdTitle>
-) : Parcelable {
-    init {
-        // Create defensive copy to ensure immutability
-        val titlesCopy = titles.toList()
-        // Note: Parcelize requires the property to be mutable for serialization,
-        // but we ensure immutability through defensive copying in the constructor
-    }
-    
-    /**
-     * Returns an immutable copy of the titles list.
-     */
-    fun getTitles(): List<DvdTitle> = titles.toList()
-}
+) : Parcelable

@@ -58,7 +58,10 @@ class AudioCdProvider @Inject constructor() {
             val files = rootDir.listFiles()
             val tracks = mutableListOf<AudioTrack>()
             
-            val audioExtensions = setOf("wav", "mp3", "flac", "ogg", "m4a", "aac")
+            // Only uncompressed formats can use file-size-based duration estimation
+            // Compressed formats (mp3, ogg, m4a, aac) have variable bitrates and cannot
+            // be accurately estimated from file size alone
+            val audioExtensions = setOf("wav", "aiff")
             val audioFiles = files?.filter { it.isFile && it.extension.lowercase() in audioExtensions } ?: emptyList()
             
             // Calculate cumulative sector positions for proper track indexing

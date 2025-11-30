@@ -39,7 +39,7 @@ class MountManager @Inject constructor(
             }
             
             // Fallback: Scan common mount points
-            val fallbackMountPoint = findMountPointViaScan(device)
+            val fallbackMountPoint = findMountPointViaScan()
             if (fallbackMountPoint != null) {
                 Timber.i("Mount point found via scan: $fallbackMountPoint")
                 return@withContext fallbackMountPoint
@@ -71,21 +71,7 @@ class MountManager @Inject constructor(
                     "unknown"
                 }
                 
-                // Try to get UUID for matching
-                val uuid = try {
-                    volume.uuid
-                } catch (e: Exception) {
-                    null
-                }
-                
-                // Try to get description for matching
-                val description = try {
-                    volume.getDescription(context)
-                } catch (e: Exception) {
-                    null
-                }
-                
-                Timber.d("  Volume $index: removable=$isRemovable, path=$directory, state=$state, uuid=$uuid, description=$description")
+                Timber.d("  Volume $index: removable=$isRemovable, path=$directory, state=$state")
                 
                 // Check if volume is removable and mounted
                 if (isRemovable && directory != null) {
@@ -106,43 +92,15 @@ class MountManager @Inject constructor(
                 return mountPoint
             }
             
-            // If multiple candidates, try to match by device identifiers
+            // If multiple candidates, log warning and return first candidate as fallback
+            // Note: Per-device matching via StorageManager is unreliable without sysfs correlation.
+            // A robust implementation would resolve the volume's mount path and correlate it with
+            // the USB device node via /sys/bus/usb (e.g., map mount point -> block device -> 
+            // sysfs parent USB device and compare vendor/product/serial there).
             if (candidateVolumes.size > 1) {
-                Timber.d("Multiple removable volumes found (${candidateVolumes.size}), attempting device matching...")
-                
-                // Try to match by UUID (filesystem UUID might correlate with device)
-                if (device.serialNumber != null) {
-                    for ((volume, directory) in candidateVolumes) {
-                        try {
-                            val volumeUuid = volume.uuid
-                            // Check if UUID or description contains device identifiers
-                            if (volumeUuid != null && device.serialNumber.isNotEmpty()) {
-                                // UUID matching is not reliable, but we can try description matching
-                                val volumeDescription = try {
-                                    volume.getDescription(context) ?: ""
-                                } catch (e: Exception) {
-                                    ""
-                                }
-                                
-                                // Check if description contains vendor/product info or serial
-                                val matches = volumeDescription.contains(device.vendorId.toString(16), ignoreCase = true) ||
-                                        volumeDescription.contains(device.productId.toString(16), ignoreCase = true) ||
-                                        (device.serialNumber.isNotEmpty() && volumeDescription.contains(device.serialNumber, ignoreCase = true))
-                                
-                                if (matches) {
-                                    Timber.i("Matched volume by description: $directory")
-                                    return directory
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Timber.d(e, "Error checking volume UUID/description")
-                        }
-                    }
-                }
-                
-                // If no match found, log warning and return first candidate as fallback
-                // This is not ideal but better than returning wrong device
-                Timber.w("Could not uniquely match device to volume, returning first candidate. " +
+                Timber.w("Multiple removable volumes found (${candidateVolumes.size}), " +
+                        "per-device matching via StorageManager is unreliable. " +
+                        "Returning first candidate as fallback. " +
                         "Device: Vendor=0x%04X, Product=0x%04X. " +
                         "Candidates: ${candidateVolumes.map { it.second }.joinToString()}", 
                         device.vendorId, device.productId)
@@ -157,7 +115,7 @@ class MountManager @Inject constructor(
         }
     }
     
-    private fun findMountPointViaScan(device: UsbDevice? = null): String? {
+    private fun findMountPointViaScan(): String? {
         val commonPaths = listOf(
             "/storage/usbdisk",
             "/storage/usb",
@@ -237,16 +195,21 @@ class MountManager @Inject constructor(
             return true
         }
         
-        // Check if directory has subdirectories (heuristic for container)
-        try {
-            val dir = File(path)
-            if (dir.exists() && dir.isDirectory) {
-                val subdirs = dir.listFiles()?.filter { it.isDirectory }
-                // If it has subdirectories, it's likely a container
-                if (subdirs != null && subdirs.isNotEmpty()) {
-                    Timber.d("  Path $path appears to be a container (has ${subdirs.size} subdirectories)")
-                    return true
-                }
+    private fun isContainerDirectory(path: String): Boolean {
+        // Known container directories
+        val containerPatterns = listOf(
+            "media_rw",
+            "/mnt/media_rw",
+            "/storage/media"
+        )
+        
+        // Check if path matches known container patterns
+        if (containerPatterns.any { path.contains(it) || path.endsWith(it) }) {
+            return true
+        }
+        
+        return false
+    }
             }
         } catch (e: Exception) {
             Timber.d(e, "Error checking if $path is container")

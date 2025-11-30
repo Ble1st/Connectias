@@ -7,6 +7,7 @@ import kotlinx.parcelize.Parcelize
  * DVD chapter information.
  */
 @Parcelize
+data class DvdChapter(
 @Parcelize
 data class DvdChapter(
     val number: Int,

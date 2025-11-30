@@ -35,8 +35,7 @@ Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
 1. Die rechtlichen Risiken verstehen
 2. Die volle Verantwortung für die Nutzung übernehmen
 3. Den Entwickler von jeglicher Haftung freistellen</string>
-    <string name="css_decryption_disclaimer_accept">Ich verstehe die rechtlichen Risiken und übernehme die volle Verantwortung</string>
-    <string name="css_decryption_disclaimer_checkbox">Ich verstehe die rechtlichen Risiken und übernehme die volle Verantwortung</string>
+    <string name="css_decryption_disclaimer_checkbox">Ich verstehe und übernehme die Verantwortung</string>
     <string name="accept">Akzeptieren</string>
     <string name="cancel">Abbrechen</string>
     
@@ -49,4 +48,8 @@ Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
     <string name="dvd_player_stop">Stop</string>
     <string name="dvd_player_no_next_chapter">Kein nächster Kapitel verfügbar</string>
     <string name="dvd_player_no_previous_chapter">Kein vorheriger Kapitel verfügbar</string>
+    
+    <!-- DVD Title List (German) -->
+    <string name="dvd_title_details">%1$d Kapitel • %2$s</string>
+    <string name="dvd_title_content_description">Titel %1$d, %2$d Kapitel, Dauer %3$s</string>
 </resources>

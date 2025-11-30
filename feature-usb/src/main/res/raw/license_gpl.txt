@@ -4,7 +4,7 @@ This software uses libraries licensed under the GNU General Public License (GPL)
 
 - libdvdread (GPL v2+)
 - libdvdnav (GPL v2+)
-- libdvdcss (GPL v2/v2+, optional)
+- libdvdcss (GPL v2+, optional)
 
 IMPORTANT NOTES:
 
@@ -20,8 +20,16 @@ IMPORTANT NOTES:
    your jurisdiction.
 
 3. GPL Compliance:
-   When these libraries are used, the entire application must be licensed under GPL.
-   Source code must be made available to users in accordance with GPL requirements.
+   GPL obligations depend on how these libraries are linked and distributed:
+   - Statically linked libraries: If the application is statically linked with GPL
+     libraries, the entire application must be licensed under GPL and source code
+     must be made available to users in accordance with GPL requirements.
+   - Dynamically linked libraries: If libraries are dynamically linked, GPL
+     obligations may apply depending on the specific distribution scenario and
+     whether any GPL exceptions (e.g., Classpath exception) apply.
+   - Distribution scenarios: Different obligations may apply for embedded binaries
+     vs. source distributions. For definitive guidance on your specific use case,
+     consult the full GPL license text or legal counsel.
 
 For full GPL license text, see:
 - GPL v2: https://www.gnu.org/licenses/gpl-2.0.html

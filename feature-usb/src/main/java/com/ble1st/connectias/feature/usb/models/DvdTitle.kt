@@ -11,7 +11,7 @@ import kotlinx.parcelize.Parcelize
  * @property chapters List of chapters for this title. The size of this list represents the chapter count.
  *                    This list is immutable after construction.
  * 
- * Note: The chapterCount property has been removed. Use chapters.size to get the chapter count.
+ * Note: chapterCount is now a derived property computed from chapters.size rather than a constructor parameter.
  */
 @Parcelize
 data class DvdTitle(
@@ -30,8 +30,5 @@ data class DvdTitle(
     val chapterCount: Int
         get() = chapters.size
     
-    /**
-     * Returns an immutable copy of the chapters list.
-     */
-    fun getChapters(): List<DvdChapter> = chapters.toList()
+
 }

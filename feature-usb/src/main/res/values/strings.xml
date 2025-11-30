@@ -49,8 +49,7 @@ By enabling this feature, you confirm that you:
 1. Understand the legal risks
 2. Accept full responsibility for use
 3. Release the developer from any liability</string>
-    <string name="css_decryption_disclaimer_accept">I understand the legal risks and accept full responsibility</string>
-    <string name="css_decryption_disclaimer_checkbox">I understand the legal risks and accept full responsibility</string>
+    <string name="css_decryption_disclaimer_checkbox">I understand and accept responsibility</string>
     <string name="accept">Accept</string>
     <string name="cancel">Cancel</string>
     
@@ -59,19 +58,19 @@ By enabling this feature, you confirm that you:
     <string name="usb_permission_message">The app needs permission to access this USB device:</string>
     <string name="usb_permission_grant">Grant</string>
     <string name="usb_permission_deny">Deny</string>
-    <string name="grant">Grant</string>
-    <string name="deny">Deny</string>
     
     <!-- USB Device Card -->
     <string name="usb_unknown_device">Unknown Device</string>
     <string name="usb_unknown_manufacturer">Unknown Manufacturer</string>
     <string name="usb_vendor_product_format">Vendor: 0x%1$04X, Product: 0x%2$04X</string>
+    <string name="usb_mass_storage_device">Mass Storage Device</string>
+    <string name="usb_view_details">View details</string>
     
     <!-- USB Device Action Dialog -->
     <string name="usb_device_connected">USB Device Connected</string>
     <string name="available_actions">Available Actions:</string>
     <string name="view_device_details">View Device Details</string>
-    <string name="open_dvd_drive">Open DVD/CD Drive</string>
+    <string name="open_dvd_drive">Eject DVD/CD Drive</string>
     <string name="close">Close</string>
     
     <!-- DVD Player -->
@@ -94,4 +93,8 @@ By enabling this feature, you confirm that you:
     <string name="disc_info_mount_point">Mount Point</string>
     <string name="disc_info_vendor_id">Vendor ID</string>
     <string name="disc_info_product_id">Product ID</string>
+    
+    <!-- DVD Title List -->
+    <string name="dvd_title_details">%1$d chapters • %2$s</string>
+    <string name="dvd_title_content_description">Title %1$d, %2$d chapters, duration %3$s</string>
 </resources>

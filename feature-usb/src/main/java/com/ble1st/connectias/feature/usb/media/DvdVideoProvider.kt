@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.usb.media
 
+import android.net.Uri
 import com.ble1st.connectias.feature.usb.models.DvdChapter
 import com.ble1st.connectias.feature.usb.models.DvdInfo
 import com.ble1st.connectias.feature.usb.models.DvdTitle
@@ -20,7 +21,8 @@ import javax.inject.Singleton
 @Singleton
 class DvdVideoProvider @Inject constructor(
     private val opticalDriveProvider: OpticalDriveProvider,
-    private val dvdSettings: DvdSettings
+    private val dvdSettings: DvdSettings,
+    private val dvdHandleRegistry: DvdHandleRegistry
 ) {
     
     /**
@@ -74,11 +76,17 @@ class DvdVideoProvider @Inject constructor(
             
             Timber.i("Successfully opened DVD with ${titles.size} titles")
             
-            DvdInfo(
+            val dvdInfo = DvdInfo(
                 handle = handle,
                 mountPoint = drive.mountPoint,
                 titles = titles
             )
+            
+            // Register DVD handle in registry for ContentProvider access
+            dvdHandleRegistry.registerDvd(dvdInfo)
+            Timber.d("DVD registered in handle registry")
+            
+            dvdInfo
         } catch (e: Exception) {
             Timber.e(e, "Failed to open DVD at ${drive.mountPoint}")
             handle?.let { 
@@ -176,10 +184,10 @@ class DvdVideoProvider @Inject constructor(
      */
     private fun generateVideoUri(dvdInfo: DvdInfo, titleNumber: Int, chapterNumber: Int): String {
         // Generate URI using content:// scheme for local file access
-        // Format: content://dvd/video/{mountPoint}/{titleNumber}/{chapterNumber}
+        // Format: content://com.ble1st.connectias.dvd/video/{mountPoint}/{titleNumber}/{chapterNumber}
         // This URI will be handled by a ContentProvider that streams the DVD video data
-        val mountPointEncoded = dvdInfo.mountPoint.replace("/", "_")
-        return "content://com.ble1st.connectias.dvd/video/$mountPointEncoded/$titleNumber/$chapterNumber"
+        val uri = DvdVideoContentProvider.buildUri(dvdInfo.mountPoint, titleNumber, chapterNumber)
+        return uri.toString()
     }
     
     /**
@@ -188,6 +196,11 @@ class DvdVideoProvider @Inject constructor(
     suspend fun closeDvd(dvdInfo: DvdInfo) = withContext(Dispatchers.IO) {
         try {
             Timber.d("Closing DVD, handle: ${dvdInfo.handle}")
+            
+            // Unregister DVD handle from registry before closing
+            dvdHandleRegistry.unregisterDvd(dvdInfo)
+            Timber.d("DVD unregistered from handle registry")
+            
             DvdNative.dvdClose(dvdInfo.handle)
             Timber.d("DVD closed successfully")
         } catch (e: Exception) {

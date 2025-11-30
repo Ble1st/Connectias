@@ -71,17 +71,12 @@ class UsbDashboardFragment : Fragment() {
                         permissionManager = permissionManager,
                         deviceDetector = deviceDetector,
                         onDeviceClick = { device ->
-                            Timber.d("Navigating to device details: ${device.product}")
-                            // For non-mass storage devices, show device info
                             Timber.d("Device clicked: ${device.product}")
-                        },
+                            try {
+                                if (device.isMassStorage) {
+                                    Timber.d("Navigating to DVD/CD detail screen for mass storage device")
                                     findNavController().navigate(R.id.nav_dvd_cd_detail)
                                     Timber.d("Navigated to DVD/CD detail screen")
-                                        findNavController().navigate(navId)
-                                        Timber.d("Navigated to DVD/CD detail screen")
-                                    } else {
-                                        Timber.w("Navigation destination nav_dvd_cd_detail not found")
-                                    }
                                 } else {
                                     Timber.w("Device is not mass storage: ${device.product}")
                                 }

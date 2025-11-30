@@ -47,46 +47,39 @@ object DvdNative {
     /**
      * Opens a DVD at the specified path.
      * 
+     * @param path Mount point or path to the DVD device
+     * @return A valid handle (>= 0) on success, or -1L on failure
+     * 
      * **Lifecycle Requirements:**
-     * - Callers must always call [dvdClose] with the returned handle, even on errors
+     * - Callers must call [dvdClose] for every valid handle returned by [dvdOpen] (i.e., when the return value is not -1L)
+     * - Do NOT call [dvdClose] if [dvdOpen] returns -1L (invalid handle)
      * - Use try/finally blocks or the [DvdHandle.use] extension to ensure cleanup
      * - Invalid or closed handles will cause operations to fail or throw exceptions
      * 
      * **Usage Pattern:**
      * ```
-     * val handle = dvdOpen(path)
-     * if (handle == -1L) {
-     *     // Handle error
-     *     return
-     * }
-     * try {
-     *     // Use handle for operations
-     * } finally {
-     *     dvdClose(handle)
+     * val handle = DvdNative.dvdOpen(path)
+     * if (handle != -1L) {
+     *     try {
+     *         // Use handle
+     *     } finally {
+     *         DvdNative.dvdClose(handle)
+     *     }
      * }
      * ```
-     * 
-     * Or use the safe wrapper:
-     * ```
-     * DvdHandle.open(path)?.use { handle ->
-     *     // Use handle for operations
-     * }
-     * ```
-     * 
-     * @param path Mount point or path to the DVD device
-     * @return Handle to the opened DVD, or -1 on error
-     * @see DvdHandle for a safe wrapper implementing AutoCloseable
      */
     external fun dvdOpen(path: String): Long
     
     /**
      * Closes a DVD handle.
      * 
-     * **Important:** This must be called for every handle returned by [dvdOpen],
-     * including when errors occur. Operations on closed handles will fail.
+     * **Important:** This must be called for every valid handle returned by [dvdOpen] (i.e., when [dvdOpen] returned a value != -1L).
+     * Do NOT call this method if [dvdOpen] returned -1L.
      * 
-     * @param handle The handle to close (must be a valid handle returned by [dvdOpen])
-     * @throws IllegalStateException if handle is invalid or already closed
+     * This method is safe to call with invalid handles (<= 0) - it will silently return without error.
+     * However, calling it multiple times with the same handle may cause undefined behavior.
+     * 
+     * @param handle The handle to close (should be a valid handle returned by [dvdOpen], or <= 0 for no-op)
      */
     external fun dvdClose(handle: Long)
     
@@ -180,16 +173,20 @@ class DvdHandle private constructor(val handle: Long) : AutoCloseable {
      * 
      * This method is idempotent - calling it multiple times is safe.
      * After calling this, [isValid] will return false and operations will fail.
+     * 
+     * **Thread Safety:** This class is not thread-safe. Do not call [close] concurrently
+     * from multiple threads without external synchronization.
      */
     override fun close() {
         if (!isClosed && handle != -1L) {
             try {
                 DvdNative.dvdClose(handle)
-                isClosed = true
                 Timber.d("DVD handle closed: $handle")
             } catch (e: Exception) {
                 Timber.e(e, "Error closing DVD handle: $handle")
                 throw e
+            } finally {
+                isClosed = true
             }
         }
     }
@@ -250,29 +247,6 @@ class DvdHandle private constructor(val handle: Long) : AutoCloseable {
         checkValid()
         return DvdNative.dvdExtractVideoStream(handle, titleNumber, chapterNumber)
     }
-}
-
-/**
- * Native DVD title structure.
- */
-data class DvdTitleNative(
-    val number: Int,
-    val chapterCount: Int,
-    val duration: Long // milliseconds
-)
-
-/**
- * Native DVD chapter structure.
- */
-data class DvdChapterNative(
-    val number: Int,
-    val startTime: Long, // milliseconds
-    val duration: Long // milliseconds
-)
-
-/**
- * Native video stream structure.
- */
 data class VideoStreamNative(
     val codec: String,
     val width: Int,

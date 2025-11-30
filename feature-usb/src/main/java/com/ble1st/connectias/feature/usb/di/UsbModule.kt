@@ -1,6 +1,7 @@
 package com.ble1st.connectias.feature.usb.di
 
 import com.ble1st.connectias.feature.usb.detection.UsbDeviceDetector
+import com.ble1st.connectias.feature.usb.media.DvdHandleRegistry
 import com.ble1st.connectias.feature.usb.media.DvdVideoProvider
 import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import com.ble1st.connectias.feature.usb.storage.FileSystemReader
@@ -35,8 +36,9 @@ object UsbModule {
     @Singleton
     fun provideDvdVideoProvider(
         opticalDriveProvider: OpticalDriveProvider,
-        dvdSettings: DvdSettings
-    ): DvdVideoProvider = DvdVideoProvider(opticalDriveProvider, dvdSettings)
+        dvdSettings: DvdSettings,
+        dvdHandleRegistry: DvdHandleRegistry
+    ): DvdVideoProvider = DvdVideoProvider(opticalDriveProvider, dvdSettings, dvdHandleRegistry)
     
     // Note: DvdNative is an object, no provider needed
     // 

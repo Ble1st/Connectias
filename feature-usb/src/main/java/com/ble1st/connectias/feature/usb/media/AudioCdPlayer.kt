@@ -1,17 +1,25 @@
 package com.ble1st.connectias.feature.usb.media
 
 import android.content.Context
+import android.net.Uri
 import androidx.media3.common.MediaItem
 import androidx.media3.exoplayer.ExoPlayer
 import com.ble1st.connectias.feature.usb.models.AudioTrack
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Player for Audio CD tracks.
+ * 
+ * This class is a @Singleton for dependency injection, but the ExoPlayer instance
+ * can be released and reinitialized as needed. The singleton instance persists
+ * across the application lifecycle, but internal player resources are managed
+ * independently. Use releasePlayer() to free ExoPlayer resources when under memory
+ * pressure, or let the singleton manage the player lifecycle automatically.
  */
 @Singleton
 class AudioCdPlayer @Inject constructor(
@@ -43,12 +51,123 @@ class AudioCdPlayer @Inject constructor(
             // Create ExoPlayer if needed
             ensurePlayerInitialized()
             
-            // TODO: Create MediaItem from track using drive information
-            // TODO: Call exoPlayer.setMediaItem(), prepare(), and play()
-            Timber.d("playTrack called but playback not yet implemented")
+            synchronized(exoPlayerLock) {
+                val player = exoPlayer ?: run {
+                    Timber.e("ExoPlayer is null after initialization")
+                    return
+                }
+                
+                try {
+                    // Stop any current playback and clear previous items
+                    if (player.isPlaying) {
+                        Timber.d("Stopping current playback before starting new track")
+                        player.stop()
+                    }
+                    player.clearMediaItems()
+                    
+                    // Find the audio file for this track
+                    val trackFile = findTrackFile(drive.mountPoint, track.number)
+                    if (trackFile == null || !trackFile.exists()) {
+                        Timber.e("Track file not found for track ${track.number} in ${drive.mountPoint}")
+                        return
+                    }
+                    
+                    // Create MediaItem from file URI
+                    val mediaItem = MediaItem.fromUri(Uri.fromFile(trackFile))
+                    Timber.d("Created MediaItem from file: ${trackFile.absolutePath}")
+                    
+                    // Set media item and prepare
+                    player.setMediaItem(mediaItem)
+                    player.prepare()
+                    
+                    // Start playback
+                    player.play()
+                    Timber.i("Started playback of track ${track.number}: ${track.title}")
+                } catch (e: Exception) {
+                    Timber.e(e, "Error preparing or starting playback for track ${track.number}")
+                    // Reset player state on error
+                    try {
+                        player.stop()
+                        player.clearMediaItems()
+                    } catch (resetError: Exception) {
+                        Timber.e(resetError, "Error resetting player after playback failure")
+                    }
+                }
+            }
         } catch (e: Exception) {
             Timber.e(e, "Error playing audio track")
         }
+    }
+    
+    /**
+     * Finds the audio file for a given track number.
+     * Searches for common audio file patterns in the mount point directory.
+     */
+    private fun findTrackFile(mountPoint: String, trackNumber: Int): File? {
+        val rootDir = File(mountPoint)
+        if (!rootDir.exists() || !rootDir.isDirectory) {
+            Timber.w("Mount point does not exist: $mountPoint")
+            return null
+        }
+        
+        val files = rootDir.listFiles() ?: return null
+        val audioExtensions = setOf("wav", "mp3", "flac", "ogg", "m4a", "aac", "cda")
+        
+        // Try common patterns: track01.wav, track1.wav, 01.wav, 1.wav, etc.
+        val trackNumberStr = String.format("%02d", trackNumber)
+        val trackNumberShort = trackNumber.toString()
+        
+        val patterns = listOf(
+            "track$trackNumberStr",
+            "track$trackNumberShort",
+            trackNumberStr,
+            trackNumberShort
+        )
+        
+        // First, try exact pattern matches
+        for (pattern in patterns) {
+            for (ext in audioExtensions) {
+                val fileName = "$pattern.$ext"
+                val file = File(rootDir, fileName)
+                if (file.exists() && file.isFile) {
+                    Timber.d("Found track file: ${file.absolutePath}")
+                    return file
+                }
+            }
+        }
+        
+        // If no exact match, search for files containing track number in name
+        val matchingFiles = files.filter { file ->
+            if (!file.isFile) return@filter false
+            val name = file.name.lowercase()
+            val ext = file.extension.lowercase()
+            ext in audioExtensions && (
+                name.contains("track$trackNumberStr") ||
+                name.contains("track$trackNumberShort") ||
+                name.startsWith("$trackNumberStr.") ||
+                name.startsWith("$trackNumberShort.")
+            )
+        }
+        
+        if (matchingFiles.isNotEmpty()) {
+            val file = matchingFiles.first()
+            Timber.d("Found track file by pattern: ${file.absolutePath}")
+            return file
+        }
+        
+        // Last resort: if files are numbered sequentially, use index
+        val audioFiles = files.filter { file ->
+            file.isFile && file.extension.lowercase() in audioExtensions
+        }.sortedBy { it.name }
+        
+        if (audioFiles.size >= trackNumber) {
+            val file = audioFiles[trackNumber - 1] // 0-indexed
+            Timber.d("Found track file by index: ${file.absolutePath}")
+            return file
+        }
+        
+        Timber.w("No audio file found for track $trackNumber in $mountPoint")
+        return null
     }
     
     /**
@@ -65,11 +184,13 @@ class AudioCdPlayer @Inject constructor(
      */
     fun pause() {
         try {
-            Timber.d("Pausing audio playback")
             synchronized(exoPlayerLock) {
-                exoPlayer?.pause()
+                exoPlayer?.let {
+                    Timber.d("Pausing audio playback")
+                    it.pause()
+                    Timber.d("Audio playback paused")
+                } ?: Timber.d("No active player to pause")
             }
-            Timber.d("Audio playback paused")
         } catch (e: Exception) {
             Timber.e(e, "Error pausing playback")
         }
@@ -96,21 +217,30 @@ class AudioCdPlayer @Inject constructor(
     }
     
     /**
-     * Releases resources.
-     * After calling this, the player can be reinitialized on next use via ensurePlayerInitialized().
-     * This should be called when the feature is no longer needed (e.g., from ViewModel.onCleared()
-     * or Service.onDestroy()).
+     * Releases ExoPlayer resources when under memory pressure.
+     * The player will be automatically reinitialized on next use.
+     * This method is public for application-level components that need to manage
+     * resource pressure, but should not be called by ViewModels or Services
+     * as the singleton manages the player lifecycle.
      */
-    fun release() {
+    fun releasePlayer() {
         try {
-            Timber.d("Releasing AudioCdPlayer resources")
+            Timber.d("Releasing ExoPlayer resources")
             synchronized(exoPlayerLock) {
                 exoPlayer?.release()
                 exoPlayer = null
             }
-            Timber.d("AudioCdPlayer resources released")
+            Timber.d("ExoPlayer resources released")
         } catch (e: Exception) {
             Timber.e(e, "Error releasing player")
         }
+    }
+    
+    /**
+     * Internal method to release all resources.
+     * Only for use by application-level lifecycle management.
+     */
+    internal fun release() {
+        releasePlayer()
     }
 }

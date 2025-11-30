@@ -2,7 +2,7 @@
 #define USB_WRAPPER_H
 
 #include <jni.h>
-#include <jni.h>
+#include <string>
 
 // USB Device structure
 struct UsbDeviceNative {

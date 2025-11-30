@@ -15,7 +15,7 @@ import kotlinx.parcelize.Parcelize
  * @property manufacturer Manufacturer name string, if available (may be null)
  * @property product Product name string, if available (may be null)
  * @property version Device version string, if available (may be null)
- * @property uniqueId Unique identifier for the device - uses serialNumber if available, otherwise deviceName or vendorId_productId_deviceId
+ * @property uniqueId Unique identifier for the device with default format "vendorId_productId"
  */
 @Parcelize
 data class UsbDevice(

@@ -131,15 +131,19 @@ class UsbPermissionManager @Inject constructor(
         // Re-check permission immediately after registering receiver to handle race condition
         // where permission might have been granted externally between initial check and registration
         if (usbManager.hasPermission(androidDevice)) {
-            Timber.d("USB permission granted after receiver registration (race condition handled)")
-            permissionReceived = true
-            try {
-                activity.unregisterReceiver(receiver)
-            } catch (e: Exception) {
-                Timber.e(e, "Error unregistering permission receiver")
+            synchronized(receiver) {
+                if (!permissionReceived) {
+                    Timber.d("USB permission granted after receiver registration (race condition handled)")
+                    permissionReceived = true
+                    try {
+                        activity.unregisterReceiver(receiver)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error unregistering permission receiver")
+                    }
+                    trySend(true)
+                    close()
+                }
             }
-            trySend(true)
-            close()
             return@callbackFlow
         }
         

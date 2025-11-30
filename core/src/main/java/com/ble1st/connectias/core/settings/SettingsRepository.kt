@@ -25,7 +25,6 @@ class SettingsRepository @Inject constructor(
         context.getSharedPreferences("connectias_settings", Context.MODE_PRIVATE)
     }
     
-    // Encrypted SharedPreferences for sensitive settings
     private val encryptedPrefs: SharedPreferences by lazy {
         try {
             val masterKey = MasterKey.Builder(context)
@@ -40,18 +39,15 @@ class SettingsRepository @Inject constructor(
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
             
-            // One-time migration: migrate theme from old encrypted prefs to plain prefs if needed
             performMigration(encrypted)
             
             encrypted
         } catch (e: GeneralSecurityException) {
-            Timber.e(e, "Failed to create EncryptedSharedPreferences, falling back to plain SharedPreferences")
-            // Fallback to plain SharedPreferences if encryption fails
-            plainPrefs
+            Timber.e(e, "Failed to create EncryptedSharedPreferences")
+            throw IllegalStateException("Cannot initialize encrypted storage", e)
         } catch (e: IOException) {
-            Timber.e(e, "IO error creating EncryptedSharedPreferences, falling back to plain SharedPreferences")
-            // Fallback to plain SharedPreferences if IO error occurs
-            plainPrefs
+            Timber.e(e, "IO error creating EncryptedSharedPreferences")
+            throw IllegalStateException("Cannot initialize encrypted storage", e)
         }
     }
     

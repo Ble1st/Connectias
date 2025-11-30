@@ -58,6 +58,7 @@ class MainActivity : AppCompatActivity() {
 
     private var isSecurityCheckPending = true
     private var isMainUIInitialized = false
+    private var lastHandledNavigationIntent: Intent? = null
 
 
 
@@ -287,6 +288,12 @@ class MainActivity : AppCompatActivity() {
      * Extracted to a separate method to be called from both setupNavigation() and onNewIntent().
      */
     private fun handleNavigateIntent(intent: Intent?) {
+        // Skip if this intent was already handled
+        if (intent === lastHandledNavigationIntent) {
+            Timber.d("Navigation intent already handled, skipping duplicate navigation")
+            return
+        }
+        
         val navigateTo = intent?.getStringExtra("navigate_to") ?: return
         
         try {
@@ -301,8 +308,8 @@ class MainActivity : AppCompatActivity() {
             Timber.d("Navigating to: $navigateTo")
             navController.navigate(navId)
             
-            // Consume the extra to prevent duplicate navigations
-            intent.removeExtra("navigate_to")
+            // Mark this intent as handled to prevent duplicate navigations
+            lastHandledNavigationIntent = intent
         } catch (e: Exception) {
             Timber.e(e, "Error navigating to: $navigateTo")
         }

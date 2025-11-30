@@ -14,6 +14,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.DvdTitle
+import timber.log.Timber
 
 @Composable
 fun DvdTitleList(
@@ -62,14 +63,18 @@ private fun DvdTitleCard(
     onClick: () -> Unit
 ) {
     val formattedDuration = formatDuration(title.duration)
-    val contentDescription = "Title ${title.number}, ${title.chapterCount} chapters, duration $formattedDuration"
+    val contentDescription = stringResource(
+        R.string.dvd_title_content_description,
+        title.number,
+        title.chapterCount,
+        formattedDuration
+    )
     
     Card(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
             .semantics {
-                role = Role.Button
                 this.contentDescription = contentDescription
             }
     ) {
@@ -82,7 +87,11 @@ private fun DvdTitleCard(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "${title.chapterCount} chapters • $formattedDuration",
+                text = stringResource(
+                    R.string.dvd_title_details,
+                    title.chapterCount,
+                    formattedDuration
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -91,7 +100,10 @@ private fun DvdTitleCard(
 }
 
 private fun formatDuration(millis: Long): String {
-    if (millis < 0) return "0:00"
+    if (millis < 0) {
+        Timber.w("Negative duration encountered: $millis ms. Returning '0:00'.")
+        return "0:00"
+    }
     val seconds = millis / 1000
     val minutes = seconds / 60
     val hours = minutes / 60

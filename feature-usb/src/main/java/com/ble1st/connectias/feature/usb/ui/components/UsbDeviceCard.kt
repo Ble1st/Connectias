@@ -69,7 +69,7 @@ fun UsbDeviceCard(
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = "Mass Storage Device",
+                            text = stringResource(R.string.usb_mass_storage_device),
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -80,7 +80,7 @@ fun UsbDeviceCard(
             
             Icon(
                 imageVector = Icons.Default.ChevronRight,
-                contentDescription = "View details",
+                contentDescription = stringResource(R.string.usb_view_details),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }

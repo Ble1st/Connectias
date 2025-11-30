@@ -32,7 +32,8 @@ fun DvdPlayerScreen(
     var isPlaying by remember { mutableStateOf(player?.isPlaying ?: false) }
     
     // PlayerView for ExoPlayer video rendering
-    var playerView: PlayerView? by remember { mutableStateOf(null) }
+    // Use a non-state reference to avoid storing Android View in Compose state
+    val playerViewRef = remember { arrayOf<PlayerView?>(null) }
     
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -50,7 +51,7 @@ fun DvdPlayerScreen(
         onDispose {
             player?.removeListener(listener)
             // Detach player from view when composable is disposed
-            playerView?.player = null
+            playerViewRef[0]?.player = null
         }
     }
     
@@ -71,13 +72,14 @@ fun DvdPlayerScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
-                    // Attach player to view
+                    playerViewRef[0] = view
+                    view
+                },
+                update = { view ->
                     player?.let {
                         view.player = it
-                        playerView = view
                         dvdPlayer.attachPlayerToView(view)
                     }
-                    view
                 },
                 modifier = Modifier.fillMaxSize()
             )
@@ -119,6 +121,7 @@ fun DvdPlayerScreen(
                 }
                 
                 // Playback Controls
+                val noPreviousChapterText = stringResource(R.string.dvd_player_no_previous_chapter)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
@@ -130,7 +133,7 @@ fun DvdPlayerScreen(
                             if (p.hasPreviousMediaItem()) {
                                 p.seekToPreviousMediaItem()
                             } else {
-                                Timber.d(stringResource(R.string.dvd_player_no_previous_chapter))
+                                Timber.d(noPreviousChapterText)
                             }
                         } ?: run {
                             Timber.w("Player is null, cannot navigate to previous chapter")
@@ -160,13 +163,14 @@ fun DvdPlayerScreen(
                         )
                     }
                     
+                    val noNextChapterText = stringResource(R.string.dvd_player_no_next_chapter)
                     IconButton(onClick = {
                         Timber.d("Next chapter clicked")
                         player?.let { p ->
                             if (p.hasNextMediaItem()) {
                                 p.seekToNextMediaItem()
                             } else {
-                                Timber.d(stringResource(R.string.dvd_player_no_next_chapter))
+                                Timber.d(noNextChapterText)
                             }
                         } ?: run {
                             Timber.w("Player is null, cannot navigate to next chapter")

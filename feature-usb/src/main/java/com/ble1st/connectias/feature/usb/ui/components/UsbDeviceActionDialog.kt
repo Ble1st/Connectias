@@ -112,7 +112,11 @@ private fun ActionButton(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = "",
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
                 modifier = Modifier.size(20.dp)
             )
             Text(text)

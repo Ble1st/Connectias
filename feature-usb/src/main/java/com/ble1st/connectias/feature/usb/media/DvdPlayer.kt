@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.usb.media
 
 import android.content.Context
 import android.net.Uri
+import android.os.Looper
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -18,6 +19,8 @@ import javax.inject.Singleton
  * Note: This class is marked @Singleton for dependency injection, but ExoPlayer instances
  * should be managed by the consuming component (Activity/Fragment/ViewModel) lifecycle.
  * Consider refactoring to use a Factory pattern or @ActivityRetainedScoped for better lifecycle management.
+ * 
+ * ExoPlayer operations are performed on the main thread as required by ExoPlayer.
  */
 @Singleton
 class DvdPlayer @Inject constructor(
@@ -25,25 +28,23 @@ class DvdPlayer @Inject constructor(
 ) {
     private val lock = Any()
     private var exoPlayer: ExoPlayer? = null
-    private var isReleased = false
     private var playerListener: Player.Listener? = null
     
     /**
      * Plays a video stream.
-     * @throws IllegalStateException if player has been released
      * @throws IllegalArgumentException if stream URI is null or invalid
      */
     fun playStream(stream: VideoStream) {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to play stream after player was released")
-                throw IllegalStateException("Player has been released")
-            }
-            
             Timber.d("Playing video stream: ${stream.codec}, ${stream.width}x${stream.height}")
             
             // Create ExoPlayer if needed
             if (exoPlayer == null) {
+                // Ensure ExoPlayer creation happens on main thread
+                check(Looper.myLooper() == Looper.getMainLooper()) {
+                    "ExoPlayer must be created on the main thread"
+                }
+                
                 exoPlayer = ExoPlayer.Builder(context).build()
                 
                 // Add Player.Listener to handle playback events
@@ -77,25 +78,25 @@ class DvdPlayer @Inject constructor(
             }
             
             // Create MediaItem from stream URI
-            val mediaItem = MediaItem.fromUri(Uri.parse(uri))
+            val parsedUri = try {
+                Uri.parse(uri)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to parse URI: $uri")
+                throw IllegalArgumentException("Invalid video stream URI: $uri", e)
+            }
+            
+            val mediaItem = MediaItem.fromUri(parsedUri)
             exoPlayer?.setMediaItem(mediaItem)
             exoPlayer?.prepare()
             exoPlayer?.play()
-            
-            Timber.i("Video stream playback started: $uri")
         }
     }
     
     /**
      * Pauses playback.
-     * @throws IllegalStateException if player has been released
      */
     fun pause() {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to pause after player was released")
-                throw IllegalStateException("Player has been released")
-            }
             Timber.d("Pausing DVD playback")
             exoPlayer?.pause()
             Timber.d("DVD playback paused")
@@ -104,14 +105,9 @@ class DvdPlayer @Inject constructor(
     
     /**
      * Resumes playback.
-     * @throws IllegalStateException if player has been released
      */
     fun resume() {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to resume after player was released")
-                throw IllegalStateException("Player has been released")
-            }
             Timber.d("Resuming DVD playback")
             exoPlayer?.play()
             Timber.d("DVD playback resumed")
@@ -120,14 +116,9 @@ class DvdPlayer @Inject constructor(
     
     /**
      * Stops playback.
-     * @throws IllegalStateException if player has been released
      */
     fun stop() {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to stop after player was released")
-                throw IllegalStateException("Player has been released")
-            }
             Timber.d("Stopping DVD playback")
             exoPlayer?.stop()
             Timber.d("DVD playback stopped")
@@ -136,75 +127,57 @@ class DvdPlayer @Inject constructor(
     
     /**
      * Seeks to a specific position.
-     * @throws IllegalStateException if player has been released
      */
     fun seekTo(positionMs: Long) {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to seek after player was released")
-                throw IllegalStateException("Player has been released")
-            }
             Timber.d("Seeking to position: ${positionMs}ms")
             exoPlayer?.seekTo(positionMs)
             Timber.d("Seek complete")
         }
     }
-    
-    /**
-     * Gets current playback position.
-     * @return Current position in milliseconds, or 0 if player is not available or released
-     */
     fun getCurrentPosition(): Long {
         synchronized(lock) {
-            return if (isReleased || exoPlayer == null) {
-                0L
-            } else {
-                exoPlayer?.currentPosition ?: 0L
-            }
+            return exoPlayer?.currentPosition ?: 0L
         }
     }
     
     /**
      * Gets the Player interface (not the concrete ExoPlayer implementation).
-     * Returns null if player has been released or not yet created.
+     * Returns null if player has not yet been created.
      * 
      * Note: This method returns the Player interface to limit external access to ExoPlayer-specific APIs.
      * For view binding, use attachPlayerToView() instead.
      */
     fun getPlayer(): Player? {
         synchronized(lock) {
-            return if (isReleased) {
-                null
-            } else {
-                exoPlayer
-            }
+            return exoPlayer
         }
     }
     
     /**
      * Attaches the player to a PlayerView for rendering.
      * This is the preferred method for view binding instead of getPlayer().
-     * @throws IllegalStateException if player has been released
      */
-    fun attachPlayerToView(playerView: androidx.media3.ui.PlayerView) {
+    fun attachPlayerToView(playerView: androidx.media3.ui.PlayerView): Boolean {
         synchronized(lock) {
-            if (isReleased) {
-                Timber.e("Attempted to attach player to view after release")
-                throw IllegalStateException("Player has been released")
+            if (exoPlayer == null) {
+                Timber.w("Attempted to attach player to view before player was created")
+                return false
             }
             playerView.player = exoPlayer
             Timber.d("Player attached to view")
+            return true
         }
     }
     
     /**
      * Releases resources.
      * This method should be called when the player is no longer needed.
-     * After release, all other methods will throw IllegalStateException.
+     * After release, the player can be recreated on next access via lazy initialization.
      */
     fun release() {
         synchronized(lock) {
-            if (isReleased) {
+            if (exoPlayer == null) {
                 Timber.w("Attempted to release already released player")
                 return
             }
@@ -219,7 +192,6 @@ class DvdPlayer @Inject constructor(
             
             exoPlayer?.release()
             exoPlayer = null
-            isReleased = true
             
             Timber.d("DvdPlayer resources released")
         }

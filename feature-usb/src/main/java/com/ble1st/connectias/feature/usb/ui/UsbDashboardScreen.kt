@@ -60,11 +60,9 @@ fun UsbDashboardScreen(
         Timber.d("Detected devices changed: ${detectedDevices.size} devices")
         // Merge detected devices with enumerated devices
         val allDevices = (devices + detectedDevices).distinctBy { "${it.vendorId}-${it.productId}" }
-        if (allDevices != devices) {
+        if (allDevices.toSet() != devices.toSet()) {
             Timber.d("Updating device list with ${allDevices.size} devices")
             devices = allDevices
-        }
-    }
         }
         
         // Check if permission was granted and refresh device info

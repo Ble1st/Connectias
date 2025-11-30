@@ -18,6 +18,14 @@
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/device_filter" />
         </activity>
+        
+        <!-- ContentProvider for DVD video streaming -->
+        <provider
+            android:name=".media.DvdVideoContentProvider"
+            android:authorities="com.ble1st.connectias.dvd"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            android:readPermission="android.permission.READ_EXTERNAL_STORAGE" />
     </application>
     
 </manifest>

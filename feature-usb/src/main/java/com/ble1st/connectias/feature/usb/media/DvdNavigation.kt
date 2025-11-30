@@ -7,7 +7,12 @@ import com.ble1st.connectias.feature.usb.native.DvdChapterNative
 import com.ble1st.connectias.feature.usb.native.DvdNative
 import com.ble1st.connectias.feature.usb.native.DvdTitleNative
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,37 +25,21 @@ class DvdNavigation @Inject constructor() {
     
     /**
      * Navigates to a specific title and loads all chapters.
+     * Chapter reading is performed in parallel with concurrency limits to avoid
+     * overwhelming the system on large discs.
      */
     suspend fun navigateToTitle(dvdInfo: DvdInfo, titleNumber: Int): DvdTitle? = withContext(Dispatchers.IO) {
         try {
             Timber.d("Navigating to title $titleNumber")
             val titleNative = DvdNative.dvdReadTitle(dvdInfo.handle, titleNumber)
             val title = titleNative?.let {
-                // Load all chapters for this title
-                val chapters = mutableListOf<DvdChapter>()
-                for (chapterNum in 1..it.chapterCount) {
-                    try {
-                        val chapterNative = DvdNative.dvdReadChapter(dvdInfo.handle, titleNumber, chapterNum)
-                        chapterNative?.let { ch ->
-                            chapters.add(
-                                DvdChapter(
-                                    number = ch.number,
-                                    titleNumber = titleNumber,
-                                    startTime = ch.startTime,
-                                    duration = ch.duration
-                                )
-                            )
-                        }
-                    } catch (e: Exception) {
-                        Timber.w(e, "Failed to load chapter $chapterNum for title $titleNumber")
-                        // Continue loading other chapters
-                    }
-                }
+                // Load all chapters for this title in parallel
+                val chapters = loadChaptersParallel(dvdInfo.handle, titleNumber, it.chapterCount)
                 
                 DvdTitle(
                     number = it.number,
                     duration = it.duration,
-                    chapters = chapters.toList() // Create immutable list
+                    chapters = chapters
                 )
             }
             if (title != null) {
@@ -63,6 +52,74 @@ class DvdNavigation @Inject constructor() {
             Timber.e(e, "Error navigating to title $titleNumber")
             null
         }
+    }
+    
+    /**
+     * Loads chapters in parallel with concurrency control and timeout protection.
+     * Uses a semaphore to limit concurrent reads and withTimeoutOrNull to prevent
+     * individual reads from blocking indefinitely.
+     */
+    private suspend fun loadChaptersParallel(
+        handle: Long,
+        titleNumber: Int,
+        chapterCount: Int
+    ): List<DvdChapter> = coroutineScope {
+        // Limit concurrent chapter reads to avoid overwhelming the system
+        // Use a semaphore with max 4 concurrent reads
+        val semaphore = Semaphore(4)
+        val timeoutMs = 5000L // 5 seconds per chapter read
+        
+        // Create async tasks for all chapters
+        val chapterDeferreds = (1..chapterCount).map { chapterNum ->
+            async(Dispatchers.IO) {
+                semaphore.withPermit {
+                    withTimeoutOrNull(timeoutMs) {
+                        try {
+                            val chapterNative = DvdNative.dvdReadChapter(handle, titleNumber, chapterNum)
+                            chapterNative?.let {
+                                DvdChapter(
+                                    number = it.number,
+                                    titleNumber = titleNumber,
+                                    startTime = it.startTime,
+                                    duration = it.duration
+                                )
+                            }
+                        } catch (e: Exception) {
+                            Timber.w(e, "Failed to load chapter $chapterNum for title $titleNumber")
+                            null
+                        }
+                    } ?: run {
+                        Timber.w("Timeout loading chapter $chapterNum for title $titleNumber")
+                        null
+                    }
+                }
+            }
+        }
+        
+        // Collect successful results
+        val chapters = mutableListOf<DvdChapter>()
+        var completedCount = 0
+        
+        chapterDeferreds.forEachIndexed { index, deferred ->
+            try {
+                val chapter = deferred.await()
+                if (chapter != null) {
+                    chapters.add(chapter)
+                }
+                completedCount++
+                
+                // Log progress periodically (every 10 chapters or at completion)
+                if (completedCount % 10 == 0 || completedCount == chapterCount) {
+                    Timber.d("Loaded $completedCount/$chapterCount chapters for title $titleNumber")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Error awaiting chapter ${index + 1} for title $titleNumber")
+                completedCount++
+            }
+        }
+        
+        // Sort chapters by number to ensure correct order and return as immutable list
+        chapters.sortedBy { it.number }
     }
     
     /**

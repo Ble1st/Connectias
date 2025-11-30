@@ -6,14 +6,16 @@ RECHTSWIDRIGKEIT:
 Die Verwendung dieser Funktion kann in verschiedenen Jurisdiktionen rechtswidrig sein, insbesondere unter dem Digital Millennium Copyright Act (DMCA) in den USA und ähnlichen Gesetzen in anderen Ländern.
 
 GEOGRAFISCHER GELTUNGSBEREICH:
-Dieser Haftungsausschluss gilt weltweit, wobei die spezifischen Gesetze je nach Jurisdiktion variieren. Wichtige Jurisdiktionen mit relevanten Gesetzen umfassen:
-- USA: Digital Millennium Copyright Act (DMCA)
-- EU-Mitgliedstaaten: EU Copyright Directive und nationale Umsetzungen
-- Vereinigtes Königreich: Copyright, Designs and Patents Act
-- Kanada: Copyright Act
-- Australien: Copyright Act
+Dieser Haftungsausschluss gilt weltweit. Die Rechtslage variiert je nach Jurisdiktion:
+- USA: Digital Millennium Copyright Act (DMCA) - Umgehung von Kopierschutz ist grundsätzlich rechtswidrig
+- EU-Mitgliedstaaten: EU Copyright Directive - Interoperabilitätsausnahmen und Safe-Harbor-Bestimmungen können gelten
+- Vereinigtes Königreich: Copyright, Designs and Patents Act - nationale Umsetzung der EU-Richtlinie
+- Kanada: Copyright Act - begrenzte Ausnahmen für Interoperabilität
+- Australien: Copyright Act - strenge Durchsetzung von Kopierschutz
 
-Dieser Haftungsausschluss ist nicht vollständig und erfasst nicht alle möglichen Jurisdiktionen. Die Gesetze können sich ändern und variieren je nach Land.
+Die Verfügbarkeit dieser Funktion kann je nach Rechtsordnung variieren und wird durch rechtliche Überprüfung eingeschränkt (z.B. durch Geofencing oder jurisdiktionsspezifische Kontrollen).
+
+Für eine definitive rechtliche Bewertung Ihrer spezifischen Situation konsultieren Sie bitte einen Rechtsanwalt.
 
 HAFTUNGSAUSSCHLUSS:
 - Der Entwickler dieser Software übernimmt KEINE Haftung für die Verwendung dieser Funktion

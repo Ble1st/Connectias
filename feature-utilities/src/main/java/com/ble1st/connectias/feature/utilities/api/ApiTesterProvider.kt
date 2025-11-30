@@ -162,20 +162,36 @@ class ApiTesterProvider @Inject constructor(
             
             // Block private IP ranges (SSRF protection)
             val host = url.host.lowercase()
-            if (isPrivateIp(host)) {
-                Timber.w("Blocked private IP: $host")
+            
+            // Block localhost hostname before DNS resolution
+            if (host == "localhost" || host == "0.0.0.0" || host == "::1") {
+                Timber.w("Blocked localhost hostname: $host")
                 return null
             }
             
-            // Block localhost variants
-            if (host == "localhost" || host.startsWith("127.") || host == "0.0.0.0" || host == "::1") {
-                Timber.w("Blocked localhost: $host")
+            // Resolve host to IP address for proper validation
+            // This prevents SSRF bypass via hostname manipulation (e.g., "127.evil.com")
+            val inetAddress = try {
+                java.net.InetAddress.getByName(host)
+            } catch (e: Exception) {
+                Timber.w("Failed to resolve host: $host")
                 return null
             }
             
-            // Block link-local addresses
-            if (host.startsWith("169.254.")) {
-                Timber.w("Blocked link-local IP: $host")
+            val resolvedIp = inetAddress.hostAddress
+
+            // Block localhost, link-local, site-local, and private addresses
+            if (inetAddress.isLoopbackAddress || 
+                inetAddress.isAnyLocalAddress || 
+                inetAddress.isLinkLocalAddress || 
+                inetAddress.isSiteLocalAddress) {
+                Timber.w("Blocked internal IP: $host (resolved to $resolvedIp)")
+                return null
+            }
+            
+            // Additional check: Block private IP ranges by parsing the resolved IP
+            if (resolvedIp != null && isPrivateIp(resolvedIp)) {
+                Timber.w("Blocked private IP: $host (resolved to $resolvedIp)")
                 return null
             }
             

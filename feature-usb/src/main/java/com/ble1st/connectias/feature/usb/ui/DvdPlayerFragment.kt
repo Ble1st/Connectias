@@ -49,10 +49,33 @@ class DvdPlayerFragment : Fragment() {
     @Inject lateinit var dvdPlayer: DvdPlayer
     @Inject lateinit var dvdSettings: DvdSettings
     
-    override fun onDestroy() {
-        super.onDestroy()
-        Timber.d("DvdPlayerFragment: onDestroy - releasing player")
+    override fun onDestroyView() {
+        super.onDestroyView()
+        Timber.d("DvdPlayerFragment: onDestroyView - releasing player")
         dvdPlayer.release()
+    }
+    
+    /**
+     * Creates a ComposeView configured to display an error screen.
+     * 
+     * @param messageResId String resource ID for the error message
+     * @return Configured ComposeView with error screen
+     */
+    private fun createErrorComposeView(messageResId: Int): ComposeView {
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                ConnectiasTheme {
+                    ErrorScreen(
+                        message = stringResource(messageResId),
+                        onBack = {
+                            Timber.d("Back button clicked from error screen")
+                            findNavController().popBackStack()
+                        }
+                    )
+                }
+            }
+        }
     }
     
     override fun onCreateView(
@@ -68,38 +91,12 @@ class DvdPlayerFragment : Fragment() {
         // Validate video stream and URI
         if (videoStream == null) {
             Timber.e("DvdPlayerFragment: VideoStream argument is missing")
-            return ComposeView(requireContext()).apply {
-                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                setContent {
-                    ConnectiasTheme {
-                        ErrorScreen(
-                            message = stringResource(R.string.dvd_player_error_no_stream),
-                            onBack = {
-                                Timber.d("Back button clicked from error screen")
-                                findNavController().popBackStack()
-                            }
-                        )
-                    }
-                }
-            }
+            return createErrorComposeView(R.string.dvd_player_error_no_stream)
         }
         
         if (videoStream.uri == null) {
             Timber.e("DvdPlayerFragment: VideoStream URI is null")
-            return ComposeView(requireContext()).apply {
-                setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-                setContent {
-                    ConnectiasTheme {
-                        ErrorScreen(
-                            message = stringResource(R.string.dvd_player_error_no_uri),
-                            onBack = {
-                                Timber.d("Back button clicked from error screen")
-                                findNavController().popBackStack()
-                            }
-                        )
-                    }
-                }
-            }
+            return createErrorComposeView(R.string.dvd_player_error_no_uri)
         }
         
         Timber.d("DvdPlayerFragment: VideoStream loaded - codec=${videoStream.codec}, uri=${videoStream.uri}")
