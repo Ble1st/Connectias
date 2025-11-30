@@ -8,14 +8,16 @@ import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
+import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
+import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
  * Provider for encryption/decryption operations.
- * Uses AES-256-GCM for encryption.
+ * Uses AES-256-GCM for encryption with PBKDF2 for key derivation.
  */
 @Singleton
 class EncryptionProvider @Inject constructor() {
@@ -24,25 +26,32 @@ class EncryptionProvider @Inject constructor() {
     private val transformation = "AES/GCM/NoPadding"
     private val gcmTagLength = 128
     private val ivLength = 12 // 96 bits for GCM
+    private val saltLength = 32 // 256 bits for Salt
+    private val iterationCount = 100000
+    private val keyLength = 256
 
     /**
      * Encrypts text using AES-256-GCM.
      * 
      * @param plaintext The text to encrypt
      * @param password The password for key derivation
-     * @return EncryptionResult with encrypted data and IV
+     * @return EncryptionResult with encrypted data, IV, and salt
      */
     suspend fun encryptText(
         plaintext: String,
         password: String
     ): EncryptionResult = withContext(Dispatchers.IO) {
         try {
+            // Generate Salt
+            val salt = ByteArray(saltLength)
+            SecureRandom().nextBytes(salt)
+
             // Generate IV
             val iv = ByteArray(ivLength)
             SecureRandom().nextBytes(iv)
 
-            // Derive key from password (simplified - in production use PBKDF2)
-            val key = deriveKey(password)
+            // Derive key from password using PBKDF2
+            val key = deriveKey(password, salt)
 
             // Initialize cipher
             val cipher = Cipher.getInstance(transformation)
@@ -55,10 +64,12 @@ class EncryptionProvider @Inject constructor() {
             // Encode to Base64
             val encryptedBase64 = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
             val ivBase64 = Base64.encodeToString(iv, Base64.NO_WRAP)
+            val saltBase64 = Base64.encodeToString(salt, Base64.NO_WRAP)
 
             EncryptionResult(
                 encryptedData = encryptedBase64,
                 iv = ivBase64,
+                salt = saltBase64,
                 success = true,
                 error = null
             )
@@ -67,6 +78,7 @@ class EncryptionProvider @Inject constructor() {
             EncryptionResult(
                 encryptedData = "",
                 iv = "",
+                salt = "",
                 success = false,
                 error = e.message ?: "Encryption failed"
             )
@@ -78,21 +90,24 @@ class EncryptionProvider @Inject constructor() {
      * 
      * @param encryptedData Base64 encoded encrypted data
      * @param iv Base64 encoded IV
+     * @param salt Base64 encoded Salt
      * @param password The password for key derivation
      * @return DecryptionResult with decrypted text
      */
     suspend fun decryptText(
         encryptedData: String,
         iv: String,
+        salt: String,
         password: String
     ): DecryptionResult = withContext(Dispatchers.IO) {
         try {
             // Decode from Base64
             val encryptedBytes = Base64.decode(encryptedData, Base64.NO_WRAP)
             val ivBytes = Base64.decode(iv, Base64.NO_WRAP)
+            val saltBytes = Base64.decode(salt, Base64.NO_WRAP)
 
             // Derive key from password
-            val key = deriveKey(password)
+            val key = deriveKey(password, saltBytes)
 
             // Initialize cipher
             val cipher = Cipher.getInstance(transformation)
@@ -136,15 +151,13 @@ class EncryptionProvider @Inject constructor() {
     }
 
     /**
-     * Derives a key from a password (simplified - use PBKDF2 in production).
-     * This is a simplified version for demonstration purposes.
+     * Derives a key from a password using PBKDF2WithHmacSHA256.
      */
-    private fun deriveKey(password: String): SecretKey {
-        // Simplified key derivation - in production, use PBKDF2 with salt
-        val keyBytes = password.toByteArray(Charsets.UTF_8)
-        val paddedKey = ByteArray(32) // 256 bits
-        System.arraycopy(keyBytes, 0, paddedKey, 0, minOf(keyBytes.size, 32))
-        return SecretKeySpec(paddedKey, algorithm)
+    private fun deriveKey(password: String, salt: ByteArray): SecretKey {
+        val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+        val spec = PBEKeySpec(password.toCharArray(), salt, iterationCount, keyLength)
+        val secret = factory.generateSecret(spec)
+        return SecretKeySpec(secret.encoded, algorithm)
     }
 }
 
@@ -154,6 +167,7 @@ class EncryptionProvider @Inject constructor() {
 data class EncryptionResult(
     val encryptedData: String,
     val iv: String,
+    val salt: String,
     val success: Boolean,
     val error: String?
 )

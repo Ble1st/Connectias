@@ -17,7 +17,7 @@ class HashProviderTest {
         val hash = hashProvider.calculateTextHash(text, HashProvider.HashAlgorithm.MD5)
         
         assertNotNull(hash)
-        assertEquals("b10a8db164e0754105b7a99be72e3fe5", hash.lowercase())
+        assertEquals("b10a8db164e0754105b7a99be72e3fe5", hash!!.lowercase())
     }
 
     @Test
@@ -26,7 +26,7 @@ class HashProviderTest {
         val hash = hashProvider.calculateTextHash(text, HashProvider.HashAlgorithm.SHA256)
         
         assertNotNull(hash)
-        assertEquals("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e", hash.lowercase())
+        assertEquals("a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e", hash!!.lowercase())
     }
 
     @Test
@@ -35,14 +35,14 @@ class HashProviderTest {
         val hash = hashProvider.calculateTextHash(text, HashProvider.HashAlgorithm.SHA512)
         
         assertNotNull(hash)
-        assertEquals(128, hash.length) // SHA-512 produces 128 hex characters
+        assertEquals(128, hash!!.length) // SHA-512 produces 128 hex characters
     }
 
     @Test
     fun `test empty string hash`() = runTest {
         val hash = hashProvider.calculateTextHash("", HashProvider.HashAlgorithm.SHA256)
         assertNotNull(hash)
-        assertTrue(hash.isNotEmpty())
+        assertTrue(hash!!.isNotEmpty())
     }
 
     @Test
@@ -51,6 +51,8 @@ class HashProviderTest {
         val hash1 = hashProvider.calculateTextHash(text, HashProvider.HashAlgorithm.SHA256)
         val hash2 = hashProvider.calculateTextHash(text, HashProvider.HashAlgorithm.SHA256)
         
+        assertNotNull(hash1)
+        assertNotNull(hash2)
         assertEquals(hash1, hash2)
     }
 }

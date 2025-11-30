@@ -15,7 +15,7 @@ class EncodingProviderTest {
     fun `test Base64 encoding and decoding`() = runTest {
         val text = "Hello World"
         val encoded = encodingProvider.encode(text, EncodingProvider.EncodingType.BASE64)
-        val decoded = encodingProvider.decode(encoded, EncodingProvider.EncodingType.BASE64)
+        val decoded = encodingProvider.decode(encoded!!, EncodingProvider.EncodingType.BASE64)
         
         assertNotNull(encoded)
         assertNotNull(decoded)
@@ -26,7 +26,7 @@ class EncodingProviderTest {
     fun `test URL encoding and decoding`() = runTest {
         val text = "Hello World & More"
         val encoded = encodingProvider.encode(text, EncodingProvider.EncodingType.URL)
-        val decoded = encodingProvider.decode(encoded, EncodingProvider.EncodingType.URL)
+        val decoded = encodingProvider.decode(encoded!!, EncodingProvider.EncodingType.URL)
         
         assertNotNull(encoded)
         assertNotNull(decoded)
@@ -37,7 +37,7 @@ class EncodingProviderTest {
     fun `test Hex encoding and decoding`() = runTest {
         val text = "Hello"
         val encoded = encodingProvider.encode(text, EncodingProvider.EncodingType.HEX)
-        val decoded = encodingProvider.decode(encoded, EncodingProvider.EncodingType.HEX)
+        val decoded = encodingProvider.decode(encoded!!, EncodingProvider.EncodingType.HEX)
         
         assertNotNull(encoded)
         assertNotNull(decoded)

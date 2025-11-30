@@ -26,7 +26,8 @@ class StorageAnalyzerProvider @Inject constructor(
         try {
             val internalStorage = getStorageStats(Environment.getDataDirectory())
             val externalStorage = if (Environment.getExternalStorageState() == Environment.MEDIA_MOUNTED) {
-                getStorageStats(Environment.getExternalStorageDirectory())
+                // Safe way to get external storage volume stats without dangerous permissions
+                context.getExternalFilesDir(null)?.let { getStorageStats(it) }
             } else {
                 null
             }
@@ -63,21 +64,24 @@ class StorageAnalyzerProvider @Inject constructor(
     /**
      * Finds large files in a directory.
      * 
-     * @param directory Directory to scan
+     * @param directory Directory to scan (defaults to external files dir)
      * @param minSizeBytes Minimum file size in bytes
      * @param maxResults Maximum number of results
      */
     suspend fun findLargeFiles(
-        directory: File = Environment.getExternalStorageDirectory(),
+        directory: File? = null,
         minSizeBytes: Long = 10 * 1024 * 1024, // 10 MB
         maxResults: Int = 50
     ): List<LargeFile> = withContext(Dispatchers.IO) {
         val largeFiles = mutableListOf<LargeFile>()
+        val targetDir = directory ?: context.getExternalFilesDir(null)
         
-        try {
-            scanDirectory(directory, minSizeBytes, largeFiles, maxResults)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to scan directory: ${directory.absolutePath}")
+        if (targetDir != null) {
+            try {
+                scanDirectory(targetDir, minSizeBytes, largeFiles, maxResults)
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to scan directory: ${targetDir.absolutePath}")
+            }
         }
         
         largeFiles.sortedByDescending { it.size }.take(maxResults)
@@ -125,7 +129,7 @@ class StorageAnalyzerProvider @Inject constructor(
      * Finds duplicate files by content hash (simplified - would need actual hashing in production).
      */
     suspend fun findDuplicateFiles(
-        directory: File = Environment.getExternalStorageDirectory(),
+        directory: File? = null,
         maxResults: Int = 100
     ): List<DuplicateFileGroup> = withContext(Dispatchers.Default) {
         // Simplified implementation - in production would hash file contents

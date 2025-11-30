@@ -36,11 +36,39 @@ class PluginZipParser @Inject constructor() {
             throw PluginParseException("ZIP file does not exist: ${zipFile.absolutePath}")
         }
         
+        return try {
+            FileInputStream(zipFile).use { stream ->
+                parseFromStream(stream)
+            }
+        } catch (e: Exception) {
+             // If it was already a PluginParseException, rethrow it
+             if (e is PluginParseException) throw e
+             Timber.e(e, "Failed to parse plugin ZIP file")
+             throw PluginParseException("Failed to parse plugin ZIP file: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Parse plugin ZIP from byte array.
+     */
+    fun parsePluginZip(zipBytes: ByteArray): PluginZipData {
+        return try {
+            java.io.ByteArrayInputStream(zipBytes).use { stream ->
+                parseFromStream(stream)
+            }
+        } catch (e: Exception) {
+             if (e is PluginParseException) throw e
+             Timber.e(e, "Failed to parse plugin ZIP bytes")
+             throw PluginParseException("Failed to parse plugin ZIP bytes: ${e.message}", e)
+        }
+    }
+
+    private fun parseFromStream(inputStream: java.io.InputStream): PluginZipData {
         val metadata: PluginMetadata
         val wasmBytes: ByteArray
         val signature: String?
         
-        ZipInputStream(FileInputStream(zipFile)).use { zip ->
+        ZipInputStream(inputStream).use { zip ->
             var entry: ZipEntry? = zip.nextEntry
             val entries = mutableMapOf<String, ByteArray>()
             
@@ -78,19 +106,6 @@ class PluginZipParser @Inject constructor() {
             wasmBytes = wasmBytes,
             signature = signature
         )
-    }
-    
-    /**
-     * Parse plugin ZIP from byte array.
-     */
-    fun parsePluginZip(zipBytes: ByteArray): PluginZipData {
-        val tempFile = File.createTempFile("plugin_", ".zip")
-        try {
-            tempFile.writeBytes(zipBytes)
-            return parsePluginZip(tempFile)
-        } finally {
-            tempFile.delete()
-        }
     }
 }
 

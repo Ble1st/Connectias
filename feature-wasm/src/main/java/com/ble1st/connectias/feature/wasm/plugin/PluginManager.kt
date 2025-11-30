@@ -51,23 +51,27 @@ class PluginManager @Inject constructor(
         Timber.d(tag, "Loading plugin from: ${zipFile.absolutePath}")
         
         return try {
+            // Read file once to avoid race conditions (TOCTOU)
+            val zipBytes = zipFile.readBytes()
+
             // Parse ZIP file
-            val zipData = pluginZipParser.parsePluginZip(zipFile)
+            val zipData = pluginZipParser.parsePluginZip(zipBytes)
             
-            // Verify signature if provided
-            val keyToUse = publicKey ?: publicKeyManager.getDefaultPublicKey()
-            if (zipData.signature != null && keyToUse != null) {
-                val isValid = signatureVerifier.verifySignature(
-                    zipBytes = zipFile.readBytes(),
-                    signatureBase64 = zipData.signature,
-                    publicKey = keyToUse
-                )
+            // Verify signature - Fail Closed
+            val signatureBase64 = zipData.signature
+                ?: throw PluginLoadException("Plugin is missing signature")
                 
-                if (!isValid) {
-                    throw PluginLoadException("Invalid plugin signature")
-                }
-            } else if (zipData.signature != null && keyToUse == null) {
-                Timber.w(tag, "Plugin has signature but no public key available - skipping verification")
+            val keyToUse = publicKey ?: publicKeyManager.getDefaultPublicKey()
+                ?: throw PluginLoadException("No public key available for signature verification")
+
+            val isValid = signatureVerifier.verifySignature(
+                zipBytes = zipBytes,
+                signatureBase64 = signatureBase64,
+                publicKey = keyToUse
+            )
+            
+            if (!isValid) {
+                throw PluginLoadException("Invalid plugin signature")
             }
             
             // Load WASM module

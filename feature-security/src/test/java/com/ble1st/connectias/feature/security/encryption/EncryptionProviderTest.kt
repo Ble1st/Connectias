@@ -23,10 +23,13 @@ class EncryptionProviderTest {
         assertTrue(encrypted.encryptedData.isNotEmpty())
         assertNotNull(encrypted.iv)
         assertTrue(encrypted.iv.isNotEmpty())
+        assertNotNull(encrypted.salt)
+        assertTrue(encrypted.salt.isNotEmpty())
         
         val decrypted = encryptionProvider.decryptText(
             encrypted.encryptedData,
             encrypted.iv,
+            encrypted.salt,
             password
         )
         
@@ -46,6 +49,7 @@ class EncryptionProviderTest {
         val decrypted = encryptionProvider.decryptText(
             encrypted.encryptedData,
             encrypted.iv,
+            encrypted.salt,
             wrongPassword
         )
         

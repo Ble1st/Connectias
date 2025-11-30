@@ -9,15 +9,14 @@ import com.ble1st.connectias.feature.network.provider.LanScannerProvider
 import com.ble1st.connectias.feature.network.provider.NetworkAnalysisProvider
 import com.ble1st.connectias.feature.network.provider.WifiScannerProvider
 import com.ble1st.connectias.core.models.ConnectionType
+import io.mockk.coEvery
+import io.mockk.mockk
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NetworkRepositoryTest {
@@ -29,9 +28,9 @@ class NetworkRepositoryTest {
 
     @Before
     fun setup() {
-        wifiScannerProvider = mock()
-        lanScannerProvider = mock()
-        networkAnalysisProvider = mock()
+        wifiScannerProvider = mockk()
+        lanScannerProvider = mockk()
+        networkAnalysisProvider = mockk()
         repository = NetworkRepository(
             wifiScannerProvider,
             lanScannerProvider,
@@ -44,9 +43,10 @@ class NetworkRepositoryTest {
         val networks = listOf(
             WifiNetwork("TestNetwork", "00:00:00:00:00:00", -50, 2400, com.ble1st.connectias.feature.network.models.EncryptionType.WPA2, "[WPA2]")
         )
-        val expectedResult = NetworkResult.Success(networks)
+        val parcelableList = ParcelableList(networks)
+        val expectedResult = NetworkResult.Success(parcelableList)
 
-        whenever(wifiScannerProvider.scanWifiNetworks()).thenReturn(expectedResult)
+        coEvery { wifiScannerProvider.scanWifiNetworks() } returns expectedResult
 
         val firstResult = repository.getWifiNetworks()
         val secondResult = repository.getWifiNetworks()
@@ -63,7 +63,7 @@ class NetworkRepositoryTest {
             errorType = com.ble1st.connectias.feature.network.models.ErrorType.PermissionDenied
         )
 
-        whenever(wifiScannerProvider.scanWifiNetworks()).thenReturn(errorResult)
+        coEvery { wifiScannerProvider.scanWifiNetworks() } returns errorResult
 
         val result = repository.getWifiNetworks()
 
@@ -78,7 +78,7 @@ class NetworkRepositoryTest {
             errorType = com.ble1st.connectias.feature.network.models.ErrorType.ConfigurationUnavailable
         )
 
-        whenever(lanScannerProvider.scanLocalNetwork()).thenReturn(errorResult)
+        coEvery { lanScannerProvider.scanLocalNetwork() } returns errorResult
 
         val result = repository.getLocalNetworkDevices()
 
@@ -91,9 +91,10 @@ class NetworkRepositoryTest {
         val firstNetworks = listOf(WifiNetwork("Network1", "00:00:00:00:00:01", -50, 2400, com.ble1st.connectias.feature.network.models.EncryptionType.WPA2, "[WPA2]"))
         val secondNetworks = listOf(WifiNetwork("Network2", "00:00:00:00:00:02", -60, 5000, com.ble1st.connectias.feature.network.models.EncryptionType.WPA3, "[WPA3]"))
 
-        whenever(wifiScannerProvider.scanWifiNetworks())
-            .thenReturn(NetworkResult.Success(firstNetworks))
-            .thenReturn(NetworkResult.Success(secondNetworks))
+        coEvery { wifiScannerProvider.scanWifiNetworks() } returnsMany listOf(
+            NetworkResult.Success(ParcelableList(firstNetworks)),
+            NetworkResult.Success(ParcelableList(secondNetworks))
+        )
 
         val firstResult = repository.getWifiNetworks()
         val refreshResult = repository.refreshWifiNetworks()
@@ -118,7 +119,7 @@ class NetworkRepositoryTest {
             connectionType = ConnectionType.WIFI
         )
 
-        whenever(networkAnalysisProvider.getNetworkAnalysis()).thenReturn(analysis)
+        coEvery { networkAnalysisProvider.getNetworkAnalysis() } returns analysis
 
         val firstResult = repository.getNetworkAnalysis()
         val secondResult = repository.getNetworkAnalysis()

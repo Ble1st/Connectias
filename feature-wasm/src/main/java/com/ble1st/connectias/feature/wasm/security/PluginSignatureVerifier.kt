@@ -30,6 +30,10 @@ class PluginSignatureVerifier @Inject constructor() {
     
     private val tag = "PluginSignatureVerifier"
     
+    // Security limits
+    private val MAX_PLUGIN_UNCOMPRESSED_SIZE = 50 * 1024 * 1024 // 50 MB
+    private val MAX_FILE_COUNT = 1000
+    
     /**
      * Verify plugin signature.
      * 
@@ -59,12 +63,19 @@ class PluginSignatureVerifier @Inject constructor() {
      */
     private fun createMessage(zipBytes: ByteArray): ByteArray {
         val entries = mutableListOf<Triple<String, Int, ByteArray>>()
+        var totalSize = 0L
+        var fileCount = 0
         
         ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
             var entry: ZipEntry? = zip.nextEntry
             
             while (entry != null) {
                 val name = entry.name
+                
+                fileCount++
+                if (fileCount > MAX_FILE_COUNT) {
+                    throw SecurityException("Too many files in plugin (max $MAX_FILE_COUNT)")
+                }
                 
                 // Skip signature files
                 if (name == "SIGNATURE" ||
@@ -77,7 +88,19 @@ class PluginSignatureVerifier @Inject constructor() {
                     continue
                 }
                 
-                val content = zip.readBytes()
+                // Secure read with limit
+                val buffer = java.io.ByteArrayOutputStream()
+                val data = ByteArray(4096)
+                var bytesRead: Int
+                while (zip.read(data).also { bytesRead = it } != -1) {
+                    totalSize += bytesRead
+                    if (totalSize > MAX_PLUGIN_UNCOMPRESSED_SIZE) {
+                        throw SecurityException("Plugin too large (max $MAX_PLUGIN_UNCOMPRESSED_SIZE bytes)")
+                    }
+                    buffer.write(data, 0, bytesRead)
+                }
+                val content = buffer.toByteArray()
+                
                 entries.add(Triple(name, content.size, content))
                 entry = zip.nextEntry
             }

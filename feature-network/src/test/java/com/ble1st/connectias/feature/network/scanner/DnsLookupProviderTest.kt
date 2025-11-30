@@ -33,8 +33,9 @@ class DnsLookupProviderTest {
         val responseTime = dnsLookupProvider.testDnsServer("8.8.8.8")
         
         // Response time should be reasonable (less than 5 seconds)
-        assertTrue(responseTime >= 0)
-        assertTrue(responseTime < 5000)
+        assertNotNull(responseTime)
+        assertTrue(responseTime!! >= 0)
+        assertTrue(responseTime!! < 5000)
     }
 }
 

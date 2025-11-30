@@ -112,7 +112,8 @@ class EncryptionFragment : Fragment() {
                 1 -> { // Decrypt
                     val encryptedData = binding.inputText.text.toString()
                     val iv = binding.ivText.text.toString()
-                    viewModel.decryptText(encryptedData, iv, password)
+                    // TODO: Add UI field for Salt input. For now using empty salt to fix compilation.
+                    viewModel.decryptText(encryptedData, iv, "", password)
                 }
                 2 -> { // Generate Key
                     viewModel.generateKey()

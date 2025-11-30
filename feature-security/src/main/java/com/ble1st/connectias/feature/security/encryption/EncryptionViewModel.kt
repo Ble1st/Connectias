@@ -37,7 +37,7 @@ class EncryptionViewModel @Inject constructor(
             _encryptionState.value = EncryptionState.Processing
             val result = encryptionProvider.encryptText(plaintext, password)
             if (result.success) {
-                _encryptionState.value = EncryptionState.Encrypted(result.encryptedData, result.iv)
+                _encryptionState.value = EncryptionState.Encrypted(result.encryptedData, result.iv, result.salt)
             } else {
                 _encryptionState.value = EncryptionState.Error(result.error ?: "Encryption failed")
             }
@@ -47,9 +47,9 @@ class EncryptionViewModel @Inject constructor(
     /**
      * Decrypts text.
      */
-    fun decryptText(encryptedData: String, iv: String, password: String) {
-        if (encryptedData.isBlank() || iv.isBlank()) {
-            _encryptionState.value = EncryptionState.Error("Encrypted data and IV cannot be empty")
+    fun decryptText(encryptedData: String, iv: String, salt: String, password: String) {
+        if (encryptedData.isBlank() || iv.isBlank() || salt.isBlank()) {
+            _encryptionState.value = EncryptionState.Error("Encrypted data, IV, and Salt cannot be empty")
             return
         }
         if (password.isBlank()) {
@@ -59,7 +59,7 @@ class EncryptionViewModel @Inject constructor(
 
         viewModelScope.launch {
             _encryptionState.value = EncryptionState.Processing
-            val result = encryptionProvider.decryptText(encryptedData, iv, password)
+            val result = encryptionProvider.decryptText(encryptedData, iv, salt, password)
             if (result.success) {
                 _encryptionState.value = EncryptionState.Decrypted(result.plaintext)
             } else {
@@ -92,7 +92,7 @@ class EncryptionViewModel @Inject constructor(
 sealed class EncryptionState {
     object Idle : EncryptionState()
     object Processing : EncryptionState()
-    data class Encrypted(val encryptedData: String, val iv: String) : EncryptionState()
+    data class Encrypted(val encryptedData: String, val iv: String, val salt: String) : EncryptionState()
     data class Decrypted(val plaintext: String) : EncryptionState()
     data class KeyGenerated(val key: String) : EncryptionState()
     data class Error(val message: String) : EncryptionState()
