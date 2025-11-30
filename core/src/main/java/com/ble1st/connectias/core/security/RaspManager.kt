@@ -17,14 +17,14 @@ class RaspManager @Inject constructor(
     private val tamperDetector: TamperDetector,
     private val emulatorDetector: EmulatorDetector
 ) {
-    
+
     suspend fun performSecurityChecks(): SecurityCheckResult {
         Timber.d("Performing comprehensive security checks")
-        
+
         val threats = mutableListOf<SecurityThreat>()
         val failedChecks = mutableListOf<String>()
         var allChecksCompleted = true
-        
+
         // Root Detection
         try {
             val rootResult = rootDetector.detectRoot()
@@ -50,7 +50,7 @@ class RaspManager @Inject constructor(
             failedChecks.add("RootDetector")
             allChecksCompleted = false
         }
-        
+
         // Debugger Detection
         try {
             val debuggerResult = debuggerDetector.detectDebugger()
@@ -72,7 +72,7 @@ class RaspManager @Inject constructor(
             failedChecks.add("DebuggerDetector")
             allChecksCompleted = false
         }
-        
+
         // Tamper Detection
         try {
             val tamperResult = tamperDetector.detectTampering()
@@ -94,7 +94,7 @@ class RaspManager @Inject constructor(
             failedChecks.add("TamperDetector")
             allChecksCompleted = false
         }
-        
+
         // Emulator Detection
         try {
             val emulatorResult = emulatorDetector.detectEmulator()
@@ -116,11 +116,11 @@ class RaspManager @Inject constructor(
             failedChecks.add("EmulatorDetector")
             allChecksCompleted = false
         }
-        
+
         val isSecure = threats.isEmpty() && failedChecks.isEmpty() && allChecksCompleted
-        
+
         Timber.i("Security check completed. Secure: $isSecure, Threats: ${threats.size}, Failed: ${failedChecks.size}")
-        
+
         return SecurityCheckResult.create(
             isSecure = isSecure,
             threats = threats,
@@ -128,5 +128,6 @@ class RaspManager @Inject constructor(
             allChecksCompleted = allChecksCompleted,
             timestamp = System.currentTimeMillis()
         )
-    }}
+    }
+}
 

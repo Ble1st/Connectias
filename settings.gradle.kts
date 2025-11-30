@@ -47,10 +47,11 @@ if (featureUtilitiesEnabled) {
     include(":feature-utilities")
 }
 
-val featureBackupEnabled = providers.gradleProperty("feature.backup.enabled").orNull == "true"
-if (featureBackupEnabled) {
-    
-}
+// Feature backup module not yet implemented
+// val featureBackupEnabled = providers.gradleProperty("feature.backup.enabled").orNull == "true"
+// if (featureBackupEnabled) {
+//     include(":feature-backup")
+// }
 
 val featurePrivacyEnabled = providers.gradleProperty("feature.privacy.enabled").orNull == "true"
 if (featurePrivacyEnabled) {
