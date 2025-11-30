@@ -63,11 +63,6 @@ class BandwidthMonitorProvider @Inject constructor(
 
     suspend fun getDeviceBandwidthStats(devices: List<NetworkDevice>): List<DeviceBandwidthStats> = withContext(Dispatchers.IO) {
         try {
-            // Return empty list if no devices to avoid division by zero
-            if (devices.isEmpty()) {
-                return@withContext emptyList()
-            }
-            
             val totalTraffic = networkMonitorProvider.getCurrentTraffic()
             val deviceCount = devices.size
 
@@ -84,6 +79,10 @@ class BandwidthMonitorProvider @Inject constructor(
                 )
             }
         } catch (e: Exception) {
+            Timber.e(e, "Failed to calculate device bandwidth stats")
+            emptyList()
+        }
+    }
             Timber.e(e, "Failed to calculate device bandwidth stats")
             emptyList()
         }
