@@ -7,7 +7,10 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.feature.usb.native.DvdNative
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPoints
+import dagger.hilt.components.SingletonComponent
 import timber.log.Timber
 import java.io.FileNotFoundException
 
@@ -327,10 +330,6 @@ class DvdVideoContentProvider : ContentProvider() {
         val chapterNumber: Int
     )
     
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
-
     /**
      * Hilt entry point for accessing DvdHandleRegistry.
      * This is needed because ContentProvider is created before Application.

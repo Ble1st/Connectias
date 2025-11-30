@@ -82,12 +82,6 @@ class DvdVideoProvider @Inject constructor(
                 titles = titles
             )
             
-            val dvdInfo = DvdInfo(
-                handle = handle,
-                mountPoint = drive.mountPoint,
-                titles = titles
-            )
-            
             try {
                 // Register DVD handle in registry for ContentProvider access
                 dvdHandleRegistry.registerDvd(dvdInfo)
@@ -95,6 +89,7 @@ class DvdVideoProvider @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to register DVD in handle registry")
                 DvdNative.dvdClose(handle)
+                handle = null
                 throw IllegalStateException("Failed to register DVD handle", e)
             }
             

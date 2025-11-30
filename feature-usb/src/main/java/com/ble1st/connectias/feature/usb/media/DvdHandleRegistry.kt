@@ -44,11 +44,20 @@ class DvdHandleRegistry @Inject constructor() {
             // Check for existing handle and cleanup if present
             val oldHandle = dvdHandles[mountPoint]
             if (oldHandle != null && oldHandle != handle) {
-                Timber.w("Replacing existing DVD handle $oldHandle with $handle for mount point: $mountPoint")
-                try {
-                    DvdNative.dvdClose(oldHandle)
-                } catch (e: Exception) {
-                    Timber.e(e, "Error closing old DVD handle $oldHandle during registration")
+                // Check if the old handle is still referenced by other mount points
+                val isHandleUsedElsewhere = dvdHandles.any { (otherMountPoint, otherHandle) ->
+                    otherMountPoint != mountPoint && otherHandle == oldHandle
+                }
+                
+                if (isHandleUsedElsewhere) {
+                    Timber.w("Skipping close of DVD handle $oldHandle for mount point: $mountPoint - handle is still in use by other mount point(s)")
+                } else {
+                    Timber.w("Replacing existing DVD handle $oldHandle with $handle for mount point: $mountPoint")
+                    try {
+                        DvdNative.dvdClose(oldHandle)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error closing old DVD handle $oldHandle during registration")
+                    }
                 }
             }
             

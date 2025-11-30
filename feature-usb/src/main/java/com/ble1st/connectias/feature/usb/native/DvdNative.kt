@@ -188,11 +188,14 @@ class DvdHandle private constructor(val handle: Long) : AutoCloseable {
         if (!isClosed && handle != -1L) {
             try {
                 DvdNative.dvdClose(handle)
-                isClosed = true
                 Timber.d("DVD handle closed: $handle")
             } catch (e: Exception) {
                 Timber.e(e, "Error closing DVD handle: $handle")
                 throw e
+            } finally {
+                // Set isClosed in finally block to ensure idempotency
+                // This prevents dangerous retries even if dvdClose throws
+                isClosed = true
             }
         }
     }

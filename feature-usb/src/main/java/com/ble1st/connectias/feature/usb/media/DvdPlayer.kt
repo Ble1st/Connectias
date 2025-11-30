@@ -79,7 +79,7 @@ class DvdPlayer @Inject constructor(
             
             // Parse and validate URI
             val parsedUri = Uri.parse(uri)
-            val scheme = parsedUri.scheme
+            val scheme = parsedUri.scheme?.lowercase()
             if (scheme.isNullOrBlank()) {
                 Timber.e("Video stream URI has no scheme: $uri")
                 throw IllegalArgumentException("Video stream URI must have a valid scheme (http, https, file, or content): $uri")

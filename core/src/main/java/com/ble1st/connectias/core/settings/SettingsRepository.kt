@@ -16,10 +16,25 @@ import javax.inject.Singleton
  * Repository for application settings.
  * Uses plain SharedPreferences for non-sensitive settings (e.g., theme)
  * and EncryptedSharedPreferences for sensitive settings.
+ * 
+ * **WARNING: Recovery Mechanism**
+ * 
+ * If encryption initialization fails (e.g., due to keystore corruption after OS updates,
+ * backup restores, or device migrations), the recovery mechanism will **unconditionally delete**
+ * the entire EncryptedSharedPreferences file. This causes **total loss of any encrypted settings**.
+ * 
+ * To be notified before data loss occurs, provide an [onRecoveryWillEraseData] callback
+ * that can notify users or back up data before the deletion happens.
+ * 
+ * @param context Application context
+ * @param onRecoveryWillEraseData Optional callback invoked immediately before deleting
+ *        encrypted preferences during recovery. Use this to notify users or back up data.
+ *        If null, recovery proceeds without notification.
  */
 @Singleton
 class SettingsRepository @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val onRecoveryWillEraseData: (() -> Unit)? = null
 ) {
     // Plain SharedPreferences for non-sensitive settings like theme
     private val plainPrefs: SharedPreferences by lazy {
@@ -28,56 +43,63 @@ class SettingsRepository @Inject constructor(
     
     private val encryptedPrefs: SharedPreferences by lazy {
         try {
-            createEncryptedPrefs()
+            val prefs = createEncryptedPrefs()
+            performMigration(prefs)
+            prefs
         } catch (e: GeneralSecurityException) {
             Timber.e(e, "Failed to create EncryptedSharedPreferences")
-            // Attempt recovery by deleting corrupted prefs
-            if (deleteCorruptedPrefs()) {
-                Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
-                try {
-                    return@lazy createEncryptedPrefs()
-                } catch (e2: Exception) {
-                    Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
-                    throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
-                }
-            }
-            throw IllegalStateException("Cannot initialize encrypted storage", e)
+            recoverAndCreateEncryptedPrefs(e)
         } catch (e: IOException) {
             Timber.e(e, "IO error creating EncryptedSharedPreferences")
-            // Attempt recovery by deleting corrupted prefs
-            if (deleteCorruptedPrefs()) {
-                Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
-                try {
-                    return@lazy createEncryptedPrefs()
-                } catch (e2: Exception) {
-                    Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
-                    throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
-                }
-            }
-            throw IllegalStateException("Cannot initialize encrypted storage", e)
+            recoverAndCreateEncryptedPrefs(e)
         }
     }
     
     /**
      * Creates EncryptedSharedPreferences instance.
      * Extracted to a separate method to allow retry after recovery.
+     * Note: Migration is performed separately to avoid triggering recovery
+     * when migration fails (which is not a corruption issue).
      */
     private fun createEncryptedPrefs(): SharedPreferences {
         val masterKey = MasterKey.Builder(context)
             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
             .build()
         
-        val encrypted = EncryptedSharedPreferences.create(
+        return EncryptedSharedPreferences.create(
             context,
             "connectias_settings_encrypted",
             masterKey,
             EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
+    }
+    
+    /**
+     * Performs recovery by deleting corrupted encrypted preferences and retrying creation.
+     * Invokes [onRecoveryWillEraseData] callback before deletion if provided.
+     * 
+     * @param originalException The original exception that triggered recovery
+     * @return The newly created EncryptedSharedPreferences instance
+     * @throws IllegalStateException if recovery fails
+     */
+    private fun recoverAndCreateEncryptedPrefs(originalException: Exception): SharedPreferences {
+        // Notify callback before deletion if provided
+        onRecoveryWillEraseData?.invoke()
         
-        performMigration(encrypted)
-        
-        return encrypted
+        // Attempt recovery by deleting corrupted prefs
+        if (deleteCorruptedPrefs()) {
+            Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
+            try {
+                val prefs = createEncryptedPrefs()
+                performMigration(prefs)
+                return prefs
+            } catch (e2: Exception) {
+                Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
+                throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
+            }
+        }
+        throw IllegalStateException("Cannot initialize encrypted storage", originalException)
     }
     
     /**
@@ -89,7 +111,8 @@ class SettingsRepository @Inject constructor(
      */
     private fun deleteCorruptedPrefs(): Boolean {
         return try {
-            val prefsFile = File(context.filesDir.parent, "shared_prefs/connectias_settings_encrypted.xml")
+            val prefsDir = File(context.applicationInfo.dataDir, "shared_prefs")
+            val prefsFile = File(prefsDir, "connectias_settings_encrypted.xml")
             if (prefsFile.exists()) {
                 val deleted = prefsFile.delete()
                 if (deleted) {
@@ -150,6 +173,25 @@ class SettingsRepository @Inject constructor(
      */
     fun setTheme(theme: String) {
         plainPrefs.edit().putString("theme", theme).apply()
+    }
+    
+    /**
+     * Audits which keys are currently stored in encrypted preferences.
+     * This helps verify that no unexpected user data will be lost during recovery.
+     * 
+     * @return Set of all keys currently stored in encrypted preferences, or empty set if
+     *         encrypted preferences cannot be accessed (e.g., not yet initialized or corrupted)
+     */
+    fun auditEncryptedPrefsKeys(): Set<String> {
+        return try {
+            val allEntries = encryptedPrefs.all
+            val keys = allEntries.keys
+            Timber.d("Encrypted preferences audit: Found ${keys.size} key(s): ${keys.joinToString()}")
+            keys
+        } catch (e: Exception) {
+            Timber.w(e, "Cannot audit encrypted preferences (may not be initialized or corrupted)")
+            emptySet()
+        }
     }
 }
 

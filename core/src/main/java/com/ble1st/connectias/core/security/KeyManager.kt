@@ -2,6 +2,7 @@ package com.ble1st.connectias.core.security
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Build
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -92,21 +93,11 @@ class KeyManager @Inject constructor(
     private val encryptedPrefs: SharedPreferences by lazy {
         try {
             createEncryptedPrefs()
-        } catch (e: GeneralSecurityException) {
-            Timber.e(e, "Failed to create EncryptedSharedPreferences")
-            // Attempt recovery by deleting corrupted prefs
-            if (deleteCorruptedPrefs()) {
-                Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
-                try {
-                    return@lazy createEncryptedPrefs()
-                } catch (e2: Exception) {
-                    Timber.e(e2, "Failed to create EncryptedSharedPreferences after recovery attempt")
-                    throw IllegalStateException("Cannot initialize encrypted storage after recovery", e2)
-                }
+        } catch (e: Exception) {
+            if (e !is GeneralSecurityException && e !is IOException) {
+                throw e
             }
-            throw IllegalStateException("Cannot initialize encrypted storage", e)
-        } catch (e: IOException) {
-            Timber.e(e, "IO error creating EncryptedSharedPreferences")
+            Timber.e(e, "Failed to create EncryptedSharedPreferences")
             // Attempt recovery by deleting corrupted prefs
             if (deleteCorruptedPrefs()) {
                 Timber.d("Retrying EncryptedSharedPreferences creation after deleting corrupted prefs")
@@ -144,18 +135,65 @@ class KeyManager @Inject constructor(
      */
     private fun deleteCorruptedPrefs(): Boolean {
         return try {
-            val prefsFile = File(context.filesDir.parent, "shared_prefs/$PREFS_NAME.xml")
-            if (prefsFile.exists()) {
-                val deleted = prefsFile.delete()
-                if (deleted) {
-                    Timber.d("Deleted corrupted encrypted preferences file")
-                } else {
-                    Timber.w("Failed to delete corrupted encrypted preferences file")
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                // Use API 24+ method for reliable shared preferences deletion
+                try {
+                    context.deleteSharedPreferences(PREFS_NAME)
+                    Timber.d("Deleted corrupted encrypted preferences file using deleteSharedPreferences()")
+                    true
+                } catch (e: Exception) {
+                    Timber.e(e, "Error deleting shared preferences using deleteSharedPreferences()")
+                    false
                 }
-                deleted
             } else {
-                Timber.d("Encrypted preferences file does not exist, nothing to delete")
-                true
+                // For older APIs, use safer path computation or clear via SharedPreferences
+                try {
+                    // Try clearing via SharedPreferences first (safer)
+                    val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    val cleared = prefs.edit().clear().commit()
+                    if (cleared) {
+                        Timber.d("Cleared corrupted encrypted preferences file via SharedPreferences.edit().clear()")
+                        // Also try to delete the file directly for complete cleanup
+                        try {
+                            val prefsFile = File(context.applicationInfo.dataDir, "shared_prefs/$PREFS_NAME.xml")
+                            if (prefsFile.exists()) {
+                                val deleted = prefsFile.delete()
+                                if (deleted) {
+                                    Timber.d("Deleted corrupted encrypted preferences file after clearing")
+                                } else {
+                                    Timber.w("Failed to delete file after clearing, but preferences were cleared")
+                                }
+                            }
+                        } catch (fileException: Exception) {
+                            Timber.w(fileException, "Failed to delete file after clearing, but preferences were cleared")
+                        }
+                        true
+                    } else {
+                        Timber.w("Failed to clear corrupted encrypted preferences file via SharedPreferences")
+                        // Fallback to direct file deletion
+                        try {
+                            val prefsFile = File(context.applicationInfo.dataDir, "shared_prefs/$PREFS_NAME.xml")
+                            if (prefsFile.exists()) {
+                                val deleted = prefsFile.delete()
+                                if (deleted) {
+                                    Timber.d("Deleted corrupted encrypted preferences file using fallback method")
+                                } else {
+                                    Timber.w("Failed to delete corrupted encrypted preferences file")
+                                }
+                                deleted
+                            } else {
+                                Timber.d("Encrypted preferences file does not exist, nothing to delete")
+                                true
+                            }
+                        } catch (fileException: Exception) {
+                            Timber.e(fileException, "Error attempting to delete corrupted encrypted preferences file")
+                            false
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error attempting to clear corrupted encrypted preferences")
+                    false
+                }
             }
         } catch (e: Exception) {
             Timber.e(e, "Error attempting to delete corrupted encrypted preferences")

@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.cancellation.CancellationException
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,7 +22,30 @@ import javax.inject.Singleton
  * Handles DVD navigation (menus, titles, chapters).
  */
 @Singleton
-class DvdNavigation @Inject constructor() {
+class DvdNavigation @Inject constructor(
+    /**
+     * Maximum number of concurrent chapter reads.
+     * Default: 4
+     */
+    private val maxConcurrentChapterReads: Int = DEFAULT_MAX_CONCURRENT_CHAPTER_READS,
+    
+    /**
+     * Timeout in milliseconds for each chapter read operation.
+     * Default: 5000L (5 seconds)
+     */
+    private val chapterReadTimeoutMs: Long = DEFAULT_CHAPTER_READ_TIMEOUT_MS
+) {
+    companion object {
+        /**
+         * Default maximum number of concurrent chapter reads.
+         */
+        private const val DEFAULT_MAX_CONCURRENT_CHAPTER_READS = 4
+        
+        /**
+         * Default timeout in milliseconds for each chapter read operation.
+         */
+        private const val DEFAULT_CHAPTER_READ_TIMEOUT_MS = 5000L
+    }
     
     /**
      * Navigates to a specific title and loads all chapters.
@@ -65,15 +89,13 @@ class DvdNavigation @Inject constructor() {
         chapterCount: Int
     ): List<DvdChapter> = coroutineScope {
         // Limit concurrent chapter reads to avoid overwhelming the system
-        // Use a semaphore with max 4 concurrent reads
-        val semaphore = Semaphore(4)
-        val timeoutMs = 5000L // 5 seconds per chapter read
+        val semaphore = Semaphore(maxConcurrentChapterReads)
         
         // Create async tasks for all chapters
         val chapterDeferreds = (1..chapterCount).map { chapterNum ->
             async(Dispatchers.IO) {
                 semaphore.withPermit {
-                    withTimeoutOrNull(timeoutMs) {
+                    withTimeoutOrNull(chapterReadTimeoutMs) {
                         try {
                             val chapterNative = DvdNative.dvdReadChapter(handle, titleNumber, chapterNum)
                             chapterNative?.let {
@@ -112,6 +134,9 @@ class DvdNavigation @Inject constructor() {
                 if (completedCount % 10 == 0 || completedCount == chapterCount) {
                     Timber.d("Loaded $completedCount/$chapterCount chapters for title $titleNumber")
                 }
+            } catch (e: CancellationException) {
+                // Rethrow CancellationException immediately to preserve structured concurrency
+                throw e
             } catch (e: Exception) {
                 Timber.w(e, "Error awaiting chapter ${index + 1} for title $titleNumber")
                 completedCount++

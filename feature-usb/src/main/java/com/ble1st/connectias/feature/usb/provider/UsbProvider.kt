@@ -13,6 +13,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
+import java.security.GeneralSecurityException
 import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
@@ -48,9 +50,64 @@ class UsbProvider @Inject constructor(
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
+        } catch (e: GeneralSecurityException) {
+            // EncryptedSharedPreferences failed due to security/keystore issues
+            // Attempt to detect and handle corrupted encrypted file before falling back
+            val remediation = handleCorruptedEncryptedFile("usb_device_mapping")
+            Timber.w(e, "Failed to create EncryptedSharedPreferences for device mapping (GeneralSecurityException). " +
+                    "Remediation: $remediation. Using plain SharedPreferences with separate filename.")
+            context.getSharedPreferences("usb_device_mapping_plain", Context.MODE_PRIVATE)
         } catch (e: Exception) {
-            Timber.w(e, "Failed to create EncryptedSharedPreferences for device mapping, using plain SharedPreferences")
-            context.getSharedPreferences("usb_device_mapping", Context.MODE_PRIVATE)
+            // Other exceptions (IO, etc.) - check if encrypted file exists and might be corrupted
+            val remediation = handleCorruptedEncryptedFile("usb_device_mapping")
+            Timber.w(e, "Failed to create EncryptedSharedPreferences for device mapping. " +
+                    "Remediation: $remediation. Using plain SharedPreferences with separate filename.")
+            context.getSharedPreferences("usb_device_mapping_plain", Context.MODE_PRIVATE)
+        }
+    }
+    
+    /**
+     * Attempts to detect and handle a corrupted encrypted SharedPreferences file.
+     * If the encrypted file exists, it may contain encrypted bytes that would be unreadable
+     * as plain SharedPreferences. This method attempts to delete or rename the corrupted file.
+     * 
+     * @param prefsName The name of the SharedPreferences file (without .xml extension)
+     * @return String describing the remediation action taken
+     */
+    private fun handleCorruptedEncryptedFile(prefsName: String): String {
+        return try {
+            val prefsFile = File(context.filesDir.parent, "shared_prefs/$prefsName.xml")
+            if (prefsFile.exists()) {
+                // Encrypted file exists - attempt to detect if it's corrupted by trying a minimal read
+                // If it's encrypted, reading as plain XML will fail or return garbage
+                try {
+                    val testPrefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                    val testKey = "__corruption_test__"
+                    // Try to read a non-existent key - if file is encrypted, this might throw or return garbage
+                    testPrefs.getString(testKey, null)
+                    // If we get here without exception, file might be readable as plain (or empty)
+                    // But since EncryptedSharedPreferences.create() failed, it's likely corrupted
+                    // Delete it to prevent confusion
+                    val deleted = prefsFile.delete()
+                    if (deleted) {
+                        "Deleted potentially corrupted encrypted file: $prefsName.xml"
+                    } else {
+                        "Failed to delete potentially corrupted encrypted file: $prefsName.xml"
+                    }
+                } catch (readException: Exception) {
+                    // File is definitely corrupted or encrypted - delete it
+                    val deleted = prefsFile.delete()
+                    if (deleted) {
+                        "Deleted corrupted encrypted file (read test failed): $prefsName.xml"
+                    } else {
+                        "Failed to delete corrupted encrypted file (read test failed): $prefsName.xml"
+                    }
+                }
+            } else {
+                "Encrypted file does not exist, no remediation needed"
+            }
+        } catch (e: Exception) {
+            "Error during corruption detection: ${e.message}"
         }
     }
     

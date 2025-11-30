@@ -50,7 +50,7 @@ private class ValidatedDns : Dns {
          * Should be called after the request completes to prevent cross-request reuse.
          */
         fun clearValidatedAddresses() {
-            validatedAddresses.get()?.clear()
+            validatedAddresses.remove()
         }
     }
     
@@ -64,9 +64,9 @@ private class ValidatedDns : Dns {
             return listOf(validatedAddress)
         }
         
-        // Fallback to system DNS for hostnames not in our validated set
-        // This should not happen in normal operation, but provides a fallback
-        return Dns.SYSTEM.lookup(hostname)
+        // Fail closed: throw IOException for unvalidated hostnames to prevent DNS rebinding attacks
+        // This should not happen in normal operation if validation is working correctly
+        throw IOException("Hostname '$hostname' was not pre-validated. DNS rebinding protection requires all hostnames to be validated before DNS lookup.")
     }
 }
 
