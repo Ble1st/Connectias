@@ -35,6 +35,10 @@ class BandwidthMonitorProvider @Inject constructor(
      * 
      * @return List of interface statistics with zero values (stub data)
      */
+    /**
+     * Gets interface metadata. Note: Traffic statistics (rx/tx bytes and rates)
+     * are unavailable without root access and will always be zero.
+     */
     suspend fun getInterfaceStats(): List<InterfaceStats> = withContext(Dispatchers.IO) {
         try {
             val interfaces = networkMonitorProvider.getActiveInterfaces()
@@ -57,10 +61,6 @@ class BandwidthMonitorProvider @Inject constructor(
         }
     }
 
-    /**
-     * Calculates bandwidth statistics per device based on network monitoring.
-     * This is an estimation since Android doesn't provide per-device bandwidth directly.
-     */
     suspend fun getDeviceBandwidthStats(devices: List<NetworkDevice>): List<DeviceBandwidthStats> = withContext(Dispatchers.IO) {
         try {
             val totalTraffic = networkMonitorProvider.getCurrentTraffic()
@@ -72,13 +72,17 @@ class BandwidthMonitorProvider @Inject constructor(
                 DeviceBandwidthStats(
                     deviceId = device.ipAddress,
                     deviceName = device.hostname,
-                    estimatedRxBytes = if (deviceCount > 0) totalTraffic.rxBytes / deviceCount else 0L,
-                    estimatedTxBytes = if (deviceCount > 0) totalTraffic.txBytes / deviceCount else 0L,
-                    estimatedRxRate = if (deviceCount > 0) totalTraffic.rxRate / deviceCount else 0.0,
-                    estimatedTxRate = if (deviceCount > 0) totalTraffic.txRate / deviceCount else 0.0
+                    estimatedRxBytes = totalTraffic.rxBytes / deviceCount,
+                    estimatedTxBytes = totalTraffic.txBytes / deviceCount,
+                    estimatedRxRate = totalTraffic.rxRate / deviceCount,
+                    estimatedTxRate = totalTraffic.txRate / deviceCount
                 )
             }
         } catch (e: Exception) {
+            Timber.e(e, "Failed to calculate device bandwidth stats")
+            emptyList()
+        }
+    }
             Timber.e(e, "Failed to calculate device bandwidth stats")
             emptyList()
         }
@@ -110,6 +114,7 @@ class BandwidthMonitorProvider @Inject constructor(
 
     /**
      * Analyzes traffic patterns from history.
+     * Computes statistics in a single pass for efficiency.
      */
     suspend fun analyzeTrafficPatterns(): TrafficPattern = withContext(Dispatchers.IO) {
         val history = _bandwidthHistory.value
@@ -123,18 +128,30 @@ class BandwidthMonitorProvider @Inject constructor(
             )
         }
 
-        val avgRx = history.map { it.rxRate }.average()
-        val avgTx = history.map { it.txRate }.average()
-        val peakRx = history.map { it.rxRate }.maxOrNull() ?: 0.0
-        val peakTx = history.map { it.txRate }.maxOrNull() ?: 0.0
-        val total = history.lastOrNull()?.let { it.rxBytes + it.txBytes } ?: 0L
+        // Compute all statistics in a single pass
+        var sumRxRate = 0.0
+        var sumTxRate = 0.0
+        var peakRxRate = 0.0
+        var peakTxRate = 0.0
+        var totalBytes = 0L
+        var count = 0
+
+        history.forEach { entry ->
+            sumRxRate += entry.rxRate
+            sumTxRate += entry.txRate
+            peakRxRate = maxOf(peakRxRate, entry.rxRate)
+            peakTxRate = maxOf(peakTxRate, entry.txRate)
+            // Sum bytes across all history entries (rxBytes/txBytes are per-interval deltas)
+            totalBytes += entry.rxBytes + entry.txBytes
+            count++
+        }
 
         TrafficPattern(
-            averageRxRate = avgRx,
-            averageTxRate = avgTx,
-            peakRxRate = peakRx,
-            peakTxRate = peakTx,
-            totalBytes = total
+            averageRxRate = if (count > 0) sumRxRate / count else 0.0,
+            averageTxRate = if (count > 0) sumTxRate / count else 0.0,
+            peakRxRate = peakRxRate,
+            peakTxRate = peakTxRate,
+            totalBytes = totalBytes
         )
     }
 }

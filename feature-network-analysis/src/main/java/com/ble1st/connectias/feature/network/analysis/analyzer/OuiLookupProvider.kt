@@ -3,6 +3,8 @@ package com.ble1st.connectias.feature.network.analysis.analyzer
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import timber.log.Timber
@@ -21,7 +23,11 @@ class OuiLookupProvider @Inject constructor(
     @param:ApplicationContext private val context: Context
 ) {
     private val json = Json { ignoreUnknownKeys = true }
+    
+    @Volatile
     private var ouiDatabase: List<OuiEntry>? = null
+    
+    private val databaseMutex = Mutex()
 
     /**
      * Loads the OUI database from resources.

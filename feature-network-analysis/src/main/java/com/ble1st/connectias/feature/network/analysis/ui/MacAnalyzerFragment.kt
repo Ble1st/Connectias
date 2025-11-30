@@ -29,8 +29,7 @@ class MacAnalyzerFragment : Fragment() {
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 MacAnalyzerScreen(
                     state = uiState,
-                    onAnalyzeMacAddress = { viewModel.analyzeMacAddress(it) },
-                    onResetState = { viewModel.resetState() }
+                    onAnalyzeMacAddress = { viewModel.analyzeMacAddress(it) }
                 )
             }
         }

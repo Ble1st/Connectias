@@ -7,15 +7,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.feature.network.models.HypervisorInfo
 import com.ble1st.connectias.feature.network.models.VmInfo
+import com.ble1st.connectias.feature.network.R
 
 @Composable
 fun HypervisorDetectorScreen(
     state: HypervisorDetectorState,
     onDetectHypervisors: () -> Unit,
-    onResetState: () -> Unit
+    onResetState: () -> Unit,
+    hasDiscoveredDevices: Boolean = false
 ) {
     Column(
         modifier = Modifier
@@ -24,17 +27,21 @@ fun HypervisorDetectorScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Hypervisor/VM Detector",
+            text = stringResource(R.string.hypervisor_detector_title),
             style = MaterialTheme.typography.headlineMedium
         )
 
         when (state) {
             is HypervisorDetectorState.Loading -> {
                 Box(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator()
+                    CircularProgressIndicator(
+                        modifier = Modifier.semantics {
+                            contentDescription = stringResource(R.string.hypervisor_loading_description)
+                        }
+                    )
                 }
             }
             is HypervisorDetectorState.Success -> {
@@ -45,7 +52,7 @@ fun HypervisorDetectorScreen(
                     if (state.hypervisors.isNotEmpty()) {
                         item {
                             Text(
-                                text = "Detected Hypervisors (${state.hypervisors.size})",
+                                text = stringResource(R.string.hypervisor_detected_hypervisors, state.hypervisors.size),
                                 style = MaterialTheme.typography.titleLarge
                             )
                         }
@@ -58,7 +65,7 @@ fun HypervisorDetectorScreen(
                         item {
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Detected Containers (${state.containers.size})",
+                                text = stringResource(R.string.hypervisor_detected_containers, state.containers.size),
                                 style = MaterialTheme.typography.titleLarge
                             )
                         }
@@ -75,7 +82,7 @@ fun HypervisorDetectorScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "No hypervisors or VMs detected.",
+                                        text = stringResource(R.string.hypervisor_no_detections),
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -97,7 +104,7 @@ fun HypervisorDetectorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Error: ${state.message}",
+                            text = stringResource(R.string.error_prefix, state.message),
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Row(
@@ -108,13 +115,13 @@ fun HypervisorDetectorScreen(
                                 onClick = onResetState,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Reset")
+                                Text(stringResource(R.string.hypervisor_reset))
                             }
                             Button(
                                 onClick = onDetectHypervisors,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Retry")
+                                Text(stringResource(R.string.hypervisor_retry))
                             }
                         }
                     }
@@ -127,20 +134,21 @@ fun HypervisorDetectorScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Hypervisor detection requires discovered devices.",
+                            text = stringResource(R.string.hypervisor_detection_requires_devices),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Use the Network Dashboard to discover devices first.",
+                            text = stringResource(R.string.hypervisor_use_dashboard_first),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Button(
                             onClick = onDetectHypervisors,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = hasDiscoveredDevices
                         ) {
-                            Text("Detect Hypervisors")
+                            Text(stringResource(R.string.hypervisor_detect_button))
                         }
                     }
                 }
@@ -160,11 +168,11 @@ private fun HypervisorInfoCard(hypervisor: HypervisorInfo) {
                 text = hypervisor.type.name,
                 style = MaterialTheme.typography.titleMedium
             )
-            InfoRow("VMs Detected", hypervisor.detectedVms.size.toString())
+            InfoRow(stringResource(R.string.hypervisor_vms_detected), hypervisor.detectedVms.size.toString())
             
             if (hypervisor.detectedVms.isNotEmpty()) {
                 Text(
-                    text = "Virtual Machines:",
+                    text = stringResource(R.string.hypervisor_virtual_machines),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)

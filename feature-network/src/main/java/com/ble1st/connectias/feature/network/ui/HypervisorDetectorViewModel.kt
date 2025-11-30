@@ -56,6 +56,7 @@ class HypervisorDetectorViewModel @Inject constructor(
      * Resets the state to idle.
      */
     fun resetState() {
+        detectJob?.cancel()
         _uiState.value = HypervisorDetectorState.Idle
     }
 }

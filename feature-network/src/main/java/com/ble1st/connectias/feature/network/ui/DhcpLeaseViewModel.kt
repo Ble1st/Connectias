@@ -30,8 +30,8 @@ class DhcpLeaseViewModel @Inject constructor(
      * Analyzes DHCP leases from discovered devices.
      */
     fun analyzeLeases(devices: List<NetworkDevice>) {
-        // Cancel and join previous job if active
         currentAnalysisJob?.cancel()
+        currentAnalysisJob?.join()
         
         currentAnalysisJob = viewModelScope.launch {
             _uiState.value = DhcpLeaseState.Loading
@@ -47,8 +47,11 @@ class DhcpLeaseViewModel @Inject constructor(
 
     /**
      * Resets the state to idle.
+     * Cancels any running analysis job to prevent it from overwriting the idle state.
      */
     fun resetState() {
+        currentAnalysisJob?.cancel()
+        currentAnalysisJob = null
         _uiState.value = DhcpLeaseState.Idle
     }
 }

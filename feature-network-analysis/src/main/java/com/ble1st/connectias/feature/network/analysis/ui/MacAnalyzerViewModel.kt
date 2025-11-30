@@ -3,6 +3,7 @@ package com.ble1st.connectias.feature.network.analysis.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,9 @@ class MacAnalyzerViewModel @Inject constructor(
             try {
                 val info = ouiLookupProvider.lookupMacAddress(macAddress)
                 _uiState.value = MacAnalyzerState.Success(info)
+            } catch (e: CancellationException) {
+                // Re-throw cancellation to allow proper coroutine cancellation
+                throw e
             } catch (e: Exception) {
                 _uiState.value = MacAnalyzerState.Error(e.message ?: "Failed to analyze MAC address")
             }

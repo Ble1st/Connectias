@@ -33,8 +33,7 @@ class SubnetAnalyzerFragment : Fragment() {
                     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                     SubnetAnalyzerScreen(
                         state = uiState,
-                        onAnalyzeCidr = { viewModel.analyzeCidr(it) },
-                        onResetState = { viewModel.resetState() }
+                        onAnalyzeCidr = { viewModel.analyzeCidr(it) }
                     )
                 }
             }

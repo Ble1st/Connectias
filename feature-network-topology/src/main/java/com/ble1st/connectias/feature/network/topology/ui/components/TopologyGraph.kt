@@ -180,9 +180,8 @@ private fun findNodeAtPosition(
     centerY: Float
 ): TopologyNode? {
     // Base hit radius (matches base node radius of 20f)
+    // Use world-space hit radius for distance comparison to match visual node size at all zoom levels
     val baseHitRadius = 20f
-    // Scale hit radius by zoom level to match visual size
-    val scaledHitRadius = baseHitRadius * zoomLevel
     
     // Reverse transformations: translate first, then unscale
     val adjustedX = (position.x - panOffset.x - centerX) / zoomLevel + centerX
@@ -194,6 +193,7 @@ private fun findNodeAtPosition(
             (adjustedPosition.x - node.x) * (adjustedPosition.x - node.x) +
             (adjustedPosition.y - node.y) * (adjustedPosition.y - node.y)
         )
-        distance <= scaledHitRadius
+        // Compare with baseHitRadius in world space (not scaled) since position is already in world space
+        distance <= baseHitRadius
     }
 }

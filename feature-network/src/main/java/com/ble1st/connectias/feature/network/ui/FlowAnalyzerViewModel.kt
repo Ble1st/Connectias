@@ -3,6 +3,7 @@ package com.ble1st.connectias.feature.network.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,8 @@ class FlowAnalyzerViewModel @Inject constructor(
                 flowAnalyzerProvider.trackFlows(devices)
                 val stats = flowAnalyzerProvider.analyzeFlowStats(devices)
                 _uiState.value = FlowAnalyzerState.Success(stats)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = FlowAnalyzerState.Error(e.message ?: "Failed to analyze flows")
             }
@@ -47,8 +50,11 @@ class FlowAnalyzerViewModel @Inject constructor(
 
     /**
      * Resets the state to idle.
+     * Cancels any running analysis job to prevent it from overwriting the idle state.
      */
     fun resetState() {
+        currentAnalysis?.cancel()
+        currentAnalysis = null
         _uiState.value = FlowAnalyzerState.Idle
     }
 }

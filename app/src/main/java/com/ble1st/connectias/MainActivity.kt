@@ -253,7 +253,11 @@ class MainActivity : AppCompatActivity() {
             isMainUIInitialized = true
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize main UI")
+            // Clean up partial state
+            binding = null
             // Don't set flag on error so retry is possible
+            // Finish activity to prevent broken UI state
+            finish()
         }
     }
 

@@ -29,7 +29,7 @@ fun NetworkDashboardScreen(
     onNavigateToPortScanner: () -> Unit,
     onNavigateToDnsLookup: () -> Unit,
     onNavigateToNetworkMonitor: () -> Unit,
-    onNavigateToWifiAnalyzer: () -> Unit,
+    onNavigateToWifiAnalyzer: () -> Unit = {},
     // Analysis features
     onNavigateToMacAnalyzer: () -> Unit = {},
     onNavigateToSubnetAnalyzer: () -> Unit = {},

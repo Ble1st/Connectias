@@ -12,6 +12,4 @@ import dagger.hilt.components.SingletonComponent
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object AnalysisModule {
-    // Network Analysis feature module - Hilt will automatically discover ViewModels and @Inject constructors
-}
+object AnalysisModule

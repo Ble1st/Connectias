@@ -3,6 +3,8 @@ package com.ble1st.connectias.feature.network.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,6 +14,7 @@ import com.ble1st.connectias.feature.network.monitor.InterfaceStats
 import com.ble1st.connectias.feature.network.monitor.DeviceBandwidthStats
 import com.ble1st.connectias.feature.network.monitor.TrafficPattern
 import com.ble1st.connectias.feature.network.models.NetworkDevice
+import timber.log.Timber
 import javax.inject.Inject
 
 /**
@@ -31,11 +34,25 @@ class BandwidthMonitorViewModel @Inject constructor(
     private val _trafficPattern = MutableStateFlow<TrafficPattern?>(null)
     val trafficPattern: StateFlow<TrafficPattern?> = _trafficPattern.asStateFlow()
 
+    private val _isLoading = MutableStateFlow<Boolean>(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    private var refreshJob: Job? = null
+
     /**
      * Refreshes bandwidth statistics.
+     * Prevents concurrent calls by canceling any existing refresh job before starting a new one.
      */
     fun refreshStats(devices: List<NetworkDevice> = emptyList()) {
-        viewModelScope.launch {
+        // Cancel previous job if still active
+        refreshJob?.cancel()
+        
+        refreshJob = viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
             try {
                 _interfaceStats.value = bandwidthMonitorProvider.getInterfaceStats()
                 if (devices.isNotEmpty()) {
@@ -44,8 +61,14 @@ class BandwidthMonitorViewModel @Inject constructor(
                     _deviceStats.value = emptyList()
                 }
                 _trafficPattern.value = bandwidthMonitorProvider.analyzeTrafficPatterns()
+            } catch (e: CancellationException) {
+                // Re-throw cancellation to allow proper coroutine cancellation
+                throw e
             } catch (e: Exception) {
-                // Handle error - log and/or expose to UI via error state
+                Timber.e(e, "Failed to refresh bandwidth statistics")
+                _errorMessage.value = e.message ?: "Failed to refresh bandwidth statistics"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

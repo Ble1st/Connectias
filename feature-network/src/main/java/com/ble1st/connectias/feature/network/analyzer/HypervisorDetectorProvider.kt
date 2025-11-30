@@ -108,7 +108,7 @@ class HypervisorDetectorProvider @Inject constructor() {
         }
 
         // Check hostname patterns
-        val hostname = device.hostname.lowercase()
+        val hostname = device.hostname?.lowercase() ?: ""
         when {
             hostname.contains("vmware") || hostname.contains("esxi") -> return HypervisorType.VMWARE
             hostname.contains("virtualbox") -> return HypervisorType.VIRTUALBOX
@@ -151,6 +151,5 @@ class HypervisorDetectorProvider @Inject constructor() {
             hostname.contains("lxc") ||
             hostname.matches(Regex("^[a-z0-9_-]+-[a-f0-9]{12}$")) // More restrictive pattern
         }
-    }
     }
 }

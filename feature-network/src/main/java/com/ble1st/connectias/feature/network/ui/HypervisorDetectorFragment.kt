@@ -33,7 +33,8 @@ class HypervisorDetectorFragment : Fragment() {
                         // TODO: Get devices and MAC manufacturers from Network Dashboard
                         viewModel.detectHypervisors(emptyList())
                     },
-                    onResetState = { viewModel.resetState() }
+                    onResetState = { viewModel.resetState() },
+                    hasDiscoveredDevices = false // TODO: Get from Network Dashboard
                 )
             }
         }

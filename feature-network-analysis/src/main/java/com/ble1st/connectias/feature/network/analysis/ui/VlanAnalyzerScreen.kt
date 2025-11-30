@@ -96,11 +96,13 @@ fun VlanAnalyzerScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        // Note: Passing emptyList() triggers internal device discovery
+                        // The analyzer will attempt to discover devices automatically
                         Button(
                             onClick = { onAnalyzeVlans(emptyList()) },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Analyze VLANs")
+                            Text("Start VLAN Analysis (discovering)")
                         }
                     }
                 }
@@ -121,7 +123,6 @@ private fun VlanInfoCard(vlanInfo: com.ble1st.connectias.feature.network.analysi
                 style = MaterialTheme.typography.titleMedium
             )
 
-            InfoRow("Subnet", vlanInfo.subnetInfo.cidr)
             InfoRow("Network Address", vlanInfo.subnetInfo.networkAddress)
             InfoRow("Device Count", vlanInfo.deviceCount.toString())
             InfoRow("Usable Hosts", vlanInfo.subnetInfo.usableHosts.toString())

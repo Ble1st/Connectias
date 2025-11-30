@@ -15,8 +15,7 @@ import com.ble1st.connectias.feature.network.topology.ui.components.TopologyGrap
 @Composable
 fun TopologyScreen(
     state: TopologyState,
-    onBuildTopology: () -> Unit,
-    onResetState: () -> Unit
+    onBuildTopology: () -> Unit
 ) {
     var selectedNode by remember { mutableStateOf<TopologyNode?>(null) }
     

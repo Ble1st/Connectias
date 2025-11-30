@@ -97,7 +97,10 @@ fun DhcpLeaseScreen(
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(state.leases) { lease ->
+                    items(
+                        items = state.leases,
+                        key = { "${it.ipAddress}_${it.macAddress ?: ""}" }
+                    ) { lease ->
                         DhcpLeaseCard(lease)
                     }
                 }

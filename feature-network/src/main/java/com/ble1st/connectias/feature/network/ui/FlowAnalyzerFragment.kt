@@ -9,7 +9,12 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import com.ble1st.connectias.feature.network.models.NetworkResult
+import com.ble1st.connectias.feature.network.repository.NetworkRepository
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 /**
  * Fragment for Network Flow Analyzer feature.
@@ -18,6 +23,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class FlowAnalyzerFragment : Fragment() {
 
     private val viewModel: FlowAnalyzerViewModel by viewModels()
+    
+    @Inject
+    lateinit var networkRepository: NetworkRepository
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,8 +38,19 @@ class FlowAnalyzerFragment : Fragment() {
                 FlowAnalyzerScreen(
                     state = uiState,
                     onAnalyzeFlows = { 
-                        // TODO: Get devices from Network Dashboard
-                        viewModel.analyzeFlows(emptyList())
+                        // Fetch devices from Network Repository
+                        lifecycleScope.launch {
+                            val devicesResult = networkRepository.getLocalNetworkDevices()
+                            val devices = when (devicesResult) {
+                                is NetworkResult.Success -> {
+                                    devicesResult.data.items
+                                }
+                                is NetworkResult.Error -> {
+                                    emptyList() // Fallback to empty list on error
+                                }
+                            }
+                            viewModel.analyzeFlows(devices)
+                        }
                     },
                     onResetState = { viewModel.resetState() }
                 )

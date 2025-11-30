@@ -21,11 +21,13 @@ import androidx.core.view.WindowCompat
  */
 private fun Context.findActivity(): Activity? {
     var context = this
-    while (context is android.content.ContextWrapper) {
+    var depth = 0
+    while (context is android.content.ContextWrapper && depth < 100) {
         if (context is Activity) {
             return context
         }
         context = context.baseContext
+        depth++
     }
     return null
 }

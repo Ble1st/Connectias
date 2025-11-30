@@ -39,7 +39,10 @@ fun FlowAnalyzerScreen(
                 }
             }
             is FlowAnalyzerState.Success -> {
-                FlowStatsContent(state.stats)
+                FlowStatsContent(
+                    stats = state.stats,
+                    onRefresh = onAnalyzeFlows
+                )
             }
             is FlowAnalyzerState.Error -> {
                 Card(
@@ -72,12 +75,12 @@ fun FlowAnalyzerScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Flow analysis requires discovered devices.",
+                            text = "Click the button below to start flow analysis.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Use the Network Dashboard to discover devices first.",
+                            text = "For best results, use the Network Dashboard to discover devices first.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -95,11 +98,23 @@ fun FlowAnalyzerScreen(
 }
 
 @Composable
-private fun FlowStatsContent(stats: FlowStats) {
+private fun FlowStatsContent(
+    stats: FlowStats,
+    onRefresh: () -> Unit
+) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            Button(
+                onClick = onRefresh,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Refresh Analysis")
+            }
+        }
+        
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(
@@ -134,15 +149,23 @@ private fun FlowStatsContent(stats: FlowStats) {
             )
         }
 
-        item {
+        items(stats.protocolDistribution.toList()) { (protocol, bytes) ->
             Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    stats.protocolDistribution.forEach { (protocol, bytes) ->
-                        InfoRow(protocol, formatBytes(bytes))
-                    }
+                    Text(
+                        text = protocol,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = formatBytes(bytes),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
             }
         }

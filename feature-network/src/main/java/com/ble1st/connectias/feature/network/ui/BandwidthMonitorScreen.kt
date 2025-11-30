@@ -22,80 +22,76 @@ fun BandwidthMonitorScreen(
     trafficPattern: TrafficPattern?,
     onRefresh: () -> Unit
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Bandwidth Monitor",
-                style = MaterialTheme.typography.headlineMedium
-            )
-            IconButton(onClick = onRefresh) {
-                Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Bandwidth Monitor",
+                    style = MaterialTheme.typography.headlineMedium
+                )
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
             }
         }
 
         // Traffic Pattern Summary
         trafficPattern?.let { pattern ->
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Traffic Pattern Analysis",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    InfoRow("Average Download", formatBytesPerSecond(pattern.averageRxRate))
-                    InfoRow("Average Upload", formatBytesPerSecond(pattern.averageTxRate))
-                    InfoRow("Peak Download", formatBytesPerSecond(pattern.peakRxRate))
-                    InfoRow("Peak Upload", formatBytesPerSecond(pattern.peakTxRate))
-                    InfoRow("Total Data", formatBytes(pattern.totalBytes))
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Traffic Pattern Analysis",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        InfoRow("Average Download", formatBytesPerSecond(pattern.averageRxRate))
+                        InfoRow("Average Upload", formatBytesPerSecond(pattern.averageTxRate))
+                        InfoRow("Peak Download", formatBytesPerSecond(pattern.peakRxRate))
+                        InfoRow("Peak Upload", formatBytesPerSecond(pattern.peakTxRate))
+                        InfoRow("Total Data", formatBytes(pattern.totalBytes))
+                    }
                 }
             }
         }
 
-        // Combined list for interface and device stats
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Interface Stats
-            if (interfaceStats.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Network Interfaces",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-                items(interfaceStats) { stats ->
-                    InterfaceStatsCard(stats)
-                }
+        // Interface Stats
+        if (interfaceStats.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Network Interfaces",
+                    style = MaterialTheme.typography.titleLarge
+                )
             }
+            items(interfaceStats) { stats ->
+                InterfaceStatsCard(stats)
+            }
+        }
 
-            // Device Stats
-            if (deviceStats.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Device Bandwidth",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-                items(deviceStats) { stats ->
-                    DeviceStatsCard(stats)
-                }
+        // Device Stats
+        if (deviceStats.isNotEmpty()) {
+            item {
+                Text(
+                    text = "Device Bandwidth",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            items(deviceStats) { stats ->
+                DeviceStatsCard(stats)
             }
         }
     }
-}
-
 @Composable
 private fun InterfaceStatsCard(stats: InterfaceStats) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -126,7 +122,7 @@ private fun DeviceStatsCard(stats: DeviceBandwidthStats) {
                 text = stats.deviceName,
                 style = MaterialTheme.typography.titleMedium
             )
-            InfoRow("IP Address", stats.deviceId)
+            InfoRow("Device ID", stats.deviceId)
             InfoRow("Download Rate", formatBytesPerSecond(stats.estimatedRxRate))
             InfoRow("Upload Rate", formatBytesPerSecond(stats.estimatedTxRate))
             InfoRow("Total Download", formatBytes(stats.estimatedRxBytes))

@@ -13,15 +13,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.network.analysis.models.SubnetInfo
 
 @Composable
 fun SubnetAnalyzerScreen(
     state: SubnetAnalyzerState,
-    onAnalyzeCidr: (String) -> Unit,
-    onResetState: () -> Unit = {}
+    onAnalyzeCidr: (String) -> Unit
 ) {
     var cidrInput by remember { mutableStateOf("") }
-    val isValidInput = cidrInput.trim().isNotBlank()
+    
+    // CIDR format validation: x.x.x.x/n where x is 0-255 and n is 0-32
+    val cidrPattern = remember {
+        Regex("^\\s*(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\/(?:[0-9]|[12][0-9]|3[0-2])\\s*$")
+    }
+    val trimmedInput = cidrInput.trim()
+    val isValidInput = trimmedInput.isNotBlank() && cidrPattern.matches(trimmedInput)
 
     Column(
         modifier = Modifier
@@ -140,7 +146,7 @@ fun SubnetAnalyzerScreen(
 }
 
 @Composable
-private fun SubnetInfoCard(subnetInfo: com.ble1st.connectias.feature.network.analysis.models.SubnetInfo) {
+private fun SubnetInfoCard(subnetInfo: SubnetInfo) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),

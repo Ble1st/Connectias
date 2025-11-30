@@ -32,15 +32,13 @@ class SubnetAnalyzerViewModel @Inject constructor(
         // Cancel previous analysis if running
         analysisJob?.cancel()
         
-        // Set loading state immediately
-        _uiState.value = SubnetAnalyzerState.Loading
-        
         if (cidr.isBlank()) {
             _uiState.value = SubnetAnalyzerState.Error("CIDR notation cannot be empty")
             return
         }
 
         analysisJob = viewModelScope.launch {
+            _uiState.value = SubnetAnalyzerState.Loading
             try {
                 val subnetInfo = subnetAnalyzerProvider.calculateSubnet(cidr)
                 if (subnetInfo != null) {
@@ -48,6 +46,8 @@ class SubnetAnalyzerViewModel @Inject constructor(
                 } else {
                     _uiState.value = SubnetAnalyzerState.Error("Invalid CIDR notation")
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = SubnetAnalyzerState.Error(e.message ?: "Failed to analyze subnet")
             }
@@ -72,6 +72,8 @@ class SubnetAnalyzerViewModel @Inject constructor(
             try {
                 val subnets = subnetAnalyzerProvider.discoverSubnets(ipAddresses)
                 _uiState.value = SubnetAnalyzerState.DiscoveredSubnets(subnets)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.value = SubnetAnalyzerState.Error(e.message ?: "Failed to discover subnets")
             }

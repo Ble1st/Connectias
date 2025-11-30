@@ -16,8 +16,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun MacAnalyzerScreen(
     state: MacAnalyzerState,
-    onAnalyzeMacAddress: (String) -> Unit,
-    onResetState: () -> Unit
+    onAnalyzeMacAddress: (String) -> Unit
 ) {
     var macAddressInput by rememberSaveable { mutableStateOf("") }
 
@@ -32,6 +31,8 @@ fun MacAnalyzerScreen(
                 style = MaterialTheme.typography.headlineMedium
             )
 
+            val canAnalyze = macAddressInput.trim().isNotEmpty()
+
             OutlinedTextField(
                 value = macAddressInput,
                 onValueChange = { macAddressInput = it },
@@ -42,19 +43,29 @@ fun MacAnalyzerScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
-                        onAnalyzeMacAddress(macAddressInput)
+                        if (canAnalyze) {
+                            onAnalyzeMacAddress(macAddressInput.trim())
+                        }
                     }
                 ),
                 trailingIcon = {
-                    IconButton(onClick = { onAnalyzeMacAddress(macAddressInput) }) {
+                    IconButton(
+                        onClick = { 
+                            if (canAnalyze) {
+                                onAnalyzeMacAddress(macAddressInput.trim())
+                            }
+                        },
+                        enabled = canAnalyze
+                    ) {
                         Icon(Icons.Default.Search, contentDescription = "Analyze")
                     }
                 }
             )
 
             Button(
-                onClick = { onAnalyzeMacAddress(macAddressInput) },
-                modifier = Modifier.fillMaxWidth()
+                onClick = { onAnalyzeMacAddress(macAddressInput.trim()) },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = canAnalyze
             ) {
                 Text("Analyze MAC Address")
             }

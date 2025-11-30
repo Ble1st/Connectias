@@ -52,6 +52,7 @@ class VlanAnalyzerViewModel @Inject constructor(
      * Resets the state to idle.
      */
     fun resetState() {
+        analyzeJob?.cancel()
         _uiState.value = VlanAnalyzerState.Idle
     }
 }

@@ -35,7 +35,7 @@ fun DashboardCategory(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(icon, contentDescription = null)
+                    Icon(icon, contentDescription = title)
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleLarge

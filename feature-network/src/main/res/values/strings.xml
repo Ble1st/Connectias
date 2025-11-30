@@ -23,5 +23,19 @@
     <string name="no_lan_devices">No devices found on local network</string>
     <string name="partial_success_prefix">Warning: %1$s</string>
     <string name="unknown_error">An unknown error occurred</string>
+    
+    <!-- Hypervisor Detector -->
+    <string name="hypervisor_detector_title">Hypervisor/VM Detector</string>
+    <string name="hypervisor_detection_requires_devices">Hypervisor detection requires discovered devices.</string>
+    <string name="hypervisor_use_dashboard_first">Use the Network Dashboard to discover devices first.</string>
+    <string name="hypervisor_detect_button">Detect Hypervisors</string>
+    <string name="hypervisor_detected_hypervisors">Detected Hypervisors (%1$d)</string>
+    <string name="hypervisor_detected_containers">Detected Containers (%1$d)</string>
+    <string name="hypervisor_no_detections">No hypervisors or VMs detected.</string>
+    <string name="hypervisor_vms_detected">VMs Detected</string>
+    <string name="hypervisor_virtual_machines">Virtual Machines:</string>
+    <string name="hypervisor_reset">Reset</string>
+    <string name="hypervisor_retry">Retry</string>
+    <string name="hypervisor_loading_description">Loading hypervisor detection results</string>
 </resources>
 

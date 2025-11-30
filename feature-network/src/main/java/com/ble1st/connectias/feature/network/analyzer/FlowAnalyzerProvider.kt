@@ -26,13 +26,26 @@ class FlowAnalyzerProvider @Inject constructor(
     /**
      * Tracks network flows based on traffic monitoring.
      * Since Android doesn't provide direct connection tracking, this is inferred from traffic patterns.
+     * 
+     * **Note:** The returned NetworkFlow objects are incomplete placeholders with the following limitations:
+     * - `destinationIp` is set to "unknown" (real connection tracking would be required)
+     * - `protocol` is null (would require packet inspection)
+     * - `bytesTransferred` and `packetsTransferred` are zero (would require per-connection statistics)
+     * 
+     * Consumers should treat these flows as placeholders and ignore them or wait for real data.
+     * Real flow tracking would require lower-level network access (e.g., pcap, VPN APIs, or root access).
+     * 
+     * TODO: Implement real flow tracking when lower-level network APIs become available.
+     * 
+     * @param devices List of discovered network devices
+     * @return List of placeholder NetworkFlow objects (incomplete data)
      */
     suspend fun trackFlows(devices: List<com.ble1st.connectias.feature.network.models.NetworkDevice>): List<NetworkFlow> = withContext(Dispatchers.IO) {
         try {
 
             val flows = mutableListOf<NetworkFlow>()
 
-            // Create flows based on device discovery and traffic
+            // Create placeholder flows based on device discovery
             // This is a simplified implementation - real flow tracking would require lower-level network access
             devices.forEach { device ->
                 flows.add(
@@ -54,7 +67,7 @@ class FlowAnalyzerProvider @Inject constructor(
                 // Keep only last 1000 flows
                 if (flowHistory.size > 1000) {
                     val excess = flowHistory.size - 1000
-                    repeat(excess) { flowHistory.removeAt(0) }
+                    flowHistory.subList(0, excess).clear()
                 }
             }
 
@@ -94,11 +107,8 @@ class FlowAnalyzerProvider @Inject constructor(
             }.sortedByDescending { it.bytesTransferred }
                 .take(10)
 
-            // Protocol distribution (simplified - would require actual packet inspection)
-            val protocolDistribution = mapOf(
-                "HTTP/HTTPS" to (currentTraffic.rxBytes + currentTraffic.txBytes) / 2,
-                "Other" to (currentTraffic.rxBytes + currentTraffic.txBytes) / 2
-            )
+            // Protocol distribution not yet implemented - requires packet inspection
+            val protocolDistribution = emptyMap<String, Long>()
 
             FlowStats(
                 topTalkers = topTalkers,
