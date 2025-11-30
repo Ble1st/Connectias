@@ -275,6 +275,22 @@ class MainActivity : AppCompatActivity() {
 
 
 
+        // Handle navigation from intent extras (e.g., USB device attached)
+        val navigateTo = intent?.getStringExtra("navigate_to")
+        if (navigateTo != null) {
+            try {
+                val navId = resources.getIdentifier(navigateTo, "id", packageName)
+                if (navId != 0) {
+                    Timber.d("Navigating to: $navigateTo")
+                    navController.navigate(navId)
+                } else {
+                    Timber.w("Navigation destination not found: $navigateTo")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error navigating to: $navigateTo")
+            }
+        }
+
         Timber.d("Navigation setup completed")
 
     }

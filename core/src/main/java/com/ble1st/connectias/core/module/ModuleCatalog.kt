@@ -91,6 +91,14 @@ object ModuleCatalog {
             fragmentClassName = "com.ble1st.connectias.feature.backup.ui.BackupDashboardFragment",
             category = ModuleCategory.UTILITY,
             description = "Backup and restore app data"
+        ),
+        ModuleMetadata(
+            id = "usb",
+            name = "USB & DVD/CD",
+            version = "1.0.0",
+            fragmentClassName = "com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment",
+            category = ModuleCategory.UTILITY,
+            description = "USB device management and DVD/CD playback"
         )
     )
     

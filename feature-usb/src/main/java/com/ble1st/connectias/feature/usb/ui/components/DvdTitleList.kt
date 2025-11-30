@@ -1,0 +1,88 @@
+package com.ble1st.connectias.feature.usb.ui.components
+
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.models.DvdTitle
+
+@Composable
+fun DvdTitleList(
+    titles: List<DvdTitle>,
+    onTitleSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (titles.isEmpty()) {
+        Card(
+            modifier = modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "No titles found on DVD",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    } else {
+        LazyColumn(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(titles, key = { it.number }) { title ->
+                DvdTitleCard(
+                    title = title,
+                    onClick = { onTitleSelected(title.number) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DvdTitleCard(
+    title: DvdTitle,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Title ${title.number}",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "${title.chapterCount} chapters • ${formatDuration(title.duration)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun formatDuration(millis: Long): String {
+    val seconds = millis / 1000
+    val minutes = seconds / 60
+    val hours = minutes / 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes % 60, seconds % 60)
+    } else {
+        "%d:%02d".format(minutes, seconds % 60)
+    }
+}

@@ -2,26 +2,52 @@ package com.ble1st.connectias.feature.utilities.api
 
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.CertificatePinner
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
+import java.net.URL
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Configuration for API Tester.
+ * Allows optional SSL pinning for enhanced security.
+ */
+data class ApiTesterConfig(
+    val enableSslPinning: Boolean = false,
+    val pinnedDomains: Map<String, List<String>> = emptyMap()
+)
+
+/**
  * Provider for API testing operations.
  * Uses OkHttp for HTTP requests.
+ * Supports optional SSL certificate pinning for enhanced security.
  */
 @Singleton
-class ApiTesterProvider @Inject constructor() {
+class ApiTesterProvider @Inject constructor(
+    private val config: ApiTesterConfig
+) {
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .apply {
+            // Configure SSL pinning if enabled
+            if (config.enableSslPinning && config.pinnedDomains.isNotEmpty()) {
+                val pinnerBuilder = CertificatePinner.Builder()
+                config.pinnedDomains.forEach { (host, pins) ->
+                    pins.forEach { pin ->
+                        pinnerBuilder.add(host, pin)
+                    }
+                }
+                certificatePinner(pinnerBuilder.build())
+            }
+        }
         .build()
 
     /**
@@ -51,7 +77,18 @@ class ApiTesterProvider @Inject constructor() {
         body: String? = null
     ): ApiResponse = withContext(Dispatchers.IO) {
         try {
-            val requestBuilder = Request.Builder().url(url)
+            // Validate URL to prevent SSRF attacks
+            val validatedUrl = validateUrl(url) ?: return@withContext ApiResponse(
+                statusCode = 0,
+                statusMessage = "Invalid or blocked URL",
+                headers = emptyMap(),
+                body = "",
+                duration = 0,
+                isSuccess = false,
+                error = "URL validation failed"
+            )
+            
+            val requestBuilder = Request.Builder().url(validatedUrl)
 
             // Add headers
             headers.forEach { (key, value) ->
@@ -104,6 +141,57 @@ class ApiTesterProvider @Inject constructor() {
                 error = e.message
             )
         }
+    }
+
+    /**
+     * Validates URL to prevent SSRF (Server-Side Request Forgery) attacks.
+     * Blocks private IPs, localhost, and non-HTTP(S) protocols.
+     * 
+     * @param urlString The URL to validate
+     * @return Validated URL string or null if validation fails
+     */
+    private fun validateUrl(urlString: String): String? {
+        return try {
+            val url = URL(urlString)
+            
+            // Only allow HTTP/HTTPS
+            if (url.protocol !in listOf("http", "https")) {
+                Timber.w("Blocked non-HTTP(S) protocol: ${url.protocol}")
+                return null
+            }
+            
+            // Block private IP ranges (SSRF protection)
+            val host = url.host.lowercase()
+            if (isPrivateIp(host)) {
+                Timber.w("Blocked private IP: $host")
+                return null
+            }
+            
+            // Block localhost variants
+            if (host in listOf("localhost", "127.0.0.1", "0.0.0.0", "::1")) {
+                Timber.w("Blocked localhost: $host")
+                return null
+            }
+            
+            urlString
+        } catch (e: Exception) {
+            Timber.e(e, "Invalid URL format: $urlString")
+            null
+        }
+    }
+
+    /**
+     * Checks if a host is a private IP address.
+     * 
+     * @param host The host to check
+     * @return true if the host is a private IP address
+     */
+    private fun isPrivateIp(host: String): Boolean {
+        // Check for private IP ranges: 10.x.x.x, 172.16-31.x.x, 192.168.x.x
+        val privateIpPattern = Regex(
+            "^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)"
+        )
+        return privateIpPattern.containsMatchIn(host)
     }
 }
 

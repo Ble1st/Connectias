@@ -96,6 +96,11 @@ dependencies {
         implementation(project(":feature-wasm"))
     }
 
+    val featureUsbEnabled = project.findProperty("feature.usb.enabled") == "true"
+    if (featureUsbEnabled) {
+        implementation(project(":feature-usb"))
+    }
+
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

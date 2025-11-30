@@ -72,3 +72,8 @@ val featureNetworkTopologyEnabled = providers.gradleProperty("feature.network.to
 if (featureNetworkTopologyEnabled) {
     include(":feature-network-topology")
 }
+
+val featureUsbEnabled = providers.gradleProperty("feature.usb.enabled").orNull == "true"
+if (featureUsbEnabled) {
+    include(":feature-usb")
+}

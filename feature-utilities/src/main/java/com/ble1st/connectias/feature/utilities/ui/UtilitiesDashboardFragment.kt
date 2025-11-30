@@ -29,13 +29,14 @@ class UtilitiesDashboardFragment : Fragment() {
             setContent {
                 ConnectiasTheme {
                     UtilitiesDashboardScreen(
-                        onNavigateToHash = { navigateTo("nav_hash") },
-                        onNavigateToEncoding = { navigateTo("nav_encoding") },
-                        onNavigateToQrCode = { navigateTo("nav_qrcode") },
-                        onNavigateToText = { navigateTo("nav_text") },
-                        onNavigateToColor = { navigateTo("nav_color") },
-                        onNavigateToLog = { navigateTo("nav_log") },
-                        onNavigateToApiTester = { navigateTo("nav_api_tester") }
+                        onNavigateToHash = { navigateTo("nav_hash_tool") },
+                        onNavigateToEncoding = { navigateTo("nav_encoding_tool") },
+                        onNavigateToQrCode = { navigateTo("nav_qrcode_tool") },
+                        onNavigateToText = { navigateTo("nav_text_tool") },
+                        onNavigateToColor = { navigateTo("nav_color_tool") },
+                        onNavigateToLog = { navigateTo("nav_log_viewer") },
+                        onNavigateToApiTester = { navigateTo("nav_api_tester") },
+                        onNavigateToUsb = { navigateTo("nav_usb_dashboard") }
                     )
                 }
             }

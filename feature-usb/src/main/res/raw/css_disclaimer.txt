@@ -1,0 +1,17 @@
+WICHTIGER RECHTLICHER HINWEIS - HAFTUNGSAUSSCHLUSS
+
+Die CSS-Decryption-Funktion (libdvdcss) ermöglicht das Umgehen von Kopierschutz-Mechanismen auf DVDs.
+
+RECHTSWIDRIGKEIT:
+Die Verwendung dieser Funktion kann in verschiedenen Jurisdiktionen rechtswidrig sein, insbesondere unter dem Digital Millennium Copyright Act (DMCA) in den USA und ähnlichen Gesetzen in anderen Ländern.
+
+HAFTUNGSAUSSCHLUSS:
+- Der Entwickler dieser Software übernimmt KEINE Haftung für die Verwendung dieser Funktion
+- Der Nutzer ist vollständig selbst für die rechtmäßige Verwendung verantwortlich
+- Der Nutzer haftet für alle rechtlichen Konsequenzen der Nutzung
+- Es wird keine Garantie für die Funktionalität oder Rechtmäßigkeit gegeben
+
+Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
+1. Die rechtlichen Risiken verstehen
+2. Die volle Verantwortung für die Nutzung übernehmen
+3. Den Entwickler von jeglicher Haftung freistellen

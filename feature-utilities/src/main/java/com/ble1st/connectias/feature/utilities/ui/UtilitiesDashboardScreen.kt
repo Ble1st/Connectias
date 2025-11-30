@@ -19,7 +19,8 @@ fun UtilitiesDashboardScreen(
     onNavigateToText: () -> Unit,
     onNavigateToColor: () -> Unit,
     onNavigateToLog: () -> Unit,
-    onNavigateToApiTester: () -> Unit
+    onNavigateToApiTester: () -> Unit,
+    onNavigateToUsb: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -81,6 +82,13 @@ fun UtilitiesDashboardScreen(
             description = "Test REST APIs with customizable requests",
             icon = Icons.Default.Http,
             onClick = onNavigateToApiTester
+        )
+
+        UtilityCard(
+            title = "USB & DVD/CD",
+            description = "USB device management and DVD/CD playback",
+            icon = Icons.Default.Usb,
+            onClick = onNavigateToUsb
         )
         
         Spacer(modifier = Modifier.height(24.dp))

@@ -223,5 +223,22 @@
         android:name="com.ble1st.connectias.feature.wasm.ui.PluginManagerFragment"
         android:label="@string/nav_plugin_manager" />
 
+    <!-- USB Dashboard (Optional) -->
+    <fragment
+        android:id="@+id/nav_usb_dashboard"
+        android:name="com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment"
+        android:label="@string/nav_usb_dashboard" />
+
+    <!-- USB Tools -->
+    <fragment
+        android:id="@+id/nav_dvd_cd_detail"
+        android:name="com.ble1st.connectias.feature.usb.ui.DvdCdDetailFragment"
+        android:label="DVD/CD Details" />
+
+    <fragment
+        android:id="@+id/nav_dvd_player"
+        android:name="com.ble1st.connectias.feature.usb.ui.DvdPlayerFragment"
+        android:label="DVD Player" />
+
 </navigation>
 

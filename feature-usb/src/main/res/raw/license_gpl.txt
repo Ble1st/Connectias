@@ -1,0 +1,12 @@
+GNU GENERAL PUBLIC LICENSE
+
+This software uses libraries licensed under the GNU General Public License (GPL):
+
+- libdvdread (GPL)
+- libdvdnav (GPL)
+- libdvdcss (GPL, optional)
+
+When these libraries are used, the entire application must be licensed under GPL.
+Source code must be made available.
+
+For full GPL license text, see: https://www.gnu.org/licenses/gpl-3.0.html

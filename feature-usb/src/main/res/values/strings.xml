@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB Dashboard -->
+    <string name="usb_dashboard_title">USB Devices</string>
+    <string name="usb_no_devices">No USB devices found</string>
+    <string name="usb_connect_device">Connect a USB device to see it here</string>
+    
+    <!-- DVD/CD -->
+    <string name="dvd_cd_detail_title">Disc Information</string>
+    <string name="dvd_cd_no_titles">No titles found on DVD</string>
+    <string name="dvd_cd_no_tracks">No tracks found on Audio CD</string>
+    <string name="dvd_cd_no_files">No files found</string>
+    
+    <!-- CSS Decryption -->
+    <string name="css_decryption_title">CSS-Decryption</string>
+    <string name="css_decryption_description">Ermöglicht Wiedergabe von kopiergeschützten DVDs. Rechtlich problematisch - siehe Haftungsausschluss.</string>
+    <string name="css_decryption_enabled">Aktiviert</string>
+    <string name="css_decryption_warning">⚠️ CSS-Decryption ist aktiviert. Sie haften für die rechtmäßige Nutzung.</string>
+    
+    <!-- CSS Decryption Disclaimer -->
+    <string name="css_decryption_disclaimer_title">Wichtiger rechtlicher Hinweis - Haftungsausschluss</string>
+    <string name="css_decryption_disclaimer">WICHTIGER RECHTLICHER HINWEIS - HAFTUNGSAUSSCHLUSS
+
+Die CSS-Decryption-Funktion (libdvdcss) ermöglicht das Umgehen von Kopierschutz-Mechanismen auf DVDs.
+
+RECHTSWIDRIGKEIT:
+Die Verwendung dieser Funktion kann in verschiedenen Jurisdiktionen rechtswidrig sein, insbesondere unter dem Digital Millennium Copyright Act (DMCA) in den USA und ähnlichen Gesetzen in anderen Ländern.
+
+HAFTUNGSAUSSCHLUSS:
+- Der Entwickler dieser Software übernimmt KEINE Haftung für die Verwendung dieser Funktion
+- Der Nutzer ist vollständig selbst für die rechtmäßige Verwendung verantwortlich
+- Der Nutzer haftet für alle rechtlichen Konsequenzen der Nutzung
+- Es wird keine Garantie für die Funktionalität oder Rechtmäßigkeit gegeben
+
+Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
+1. Die rechtlichen Risiken verstehen
+2. Die volle Verantwortung für die Nutzung übernehmen
+3. Den Entwickler von jeglicher Haftung freistellen</string>
+    <string name="css_decryption_disclaimer_accept">Ich verstehe die rechtlichen Risiken und übernehme die volle Verantwortung</string>
+    <string name="accept">Akzeptieren</string>
+    <string name="cancel">Abbrechen</string>
+    
+    <!-- USB Permission -->
+    <string name="usb_permission_title">USB Permission Required</string>
+    <string name="usb_permission_message">The app needs permission to access this USB device:</string>
+    <string name="grant">Grant</string>
+    <string name="deny">Deny</string>
+</resources>

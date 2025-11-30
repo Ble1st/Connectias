@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <!-- USB Host Feature -->
+    <uses-feature android:name="android.hardware.usb.host" />
+    
+    <!-- USB Permission -->
+    <uses-permission android:name="android.permission.USB_PERMISSION" />
+    
+    <!-- Optional: Device Filter für automatische Erkennung beim App-Start -->
+    <application>
+        <activity
+            android:name=".ui.UsbDashboardActivity"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
+            </intent-filter>
+            <meta-data
+                android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
+                android:resource="@xml/device_filter" />
+        </activity>
+    </application>
+    
+</manifest>

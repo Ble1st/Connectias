@@ -10,6 +10,7 @@
     <string name="nav_utilities_dashboard">Utilities</string>
     <string name="nav_backup_dashboard">Backup</string>
     <string name="nav_plugin_manager">Plugins</string>
+    <string name="nav_usb_dashboard">USB &amp; DVD/CD</string>
     
     <!-- Splash Screen -->
     <string name="loading">Loading</string>
