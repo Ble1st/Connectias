@@ -53,6 +53,16 @@ fun TopologyScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Refresh")
                     }
+                    Button(
+                        onClick = onResetState,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        )
+                    ) {
+                        Icon(Icons.Default.Clear, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Reset")
+                    }
                 }
 
                 Card(
