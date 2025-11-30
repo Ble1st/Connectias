@@ -11,6 +11,7 @@ import com.ble1st.connectias.feature.usb.models.DiscType
 import com.ble1st.connectias.feature.usb.models.DvdInfo
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
 import com.ble1st.connectias.feature.usb.media.AudioCdProvider
+import com.ble1st.connectias.feature.usb.media.AudioCdResult
 import com.ble1st.connectias.feature.usb.media.DvdVideoProvider
 import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import com.ble1st.connectias.feature.usb.storage.OpticalDriveProvider
@@ -33,11 +34,12 @@ fun DvdCdDetailScreen(
     var audioTracks by remember { mutableStateOf<List<AudioTrack>>(emptyList()) }
     var files by remember { mutableStateOf<List<com.ble1st.connectias.feature.usb.storage.FileInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     
     LaunchedEffect(drive) {
         Timber.d("DvdCdDetailScreen: Starting disc detection for type: ${drive.type}")
         isLoading = true
+        errorMessage = null
         
         try {
             when (drive.type) {
@@ -48,8 +50,17 @@ fun DvdCdDetailScreen(
                 }
                 DiscType.AUDIO_CD -> {
                     Timber.d("Reading Audio CD tracks...")
-                    audioTracks = audioCdProvider.getTracks(drive)
-                    Timber.i("Audio CD read: ${audioTracks.size} tracks")
+                    when (val result = audioCdProvider.getTracks(drive)) {
+                        is AudioCdResult.Success -> {
+                            audioTracks = result.tracks
+                            Timber.i("Audio CD read: ${audioTracks.size} tracks")
+                        }
+                        is AudioCdResult.Error -> {
+                            errorMessage = result.message
+                            Timber.e("Error reading Audio CD: ${result.message}", result.throwable)
+                            audioTracks = emptyList()
+                        }
+                    }
                 }
                 DiscType.DATA_DVD, DiscType.DATA_CD -> {
                     Timber.d("Listing files on data disc...")
@@ -62,6 +73,7 @@ fun DvdCdDetailScreen(
             }
         } catch (e: Exception) {
             Timber.e(e, "Error during disc detection")
+            errorMessage = "Failed to read disc: ${e.message ?: "Unknown error"}"
         } finally {
             isLoading = false
             Timber.d("Disc detection complete")
@@ -111,6 +123,25 @@ fun DvdCdDetailScreen(
                 }
             }
         } else {
+            // Show error message if present
+            errorMessage?.let { error ->
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer
+                        )
+                    ) {
+                        Text(
+                            text = "Error: $error",
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+            
             when (drive.type) {
                 DiscType.VIDEO_DVD -> {
                     dvdInfo?.let { info ->

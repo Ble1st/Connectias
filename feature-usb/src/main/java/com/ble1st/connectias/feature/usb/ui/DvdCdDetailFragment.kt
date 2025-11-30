@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.feature.usb.media.AudioCdPlayer
 import com.ble1st.connectias.feature.usb.media.AudioCdProvider
 import com.ble1st.connectias.feature.usb.media.DvdVideoProvider
 import com.ble1st.connectias.feature.usb.models.AudioTrack
@@ -35,6 +36,7 @@ class DvdCdDetailFragment : Fragment() {
     @Inject lateinit var opticalDriveProvider: OpticalDriveProvider
     @Inject lateinit var dvdVideoProvider: DvdVideoProvider
     @Inject lateinit var audioCdProvider: AudioCdProvider
+    @Inject lateinit var audioCdPlayer: AudioCdPlayer
     @Inject lateinit var dvdSettings: DvdSettings
     
     override fun onCreateView(
@@ -48,20 +50,23 @@ class DvdCdDetailFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 ConnectiasTheme {
-                    val disclaimerText = try {
-                        requireContext().resources.openRawResource(
-                            com.ble1st.connectias.feature.usb.R.raw.css_disclaimer
-                        ).bufferedReader().use { it.readText() }
-                    } catch (e: Exception) {
-                        Timber.e(e, "Error reading disclaimer text")
-                        "CSS-Decryption Disclaimer - See documentation for full text"
+                    val disclaimerText = remember {
+                        try {
+                            requireContext().resources.openRawResource(
+                                com.ble1st.connectias.feature.usb.R.raw.css_disclaimer
+                            ).bufferedReader().use { it.readText() }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Error reading disclaimer text")
+                            "CSS-Decryption Disclaimer - See documentation for full text"
+                        }
                     }
                     
                     // Auto-detect optical drive
-                    var drive by remember { mutableStateOf<com.ble1st.connectias.feature.usb.models.OpticalDrive?>(null) }
+                    var drive by remember { mutableStateOf<OpticalDrive?>(null) }
+                    var dvdInfo by remember { mutableStateOf<com.ble1st.connectias.feature.usb.models.DvdInfo?>(null) }
                     var isLoading by remember { mutableStateOf(true) }
-                    
                     var errorMessage by remember { mutableStateOf<String?>(null) }
+                    val coroutineScope = rememberCoroutineScope()
                     
                     LaunchedEffect(Unit) {
                         Timber.d("Auto-detecting optical drive...")
@@ -72,6 +77,14 @@ class DvdCdDetailFragment : Fragment() {
                                         "• A DVD/CD is inserted in the drive\n" +
                                         "• The drive is connected via USB\n" +
                                         "• USB permission is granted"
+                            } else if (drive?.type == com.ble1st.connectias.feature.usb.models.DiscType.VIDEO_DVD) {
+                                // Open DVD to get DvdInfo for navigation
+                                try {
+                                    dvdInfo = dvdVideoProvider.openDvd(drive!!)
+                                    Timber.d("DVD opened successfully for navigation")
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error opening DVD for navigation")
+                                }
                             }
                         } catch (e: Exception) {
                             Timber.e(e, "Error detecting optical drive")
@@ -84,10 +97,10 @@ class DvdCdDetailFragment : Fragment() {
                     if (isLoading) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
-                            contentAlignment = androidx.compose.ui.Alignment.Center
+                            contentAlignment = Alignment.Center
                         ) {
                             Column(
-                                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                                horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 CircularProgressIndicator()
@@ -107,11 +120,48 @@ class DvdCdDetailFragment : Fragment() {
                             disclaimerText = disclaimerText,
                             onPlayTitle = { titleNumber ->
                                 Timber.d("Play title requested: $titleNumber")
-                                // TODO: Navigate to player screen
+                                coroutineScope.launch {
+                                    try {
+                                        val currentDvdInfo = dvdInfo
+                                        val currentDrive = drive
+                                        if (currentDvdInfo == null || currentDrive == null) {
+                                            Timber.e("Cannot play title: DvdInfo or Drive is null")
+                                            return@launch
+                                        }
+                                        
+                                        // Create VideoStream for the selected title
+                                        val videoStream = dvdVideoProvider.playTitle(currentDvdInfo, titleNumber)
+                                        Timber.d("VideoStream created: codec=${videoStream.codec}, uri=${videoStream.uri}")
+                                        
+                                        // Navigate to player screen with VideoStream
+                                        val navId = resources.getIdentifier("nav_dvd_player", "id", requireContext().packageName)
+                                        if (navId != 0) {
+                                            val args = DvdPlayerFragment.createArguments(videoStream)
+                                            findNavController().navigate(navId, args)
+                                            Timber.d("Navigated to DVD player screen")
+                                        } else {
+                                            Timber.w("Navigation destination nav_dvd_player not found")
+                                        }
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Error navigating to DVD player")
+                                    }
+                                }
                             },
                             onPlayTrack = { track ->
                                 Timber.d("Play track requested: ${track.number}")
-                                // TODO: Start audio playback
+                                try {
+                                    val currentDrive = drive
+                                    if (currentDrive == null) {
+                                        Timber.e("Cannot play track: Drive is null")
+                                        return@DvdCdDetailScreen
+                                    }
+                                    
+                                    // Start audio playback using AudioCdPlayer
+                                    audioCdPlayer.playTrack(currentDrive, track)
+                                    Timber.d("Audio playback started for track ${track.number}")
+                                } catch (e: Exception) {
+                                    Timber.e(e, "Error starting audio playback")
+                                }
                             }
                         )
                     } else {

@@ -43,9 +43,95 @@ Implementierung eines neuen Feature-Moduls `feature-usb` für USB-Geräte-Analys
 
 ### Risiken
 
-- **Hoch**: Native Library-Integration (libusb JNI) erfordert NDK-Setup
-- **Mittel**: USB-Berechtigungen und Android USB Host API Kompatibilität
-- **Niedrig**: OpenSSL-Kompatibilität über BouncyCastle (bereits im Projekt)
+#### Hoch: Native Library-Integration (libusb JNI)
+
+**Risiko:** libusb JNI-Integration erfordert NDK-Setup, ABI-spezifische Builds und kann zu nativen Crashes führen.
+
+**Mitigationen:**
+1. **Fallback zu Android USB Host API**: Dokumentierter Fallback-Mechanismus, der automatisch auf Android USB Host API wechselt, wenn libusb nicht verfügbar ist oder fehlschlägt.
+2. **Feature-Flag und Runtime Capability-Check**: Feature-Flag `ENABLE_LIBUSB_NATIVE` in `gradle.properties`. Runtime-Check mit `System.loadLibrary()` in try/catch, klare Fehlerlogs und benutzerfreundliche Diagnose-Meldungen.
+3. **Prebuilt ABI-spezifische Libraries**: Primär: Build from source via CMake/FetchContent in `gradle-externalNativeBuild`. Fallback: Prebuilt `.so` Dateien für CI/Quick-Tests pro ABI (arm64-v8a, armeabi-v7a, x86_64, x86) mit klaren Fehlerlogs bei fehlender ABI.
+4. **Crash-by-Design Mode**: Optionale Crash-by-Design-Mode für Tests, der nativen Crashes simuliert und Recovery testet.
+
+**Acceptance Criteria:**
+- App startet auch wenn libusb nicht verfügbar ist (Fallback aktiv)
+- Klare Fehlermeldungen in Logs und UI bei libusb-Fehlern
+- Feature-Flag ermöglicht vollständige Deaktivierung
+
+**Owner:** Native Development Team  
+**Rollback:** Feature-Flag auf `false` setzen → Fallback zu Android USB Host API
+
+#### Mittel: USB Permission Timeouts
+
+**Risiko:** USB-Berechtigungsanfragen können hängen bleiben oder Timeouts verursachen.
+
+**Mitigationen:**
+1. **Konfigurierbare Timeout/Retry-Policy**: Timeout-Konfiguration in `UsbPermissionManager` (Standard: 30 Sekunden), retry mit exponential backoff (max 3 Versuche), konfigurierbar via Settings.
+2. **Explizite User Prompts und Cancellation Paths**: User kann Permission-Request abbrechen, klare UI-Feedback während Wartezeit, Progress-Indicator mit Timeout-Anzeige.
+3. **Background Worker Handling**: Permission-Requests in separatem Worker-Thread, keine UI-Blockierung, Telemetrie für hängende Requests (Logging + Analytics).
+
+**Acceptance Criteria:**
+- Permission-Requests haben definiertes Timeout (kein Hängen)
+- User kann Requests abbrechen
+- Telemetrie erfasst hängende Requests
+
+**Owner:** Android Development Team  
+**Rollback:** Timeout auf sehr kurzen Wert setzen (5 Sekunden) für schnelle Fehlerbehandlung
+
+#### Mittel: Verpasste Device-Detection Events
+
+**Risiko:** BroadcastReceiver kann Events verpassen, besonders bei schnellen Connect/Disconnect-Zyklen.
+
+**Mitigationen:**
+1. **Debounce/Retry-Logic**: Debounce für Connect/Disconnect-Events (200ms), Retry-Logic für verpasste Events, periodische Re-Scan (alle 5 Sekunden) als Fallback.
+2. **Event Queue/Watchdog**: Event-Queue für USB-Events, Watchdog-Timer der periodisch re-scannt wenn keine Events kommen, Queue-Persistierung für Recovery nach App-Restart.
+3. **Race-Condition Tests**: Unit-Tests für schnelle Connect/Disconnect-Zyklen, Integration-Tests mit USB-Simulator, Stress-Tests (50+ Events/Minute).
+
+**Acceptance Criteria:**
+- Keine verpassten Events bei normaler Nutzung
+- Re-Scan erkennt verpasste Geräte innerhalb 5 Sekunden
+- Tests decken Race-Conditions ab
+
+**Owner:** Android Development Team  
+**Rollback:** Erhöhung Re-Scan-Intervall auf 1 Sekunde (höherer Battery-Verbrauch akzeptabel)
+
+#### Mittel: Integration Testing Komplexität
+
+**Risiko:** USB-Hardware-Tests sind schwer zu automatisieren und erfordern physische Geräte.
+
+**Mitigationen:**
+1. **CI-Strategie mit USB Mocks/Simulatoren**: USB-Mock-Framework für Unit-Tests, USB/IP oder Lightweight-Emulator für Integration-Tests, CI-Pipeline mit Mock-Tests als Standard.
+2. **Tagged Hardware Lab Matrix**: Hardware-Lab mit getaggten Geräten (Device-Model, OEM, Android-Version), Nightly Compatibility-Runs auf Hardware-Matrix, Test-Ergebnisse in Dashboard.
+3. **USB Mocks für Unit-Tests**: Mock-Implementierungen für `UsbManager`, `UsbDevice`, `UsbDeviceConnection`, parametrisierte Test-Fixtures.
+
+**Acceptance Criteria:**
+- CI-Pipeline läuft vollständig mit Mocks
+- Hardware-Lab-Tests laufen nightly
+- Mock-Tests decken 80%+ der Code-Pfade ab
+
+**Owner:** QA/Test Team  
+**Rollback:** Manuelle Tests als Fallback, CI nur mit Mocks
+
+#### Niedrig: OEM Customization Risk
+
+**Risiko:** Verschiedene Android-OEMs können USB Host API unterschiedlich implementieren.
+
+**Mitigationen:**
+1. **Device-Compatibility Test Matrix**: Test-Matrix mit Top-10 OEMs (Samsung, Xiaomi, Huawei, etc.), dokumentierte Inkompatibilitäten mit Workarounds, Telemetrie-basierte Reporting für neue Inkompatibilitäten.
+2. **Vendor-Specific Fallbacks**: Vendor-Erkennung (Build.MANUFACTURER), vendor-spezifische Workarounds in Code, Feature-Flags pro Vendor.
+3. **Telemetrie-basiertes Reporting**: Automatisches Reporting von USB-Fehlern mit Device-Info, schnelle Identifikation neuer Inkompatibilitäten, Dashboard für Device-Compatibility.
+
+**Acceptance Criteria:**
+- Top-10 OEMs getestet und dokumentiert
+- Telemetrie identifiziert neue Inkompatibilitäten innerhalb 24h
+- Workarounds für bekannte Issues implementiert
+
+**Owner:** Android Development Team  
+**Rollback:** Feature-Flag pro Vendor für problematische OEMs
+
+#### Niedrig: OpenSSL-Kompatibilität
+
+**Risiko:** OpenSSL-Kompatibilität über BouncyCastle (bereits im Projekt vorhanden) - geringes Risiko.
 
 ## 3. Lösungsansatz
 
@@ -97,21 +183,128 @@ Implementierung eines neuen Feature-Moduls `feature-usb` für USB-Geräte-Analys
 - `feature-usb/src/main/cpp/CMakeLists.txt`
 - `feature-usb/src/main/cpp/usb_jni.cpp`
 - `feature-usb/src/main/cpp/usb_wrapper.h`
+- `feature-usb/src/main/cpp/usb_wrapper.cpp`
 - `feature-usb/src/main/java/.../usb/native/UsbNative.kt`
+- `feature-usb/build.gradle.kts` (externalNativeBuild Konfiguration)
 
 **Was wird gemacht:**
 
-- CMake-Konfiguration für libusb
-- JNI-Wrapper für libusb-Funktionen
-- Kotlin Native Interface (JNI)
-- libusb als native Dependency
+#### 1. libusb Sourcing/Build-Strategie
+
+**Primärer Ansatz: Build from Source**
+- libusb wird via CMake/FetchContent in `gradle-externalNativeBuild` gebaut
+- CMakeLists.txt verwendet `FetchContent_Declare` und `FetchContent_MakeAvailable` für libusb
+- Build erfolgt automatisch bei Gradle-Build, keine manuellen Schritte nötig
+- Vorteil: Immer aktuelle Version, keine ABI-spezifischen Prebuilt-Dateien nötig
+
+**Fallback: Prebuilt .so Libraries**
+- Prebuilt `.so` Dateien für CI/Quick-Tests pro ABI (arm64-v8a, armeabi-v7a, x86_64, x86)
+- Werden in `src/main/jniLibs/{abi}/` abgelegt
+- Aktivierung via Feature-Flag `USE_PREBUILT_LIBUSB=true` in `gradle.properties`
+- Vorteil: Schnellere CI-Builds, keine NDK-Kompilierung nötig
+
+**Entscheidung:** Primär = Build from Source, Fallback = Prebuilt für CI
+
+#### 2. ABI Support
+
+**Erforderliche ABIs:**
+- `arm64-v8a` (64-bit ARM, primär für moderne Geräte)
+- `armeabi-v7a` (32-bit ARM, Legacy-Support)
+- `x86_64` (64-bit x86, Emulator/Tablets)
+- `x86` (32-bit x86, Legacy-Emulator)
+
+**Produktion pro-ABI .so Artefakte:**
+- CMake baut automatisch für alle konfigurierten ABIs
+- Gradle `splits.abi` Konfiguration erstellt separate APKs pro ABI (optional)
+- AAR-Packaging: Alle ABI-spezifischen `.so` Dateien werden in AAR eingebunden
+- Verifikation: `./gradlew :feature-usb:assembleRelease` prüft alle ABIs
+
+#### 3. JNI Error-Handling Pattern
+
+**Uniformes Error-Handling Pattern:**
+
+1. **Argument Validation**: Alle JNI-Funktionen validieren Eingabeparameter (null-checks, range-checks)
+2. **libusb Return Value Checks**: Alle libusb-Aufrufe prüfen Return-Werte (`LIBUSB_SUCCESS`, etc.)
+3. **Error Conversion**: libusb-Errors werden zu beschreibenden errno-style Messages konvertiert
+4. **Exception Propagation**: Fehler werden via `env->ThrowNew()` als Java-Exceptions nach Kotlin propagiert
+5. **Native-Side Logging**: Alle Fehler werden auf Native-Seite geloggt (Android Log) mit Kontext
+
+**Beispiel:**
+```cpp
+jlong JNICALL Java_com_ble1st_connectias_feature_usb_native_UsbNative_openDevice
+  (JNIEnv *env, jclass clazz, jint vendorId, jint productId) {
+    // 1. Argument validation
+    if (vendorId < 0 || productId < 0) {
+        env->ThrowNew(env->FindClass("java/lang/IllegalArgumentException"),
+                     "Invalid vendor or product ID");
+        return -1;
+    }
+    
+    // 2. libusb call with return value check
+    libusb_device_handle *handle = libusb_open_device_with_vid_pid(ctx, vendorId, productId);
+    if (handle == nullptr) {
+        int error = libusb_get_last_error();
+        // 3. Error conversion and logging
+        __android_log_print(ANDROID_LOG_ERROR, "UsbNative",
+                           "Failed to open device: %s", libusb_error_name(error));
+        // 4. Exception propagation
+        env->ThrowNew(env->FindClass("java/io/IOException"),
+                     libusb_error_name(error));
+        return -1;
+    }
+    
+    return reinterpret_cast<jlong>(handle);
+}
+```
+
+#### 4. Thread-Safety Guarantees
+
+**Gewählter Ansatz: Dedicated Native Worker Thread**
+
+- **Ein libusb_context pro Prozess**: Singleton-Pattern für libusb_context, initialisiert bei App-Start
+- **Dedicated Native Worker Thread**: Alle libusb-Aufrufe laufen auf einem dedizierten Thread
+- **JNI Call Marshalling**: JNI-Aufrufe von Kotlin werden zum Worker-Thread gemarshalled
+- **Mutex Protection**: Kritische libusb-Operationen sind mit Mutex geschützt (falls nötig)
+
+**Implementierung:**
+- Native Thread-Pool mit einem Worker-Thread für libusb-Operationen
+- Kotlin-Seite: Coroutines mit `Dispatchers.IO` für asynchrone USB-Operationen
+- JNI-Bridge: Synchronisiert Aufrufe zum Worker-Thread
+
+**Fallback: Mutex-Protected Calls**
+- Falls Worker-Thread-Ansatz Probleme verursacht: Alle libusb-Aufrufe mit Mutex schützen
+- Einfacher, aber weniger performant
+
+**Dokumentation:** Alle libusb-Interaktionen müssen auf Worker-Thread laufen, JNI-Calls werden automatisch gemarshalled.
+
+#### 5. Resource Cleanup Lifecycle
+
+**Explicit Init/Shutdown JNI Bindings:**
+- `UsbNative.init()`: Ruft `libusb_init()` auf, erstellt libusb_context
+- `UsbNative.shutdown()`: Ruft `libusb_exit()` auf, gibt libusb_context frei
+- Werden von Application-Klasse aufgerufen (onCreate/onTerminate)
+
+**RAII-Style Wrappers in C++:**
+- C++ Wrapper-Klassen für libusb_device_handle mit Destruktoren
+- Destruktoren rufen automatisch `libusb_close()` auf
+- Exception-Safe: Ressourcen werden auch bei Exceptions freigegeben
+
+**Finalizer Hooks:**
+- Kotlin-Seite: Finalizer für UsbDevice-Handles, ruft `UsbNative.closeDevice()` auf
+- JNI OnUnload: Cleanup aller verbleibenden Ressourcen bei Library-Unload
+
+**Testing:**
+- Memory-Leak-Tests: Valgrind/AddressSanitizer für native Memory-Leaks
+- Lifecycle-Tests: App-Start/Stop, Fragment-Lifecycle, Configuration-Changes
+- Verifikation: Keine Leaks über ABI-Builds und Lifecycle-Übergänge
 
 **Warum:**
 
 - libusb erfordert native Integration
 - JNI ermöglicht Zugriff von Kotlin
+- Thread-Safety und Resource-Management sind kritisch für Stabilität
 
-**Risiko:** Hoch - Erfordert NDK-Kenntnisse
+**Risiko:** Hoch - Erfordert NDK-Kenntnisse, Thread-Safety und Resource-Management
 
 ### Schritt 3: USB Provider Implementation
 
@@ -302,54 +495,271 @@ Implementierung eines neuen Feature-Moduls `feature-usb` für USB-Geräte-Analys
 
 ## 5. Test-Strategie
 
-### Unit Tests
+### 1. Native-Layer Mocking
 
-- UsbProvider Tests (mit Mocked Native Layer)
-- UsbCryptoProvider Tests
-- UsbPermissionManager Tests
-- UsbDeviceDetector Tests
-- Model Tests
+**Empfohlener Ansatz:** Android NDK gtest Harness für JNI Unit Tests plus Symbol-Level Stubs für libusb.
 
-### Integration Tests
+**Implementierung:**
+- **JNI Unit Tests**: Android NDK gtest Framework für C++ Unit Tests (`src/test/cpp/usb_jni_test.cpp`)
+- **Symbol-Level Stubs**: Mock-Implementierungen für libusb-Funktionen (`libusb_init`, `libusb_open`, etc.) in Test-Build
+- **CMake Test Configuration**: Separate Test-Targets in `CMakeLists.txt` für native Tests
+- **Test Execution**: Native Tests laufen via `./gradlew :feature-usb:connectedAndroidTest` oder direkt via `adb shell`
 
-- USB-Enumeration (mit Mock-Geräten)
-- USB-Transfer-Tests
-- Automatische Erkennung und Berechtigungsabfrage-Tests
+**Alternative:** Vollständige Mock-Implementierung von libusb für Unit Tests (aufwändiger, aber vollständige Kontrolle).
 
-### UI Tests
+### 2. Mock USB Device Fixtures
 
-- Compose UI Tests für Screens
-- Navigation-Tests
-- Berechtigungsdialog-Tests
-- Automatische Erkennungs-Tests
+**Parameterisierte Test-Fixtures** die USB-Deskriptoren, Endpoints und Transfer-Verhalten emulieren.
 
-### Native Tests
+**Tools:**
+- **USB/IP**: Linux-basiertes Tool für USB-Device-Simulation (für Integration-Tests)
+- **Lightweight Emulator**: Eigener USB-Device-Emulator für Unit-Tests (Mock-Implementierung von `UsbManager`, `UsbDevice`, `UsbDeviceConnection`)
 
-- JNI-Wrapper Tests (C++ Unit Tests)
+**Fixture-Parameter:**
+- Vendor ID, Product ID, Serial Number
+- Device Class, Interface Classes
+- Endpoint-Deskriptoren (Bulk, Interrupt, Control)
+- Transfer-Verhalten (Success, Timeout, Error)
+
+**Beispiel:**
+```kotlin
+data class MockUsbDeviceFixture(
+    val vendorId: Int,
+    val productId: Int,
+    val serialNumber: String?,
+    val deviceClass: Int,
+    val interfaces: List<MockUsbInterface>,
+    val transferBehavior: TransferBehavior = TransferBehavior.Success
+)
+```
+
+### 3. Edge Case Test Szenarien
+
+**Unit/Integration Test Cases:**
+
+1. **Permission Denied/Revoked Mid-Transfer**
+   - Test: Permission während aktiver USB-Transfer wird widerrufen
+   - Erwartetes Verhalten: Transfer wird abgebrochen, Fehler wird gemeldet, Recovery-Mechanismus aktiviert
+   - Test: `testPermissionRevokedDuringBulkTransfer()`
+
+2. **Device Disconnect During Enumeration**
+   - Test: Gerät wird während Enumeration getrennt
+   - Erwartetes Verhalten: Enumeration wird abgebrochen, teilweise Ergebnisse werden zurückgegeben, Fehler wird geloggt
+   - Test: `testDeviceDisconnectDuringEnumeration()`
+
+3. **Device Disconnect During Transfer**
+   - Test: Gerät wird während aktiver USB-Transfer getrennt
+   - Erwartetes Verhalten: Transfer wird abgebrochen, Ressourcen werden freigegeben, Fehler wird gemeldet
+   - Test: `testDeviceDisconnectDuringTransfer()`
+
+4. **Rapid Connect/Disconnect Flapping**
+   - Test: Gerät wird schnell mehrfach verbunden/getrennt (10x in 1 Sekunde)
+   - Erwartetes Verhalten: Debounce-Logic verhindert Duplikate, alle Events werden verarbeitet, keine Race-Conditions
+   - Test: `testRapidConnectDisconnectFlapping()`
+
+5. **OOM During Enumeration**
+   - Test: Out-of-Memory während Enumeration großer Geräte-Liste
+   - Erwartetes Verhalten: Enumeration wird abgebrochen, Ressourcen werden freigegeben, Fehler wird gemeldet
+   - Test: `testOomDuringEnumeration()`
+
+6. **Simulated JNI/Native Crashes**
+   - Test: Native Crash wird simuliert (via Crash-by-Design Mode)
+   - Erwartetes Verhalten: App bleibt stabil, Fehler wird geloggt, Fallback-Mechanismus aktiviert
+   - Test: `testNativeCrashRecovery()`
+
+### 4. UI Test Injection Methods
+
+**BroadcastReceiver Test Hooks:**
+- Dependency-injectable Event Dispatcher für USB-Events
+- Test-Utilities zum Simulieren von `ACTION_USB_DEVICE_ATTACHED`/`DETACHED` Intents
+- Mock `UsbManager` für Permission-Request-Simulation
+
+**Espresso/Compose Test Rule Utilities:**
+- `UsbDeviceTestRule`: JUnit Rule für USB-Device-Simulation in Tests
+- `PermissionTestRule`: JUnit Rule für Permission-Request-Simulation
+- Compose Test Utilities: `simulateUsbDeviceAttached()`, `simulatePermissionGranted()`
+
+**Beispiel:**
+```kotlin
+@get:Rule
+val usbTestRule = UsbDeviceTestRule()
+
+@Test
+fun testDeviceDetection() {
+    usbTestRule.simulateDeviceAttached(vendorId = 0x1234, productId = 0x5678)
+    composeTestRule.onNodeWithText("USB Device Detected").assertIsDisplayed()
+}
+```
+
+### 5. Performance/Stress Test Requirements
+
+**Benchmarks:**
+- **50 Concurrent Device Enumerations**: 50 Geräte gleichzeitig enumerieren, max. 5 Sekunden, max. 100MB Memory
+- **N Rapid Connect/Disconnects**: 100 Connect/Disconnect-Events pro Minute, keine Memory-Leaks, CPU < 20%
+- **Memory/Battery Thresholds**: Memory-Verbrauch < 50MB pro Gerät, Battery-Impact < 5% pro Stunde bei kontinuierlicher Überwachung
+
+**Pass/Fail Criteria:**
+- **Performance**: Alle Benchmarks müssen innerhalb definierter Thresholds bleiben
+- **Stability**: Keine Crashes, Memory-Leaks oder Race-Conditions
+- **Resource Usage**: CPU, Memory und Battery innerhalb Limits
+
+**CI Execution Guidance:**
+- Performance-Tests laufen nightly auf CI (nicht bei jedem Commit)
+- Stress-Tests laufen auf dedizierten Hardware-Geräten
+- Ergebnisse werden in Performance-Dashboard gespeichert
+
+### Unit Tests (Detailliert)
+
+- **UsbProvider Tests**: Mocked Native Layer, Test aller USB-Operationen (Enumeration, Open, Close, Transfer)
+- **UsbCryptoProvider Tests**: OpenSSL-Kompatibilitätstests, Verschlüsselung/Entschlüsselung mit Test-Vektoren
+- **UsbPermissionManager Tests**: Permission-Request-Simulation, Timeout-Handling, Retry-Logic
+- **UsbDeviceDetector Tests**: BroadcastReceiver-Simulation, Deduplication-Logic, Race-Condition-Tests
+- **Model Tests**: UsbDevice, UsbDescriptor, UsbTransfer Model-Validierung
+
+### Integration Tests (Detailliert)
+
+- **USB-Enumeration**: Mock-Geräte mit verschiedenen Konfigurationen, Edge-Cases (leere Liste, sehr große Liste)
+- **USB-Transfer-Tests**: Bulk, Interrupt, Control Transfers mit verschiedenen Daten-Größen
+- **Automatische Erkennung und Berechtigungsabfrage**: End-to-End-Tests mit simulierten USB-Events
+
+### UI Tests (Detailliert)
+
+- **Compose UI Tests**: Screens mit verschiedenen Device-Listen, Loading-States, Error-States
+- **Navigation-Tests**: Navigation zwischen USB-Dashboard und Device-Detail-Screens
+- **Berechtigungsdialog-Tests**: Permission-Request-Flow, User-Interaktionen (Grant/Deny)
+- **Automatische Erkennungs-Tests**: UI-Updates bei Device-Detection, State-Synchronisation
+
+### Native Tests (Detailliert)
+
+- **JNI-Wrapper Tests**: C++ Unit Tests für alle JNI-Funktionen, Error-Handling, Resource-Cleanup
+- **libusb Integration Tests**: Native Tests für libusb-Funktionen (falls möglich ohne Hardware)
 
 ## 6. Rollback-Plan
 
 ### Bei Problemen
 
-1. Feature-Flag auf `false` setzen → Modul nicht gebaut
-2. Modul-Dependency aus `app/build.gradle.kts` entfernen
-3. Native Libraries können deaktiviert werden ohne Code-Änderungen
+1. **Feature-Flag Deaktivierung**: Feature-Flag `ENABLE_USB_FEATURE` auf `false` setzen → Modul nicht gebaut, Navigation-Route deaktiviert
+2. **Modul-Dependency Entfernen**: Modul-Dependency aus `app/build.gradle.kts` entfernen, `ModuleCatalog` Eintrag deaktivieren
+3. **Native Libraries Deaktivierung**: Native Libraries können deaktiviert werden ohne Code-Änderungen via Feature-Flag `ENABLE_LIBUSB_NATIVE=false`
+4. **Vendor-Specific Rollback**: Feature-Flag pro Vendor für problematische OEMs (z.B. `ENABLE_USB_SAMSUNG=false`)
+5. **Permission Manager Fallback**: Bei Permission-Problemen: Timeout auf sehr kurzen Wert setzen (5 Sekunden) für schnelle Fehlerbehandlung
 
 ### Backup
 
-- Git-Commit vor Implementierung
-- Feature-Flag-basierte Deaktivierung
+- Git-Commit vor Implementierung (Branch: `feature/usb-module`)
+- Feature-Flag-basierte Deaktivierung (keine Code-Änderungen nötig)
+- Rollback-Commits dokumentiert in Git-Tags (`rollback/usb-module-v1.0`)
+
+### Kritische Rollback-Punkte
+
+1. **Native Library Crashes**: Sofortiger Rollback via Feature-Flag, Fallback zu Android USB Host API
+2. **Permission Timeouts**: Timeout auf 5 Sekunden reduzieren, User-Prompts vereinfachen
+3. **Device Detection Failures**: Re-Scan-Intervall auf 1 Sekunde erhöhen (höherer Battery-Verbrauch)
+4. **OEM Inkompatibilitäten**: Vendor-spezifische Feature-Flags deaktivieren
 
 ## 7. Annahmen
+
+### Technische Annahmen
 
 1. **libusb**: Wird als native Library via JNI integriert
 2. **OpenSSL-Kompatibilität**: Wird über BouncyCastle erreicht (bereits im Projekt)
 3. **State Management**: Direkt in @Composable, keine ViewModels
 4. **Navigation**: Fragment-basiert mit ComposeView (wie bestehende Module)
-5. **Android Version**: minSdk 33, USB Host API verfügbar
-6. **NDK**: Android NDK ist verfügbar für native Compilation
-7. **USB-Erkennung**: Automatische Erkennung beim Anschließen via BroadcastReceiver
-8. **Berechtigungsabfrage**: Automatisch nach Erkennung, bevor USB-Operationen ausgeführt werden
+5. **NDK**: Android NDK ist verfügbar für native Compilation
+6. **USB-Erkennung**: Automatische Erkennung beim Anschließen via BroadcastReceiver
+7. **Berechtigungsabfrage**: Automatisch nach Erkennung, bevor USB-Operationen ausgeführt werden
+
+### Android USB Host API Constraints
+
+#### 1. Android USB Host APIs und Minimum API Level
+
+**Verwendete Android USB Host API Klassen:**
+- `UsbManager` (API Level 12+): System-Service für USB-Zugriff, verfügbar ab Android 3.1
+- `UsbDevice` (API Level 12+): Repräsentiert USB-Gerät, verfügbar ab Android 3.1
+- `UsbDeviceConnection` (API Level 12+): Verbindung zu USB-Gerät, verfügbar ab Android 3.1
+- `UsbEndpoint` (API Level 12+): USB-Endpoint für Transfers, verfügbar ab Android 3.1
+- `BroadcastReceiver` mit `ACTION_USB_DEVICE_ATTACHED`/`DETACHED` (API Level 12+): Automatische Geräte-Erkennung
+
+**Minimum API Level: minSdk 33 (Android 13)**
+- USB Host API ist stabil und vollständig verfügbar ab API Level 12
+- minSdk 33 gewählt für moderne Android-Versionen und bessere Security-Features
+- Verhalten bei minSdk 33: Alle USB Host API Funktionen sind verfügbar und stabil
+- **Verifiziert:** Android USB Host API Dokumentation bestätigt Stabilität ab API 12, keine Breaking Changes bis API 33
+
+#### 2. Background USB Detection Requirements
+
+**Foreground Service Requirement:**
+- **Kontinuierliche/automatische Erkennung im Hintergrund erfordert Foreground Service** (ab Android 8.0+)
+- Foreground Service benötigt persistente Notification (kann nicht versteckt werden)
+- Lifecycle: Service muss gestartet werden bevor App in Hintergrund geht
+- Permission: `FOREGROUND_SERVICE` Permission in AndroidManifest erforderlich
+
+**Lifecycle/Permission Implications:**
+- Battery-Optimization: Foreground Service kann von Battery-Optimization ausgenommen werden
+- Doze-Mode: Foreground Service kann in Doze-Mode weiterlaufen (mit entsprechender Permission)
+- User-Experience: Persistente Notification kann User stören, muss gut designed sein
+
+**Alternative: Kein Foreground Service**
+- USB-Detection nur wenn App im Vordergrund (keine Background-Detection)
+- BroadcastReceiver funktioniert nur wenn App aktiv ist
+- Vorteil: Keine persistente Notification, einfacher
+- Nachteil: Verpasste Events wenn App im Hintergrund
+
+**Entscheidung:** USB-Detection primär im Vordergrund, optional Foreground Service für Background-Detection (via Feature-Flag)
+
+#### 3. Android Enterprise/Work-Profile Restrictions
+
+**Multi-User und Work-Profile Einschränkungen:**
+- **Work-Profile**: USB-Zugriff kann von Enterprise-Policy eingeschränkt sein
+- **Multi-User**: USB-Geräte sind pro-User isoliert, keine Geräte-Sharing zwischen Usern
+- **Android Enterprise**: MDM-Policies können USB-Zugriff komplett blockieren
+
+**Erforderliche Permissions/Workarounds:**
+- Keine zusätzlichen Permissions nötig (USB Host Permission reicht)
+- Workaround: App prüft `UserManager.isManagedProfile()` und zeigt entsprechende Fehlermeldung
+- Enterprise-Mode: Feature kann deaktiviert werden wenn Policy USB blockiert
+
+**Testing:** Tests mit Work-Profile und Multi-User-Setup erforderlich
+
+#### 4. Battery/Power Considerations
+
+**Broadcast Frequency:**
+- USB-Device-Attach/Detach Broadcasts sind selten (nur bei physischem An-/Abstecken)
+- Broadcast-Frequenz: Typisch < 1 Event pro Minute (sehr niedrig)
+- Battery-Impact: Minimal durch Broadcast-Frequenz
+
+**Wakelock Requirements:**
+- **Kein Wakelock erforderlich** für USB-Detection (BroadcastReceiver läuft ohne Wakelock)
+- Optional: Partial Wakelock für USB-Transfers (nur während aktiver Transfers)
+
+**Doze-Mode Impacts:**
+- Doze-Mode blockiert BroadcastReceiver nicht (System-Broadcasts sind erlaubt)
+- USB-Detection funktioniert auch in Doze-Mode
+- USB-Transfers können in Doze-Mode blockiert werden (Wakelock erforderlich)
+
+**Empfohlene Mitigationen:**
+- Keine kontinuierlichen Polling-Operationen (nur Event-basiert)
+- Wakelocks nur während aktiver USB-Transfers
+- Battery-Optimization Whitelist für App (optional, User kann aktivieren)
+
+#### 5. Concurrent Device Limits
+
+**Unterstützte Concurrent-Device-Limits:**
+- **Theoretisches Limit**: Android/USB-Host-Controller unterstützt typisch 127 Geräte gleichzeitig
+- **Praktisches Limit**: App-Limit von **10 gleichzeitigen USB-Geräten** (konfigurierbar)
+- **Overflow-Verhalten**: Bei > 10 Geräten werden nur die ersten 10 angezeigt, Rest wird geloggt aber nicht verarbeitet
+- **User-Feedback**: Warnung in UI wenn Limit erreicht wird
+
+**Konfiguration:**
+- Limit konfigurierbar via `UsbProvider.MAX_CONCURRENT_DEVICES` (Standard: 10)
+- Kann via Feature-Flag oder Settings angepasst werden
+
+### Quellen und Verifikation
+
+- **Android USB Host API Dokumentation**: https://developer.android.com/guide/topics/connectivity/usb/host
+- **USB Host API Stabilität**: Verifiziert via Android Source Code und API Level History
+- **Foreground Service Requirements**: Android 8.0+ Background Execution Limits
+- **Work-Profile Restrictions**: Android Enterprise Documentation
 
 ## 8. Technische Details
 
@@ -358,10 +768,14 @@ Implementierung eines neuen Feature-Moduls `feature-usb` für USB-Geräte-Analys
 ```kotlin
 // UsbDeviceDetector.kt
 class UsbDeviceDetector @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val usbManager: UsbManager,
+    private val permissionManager: UsbPermissionManager
 ) {
     private val _detectedDevices = MutableStateFlow<List<UsbDevice>>(emptyList())
     val detectedDevices: StateFlow<List<UsbDevice>> = _detectedDevices.asStateFlow()
+    
+    private var isReceiverRegistered = false
     
     private val broadcastReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -369,23 +783,108 @@ class UsbDeviceDetector @Inject constructor(
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
                     val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
                     device?.let { 
-                        _detectedDevices.value = _detectedDevices.value + it
-                        // Automatisch Berechtigung anfordern
-                        onDeviceDetected(it)
+                        // Check for duplicates before appending
+                        val deviceKey = DeviceKey(device.serialNumber, device.vendorId, device.productId)
+                        val isDuplicate = _detectedDevices.value.any { existing ->
+                            DeviceKey(existing.serialNumber, existing.vendorId, existing.productId) == deviceKey
+                        }
+                        
+                        if (!isDuplicate) {
+                            val deviceModel = convertToModel(device)
+                            _detectedDevices.value = _detectedDevices.value + deviceModel
+                            // Automatically request permission after detection
+                            onDeviceDetected(deviceModel)
+                        } else {
+                            Timber.d("USB device already detected, skipping duplicate: Vendor=0x%04X, Product=0x%04X",
+                                device.vendorId, device.productId)
+                        }
                     }
                 }
             }
         }
     }
     
+    /**
+     * Handles device detection by automatically requesting permission.
+     * Uses UsbManager.requestPermission() and updates state based on result.
+     */
+    private fun onDeviceDetected(device: UsbDevice) {
+        val androidDevice = usbManager.deviceList.values.find { d ->
+            d.vendorId == device.vendorId && d.productId == device.productId &&
+            (d.serialNumber == device.serialNumber || 
+             (d.serialNumber == null && device.serialNumber == null))
+        }
+        
+        androidDevice?.let { usbDevice ->
+            if (!usbManager.hasPermission(usbDevice)) {
+                Timber.d("Requesting permission for device: Vendor=0x%04X, Product=0x%04X",
+                    device.vendorId, device.productId)
+                permissionManager.requestPermission(usbDevice) { granted ->
+                    if (granted) {
+                        Timber.i("Permission granted for device: Vendor=0x%04X, Product=0x%04X",
+                            device.vendorId, device.productId)
+                        // Refresh device info with permission-granted data
+                        refreshDeviceInfo(device.vendorId, device.productId)
+                    } else {
+                        Timber.w("Permission denied for device: Vendor=0x%04X, Product=0x%04X",
+                            device.vendorId, device.productId)
+                    }
+                }
+            } else {
+                Timber.d("Permission already granted for device: Vendor=0x%04X, Product=0x%04X",
+                    device.vendorId, device.productId)
+            }
+        }
+    }
+    
     fun registerReceiver(activity: Activity) {
-        val filter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
-        context.registerReceiver(broadcastReceiver, filter)
+        // Guard against double registration
+        if (isReceiverRegistered) {
+            Timber.w("BroadcastReceiver already registered, skipping")
+            return
+        }
+        
+        try {
+            val filter = IntentFilter(UsbManager.ACTION_USB_DEVICE_ATTACHED)
+            // For Android 13+ (API 33+), use RECEIVER_NOT_EXPORTED for security
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                context.registerReceiver(broadcastReceiver, filter)
+            }
+            isReceiverRegistered = true
+            Timber.d("USB BroadcastReceiver registered successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to register USB BroadcastReceiver")
+            isReceiverRegistered = false
+        }
     }
     
     fun unregisterReceiver() {
-        context.unregisterReceiver(broadcastReceiver)
+        // Guard against double unregistration
+        if (!isReceiverRegistered) {
+            Timber.w("BroadcastReceiver not registered, skipping unregister")
+            return
+        }
+        
+        try {
+            context.unregisterReceiver(broadcastReceiver)
+            isReceiverRegistered = false
+            Timber.d("USB BroadcastReceiver unregistered successfully")
+        } catch (e: IllegalArgumentException) {
+            Timber.w("BroadcastReceiver was not registered")
+            isReceiverRegistered = false
+        } catch (e: Exception) {
+            Timber.e(e, "Error unregistering USB BroadcastReceiver")
+        }
     }
+    
+    private data class DeviceKey(
+        val serialNumber: String?,
+        val vendorId: Int,
+        val productId: Int
+    )
 }
 ```
 
@@ -402,12 +901,32 @@ fun UsbDashboardScreen(
     var isLoading by remember { mutableStateOf(false) }
     var permissionRequest by remember { mutableStateOf<UsbDevice?>(null) }
     
-    // Automatische Erkennung via StateFlow
-    val detectedDevices by deviceDetector.detectedDevices.collectAsState()
+    // Automatische Erkennung via StateFlow with distinctUntilChanged to prevent redundant updates
+    val detectedDevices by deviceDetector.detectedDevices
+        .distinctUntilChanged()
+        .collectAsState()
     
+    // Track processed devices to avoid race conditions and duplicate permission requests
+    val processedDeviceIds = remember { mutableSetOf<String>() }
+    val scope = rememberCoroutineScope()
+    
+    // Handle new device detections (only new additions, not full list re-emits)
     LaunchedEffect(detectedDevices) {
-        detectedDevices.forEach { device ->
-            // Automatisch Berechtigung anfordern nach Erkennung
+        val newDevices = detectedDevices.filter { device ->
+            !processedDeviceIds.contains(device.uniqueId)
+        }
+        
+        newDevices.forEach { device ->
+            processedDeviceIds.add(device.uniqueId)
+            
+            // Check for race condition: device might already be in enumerated list
+            val alreadyEnumerated = devices.any { it.uniqueId == device.uniqueId }
+            if (alreadyEnumerated) {
+                Timber.d("Device already in enumerated list, skipping: ${device.uniqueId}")
+                return@forEach
+            }
+            
+            // Automatically request permission after detection
             if (!permissionManager.hasPermission(device)) {
                 permissionRequest = device
             } else {
@@ -416,24 +935,51 @@ fun UsbDashboardScreen(
         }
     }
     
-    // Initiale Enumeration
+    // Initiale Enumeration (only once)
     LaunchedEffect(Unit) {
-        isLoading = true
-        devices = usbProvider.enumerateDevices()
-        isLoading = false
+        try {
+            isLoading = true
+            val result = usbProvider.enumerateDevices()
+            when (result) {
+                is UsbResult.Success -> {
+                    devices = result.data
+                    // Mark enumerated devices as processed
+                    result.data.forEach { processedDeviceIds.add(it.uniqueId) }
+                }
+                is UsbResult.Failure -> {
+                    Timber.e(result.error, "Failed to enumerate USB devices")
+                    // Handle error state (could show error message to user)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Exception during USB device enumeration")
+        } finally {
+            isLoading = false
+        }
     }
     
-    // Berechtigungsdialog nach Erkennung
+    // Berechtigungsdialog nach Erkennung with stable callback
     permissionRequest?.let { device ->
         UsbPermissionDialog(
             device = device,
             onGranted = {
-                permissionManager.requestPermission(device) { granted ->
-                    if (granted) {
-                        devices = devices + device
+                // Use rememberCoroutineScope for stable callback across recompositions
+                scope.launch {
+                    try {
+                        permissionManager.requestPermission(device) { granted ->
+                            if (granted) {
+                                // Check again for duplicates before adding
+                                if (!devices.any { it.uniqueId == device.uniqueId }) {
+                                    devices = devices + device
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error requesting USB permission")
+                    } finally {
+                        permissionRequest = null
                     }
                 }
-                permissionRequest = null
             },
             onDenied = {
                 permissionRequest = null

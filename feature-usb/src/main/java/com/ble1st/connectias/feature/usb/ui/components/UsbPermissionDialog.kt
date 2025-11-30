@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import timber.log.Timber
 
@@ -16,24 +18,25 @@ fun UsbPermissionDialog(
     modifier: Modifier = Modifier
 ) {
     AlertDialog(
+        modifier = modifier,
         onDismissRequest = {
             Timber.d("USB permission dialog dismissed")
             onDenied()
         },
         title = {
-            Text("USB Permission Required")
+            Text(stringResource(R.string.usb_permission_title))
         },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("The app needs permission to access this USB device:")
+                Text(stringResource(R.string.usb_permission_message))
                 Text(
-                    text = device.product ?: "Unknown Device",
+                    text = device.product ?: stringResource(R.string.usb_unknown_device),
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    text = "Vendor: 0x%04X, Product: 0x%04X".format(device.vendorId, device.productId),
+                    text = stringResource(R.string.usb_vendor_product_format, device.vendorId, device.productId),
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -43,7 +46,7 @@ fun UsbPermissionDialog(
                 Timber.i("User granted USB permission")
                 onGranted()
             }) {
-                Text("Grant")
+                Text(stringResource(R.string.usb_permission_grant))
             }
         },
         dismissButton = {
@@ -51,7 +54,7 @@ fun UsbPermissionDialog(
                 Timber.d("User denied USB permission")
                 onDenied()
             }) {
-                Text("Deny")
+                Text(stringResource(R.string.usb_permission_deny))
             }
         }
     )

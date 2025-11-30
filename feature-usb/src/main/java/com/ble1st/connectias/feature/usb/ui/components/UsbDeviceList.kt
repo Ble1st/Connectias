@@ -46,7 +46,7 @@ fun UsbDeviceList(
             modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(devices, key = { "${it.vendorId}-${it.productId}" }) { device ->
+            items(devices, key = { it.uniqueId }) { device ->
                 UsbDeviceCard(
                     device = device,
                     onClick = { onDeviceClick(device) }

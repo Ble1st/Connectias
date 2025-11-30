@@ -4,45 +4,94 @@
     <string name="usb_dashboard_title">USB Devices</string>
     <string name="usb_no_devices">No USB devices found</string>
     <string name="usb_connect_device">Connect a USB device to see it here</string>
+    <string name="nav_usb_dashboard">USB Dashboard</string>
     
     <!-- DVD/CD -->
     <string name="dvd_cd_detail_title">Disc Information</string>
     <string name="dvd_cd_no_titles">No titles found on DVD</string>
     <string name="dvd_cd_no_tracks">No tracks found on Audio CD</string>
     <string name="dvd_cd_no_files">No files found</string>
+    <string name="nav_dvd_cd_detail">DVD/CD Details</string>
+    <string name="nav_dvd_player">DVD Player</string>
     
-    <!-- CSS Decryption -->
+    <!-- CSS Decryption (English) -->
     <string name="css_decryption_title">CSS-Decryption</string>
-    <string name="css_decryption_description">Ermöglicht Wiedergabe von kopiergeschützten DVDs. Rechtlich problematisch - siehe Haftungsausschluss.</string>
-    <string name="css_decryption_enabled">Aktiviert</string>
-    <string name="css_decryption_warning">⚠️ CSS-Decryption ist aktiviert. Sie haften für die rechtmäßige Nutzung.</string>
+    <string name="css_decryption_description">Enables playback of copy-protected DVDs. Legally problematic - see disclaimer.</string>
+    <string name="css_decryption_enabled">Enabled</string>
+    <string name="css_decryption_warning">CSS-Decryption is enabled. You are liable for lawful use.</string>
     
-    <!-- CSS Decryption Disclaimer -->
-    <string name="css_decryption_disclaimer_title">Wichtiger rechtlicher Hinweis - Haftungsausschluss</string>
-    <string name="css_decryption_disclaimer">WICHTIGER RECHTLICHER HINWEIS - HAFTUNGSAUSSCHLUSS
+    <!-- CSS Decryption Disclaimer (English) -->
+    <string name="css_decryption_disclaimer_title">Important Legal Notice - Disclaimer</string>
+    <string name="css_decryption_disclaimer">IMPORTANT LEGAL NOTICE - DISCLAIMER
 
-Die CSS-Decryption-Funktion (libdvdcss) ermöglicht das Umgehen von Kopierschutz-Mechanismen auf DVDs.
+The CSS-Decryption feature (libdvdcss) enables circumvention of copy-protection mechanisms on DVDs.
 
-RECHTSWIDRIGKEIT:
-Die Verwendung dieser Funktion kann in verschiedenen Jurisdiktionen rechtswidrig sein, insbesondere unter dem Digital Millennium Copyright Act (DMCA) in den USA und ähnlichen Gesetzen in anderen Ländern.
+LEGAL VIOLATION:
+The use of this feature may be illegal in various jurisdictions, particularly under the Digital Millennium Copyright Act (DMCA) in the USA and similar laws in other countries.
 
-HAFTUNGSAUSSCHLUSS:
-- Der Entwickler dieser Software übernimmt KEINE Haftung für die Verwendung dieser Funktion
-- Der Nutzer ist vollständig selbst für die rechtmäßige Verwendung verantwortlich
-- Der Nutzer haftet für alle rechtlichen Konsequenzen der Nutzung
-- Es wird keine Garantie für die Funktionalität oder Rechtmäßigkeit gegeben
+GEOGRAPHIC SCOPE:
+This disclaimer applies globally, with specific laws varying by jurisdiction. Key jurisdictions with relevant laws include:
+- USA: Digital Millennium Copyright Act (DMCA)
+- EU Member States: EU Copyright Directive and national implementations
+- United Kingdom: Copyright, Designs and Patents Act
+- Canada: Copyright Act
+- Australia: Copyright Act
 
-Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
-1. Die rechtlichen Risiken verstehen
-2. Die volle Verantwortung für die Nutzung übernehmen
-3. Den Entwickler von jeglicher Haftung freistellen</string>
-    <string name="css_decryption_disclaimer_accept">Ich verstehe die rechtlichen Risiken und übernehme die volle Verantwortung</string>
-    <string name="accept">Akzeptieren</string>
-    <string name="cancel">Abbrechen</string>
+This disclaimer is not exhaustive and does not cover all possible jurisdictions. Laws may change and vary by country.
+
+DISCLAIMER:
+- The developer of this software assumes NO liability for the use of this feature
+- The user is solely responsible for lawful use
+- The user is liable for all legal consequences of use
+- No guarantee is given for functionality or legality
+
+By enabling this feature, you confirm that you:
+1. Understand the legal risks
+2. Accept full responsibility for use
+3. Release the developer from any liability</string>
+    <string name="css_decryption_disclaimer_accept">I understand the legal risks and accept full responsibility</string>
+    <string name="css_decryption_disclaimer_checkbox">I understand the legal risks and accept full responsibility</string>
+    <string name="accept">Accept</string>
+    <string name="cancel">Cancel</string>
     
     <!-- USB Permission -->
     <string name="usb_permission_title">USB Permission Required</string>
     <string name="usb_permission_message">The app needs permission to access this USB device:</string>
+    <string name="usb_permission_grant">Grant</string>
+    <string name="usb_permission_deny">Deny</string>
     <string name="grant">Grant</string>
     <string name="deny">Deny</string>
+    
+    <!-- USB Device Card -->
+    <string name="usb_unknown_device">Unknown Device</string>
+    <string name="usb_unknown_manufacturer">Unknown Manufacturer</string>
+    <string name="usb_vendor_product_format">Vendor: 0x%1$04X, Product: 0x%2$04X</string>
+    
+    <!-- USB Device Action Dialog -->
+    <string name="usb_device_connected">USB Device Connected</string>
+    <string name="available_actions">Available Actions:</string>
+    <string name="view_device_details">View Device Details</string>
+    <string name="open_dvd_drive">Open DVD/CD Drive</string>
+    <string name="close">Close</string>
+    
+    <!-- DVD Player -->
+    <string name="dvd_player_css_decryption_enabled">CSS-Decryption enabled</string>
+    <string name="dvd_player_previous">Previous</string>
+    <string name="dvd_player_play">Play</string>
+    <string name="dvd_player_pause">Pause</string>
+    <string name="dvd_player_next">Next</string>
+    <string name="dvd_player_stop">Stop</string>
+    <string name="dvd_player_no_next_chapter">No next chapter available</string>
+    <string name="dvd_player_no_previous_chapter">No previous chapter available</string>
+    <string name="dvd_player_error_no_stream">Video stream information is missing. Cannot play video.</string>
+    <string name="dvd_player_error_no_uri">Video stream URI is missing. Cannot play video.</string>
+    <string name="dvd_player_error_back">Back</string>
+    
+    <!-- Disc Information Card -->
+    <string name="disc_information_title">Disc Information</string>
+    <string name="disc_info_type">Type</string>
+    <string name="disc_info_file_system">File System</string>
+    <string name="disc_info_mount_point">Mount Point</string>
+    <string name="disc_info_vendor_id">Vendor ID</string>
+    <string name="disc_info_product_id">Product ID</string>
 </resources>

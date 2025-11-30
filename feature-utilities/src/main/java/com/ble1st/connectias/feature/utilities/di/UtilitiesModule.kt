@@ -19,7 +19,8 @@ object UtilitiesModule {
     
     /**
      * Provides default ApiTesterConfig.
-     * SSL pinning is disabled by default for security and flexibility.
+     * SSL pinning is disabled by default for testing flexibility.
+     * WARNING: Enable SSL pinning in production builds to prevent MITM attacks.
      */
     @Provides
     @Singleton

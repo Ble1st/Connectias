@@ -7,7 +7,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import timber.log.Timber
 
 @Composable
@@ -25,7 +27,7 @@ fun CssDecryptionDisclaimerDialog(
         },
         title = {
             Text(
-                text = "Wichtiger rechtlicher Hinweis - Haftungsausschluss",
+                text = stringResource(R.string.css_decryption_disclaimer_title),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.error
             )
@@ -44,14 +46,20 @@ fun CssDecryptionDisclaimerDialog(
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = disclaimerAccepted,
+                            role = Role.Checkbox,
+                            onValueChange = { disclaimerAccepted = it }
+                        )
                 ) {
                     Checkbox(
                         checked = disclaimerAccepted,
-                        onCheckedChange = { disclaimerAccepted = it }
+                        onCheckedChange = {}
                     )
                     Text(
-                        text = "Ich verstehe die rechtlichen Risiken und übernehme die volle Verantwortung",
+                        text = stringResource(R.string.css_decryption_disclaimer_checkbox),
                         modifier = Modifier.padding(start = 8.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -61,17 +69,15 @@ fun CssDecryptionDisclaimerDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    if (disclaimerAccepted) {
-                        Timber.i("User accepted CSS decryption disclaimer")
-                        onAccept()
-                    }
+                    Timber.i("User accepted CSS decryption disclaimer")
+                    onAccept()
                 },
                 enabled = disclaimerAccepted,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("Akzeptieren")
+                Text(stringResource(R.string.accept))
             }
         },
         dismissButton = {
@@ -79,7 +85,7 @@ fun CssDecryptionDisclaimerDialog(
                 Timber.d("User dismissed CSS decryption disclaimer")
                 onDismiss()
             }) {
-                Text("Abbrechen")
+                Text(stringResource(R.string.css_decryption_disclaimer_cancel))
             }
         }
     )

@@ -18,8 +18,10 @@ class DvdSettings @Inject constructor(
         context.getSharedPreferences("dvd_settings", Context.MODE_PRIVATE)
     }
     
-    private val KEY_CSS_DECRYPTION_ENABLED = "css_decryption_enabled"
-    private val KEY_CSS_DISCLAIMER_ACCEPTED = "css_disclaimer_accepted"
+    companion object {
+        private const val KEY_CSS_DECRYPTION_ENABLED = "css_decryption_enabled"
+        private const val KEY_CSS_DISCLAIMER_ACCEPTED = "css_disclaimer_accepted"
+    }
     
     /**
      * Checks if CSS decryption is enabled.
@@ -40,6 +42,13 @@ class DvdSettings @Inject constructor(
      */
     fun setCssDecryptionEnabled(enabled: Boolean, disclaimerAccepted: Boolean) {
         Timber.i("Setting CSS decryption: enabled=$enabled, disclaimerAccepted=$disclaimerAccepted")
+        
+        // Enforce that CSS decryption cannot be enabled unless disclaimer is accepted
+        if (enabled && !disclaimerAccepted) {
+            Timber.e("Attempted to enable CSS decryption without accepting disclaimer - refusing to persist")
+            throw IllegalStateException("CSS decryption cannot be enabled without accepting the disclaimer")
+        }
+        
         prefs.edit()
             .putBoolean(KEY_CSS_DECRYPTION_ENABLED, enabled)
             .putBoolean(KEY_CSS_DISCLAIMER_ACCEPTED, disclaimerAccepted)

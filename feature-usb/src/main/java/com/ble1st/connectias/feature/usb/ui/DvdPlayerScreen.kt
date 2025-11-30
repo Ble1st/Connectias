@@ -1,5 +1,7 @@
 package com.ble1st.connectias.feature.usb.ui
 
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -7,9 +9,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.Player
-import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.media.DvdPlayer
 import com.ble1st.connectias.feature.usb.models.VideoStream
 import com.ble1st.connectias.feature.usb.settings.DvdSettings
@@ -23,11 +28,11 @@ fun DvdPlayerScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentPosition by remember { mutableStateOf(0L) }
-    var duration by remember { mutableStateOf(0L) }
+    val player = remember { dvdPlayer.getPlayer() }
+    var isPlaying by remember { mutableStateOf(player?.isPlaying ?: false) }
     
-    val player = dvdPlayer.getPlayer()
+    // PlayerView for ExoPlayer video rendering
+    var playerView: PlayerView? by remember { mutableStateOf(null) }
     
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -44,23 +49,37 @@ fun DvdPlayerScreen(
         
         onDispose {
             player?.removeListener(listener)
+            // Detach player from view when composable is disposed
+            playerView?.player = null
         }
     }
     
     Column(
         modifier = modifier.fillMaxSize()
     ) {
-        // Video Player Area
+        // Video Player Area with ExoPlayer PlayerView
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            // TODO: Add ExoPlayer SurfaceView/TextureView
-            Text(
-                text = "Video Player\n${videoStream.width}x${videoStream.height}\n${videoStream.codec}",
-                style = MaterialTheme.typography.bodyLarge
+            AndroidView(
+                factory = { ctx ->
+                    val view = PlayerView(ctx)
+                    view.layoutParams = FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                    // Attach player to view
+                    player?.let {
+                        view.player = it
+                        playerView = view
+                        dvdPlayer.attachPlayerToView(view)
+                    }
+                    view
+                },
+                modifier = Modifier.fillMaxSize()
             )
         }
         
@@ -91,7 +110,7 @@ fun DvdPlayerScreen(
                                 tint = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
-                                text = "CSS-Decryption aktiviert",
+                                text = stringResource(R.string.dvd_player_css_decryption_enabled),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onErrorContainer
                             )
@@ -107,9 +126,20 @@ fun DvdPlayerScreen(
                 ) {
                     IconButton(onClick = {
                         Timber.d("Previous chapter clicked")
-                        // TODO: Implement previous chapter
+                        player?.let { p ->
+                            if (p.hasPreviousMediaItem()) {
+                                p.seekToPreviousMediaItem()
+                            } else {
+                                Timber.d(stringResource(R.string.dvd_player_no_previous_chapter))
+                            }
+                        } ?: run {
+                            Timber.w("Player is null, cannot navigate to previous chapter")
+                        }
                     }) {
-                        Icon(Icons.Default.SkipPrevious, contentDescription = "Previous")
+                        Icon(
+                            Icons.Default.SkipPrevious,
+                            contentDescription = stringResource(R.string.dvd_player_previous)
+                        )
                     }
                     
                     IconButton(onClick = {
@@ -122,15 +152,30 @@ fun DvdPlayerScreen(
                     }) {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = if (isPlaying) "Pause" else "Play"
+                            contentDescription = if (isPlaying) {
+                                stringResource(R.string.dvd_player_pause)
+                            } else {
+                                stringResource(R.string.dvd_player_play)
+                            }
                         )
                     }
                     
                     IconButton(onClick = {
                         Timber.d("Next chapter clicked")
-                        // TODO: Implement next chapter
+                        player?.let { p ->
+                            if (p.hasNextMediaItem()) {
+                                p.seekToNextMediaItem()
+                            } else {
+                                Timber.d(stringResource(R.string.dvd_player_no_next_chapter))
+                            }
+                        } ?: run {
+                            Timber.w("Player is null, cannot navigate to next chapter")
+                        }
                     }) {
-                        Icon(Icons.Default.SkipNext, contentDescription = "Next")
+                        Icon(
+                            Icons.Default.SkipNext,
+                            contentDescription = stringResource(R.string.dvd_player_next)
+                        )
                     }
                     
                     IconButton(onClick = {
@@ -138,7 +183,10 @@ fun DvdPlayerScreen(
                         dvdPlayer.stop()
                         onBack()
                     }) {
-                        Icon(Icons.Default.Stop, contentDescription = "Stop")
+                        Icon(
+                            Icons.Default.Stop,
+                            contentDescription = stringResource(R.string.dvd_player_stop)
+                        )
                     }
                 }
             }

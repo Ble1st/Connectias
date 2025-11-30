@@ -14,6 +14,10 @@ data class UsbTransfer(
     val bytesTransferred: Int,
     val status: TransferStatus
 ) : Parcelable {
+    
+    override fun toString(): String {
+        return "UsbTransfer(type=$type, endpoint=0x%02X, bytesTransferred=$bytesTransferred, status=$status, data=${data.contentToString()})".format(endpoint)
+    }
     enum class TransferType {
         BULK,
         INTERRUPT,

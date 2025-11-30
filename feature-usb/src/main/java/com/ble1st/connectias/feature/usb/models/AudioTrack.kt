@@ -13,4 +13,11 @@ data class AudioTrack(
     val duration: Long, // milliseconds
     val startSector: Long,
     val endSector: Long
-) : Parcelable
+) : Parcelable {
+    init {
+        require(number > 0) { "Track number must be positive" }
+        require(duration >= 0) { "Duration cannot be negative" }
+        require(startSector >= 0) { "Start sector cannot be negative" }
+        require(endSector > startSector) { "End sector must be greater than start sector" }
+    }
+}

@@ -8,7 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 
 @Composable
@@ -45,18 +47,18 @@ fun UsbDeviceCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text = device.product ?: "Unknown Device",
+                    text = device.product ?: stringResource(R.string.usb_unknown_device),
                     style = MaterialTheme.typography.titleMedium
                 )
                 
                 Text(
-                    text = device.manufacturer ?: "Unknown Manufacturer",
+                    text = device.manufacturer ?: stringResource(R.string.usb_unknown_manufacturer),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 Text(
-                    text = "Vendor: 0x%04X, Product: 0x%04X".format(device.vendorId, device.productId),
+                    text = stringResource(R.string.usb_vendor_product_format, device.vendorId, device.productId),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -67,7 +69,7 @@ fun UsbDeviceCard(
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = "DVD/CD Drive",
+                            text = "Mass Storage Device",
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer

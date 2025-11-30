@@ -6,8 +6,10 @@ import com.ble1st.connectias.feature.usb.models.FileSystem
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
@@ -23,6 +25,10 @@ class OpticalDriveProvider @Inject constructor(
     private val fileSystemReader: FileSystemReader
 ) {
     
+    private companion object {
+        const val DEVICE_DETECT_TIMEOUT_MS = 5_000L
+    }
+    
     /**
      * Detects and mounts an optical drive.
      */
@@ -32,7 +38,9 @@ class OpticalDriveProvider @Inject constructor(
         try {
             // 1. Get USB devices from detector (uses Android USB Manager API)
             Timber.d("Enumerating USB devices...")
-            val devices = deviceDetector.detectedDevices.first()
+            val devices = withTimeout(DEVICE_DETECT_TIMEOUT_MS) {
+                deviceDetector.detectedDevices.first()
+            }
             Timber.d("Found ${devices.size} USB devices")
             
             // 2. Find Mass Storage device (check isMassStorage flag, not just deviceClass)
@@ -89,6 +97,9 @@ class OpticalDriveProvider @Inject constructor(
             
             Timber.i("Optical drive successfully detected and mounted: type=$discType, fileSystem=$fileSystem")
             return@withContext drive
+        } catch (e: TimeoutCancellationException) {
+            Timber.w(e, "Timeout waiting for USB device detection (${DEVICE_DETECT_TIMEOUT_MS}ms)")
+            return@withContext null
         } catch (e: Exception) {
             Timber.e(e, "Error during optical drive detection")
             return@withContext null

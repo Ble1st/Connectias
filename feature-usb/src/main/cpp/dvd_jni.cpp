@@ -26,6 +26,11 @@ Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdOpen(JNIEnv *env, jcl
 
 JNIEXPORT void JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdClose(JNIEnv *env, jclass clazz, jlong handle) {
+    if (handle == 0) {
+        LOGE("Invalid DVD handle: 0");
+        return;
+    }
+    
     LOGD("Closing DVD, handle: %ld", handle);
     
     // TODO: Implement actual libdvdread/libdvdnav DVD closing
@@ -34,6 +39,13 @@ Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdClose(JNIEnv *env, jc
 
 JNIEXPORT jint JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdGetTitleCount(JNIEnv *env, jclass clazz, jlong handle) {
+    if (handle <= 0) {
+        LOGE("Invalid DVD handle: %ld", handle);
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Invalid DVD handle");
+        return -1;
+    }
+    
     LOGD("Getting title count for DVD, handle: %ld", handle);
     
     // TODO: Implement actual libdvdread/libdvdnav title count
@@ -45,21 +57,53 @@ Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdGetTitleCount(JNIEnv 
 
 JNIEXPORT jobject JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdReadTitle(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber) {
+    if (handle <= 0) {
+        LOGE("Invalid DVD handle: %ld", handle);
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Invalid DVD handle");
+        return nullptr;
+    }
+    
+    if (titleNumber < 1) {
+        LOGE("Invalid title number: %d", titleNumber);
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Title number must be >= 1");
+        return nullptr;
+    }
+    
     LOGD("Reading title %d from DVD, handle: %ld", titleNumber, handle);
     
     // TODO: Implement actual libdvdread/libdvdnav title reading
-    // For now, return null
+    // For now, throw UnsupportedOperationException
     LOGD("Title %d read complete", titleNumber);
+    jclass exceptionClass = env->FindClass("java/lang/UnsupportedOperationException");
+    env->ThrowNew(exceptionClass, "DVD title reading not yet implemented");
     return nullptr;
 }
 
 JNIEXPORT jobject JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdReadChapter(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber, jint chapterNumber) {
+    if (handle == 0) {
+        LOGE("Invalid DVD handle: 0");
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Invalid DVD handle");
+        return nullptr;
+    }
+    
+    if (titleNumber < 1 || chapterNumber < 1) {
+        LOGE("Invalid title or chapter number: title=%d, chapter=%d", titleNumber, chapterNumber);
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Title and chapter numbers must be >= 1");
+        return nullptr;
+    }
+    
     LOGD("Reading chapter %d from title %d, handle: %ld", chapterNumber, titleNumber, handle);
     
     // TODO: Implement actual libdvdread/libdvdnav chapter reading
-    // For now, return null
+    // For now, throw UnsupportedOperationException
     LOGD("Chapter %d from title %d read complete", chapterNumber, titleNumber);
+    jclass exceptionClass = env->FindClass("java/lang/UnsupportedOperationException");
+    env->ThrowNew(exceptionClass, "DVD chapter reading not yet implemented");
     return nullptr;
 }
 
@@ -77,11 +121,27 @@ Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdDecryptCss(JNIEnv *en
 
 JNIEXPORT jobject JNICALL
 Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdExtractVideoStream(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber, jint chapterNumber) {
+    if (handle == 0) {
+        LOGE("Invalid DVD handle: 0");
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Invalid DVD handle");
+        return nullptr;
+    }
+    
+    if (titleNumber < 1 || chapterNumber < 1) {
+        LOGE("Invalid title or chapter number: title=%d, chapter=%d", titleNumber, chapterNumber);
+        jclass exceptionClass = env->FindClass("java/lang/IllegalArgumentException");
+        env->ThrowNew(exceptionClass, "Title and chapter numbers must be >= 1");
+        return nullptr;
+    }
+    
     LOGD("Extracting video stream: title=%d, chapter=%d, handle=%ld", titleNumber, chapterNumber, handle);
     
     // TODO: Implement actual FFmpeg video stream extraction
-    // For now, return null
+    // For now, throw UnsupportedOperationException
     LOGD("Video stream extraction complete");
+    jclass exceptionClass = env->FindClass("java/lang/UnsupportedOperationException");
+    env->ThrowNew(exceptionClass, "Video stream extraction not yet implemented");
     return nullptr;
 }
 

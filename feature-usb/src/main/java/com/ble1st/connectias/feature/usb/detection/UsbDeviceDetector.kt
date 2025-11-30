@@ -36,7 +36,12 @@ class UsbDeviceDetector @Inject constructor(
             try {
             when (intent.action) {
                 UsbManager.ACTION_USB_DEVICE_ATTACHED -> {
-                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    }
                     device?.let {
                         Timber.i("USB device attached: Vendor=0x%04X, Product=0x%04X", 
                             it.vendorId, it.productId)
@@ -46,14 +51,30 @@ class UsbDeviceDetector @Inject constructor(
                     }
                 }
                 UsbManager.ACTION_USB_DEVICE_DETACHED -> {
-                    val device = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                    val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                    } else {
+                        @Suppress("DEPRECATION")
+                        intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                    }
                     device?.let {
                         Timber.i("USB device detached: Vendor=0x%04X, Product=0x%04X", 
                             it.vendorId, it.productId)
-                        _detectedDevices.value = _detectedDevices.value.filter { d ->
-                            d.vendorId != it.vendorId || d.productId != it.productId
+                        // Generate uniqueId for the detached device to match against our list
+                        val detachedUniqueId = try {
+                            it.serialNumber ?: try {
+                                it.deviceName
+                            } catch (e: SecurityException) {
+                                null
+                            } ?: "${it.vendorId}_${it.productId}_${it.deviceId}"
+                        } catch (e: Exception) {
+                            "${it.vendorId}_${it.productId}_${it.deviceId}"
                         }
-                        Timber.d("USB device removed from detected list")
+                        // Remove by uniqueId to ensure only the specific detached device is removed
+                        _detectedDevices.value = _detectedDevices.value.filter { d ->
+                            d.uniqueId != detachedUniqueId
+                        }
+                        Timber.d("USB device removed from detected list (uniqueId: $detachedUniqueId)")
                     }
                 }
                 }
@@ -63,10 +84,20 @@ class UsbDeviceDetector @Inject constructor(
         }
     }
     
+    private var isReceiverRegistered = false
+    
     /**
      * Registers the BroadcastReceiver for automatic USB device detection.
+     * Note: The activity parameter is currently unused. The receiver is registered with
+     * Application context to persist across activity lifecycle. If you need activity-scoped
+     * registration, use activity.registerReceiver() instead.
      */
     fun registerReceiver(activity: Activity) {
+        if (isReceiverRegistered) {
+            Timber.w("USB BroadcastReceiver already registered, skipping")
+            return
+        }
+        
         try {
             Timber.d("Registering USB BroadcastReceiver...")
             val filter = IntentFilter().apply {
@@ -75,18 +106,22 @@ class UsbDeviceDetector @Inject constructor(
             }
             
             // For Android 13+ (API 33+), need to specify receiver export flag
+            // System USB broadcasts (ACTION_USB_DEVICE_ATTACHED/DETACHED) require RECEIVER_EXPORTED
+            // to receive broadcasts from the system
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                context.registerReceiver(broadcastReceiver, filter, Context.RECEIVER_EXPORTED)
             } else {
                 @Suppress("DEPRECATION")
                 context.registerReceiver(broadcastReceiver, filter)
             }
+            isReceiverRegistered = true
             Timber.d("USB BroadcastReceiver registered successfully")
             
             // Also enumerate currently connected devices
             enumerateCurrentDevices()
         } catch (e: Exception) {
             Timber.e(e, "Failed to register USB BroadcastReceiver")
+            isReceiverRegistered = false
         }
     }
     
@@ -94,14 +129,22 @@ class UsbDeviceDetector @Inject constructor(
      * Unregisters the BroadcastReceiver.
      */
     fun unregisterReceiver() {
+        if (!isReceiverRegistered) {
+            Timber.w("USB BroadcastReceiver was not registered, skipping unregister")
+            return
+        }
+        
         try {
             Timber.d("Unregistering USB BroadcastReceiver...")
             context.unregisterReceiver(broadcastReceiver)
+            isReceiverRegistered = false
             Timber.d("USB BroadcastReceiver unregistered successfully")
         } catch (e: IllegalArgumentException) {
-            Timber.w("USB BroadcastReceiver was not registered")
+            Timber.w(e, "USB BroadcastReceiver was not registered (IllegalArgumentException)")
+            isReceiverRegistered = false
         } catch (e: Exception) {
             Timber.e(e, "Error unregistering USB BroadcastReceiver")
+            // Don't update flag on unexpected exceptions - receiver state is unknown
         }
     }
     
@@ -274,6 +317,17 @@ class UsbDeviceDetector @Inject constructor(
                 device.vendorId, device.productId)
         }
         
+        // Generate unique identifier: use serialNumber if available, otherwise use deviceName/deviceId
+        val uniqueId = serialNumber ?: run {
+            // Use deviceName if available (contains bus/port info), otherwise fallback to deviceId
+            val deviceName = try {
+                device.deviceName
+            } catch (e: SecurityException) {
+                null
+            }
+            deviceName ?: "${device.vendorId}_${device.productId}_${device.deviceId}"
+        }
+        
         return UsbDeviceModel(
             vendorId = device.vendorId,
             productId = device.productId,
@@ -284,7 +338,8 @@ class UsbDeviceDetector @Inject constructor(
             manufacturer = manufacturer,
             product = product,
             version = device.version,
-            isMassStorage = isMassStorage
+            isMassStorage = isMassStorage,
+            uniqueId = uniqueId
         )
     }
 }

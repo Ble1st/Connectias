@@ -70,7 +70,7 @@ private fun FileItem(
         ) {
             Icon(
                 imageVector = if (file.isDirectory) Icons.Default.Folder else Icons.Default.InsertDriveFile,
-                contentDescription = null,
+                contentDescription = if (file.isDirectory) "Folder" else "File",
                 tint = MaterialTheme.colorScheme.primary
             )
             
@@ -95,6 +95,10 @@ private fun FileItem(
 }
 
 private fun formatFileSize(bytes: Long): String {
+    if (bytes < 0) {
+        return "0 bytes"
+    }
+    
     val kb = bytes / 1024.0
     val mb = kb / 1024.0
     val gb = mb / 1024.0

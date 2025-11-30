@@ -25,6 +25,7 @@ import com.ble1st.connectias.feature.usb.detection.UsbDeviceDetector
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import com.ble1st.connectias.feature.usb.permission.UsbPermissionManager
 import com.ble1st.connectias.feature.usb.provider.UsbProvider
+import com.ble1st.connectias.feature.usb.provider.UsbResult
 import com.ble1st.connectias.feature.usb.ui.components.UsbDeviceActionDialog
 import com.ble1st.connectias.feature.usb.ui.components.UsbDeviceList
 import com.ble1st.connectias.feature.usb.ui.components.UsbPermissionDialog
@@ -37,6 +38,7 @@ fun UsbDashboardScreen(
     permissionManager: UsbPermissionManager,
     deviceDetector: UsbDeviceDetector,
     onDeviceClick: (UsbDevice) -> Unit,
+    onOpenDvdDrive: (UsbDevice) -> Unit = onDeviceClick,
     modifier: Modifier = Modifier,
     activity: android.app.Activity? = null
 ) {
@@ -44,7 +46,7 @@ fun UsbDashboardScreen(
     var isLoading by remember { mutableStateOf(false) }
     var permissionRequest by remember { mutableStateOf<UsbDevice?>(null) }
     var actionDialogDevice by remember { mutableStateOf<UsbDevice?>(null) }
-    val previouslyGrantedDevices = remember { mutableStateOf<MutableSet<Pair<Int, Int>>>(mutableSetOf()) }
+    var previouslyGrantedDevices by remember { mutableStateOf<Set<Pair<Int, Int>>>(emptySet()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // Try to get activity from context if not provided
@@ -54,14 +56,15 @@ fun UsbDashboardScreen(
     
     // Automatische Erkennung via StateFlow
     val detectedDevices by deviceDetector.detectedDevices.collectAsState()
-    
     LaunchedEffect(detectedDevices) {
         Timber.d("Detected devices changed: ${detectedDevices.size} devices")
         // Merge detected devices with enumerated devices
         val allDevices = (devices + detectedDevices).distinctBy { "${it.vendorId}-${it.productId}" }
-        if (allDevices.size != devices.size) {
+        if (allDevices != devices) {
             Timber.d("Updating device list with ${allDevices.size} devices")
             devices = allDevices
+        }
+    }
         }
         
         // Check if permission was granted and refresh device info
@@ -72,9 +75,9 @@ fun UsbDashboardScreen(
                 deviceDetector.refreshDeviceInfo(device.vendorId, device.productId)
                 
                 // Show action dialog if permission was just granted (not previously shown)
-                if (!previouslyGrantedDevices.value.contains(deviceKey)) {
+                if (!previouslyGrantedDevices.contains(deviceKey)) {
                     Timber.d("Permission granted for new device, showing action dialog")
-                    previouslyGrantedDevices.value.add(deviceKey)
+                    previouslyGrantedDevices = previouslyGrantedDevices + deviceKey
                     actionDialogDevice = device
                 }
             }
@@ -86,20 +89,30 @@ fun UsbDashboardScreen(
         Timber.d("Starting initial USB device enumeration...")
         isLoading = true
         try {
-            devices = usbProvider.enumerateDevices()
-            Timber.i("Initial enumeration complete: ${devices.size} devices")
-            
-            // Check if any devices already have permission and show action dialog
-            devices.forEach { device ->
-                val deviceKey = Pair(device.vendorId, device.productId)
-                if (permissionManager.hasPermission(device) && !previouslyGrantedDevices.value.contains(deviceKey)) {
-                    Timber.d("Device already has permission, showing action dialog")
-                    previouslyGrantedDevices.value.add(deviceKey)
-                    actionDialogDevice = device
+            when (val result = usbProvider.enumerateDevices()) {
+                is UsbResult.Success -> {
+                    devices = result.data
+                    Timber.i("Initial enumeration complete: ${devices.size} devices")
+                    
+                    // Check if any devices already have permission and show action dialog
+                    // Only show dialog for the first permitted device to avoid multiple dialogs
+                    devices.forEach { device ->
+                        val deviceKey = Pair(device.vendorId, device.productId)
+                        if (actionDialogDevice == null && permissionManager.hasPermission(device) && !previouslyGrantedDevices.contains(deviceKey)) {
+                            Timber.d("Device already has permission, showing action dialog")
+                            previouslyGrantedDevices = previouslyGrantedDevices + deviceKey
+                            actionDialogDevice = device
+                        }
+                    }
+                }
+                is UsbResult.Failure -> {
+                    Timber.e(result.error, "Failed to enumerate USB devices")
+                    devices = emptyList()
                 }
             }
         } catch (e: Exception) {
             Timber.e(e, "Error during initial enumeration")
+            devices = emptyList()
         } finally {
             isLoading = false
         }
@@ -175,7 +188,7 @@ fun UsbDashboardScreen(
             onOpenDvdCd = {
                 Timber.d("User selected: Open DVD/CD Drive")
                 // Navigate to DVD/CD detail screen
-                onDeviceClick(device)
+                onOpenDvdDrive(device)
             }
         )
     }

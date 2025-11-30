@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- USB Device Filter for automatic detection -->
 <!-- This filter allows the app to be automatically launched when USB devices are attached -->
-<resources>
-    <!-- Mass Storage Class (DVD/CD drives) -->
+<usb-devices>
+    <!-- Mass Storage Class (class="8"): thumb drives, external HDD/SSD, card readers, optical drives -->
     <usb-device class="8" />
     
     <!-- All USB devices (optional, can be more specific) -->
     <!-- <usb-device /> -->
-</resources>
+</usb-devices>

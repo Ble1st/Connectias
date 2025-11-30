@@ -94,11 +94,11 @@ object ModuleCatalog {
         ),
         ModuleMetadata(
             id = "usb",
-            name = "USB & DVD/CD",
+            name = "USB Devices",
             version = "1.0.0",
             fragmentClassName = "com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment",
             category = ModuleCategory.UTILITY,
-            description = "USB device management and DVD/CD playback"
+            description = "USB device management and monitoring"
         )
     )
     

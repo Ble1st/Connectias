@@ -20,7 +20,7 @@ fun UtilitiesDashboardScreen(
     onNavigateToColor: () -> Unit,
     onNavigateToLog: () -> Unit,
     onNavigateToApiTester: () -> Unit,
-    onNavigateToUsb: () -> Unit = {}
+    onNavigateToUsbAndMedia: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -88,7 +88,7 @@ fun UtilitiesDashboardScreen(
             title = "USB & DVD/CD",
             description = "USB device management and DVD/CD playback",
             icon = Icons.Default.Usb,
-            onClick = onNavigateToUsb
+            onClick = onNavigateToUsbAndMedia
         )
         
         Spacer(modifier = Modifier.height(24.dp))

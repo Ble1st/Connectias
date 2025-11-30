@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.usb.models
 
+import android.hardware.usb.UsbDevice
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
@@ -20,7 +21,17 @@ data class OpticalDrive(
 enum class FileSystem {
     ISO9660,
     UDF,
-    UNKNOWN
+    UNKNOWN;
+    
+    /**
+     * Returns a user-friendly display name for the file system.
+     */
+    val displayName: String
+        get() = when (this) {
+            ISO9660 -> "ISO9660"
+            UDF -> "UDF"
+            UNKNOWN -> "Unknown"
+        }
 }
 
 /**
@@ -32,5 +43,18 @@ enum class DiscType {
     AUDIO_DVD,
     DATA_CD,
     AUDIO_CD,
-    UNKNOWN
+    UNKNOWN;
+    
+    /**
+     * Returns a user-friendly display name for the disc type.
+     */
+    val displayName: String
+        get() = when (this) {
+            DATA_DVD -> "DVD-ROM"
+            VIDEO_DVD -> "DVD-Video"
+            AUDIO_DVD -> "DVD-Audio"
+            DATA_CD -> "CD-ROM"
+            AUDIO_CD -> "Audio CD"
+            UNKNOWN -> "Unknown"
+        }
 }

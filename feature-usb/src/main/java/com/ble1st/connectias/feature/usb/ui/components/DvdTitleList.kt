@@ -3,10 +3,16 @@ package com.ble1st.connectias.feature.usb.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.semantics.Role
+import androidx.compose.foundation.semantics.contentDescription
+import androidx.compose.foundation.semantics.role
+import androidx.compose.foundation.semantics.semantics
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.DvdTitle
 
 @Composable
@@ -29,7 +35,7 @@ fun DvdTitleList(
                 horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "No titles found on DVD",
+                    text = stringResource(R.string.dvd_cd_no_titles),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -55,9 +61,17 @@ private fun DvdTitleCard(
     title: DvdTitle,
     onClick: () -> Unit
 ) {
+    val formattedDuration = formatDuration(title.duration)
+    val contentDescription = "Title ${title.number}, ${title.chapterCount} chapters, duration $formattedDuration"
+    
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .semantics {
+                role = Role.Button
+                this.contentDescription = contentDescription
+            }
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -68,7 +82,7 @@ private fun DvdTitleCard(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "${title.chapterCount} chapters • ${formatDuration(title.duration)}",
+                text = "${title.chapterCount} chapters • $formattedDuration",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -77,6 +91,7 @@ private fun DvdTitleCard(
 }
 
 private fun formatDuration(millis: Long): String {
+    if (millis < 0) return "0:00"
     val seconds = millis / 1000
     val minutes = seconds / 60
     val hours = minutes / 60

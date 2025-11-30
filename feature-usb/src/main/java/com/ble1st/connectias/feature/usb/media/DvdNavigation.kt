@@ -19,22 +19,42 @@ import javax.inject.Singleton
 class DvdNavigation @Inject constructor() {
     
     /**
-     * Navigates to a specific title.
+     * Navigates to a specific title and loads all chapters.
      */
     suspend fun navigateToTitle(dvdInfo: DvdInfo, titleNumber: Int): DvdTitle? = withContext(Dispatchers.IO) {
         try {
             Timber.d("Navigating to title $titleNumber")
             val titleNative = DvdNative.dvdReadTitle(dvdInfo.handle, titleNumber)
             val title = titleNative?.let {
+                // Load all chapters for this title
+                val chapters = mutableListOf<DvdChapter>()
+                for (chapterNum in 1..it.chapterCount) {
+                    try {
+                        val chapterNative = DvdNative.dvdReadChapter(dvdInfo.handle, titleNumber, chapterNum)
+                        chapterNative?.let { ch ->
+                            chapters.add(
+                                DvdChapter(
+                                    number = ch.number,
+                                    titleNumber = titleNumber,
+                                    startTime = ch.startTime,
+                                    duration = ch.duration
+                                )
+                            )
+                        }
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to load chapter $chapterNum for title $titleNumber")
+                        // Continue loading other chapters
+                    }
+                }
+                
                 DvdTitle(
                     number = it.number,
-                    chapterCount = it.chapterCount,
                     duration = it.duration,
-                    chapters = emptyList() // TODO: Load chapters
+                    chapters = chapters.toList() // Create immutable list
                 )
             }
             if (title != null) {
-                Timber.i("Title $titleNumber: ${title.chapterCount} chapters, duration=${title.duration}ms")
+                Timber.i("Title $titleNumber: ${title.chapters.size} chapters loaded, duration=${title.duration}ms")
             } else {
                 Timber.w("Title $titleNumber not found")
             }
@@ -67,7 +87,7 @@ class DvdNavigation @Inject constructor() {
             }
             chapter
         } catch (e: Exception) {
-            Timber.e(e, "Error navigating to chapter")
+            Timber.e(e, "Error navigating to chapter $chapterNumber in title $titleNumber")
             null
         }
     }

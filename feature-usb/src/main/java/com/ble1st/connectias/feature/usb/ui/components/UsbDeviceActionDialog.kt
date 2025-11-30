@@ -1,12 +1,27 @@
 package com.ble1st.connectias.feature.usb.ui.components
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.spacedBy
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 
 /**
@@ -24,7 +39,7 @@ fun UsbDeviceActionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("USB Device Connected")
+            Text(stringResource(R.string.usb_device_connected))
         },
         text = {
             Column(
@@ -45,14 +60,14 @@ fun UsbDeviceActionDialog(
                 
                 // Available actions
                 Text(
-                    text = "Available Actions:",
+                    text = stringResource(R.string.available_actions),
                     style = MaterialTheme.typography.labelLarge
                 )
                 
                 // Always show "View Details"
                 ActionButton(
                     icon = Icons.Default.Info,
-                    text = "View Device Details",
+                    text = stringResource(R.string.view_device_details),
                     onClick = {
                         onViewDetails()
                         onDismiss()
@@ -63,7 +78,7 @@ fun UsbDeviceActionDialog(
                 if (device.isMassStorage) {
                     ActionButton(
                         icon = Icons.Default.PlayArrow,
-                        text = "Open DVD/CD Drive",
+                        text = stringResource(R.string.open_dvd_drive),
                         onClick = {
                             onOpenDvdCd()
                             onDismiss()
@@ -74,7 +89,7 @@ fun UsbDeviceActionDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close")
+                Text(stringResource(R.string.close))
             }
         }
     )
@@ -82,7 +97,7 @@ fun UsbDeviceActionDialog(
 
 @Composable
 private fun ActionButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -93,11 +108,11 @@ private fun ActionButton(
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = null,
+                contentDescription = "",
                 modifier = Modifier.size(20.dp)
             )
             Text(text)

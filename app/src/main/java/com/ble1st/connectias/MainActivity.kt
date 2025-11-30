@@ -276,23 +276,46 @@ class MainActivity : AppCompatActivity() {
 
 
         // Handle navigation from intent extras (e.g., USB device attached)
-        val navigateTo = intent?.getStringExtra("navigate_to")
-        if (navigateTo != null) {
-            try {
-                val navId = resources.getIdentifier(navigateTo, "id", packageName)
-                if (navId != 0) {
-                    Timber.d("Navigating to: $navigateTo")
-                    navController.navigate(navId)
-                } else {
-                    Timber.w("Navigation destination not found: $navigateTo")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Error navigating to: $navigateTo")
-            }
-        }
+        handleNavigateIntent(intent)
 
         Timber.d("Navigation setup completed")
 
+    }
+    
+    /**
+     * Handles navigation from intent extras.
+     * Extracted to a separate method to be called from both setupNavigation() and onNewIntent().
+     */
+    private fun handleNavigateIntent(intent: Intent?) {
+        val navigateTo = intent?.getStringExtra("navigate_to") ?: return
+        
+        try {
+            val navController = findNavController(R.id.nav_host_fragment_content_main)
+            val navId = resources.getIdentifier(navigateTo, "id", packageName)
+            
+            if (navId == 0) {
+                Timber.w("Navigation destination not found: $navigateTo")
+                return
+            }
+            
+            Timber.d("Navigating to: $navigateTo")
+            navController.navigate(navId)
+            
+            // Consume the extra to prevent duplicate navigations
+            intent.removeExtra("navigate_to")
+        } catch (e: Exception) {
+            Timber.e(e, "Error navigating to: $navigateTo")
+        }
+    }
+    
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        
+        // Handle navigation from new intent (e.g., when activity is singleTop)
+        if (isMainUIInitialized) {
+            handleNavigateIntent(intent)
+        }
     }
 
 

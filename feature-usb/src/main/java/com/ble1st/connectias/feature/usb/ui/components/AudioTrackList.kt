@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.feature.usb.models.AudioTrack
@@ -28,7 +29,7 @@ fun AudioTrackList(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(24.dp),
-                horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     text = "No tracks found on Audio CD",
@@ -66,7 +67,7 @@ private fun AudioTrackCard(
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = Icons.Default.PlayArrow,
@@ -93,7 +94,15 @@ private fun AudioTrackCard(
 }
 
 private fun formatDuration(millis: Long): String {
-    val seconds = millis / 1000
-    val minutes = seconds / 60
-    return "%d:%02d".format(minutes, seconds % 60)
+    val totalSeconds = millis / 1000
+    val hours = totalSeconds / 3600
+    val remainingSeconds = totalSeconds % 3600
+    val minutes = remainingSeconds / 60
+    val seconds = remainingSeconds % 60
+    
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%d:%02d".format(minutes, seconds)
+    }
 }

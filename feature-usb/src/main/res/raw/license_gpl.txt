@@ -2,11 +2,27 @@ GNU GENERAL PUBLIC LICENSE
 
 This software uses libraries licensed under the GNU General Public License (GPL):
 
-- libdvdread (GPL)
-- libdvdnav (GPL)
-- libdvdcss (GPL, optional)
+- libdvdread (GPL v2+)
+- libdvdnav (GPL v2+)
+- libdvdcss (GPL v2/v2+, optional)
 
-When these libraries are used, the entire application must be licensed under GPL.
-Source code must be made available.
+IMPORTANT NOTES:
 
-For full GPL license text, see: https://www.gnu.org/licenses/gpl-3.0.html
+1. Optional Component (libdvdcss):
+   libdvdcss is an OPTIONAL component that is only included when explicitly enabled/linked
+   at build or package time. GPL obligations apply ONLY when this library is actually
+   bundled with the application.
+
+2. Legal Caution:
+   libdvdcss may implicate anti-circumvention/regulatory issues in some jurisdictions
+   (e.g., DMCA in the USA, EU Copyright Directive). Legal review is required before
+   distribution. The use of libdvdcss may be subject to legal restrictions depending on
+   your jurisdiction.
+
+3. GPL Compliance:
+   When these libraries are used, the entire application must be licensed under GPL.
+   Source code must be made available to users in accordance with GPL requirements.
+
+For full GPL license text, see:
+- GPL v2: https://www.gnu.org/licenses/gpl-2.0.html
+- GPL v3: https://www.gnu.org/licenses/gpl-3.0.html

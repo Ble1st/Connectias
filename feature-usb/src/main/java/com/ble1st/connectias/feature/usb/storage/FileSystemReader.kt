@@ -10,12 +10,14 @@ import javax.inject.Singleton
 
 /**
  * Reads file system information from mounted optical drives.
+ * Uses OS-level file system queries via /proc/mounts for reliable detection.
  */
 @Singleton
 class FileSystemReader @Inject constructor() {
     
     /**
      * Detects the file system type of a mounted drive.
+     * Uses /proc/mounts to query the actual file system type from the OS.
      */
     suspend fun detectFileSystem(mountPoint: String): FileSystem = withContext(Dispatchers.IO) {
         try {
@@ -27,19 +29,14 @@ class FileSystemReader @Inject constructor() {
                 return@withContext FileSystem.UNKNOWN
             }
             
-            // Check for ISO9660 indicators
-            if (hasIso9660Indicators(rootDir)) {
-                Timber.d("File system detected as ISO9660")
-                return@withContext FileSystem.ISO9660
+            // Query file system type from /proc/mounts
+            val fileSystemType = getFileSystemFromMounts(mountPoint)
+            if (fileSystemType != FileSystem.UNKNOWN) {
+                Timber.d("File system detected as $fileSystemType from /proc/mounts")
+                return@withContext fileSystemType
             }
             
-            // Check for UDF indicators
-            if (hasUdfIndicators(rootDir)) {
-                Timber.d("File system detected as UDF")
-                return@withContext FileSystem.UDF
-            }
-            
-            Timber.d("File system type could not be determined, defaulting to UNKNOWN")
+            Timber.d("File system type could not be determined from /proc/mounts, defaulting to UNKNOWN")
             FileSystem.UNKNOWN
         } catch (e: Exception) {
             Timber.e(e, "Error detecting file system")
@@ -78,26 +75,55 @@ class FileSystemReader @Inject constructor() {
         }
     }
     
-    private fun hasIso9660Indicators(dir: File): Boolean {
-        // ISO9660 typically has specific directory structure
-        // Check for common ISO9660 characteristics
+    /**
+     * Reads file system type from /proc/mounts.
+     * Format: device mount_point file_system_type options dump pass
+     * Example: /dev/sr0 /media/cdrom iso9660 ro,noexec,nosuid,nodev 0 0
+     * 
+     * @param mountPoint The mount point path to look up
+     * @return The detected FileSystem type, or UNKNOWN if not found or not recognized
+     */
+    private fun getFileSystemFromMounts(mountPoint: String): FileSystem {
         return try {
-            val files = dir.listFiles()
-            files != null && files.isNotEmpty()
+            val mountsFile = File("/proc/mounts")
+            if (!mountsFile.exists() || !mountsFile.canRead()) {
+                Timber.w("Cannot read /proc/mounts")
+                return FileSystem.UNKNOWN
+            }
+            
+            // Normalize mount point path (handle trailing slashes)
+            val normalizedMountPoint = mountPoint.trimEnd('/')
+            
+            mountsFile.readLines().forEach { line ->
+                val parts = line.split("\\s+".toRegex())
+                // Format: device mount_point file_system_type options dump pass
+                // Need at least 3 fields: device, mount_point, file_system_type
+                if (parts.size >= 3) {
+                    val lineMountPoint = parts[1]
+                    val fileSystemType = parts[2]
+                    
+                    // Check if mount point matches (handle both with and without trailing slash)
+                    if (lineMountPoint == normalizedMountPoint || 
+                        lineMountPoint == "$normalizedMountPoint/" ||
+                        "$lineMountPoint/" == normalizedMountPoint) {
+                        Timber.d("Found mount entry: device=${parts[0]}, mount=$lineMountPoint, fs=$fileSystemType")
+                        return when (fileSystemType.lowercase()) {
+                            "iso9660" -> FileSystem.ISO9660
+                            "udf" -> FileSystem.UDF
+                            else -> {
+                                Timber.d("Unrecognized file system type: $fileSystemType")
+                                FileSystem.UNKNOWN
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Timber.d("Mount point not found in /proc/mounts: $mountPoint")
+            FileSystem.UNKNOWN
         } catch (e: Exception) {
-            false
-        }
-    }
-    
-    private fun hasUdfIndicators(dir: File): Boolean {
-        // UDF (Universal Disk Format) used for DVDs
-        // Check for VIDEO_TS or AUDIO_TS directories (DVD indicators)
-        return try {
-            val videoTs = File(dir, "VIDEO_TS")
-            val audioTs = File(dir, "AUDIO_TS")
-            videoTs.exists() || audioTs.exists()
-        } catch (e: Exception) {
-            false
+            Timber.e(e, "Error reading /proc/mounts")
+            FileSystem.UNKNOWN
         }
     }
 }

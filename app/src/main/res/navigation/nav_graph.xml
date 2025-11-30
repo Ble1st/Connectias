@@ -233,12 +233,12 @@
     <fragment
         android:id="@+id/nav_dvd_cd_detail"
         android:name="com.ble1st.connectias.feature.usb.ui.DvdCdDetailFragment"
-        android:label="DVD/CD Details" />
+        android:label="@string/nav_dvd_cd_detail" />
 
     <fragment
         android:id="@+id/nav_dvd_player"
         android:name="com.ble1st.connectias.feature.usb.ui.DvdPlayerFragment"
-        android:label="DVD Player" />
+        android:label="@string/nav_dvd_player" />
 
 </navigation>
 

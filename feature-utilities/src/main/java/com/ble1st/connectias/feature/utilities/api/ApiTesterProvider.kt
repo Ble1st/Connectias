@@ -168,8 +168,14 @@ class ApiTesterProvider @Inject constructor(
             }
             
             // Block localhost variants
-            if (host in listOf("localhost", "127.0.0.1", "0.0.0.0", "::1")) {
+            if (host == "localhost" || host.startsWith("127.") || host == "0.0.0.0" || host == "::1") {
                 Timber.w("Blocked localhost: $host")
+                return null
+            }
+            
+            // Block link-local addresses
+            if (host.startsWith("169.254.")) {
+                Timber.w("Blocked link-local IP: $host")
                 return null
             }
             

@@ -36,7 +36,7 @@ class UtilitiesDashboardFragment : Fragment() {
                         onNavigateToColor = { navigateTo("nav_color_tool") },
                         onNavigateToLog = { navigateTo("nav_log_viewer") },
                         onNavigateToApiTester = { navigateTo("nav_api_tester") },
-                        onNavigateToUsb = { navigateTo("nav_usb_dashboard") }
+                        onNavigateToUsbAndMedia = { navigateTo("nav_usb_dashboard") }
                     )
                 }
             }

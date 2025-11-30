@@ -60,14 +60,6 @@ android {
             version = "3.22.1"
         }
     }
-    
-    defaultConfig {
-        externalNativeBuild {
-            cmake {
-                arguments.add("-DENABLE_DVD_CSS=${project.findProperty("feature.usb.dvd.css.enabled") ?: "OFF"}")
-            }
-        }
-    }
 }
 
 dependencies {
@@ -107,15 +99,14 @@ dependencies {
 
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
-    implementation(libs.kotlinx.coroutines.core)
 
     // BouncyCastle für OpenSSL-Kompatibilität
     implementation(libs.bouncycastle.bcprov)
     implementation(libs.bouncycastle.bcpkix)
 
     // Media Player (für Audio-CD und Video-DVD)
-    implementation("androidx.media3:media3-exoplayer:1.2.0")
-    implementation("androidx.media3:media3-ui:1.2.0")
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
 
     // Logging
     implementation(libs.timber)

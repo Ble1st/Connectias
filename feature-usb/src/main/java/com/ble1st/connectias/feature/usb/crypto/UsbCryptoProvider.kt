@@ -90,6 +90,9 @@ class UsbCryptoProvider @Inject constructor() {
      * Creates a SecretKey from raw bytes.
      */
     fun createKey(keyBytes: ByteArray): SecretKey {
+        require(keyBytes.size == 32) { 
+            "Key must be 256 bits (32 bytes), got ${keyBytes.size} bytes" 
+        }
         return SecretKeySpec(keyBytes, "AES")
     }
 }

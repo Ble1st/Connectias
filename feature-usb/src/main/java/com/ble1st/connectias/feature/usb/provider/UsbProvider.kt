@@ -2,12 +2,22 @@ package com.ble1st.connectias.feature.usb.provider
 
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import com.ble1st.connectias.feature.usb.models.UsbTransfer
+import com.ble1st.connectias.feature.usb.native.UsbClass
+import com.ble1st.connectias.feature.usb.native.UsbError
 import com.ble1st.connectias.feature.usb.native.UsbNative
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * Result type for USB operations that can fail.
+ */
+sealed class UsbResult<out T> {
+    data class Success<T>(val data: T) : UsbResult<T>()
+    data class Failure(val error: Throwable) : UsbResult<Nothing>()
+}
 
 /**
  * Provider for USB device operations.
@@ -17,25 +27,29 @@ class UsbProvider @Inject constructor() {
     
     /**
      * Enumerates all connected USB devices.
+     * @return Result containing list of devices or error
      */
-    suspend fun enumerateDevices(): List<UsbDevice> = withContext(Dispatchers.IO) {
+    suspend fun enumerateDevices(): UsbResult<List<UsbDevice>> = withContext(Dispatchers.IO) {
         try {
             Timber.d("Starting USB device enumeration...")
             val nativeDevices = UsbNative.enumerateDevices().toList()
             Timber.d("Native enumeration returned ${nativeDevices.size} devices")
             
-            val devices = nativeDevices.map { native ->
+            val devices = nativeDevices.mapIndexed { index, native ->
+                // Create unique identifier: serialNumber if available, otherwise use index + vendor/product
+                val uniqueId = native.serialNumber ?: "${native.vendorId}_${native.productId}_$index"
+                
                 UsbDevice(
                     vendorId = native.vendorId,
                     productId = native.productId,
-                    deviceClass = native.deviceClass,
-                    deviceSubclass = 0,
-                    deviceProtocol = 0,
+                    deviceClass = native.deviceClass.value,
+                    deviceSubclass = 0, // Not available from native layer
+                    deviceProtocol = 0, // Not available from native layer
                     serialNumber = native.serialNumber,
                     manufacturer = native.manufacturer,
                     product = native.product,
-                    version = null,
-                    isMassStorage = native.deviceClass == UsbDevice.USB_CLASS_MASS_STORAGE
+                    version = null, // Not available from native layer
+                    uniqueId = uniqueId
                 )
             }
             
@@ -45,21 +59,32 @@ class UsbProvider @Inject constructor() {
                     device.vendorId, device.productId, device.deviceClass, device.isMassStorage)
             }
             
-            devices
+            UsbResult.Success(devices)
         } catch (e: Exception) {
             Timber.e(e, "Failed to enumerate USB devices")
-            emptyList()
+            UsbResult.Failure(e)
         }
     }
     
     /**
      * Opens a USB device.
+     * Note: This method uses only vendorId and productId, which may not uniquely identify
+     * multiple identical devices. Consider using a unique device identifier (e.g., serialNumber
+     * or bus/port combination) when available.
+     * 
+     * @param device USB device to open
+     * @return Device handle, or -1 on error
      */
     suspend fun openDevice(device: UsbDevice): Long = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Opening USB device: Vendor=0x%04X, Product=0x%04X", device.vendorId, device.productId)
+            Timber.d("Opening USB device: Vendor=0x%04X, Product=0x%04X, Serial=${device.serialNumber}", 
+                device.vendorId, device.productId)
             val handle = UsbNative.openDevice(device.vendorId, device.productId)
-            Timber.i("USB device opened successfully, handle: $handle")
+            if (handle >= 0) {
+                Timber.i("USB device opened successfully, handle: $handle")
+            } else {
+                Timber.w("Failed to open USB device, handle: $handle")
+            }
             handle
         } catch (e: Exception) {
             Timber.e(e, "Failed to open USB device")
@@ -82,27 +107,65 @@ class UsbProvider @Inject constructor() {
     
     /**
      * Performs a bulk transfer.
+     * For IN (read) transfers, returns only the bytes actually read.
+     * For OUT (write) transfers, returns the original data buffer.
      */
     suspend fun bulkTransfer(handle: Long, endpoint: Int, data: ByteArray): UsbTransfer = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Bulk transfer: handle=$handle, endpoint=0x%02X, length=${data.size}")
+            val isInEndpoint = (endpoint and 0x80) != 0
+            Timber.d("Bulk transfer: handle=$handle, endpoint=0x%02X, length=${data.size}, direction=${if (isInEndpoint) "IN" else "OUT"}")
+            
             val bytesTransferred = UsbNative.bulkTransfer(handle, endpoint, data)
-            Timber.d("Bulk transfer complete: $bytesTransferred bytes")
+            
+            val resultData: ByteArray
+            val status: UsbTransfer.TransferStatus
+            
+            when {
+                bytesTransferred < 0 -> {
+                    // Error occurred
+                    val errorMsg = UsbError.errorCodeToString(bytesTransferred)
+                    Timber.e("Bulk transfer failed: $errorMsg (code: $bytesTransferred)")
+                    resultData = if (isInEndpoint) ByteArray(0) else data
+                    status = when (bytesTransferred) {
+                        UsbError.ERROR_TIMEOUT -> UsbTransfer.TransferStatus.TIMEOUT
+                        UsbError.ERROR_NO_DEVICE -> UsbTransfer.TransferStatus.NO_DEVICE
+                        else -> UsbTransfer.TransferStatus.ERROR
+                    }
+                }
+                bytesTransferred == 0 -> {
+                    // Zero-length transfer (may be valid for some operations)
+                    resultData = if (isInEndpoint) ByteArray(0) else data
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Bulk transfer complete: 0 bytes (zero-length transfer)")
+                }
+                isInEndpoint -> {
+                    // IN transfer: return only the bytes actually read
+                    resultData = data.copyOf(bytesTransferred)
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Bulk transfer complete: $bytesTransferred bytes read")
+                }
+                else -> {
+                    // OUT transfer: return original buffer
+                    resultData = data
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Bulk transfer complete: $bytesTransferred bytes written")
+                }
+            }
             
             UsbTransfer(
                 type = UsbTransfer.TransferType.BULK,
                 endpoint = endpoint,
-                data = data,
+                data = resultData,
                 bytesTransferred = bytesTransferred,
-                status = if (bytesTransferred >= 0) UsbTransfer.TransferStatus.SUCCESS else UsbTransfer.TransferStatus.ERROR
+                status = status
             )
         } catch (e: Exception) {
-            Timber.e(e, "Bulk transfer failed")
+            Timber.e(e, "Bulk transfer failed with exception")
             UsbTransfer(
                 type = UsbTransfer.TransferType.BULK,
                 endpoint = endpoint,
                 data = data,
-                bytesTransferred = 0,
+                bytesTransferred = -1,
                 status = UsbTransfer.TransferStatus.ERROR
             )
         }
@@ -110,27 +173,72 @@ class UsbProvider @Inject constructor() {
     
     /**
      * Performs an interrupt transfer.
+     * For IN (read) transfers, returns only the bytes actually read.
+     * For OUT (write) transfers, returns the original data buffer.
+     * 
+     * @param timeoutMs Timeout in milliseconds (default: 5000ms)
      */
-    suspend fun interruptTransfer(handle: Long, endpoint: Int, data: ByteArray): UsbTransfer = withContext(Dispatchers.IO) {
+    suspend fun interruptTransfer(
+        handle: Long, 
+        endpoint: Int, 
+        data: ByteArray,
+        timeoutMs: Int = 5000
+    ): UsbTransfer = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Interrupt transfer: handle=$handle, endpoint=0x%02X, length=${data.size}")
-            val bytesTransferred = UsbNative.interruptTransfer(handle, endpoint, data)
-            Timber.d("Interrupt transfer complete: $bytesTransferred bytes")
+            val isInEndpoint = (endpoint and 0x80) != 0
+            Timber.d("Interrupt transfer: handle=$handle, endpoint=0x%02X, length=${data.size}, timeout=${timeoutMs}ms, direction=${if (isInEndpoint) "IN" else "OUT"}")
+            
+            val bytesTransferred = UsbNative.interruptTransfer(handle, endpoint, data, timeoutMs)
+            
+            val resultData: ByteArray
+            val status: UsbTransfer.TransferStatus
+            
+            when {
+                bytesTransferred < 0 -> {
+                    // Error occurred
+                    val errorMsg = UsbError.errorCodeToString(bytesTransferred)
+                    Timber.e("Interrupt transfer failed: $errorMsg (code: $bytesTransferred), bytesTransferred=$bytesTransferred")
+                    resultData = if (isInEndpoint) ByteArray(0) else data
+                    status = when (bytesTransferred) {
+                        UsbError.ERROR_TIMEOUT -> UsbTransfer.TransferStatus.TIMEOUT
+                        UsbError.ERROR_NO_DEVICE -> UsbTransfer.TransferStatus.NO_DEVICE
+                        else -> UsbTransfer.TransferStatus.ERROR
+                    }
+                }
+                bytesTransferred == 0 -> {
+                    // Zero-length transfer
+                    resultData = if (isInEndpoint) ByteArray(0) else data
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Interrupt transfer complete: 0 bytes (zero-length transfer)")
+                }
+                isInEndpoint -> {
+                    // IN transfer: return only the bytes actually read
+                    resultData = data.copyOf(bytesTransferred)
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Interrupt transfer complete: $bytesTransferred bytes read")
+                }
+                else -> {
+                    // OUT transfer: return original buffer
+                    resultData = data
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Interrupt transfer complete: $bytesTransferred bytes written")
+                }
+            }
             
             UsbTransfer(
                 type = UsbTransfer.TransferType.INTERRUPT,
                 endpoint = endpoint,
-                data = data,
+                data = resultData,
                 bytesTransferred = bytesTransferred,
-                status = if (bytesTransferred >= 0) UsbTransfer.TransferStatus.SUCCESS else UsbTransfer.TransferStatus.ERROR
+                status = status
             )
         } catch (e: Exception) {
-            Timber.e(e, "Interrupt transfer failed")
+            Timber.e(e, "Interrupt transfer failed with exception")
             UsbTransfer(
                 type = UsbTransfer.TransferType.INTERRUPT,
                 endpoint = endpoint,
                 data = data,
-                bytesTransferred = 0,
+                bytesTransferred = -1,
                 status = UsbTransfer.TransferStatus.ERROR
             )
         }
@@ -138,6 +246,8 @@ class UsbProvider @Inject constructor() {
     
     /**
      * Performs a control transfer.
+     * For IN (read) transfers, returns only the bytes actually read.
+     * For OUT (write) transfers or no-data transfers, returns the original data buffer or empty array.
      */
     suspend fun controlTransfer(
         handle: Long,
@@ -145,27 +255,64 @@ class UsbProvider @Inject constructor() {
         request: Int,
         value: Int,
         index: Int,
-        data: ByteArray?
+        data: ByteArray?,
+        timeoutMs: Int = 5000
     ): UsbTransfer = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Control transfer: handle=$handle, requestType=0x%02X, request=0x%02X", requestType, request)
-            val bytesTransferred = UsbNative.controlTransfer(handle, requestType, request, value, index, data)
-            Timber.d("Control transfer complete: $bytesTransferred bytes")
+            val isInRequest = (requestType and 0x80) != 0
+            Timber.d("Control transfer: handle=$handle, requestType=0x%02X, request=0x%02X, direction=${if (isInRequest) "IN" else "OUT"}", requestType, request)
+            
+            val bytesTransferred = UsbNative.controlTransfer(handle, requestType, request, value, index, data, timeoutMs)
+            
+            val resultData: ByteArray
+            val status: UsbTransfer.TransferStatus
+            
+            when {
+                bytesTransferred < 0 -> {
+                    // Error occurred
+                    val errorMsg = UsbError.errorCodeToString(bytesTransferred)
+                    Timber.e("Control transfer failed: $errorMsg (code: $bytesTransferred)")
+                    resultData = data?.copyOf(0) ?: ByteArray(0)
+                    status = when (bytesTransferred) {
+                        UsbError.ERROR_TIMEOUT -> UsbTransfer.TransferStatus.TIMEOUT
+                        UsbError.ERROR_NO_DEVICE -> UsbTransfer.TransferStatus.NO_DEVICE
+                        else -> UsbTransfer.TransferStatus.ERROR
+                    }
+                }
+                bytesTransferred == 0 -> {
+                    // Zero-length transfer (valid for no-data or zero-length data transfers)
+                    resultData = data ?: ByteArray(0)
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Control transfer complete: 0 bytes")
+                }
+                isInRequest && data != null -> {
+                    // IN transfer: return only the bytes actually read
+                    resultData = data.copyOf(bytesTransferred)
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Control transfer complete: $bytesTransferred bytes read")
+                }
+                else -> {
+                    // OUT transfer or no-data transfer: return original buffer
+                    resultData = data ?: ByteArray(0)
+                    status = UsbTransfer.TransferStatus.SUCCESS
+                    Timber.d("Control transfer complete: $bytesTransferred bytes")
+                }
+            }
             
             UsbTransfer(
                 type = UsbTransfer.TransferType.CONTROL,
                 endpoint = 0,
-                data = data ?: ByteArray(0),
+                data = resultData,
                 bytesTransferred = bytesTransferred,
-                status = if (bytesTransferred >= 0) UsbTransfer.TransferStatus.SUCCESS else UsbTransfer.TransferStatus.ERROR
+                status = status
             )
         } catch (e: Exception) {
-            Timber.e(e, "Control transfer failed")
+            Timber.e(e, "Control transfer failed with exception")
             UsbTransfer(
                 type = UsbTransfer.TransferType.CONTROL,
                 endpoint = 0,
                 data = data ?: ByteArray(0),
-                bytesTransferred = 0,
+                bytesTransferred = -1,
                 status = UsbTransfer.TransferStatus.ERROR
             )
         }

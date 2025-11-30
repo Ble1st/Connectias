@@ -4,8 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.feature.usb.models.DiscType
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
 
 @Composable
@@ -19,15 +20,15 @@ fun DiscInfoCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Disc Information",
+                text = stringResource(R.string.disc_information_title),
                 style = MaterialTheme.typography.titleMedium
             )
             
-            InfoRow("Type", drive.type.name)
-            InfoRow("File System", drive.fileSystem.name)
-            InfoRow("Mount Point", drive.mountPoint)
-            InfoRow("Vendor ID", "0x%04X".format(drive.device.vendorId))
-            InfoRow("Product ID", "0x%04X".format(drive.device.productId))
+            InfoRow(stringResource(R.string.disc_info_type), drive.type.displayName)
+            InfoRow(stringResource(R.string.disc_info_file_system), drive.fileSystem.displayName)
+            InfoRow(stringResource(R.string.disc_info_mount_point), drive.mountPoint)
+            InfoRow(stringResource(R.string.disc_info_vendor_id), "0x%04X".format(drive.device.vendorId))
+            InfoRow(stringResource(R.string.disc_info_product_id), "0x%04X".format(drive.device.productId))
         }
     }
 }

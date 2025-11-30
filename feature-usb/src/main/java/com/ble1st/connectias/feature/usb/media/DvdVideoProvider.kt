@@ -27,10 +27,11 @@ class DvdVideoProvider @Inject constructor(
      * Opens a Video DVD.
      */
     suspend fun openDvd(drive: OpticalDrive): DvdInfo = withContext(Dispatchers.IO) {
+        var handle: Long? = null
         try {
             Timber.d("Opening DVD at mount point: ${drive.mountPoint}")
             
-            val handle = DvdNative.dvdOpen(drive.mountPoint)
+            handle = DvdNative.dvdOpen(drive.mountPoint)
             Timber.d("DVD opened successfully, handle: $handle")
             
             val titleCount = DvdNative.dvdGetTitleCount(handle)
@@ -54,17 +55,20 @@ class DvdVideoProvider @Inject constructor(
                                     duration = chapterNative.duration
                                 )
                             )
+                        } else {
+                            Timber.w("Failed to read chapter $chapterNumber for title $titleNumber (handle: $handle)")
                         }
                     }
                     
                     val title = DvdTitle(
                         number = titleNative.number,
-                        chapterCount = titleNative.chapterCount,
                         duration = titleNative.duration,
-                        chapters = chapters
+                        chapters = chapters.toList() // Create immutable list
                     )
                     titles.add(title)
                     Timber.d("Title $titleNumber: ${title.chapterCount} chapters, duration=${title.duration}ms")
+                } else {
+                    Timber.w("Failed to read title $titleNumber (handle: $handle)")
                 }
             }
             
@@ -77,6 +81,13 @@ class DvdVideoProvider @Inject constructor(
             )
         } catch (e: Exception) {
             Timber.e(e, "Failed to open DVD at ${drive.mountPoint}")
+            handle?.let { 
+                try {
+                    DvdNative.dvdClose(it)
+                } catch (closeException: Exception) {
+                    Timber.e(closeException, "Failed to close DVD handle during error cleanup")
+                }
+            }
             throw e
         }
     }
@@ -96,6 +107,47 @@ class DvdVideoProvider @Inject constructor(
         Timber.d("Title found: ${title.chapters.size} chapters")
         
         // CSS-Decryption falls aktiviert
+        performCssDecryption(dvdInfo, titleNumber)
+        
+        // Validate chapters before accessing
+        if (title.chapters.isEmpty()) {
+            Timber.e("Title $titleNumber has no chapters - cannot play")
+            throw IllegalStateException("Title has no chapters")
+        }
+        
+        // FFmpeg für Video-Decodierung verwenden
+        Timber.d("Extracting video stream with FFmpeg...")
+        val videoStreamNative = DvdNative.dvdExtractVideoStream(
+            dvdInfo.handle,
+            titleNumber,
+            title.chapters.first().number
+        )
+        
+        if (videoStreamNative == null) {
+            Timber.e("Failed to extract video stream")
+            throw IllegalStateException("Video stream extraction failed")
+        }
+        
+        Timber.i("Video stream extracted successfully: ${videoStreamNative.codec}, ${videoStreamNative.width}x${videoStreamNative.height}")
+        
+        // Generate URI for video playback
+        // Using content:// URI scheme for local file access
+        val uri = generateVideoUri(dvdInfo, titleNumber, title.chapters.first().number)
+        
+        VideoStream(
+            codec = videoStreamNative.codec,
+            width = videoStreamNative.width,
+            height = videoStreamNative.height,
+            bitrate = videoStreamNative.bitrate,
+            frameRate = videoStreamNative.frameRate,
+            uri = uri
+        )
+    }
+    
+    /**
+     * Performs CSS decryption for a DVD title if enabled.
+     */
+    private suspend fun performCssDecryption(dvdInfo: DvdInfo, titleNumber: Int) {
         val cssEnabled = dvdSettings.isCssDecryptionEnabled()
         Timber.d("CSS decryption enabled: $cssEnabled")
         
@@ -116,30 +168,18 @@ class DvdVideoProvider @Inject constructor(
         } else {
             Timber.w("CSS decryption requested but library not available")
         }
-        
-        // FFmpeg für Video-Decodierung verwenden
-        Timber.d("Extracting video stream with FFmpeg...")
-        val videoStreamNative = DvdNative.dvdExtractVideoStream(
-            dvdInfo.handle,
-            titleNumber,
-            title.chapters.first().number
-        )
-        
-        if (videoStreamNative == null) {
-            Timber.e("Failed to extract video stream")
-            throw IllegalStateException("Video stream extraction failed")
-        }
-        
-        Timber.i("Video stream extracted successfully: ${videoStreamNative.codec}, ${videoStreamNative.width}x${videoStreamNative.height}")
-        
-        VideoStream(
-            codec = videoStreamNative.codec,
-            width = videoStreamNative.width,
-            height = videoStreamNative.height,
-            bitrate = videoStreamNative.bitrate,
-            frameRate = videoStreamNative.frameRate,
-            uri = null // TODO: Generate URI for video stream
-        )
+    }
+    
+    /**
+     * Generates a URI for video playback.
+     * Creates a content:// URI pointing to the DVD video stream.
+     */
+    private fun generateVideoUri(dvdInfo: DvdInfo, titleNumber: Int, chapterNumber: Int): String {
+        // Generate URI using content:// scheme for local file access
+        // Format: content://dvd/video/{mountPoint}/{titleNumber}/{chapterNumber}
+        // This URI will be handled by a ContentProvider that streams the DVD video data
+        val mountPointEncoded = dvdInfo.mountPoint.replace("/", "_")
+        return "content://com.ble1st.connectias.dvd/video/$mountPointEncoded/$titleNumber/$chapterNumber"
     }
     
     /**

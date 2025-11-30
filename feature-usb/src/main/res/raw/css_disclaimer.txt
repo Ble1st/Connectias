@@ -5,6 +5,16 @@ Die CSS-Decryption-Funktion (libdvdcss) ermöglicht das Umgehen von Kopierschutz
 RECHTSWIDRIGKEIT:
 Die Verwendung dieser Funktion kann in verschiedenen Jurisdiktionen rechtswidrig sein, insbesondere unter dem Digital Millennium Copyright Act (DMCA) in den USA und ähnlichen Gesetzen in anderen Ländern.
 
+GEOGRAFISCHER GELTUNGSBEREICH:
+Dieser Haftungsausschluss gilt weltweit, wobei die spezifischen Gesetze je nach Jurisdiktion variieren. Wichtige Jurisdiktionen mit relevanten Gesetzen umfassen:
+- USA: Digital Millennium Copyright Act (DMCA)
+- EU-Mitgliedstaaten: EU Copyright Directive und nationale Umsetzungen
+- Vereinigtes Königreich: Copyright, Designs and Patents Act
+- Kanada: Copyright Act
+- Australien: Copyright Act
+
+Dieser Haftungsausschluss ist nicht vollständig und erfasst nicht alle möglichen Jurisdiktionen. Die Gesetze können sich ändern und variieren je nach Land.
+
 HAFTUNGSAUSSCHLUSS:
 - Der Entwickler dieser Software übernimmt KEINE Haftung für die Verwendung dieser Funktion
 - Der Nutzer ist vollständig selbst für die rechtmäßige Verwendung verantwortlich

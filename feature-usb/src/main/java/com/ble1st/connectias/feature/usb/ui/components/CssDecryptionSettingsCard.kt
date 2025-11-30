@@ -1,11 +1,15 @@
 package com.ble1st.connectias.feature.usb.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import timber.log.Timber
 
@@ -15,8 +19,18 @@ fun CssDecryptionSettingsCard(
     disclaimerText: String,
     modifier: Modifier = Modifier
 ) {
-    var cssEnabled by remember { mutableStateOf(dvdSettings.isCssDecryptionEnabled()) }
+    // Read initial state and sync with external changes
+    val initialCssEnabled = remember(dvdSettings) { dvdSettings.isCssDecryptionEnabled() }
+    var cssEnabled by remember { mutableStateOf(initialCssEnabled) }
     var showDisclaimer by remember { mutableStateOf(false) }
+    
+    // Sync with external changes to DvdSettings
+    LaunchedEffect(dvdSettings) {
+        val currentEnabled = dvdSettings.isCssDecryptionEnabled()
+        if (currentEnabled != cssEnabled) {
+            cssEnabled = currentEnabled
+        }
+    }
     
     if (showDisclaimer) {
         CssDecryptionDisclaimerDialog(
@@ -36,15 +50,14 @@ fun CssDecryptionSettingsCard(
     Card(modifier = modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "CSS-Decryption",
+                text = stringResource(R.string.css_decryption_title),
                 style = MaterialTheme.typography.titleMedium
             )
             
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Ermöglicht Wiedergabe von kopiergeschützten DVDs. " +
-                       "Rechtlich problematisch - siehe Haftungsausschluss.",
+                text = stringResource(R.string.css_decryption_description),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -56,7 +69,7 @@ fun CssDecryptionSettingsCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Aktiviert")
+                Text(stringResource(R.string.css_decryption_enabled))
                 
                 Switch(
                     checked = cssEnabled,
@@ -65,7 +78,9 @@ fun CssDecryptionSettingsCard(
                             Timber.d("User attempted to enable CSS decryption - showing disclaimer")
                             showDisclaimer = true
                         } else {
-                            dvdSettings.setCssDecryptionEnabled(enabled, dvdSettings.isDisclaimerAccepted())
+                            // When disabling, disclaimer state doesn't matter
+                            // When enabling here, disclaimer is already accepted
+                            dvdSettings.setCssDecryptionEnabled(enabled, enabled && dvdSettings.isDisclaimerAccepted())
                             cssEnabled = enabled
                         }
                     }
@@ -74,11 +89,22 @@ fun CssDecryptionSettingsCard(
             
             if (cssEnabled) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "⚠️ CSS-Decryption ist aktiviert. Sie haften für die rechtmäßige Nutzung.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = stringResource(R.string.css_decryption_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }

@@ -4,10 +4,9 @@
     <!-- USB Host Feature -->
     <uses-feature android:name="android.hardware.usb.host" />
     
-    <!-- USB Permission -->
-    <uses-permission android:name="android.permission.USB_PERMISSION" />
+
     
-    <!-- Optional: Device Filter für automatische Erkennung beim App-Start -->
+    <!-- Optional: Device filter for automatic detection on app startup -->
     <application>
         <activity
             android:name=".ui.UsbDashboardActivity"

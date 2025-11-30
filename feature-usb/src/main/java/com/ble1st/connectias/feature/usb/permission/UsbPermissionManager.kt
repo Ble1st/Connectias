@@ -12,8 +12,10 @@ import android.os.Build
 import com.ble1st.connectias.feature.usb.models.UsbDevice as UsbDeviceModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,7 +28,8 @@ class UsbPermissionManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     private val usbManager: UsbManager by lazy {
-        context.getSystemService(Context.USB_SERVICE) as UsbManager
+        context.getSystemService(Context.USB_SERVICE) as? UsbManager
+            ?: throw IllegalStateException("USB service not available")
     }
     
     companion object {
@@ -68,6 +71,7 @@ class UsbPermissionManager @Inject constructor(
             return@callbackFlow
         }
         
+        // Initial permission check
         if (usbManager.hasPermission(androidDevice)) {
             Timber.d("USB permission already granted")
             trySend(true)
@@ -75,22 +79,37 @@ class UsbPermissionManager @Inject constructor(
             return@callbackFlow
         }
         
+        // Generate unique request code per device to avoid PendingIntent conflicts
+        // Use vendorId and productId combination to create unique identifier
+        val requestCode = ((device.vendorId shl 16) or device.productId) and 0x7FFFFFFF // Mask to positive int
+        
         val permissionIntent = PendingIntent.getBroadcast(
-            context,
-            0,
+            activity,
+            requestCode,
             Intent(ACTION_USB_PERMISSION),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        
+        var permissionReceived = false
         
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context, intent: Intent) {
                 if (ACTION_USB_PERMISSION == intent.action) {
                     synchronized(this) {
-                        val deviceExtra = intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                        if (permissionReceived) {
+                            return
+                        }
+                        val deviceExtra = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, UsbDevice::class.java)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            intent.getParcelableExtra<UsbDevice>(UsbManager.EXTRA_DEVICE)
+                        }
                         val granted = intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)
                         
                         if (deviceExtra?.vendorId == device.vendorId && 
                             deviceExtra.productId == device.productId) {
+                            permissionReceived = true
                             Timber.i("USB permission ${if (granted) "granted" else "denied"} for device")
                             trySend(granted)
                             close()
@@ -100,20 +119,55 @@ class UsbPermissionManager @Inject constructor(
             }
         }
         
+        // Register receiver on activity context (not application context) to match lifecycle
         val filter = IntentFilter(ACTION_USB_PERMISSION)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            activity.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
-            context.registerReceiver(receiver, filter)
+            activity.registerReceiver(receiver, filter)
+        }
+        
+        // Re-check permission immediately after registering receiver to handle race condition
+        // where permission might have been granted externally between initial check and registration
+        if (usbManager.hasPermission(androidDevice)) {
+            Timber.d("USB permission granted after receiver registration (race condition handled)")
+            permissionReceived = true
+            try {
+                activity.unregisterReceiver(receiver)
+            } catch (e: Exception) {
+                Timber.e(e, "Error unregistering permission receiver")
+            }
+            trySend(true)
+            close()
+            return@callbackFlow
         }
         
         Timber.d("Requesting USB permission via system dialog")
         usbManager.requestPermission(androidDevice, permissionIntent)
         
+        // Launch timeout job to prevent indefinite waiting if broadcast is missed
+        val timeoutJob = launch {
+            delay(30000L) // 30 second timeout
+            synchronized(receiver) {
+                if (!permissionReceived) {
+                    Timber.w("USB permission request timed out after 30 seconds")
+                    permissionReceived = true
+                    try {
+                        activity.unregisterReceiver(receiver)
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error unregistering permission receiver on timeout")
+                    }
+                    trySend(false)
+                    close()
+                }
+            }
+        }
+        
         awaitClose {
+            timeoutJob.cancel()
             try {
-                context.unregisterReceiver(receiver)
+                activity.unregisterReceiver(receiver)
             } catch (e: Exception) {
                 Timber.e(e, "Error unregistering permission receiver")
             }

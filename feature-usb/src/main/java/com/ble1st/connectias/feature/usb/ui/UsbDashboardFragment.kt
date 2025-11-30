@@ -72,23 +72,21 @@ class UsbDashboardFragment : Fragment() {
                         deviceDetector = deviceDetector,
                         onDeviceClick = { device ->
                             Timber.d("Navigating to device details: ${device.product}")
-                            try {
-                                if (device.isMassStorage) {
-                                    // Navigate to DVD/CD detail screen
-                                    val navId = resources.getIdentifier("nav_dvd_cd_detail", "id", requireContext().packageName)
-                                    if (navId != 0) {
+                            // For non-mass storage devices, show device info
+                            Timber.d("Device clicked: ${device.product}")
+                        },
+                                    findNavController().navigate(R.id.nav_dvd_cd_detail)
+                                    Timber.d("Navigated to DVD/CD detail screen")
                                         findNavController().navigate(navId)
                                         Timber.d("Navigated to DVD/CD detail screen")
                                     } else {
                                         Timber.w("Navigation destination nav_dvd_cd_detail not found")
                                     }
                                 } else {
-                                    // For non-mass storage devices, could show device info dialog
-                                    // For now, just log
-                                    Timber.d("Device clicked: ${device.product} (not mass storage)")
+                                    Timber.w("Device is not mass storage: ${device.product}")
                                 }
                             } catch (e: Exception) {
-                                Timber.e(e, "Error navigating to device details")
+                                Timber.e(e, "Error navigating to DVD/CD details")
                             }
                         },
                         activity = requireActivity()
