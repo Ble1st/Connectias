@@ -4,12 +4,15 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewModelScope
-import com.ble1st.connectias.feature.network.databinding.FragmentNetworkMonitorBinding
+import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.network.monitor.NetworkMonitorProvider
 import com.ble1st.connectias.feature.network.monitor.NetworkTraffic
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,9 +30,6 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class NetworkMonitorFragment : Fragment() {
 
-    private var _binding: FragmentNetworkMonitorBinding? = null
-    private val binding get() = _binding!!
-
     private val viewModel: NetworkMonitorViewModel by viewModels()
 
     override fun onCreateView(
@@ -37,71 +37,30 @@ class NetworkMonitorFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        _binding = FragmentNetworkMonitorBinding.inflate(inflater, container, false)
-        return binding.root
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-
-        setupObservers()
-        setupClickListeners()
-        
-        // Start monitoring
-        viewModel.startMonitoring()
-    }
-
-    private fun setupObservers() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewModel.trafficFlow.collect { traffic ->
-                updateTrafficDisplay(traffic)
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                ConnectiasTheme {
+                    val traffic by viewModel.trafficFlow.collectAsState()
+                    
+                    NetworkMonitorScreen(
+                        traffic = traffic,
+                        onRefresh = { viewModel.refreshCurrentTraffic() }
+                    )
+                }
             }
         }
     }
 
-    private fun setupClickListeners() {
-        binding.refreshButton.setOnClickListener {
-            viewModel.refreshCurrentTraffic()
-        }
-    }
-
-    private fun updateTrafficDisplay(traffic: NetworkTraffic) {
-        binding.connectionTypeText.text = "Connection: ${traffic.connectionType.name}"
-        binding.rxBytesText.text = formatBytes(traffic.rxBytes)
-        binding.txBytesText.text = formatBytes(traffic.txBytes)
-        binding.totalBytesText.text = formatBytes(traffic.rxBytes + traffic.txBytes)
-        
-        if (traffic.rxRate > 0 || traffic.txRate > 0) {
-            binding.rxRateText.text = "${formatBytesPerSecond(traffic.rxRate)}/s"
-            binding.txRateText.text = "${formatBytesPerSecond(traffic.txRate)}/s"
-        } else {
-            binding.rxRateText.text = "0 B/s"
-            binding.txRateText.text = "0 B/s"
-        }
-    }
-
-    private fun formatBytes(bytes: Long): String {
-        return when {
-            bytes >= 1_000_000_000 -> String.format("%.2f GB", bytes / 1_000_000_000.0)
-            bytes >= 1_000_000 -> String.format("%.2f MB", bytes / 1_000_000.0)
-            bytes >= 1_000 -> String.format("%.2f KB", bytes / 1_000.0)
-            else -> "$bytes B"
-        }
-    }
-
-    private fun formatBytesPerSecond(bytesPerSecond: Double): String {
-        return when {
-            bytesPerSecond >= 1_000_000_000 -> String.format("%.2f GB", bytesPerSecond / 1_000_000_000.0)
-            bytesPerSecond >= 1_000_000 -> String.format("%.2f MB", bytesPerSecond / 1_000_000.0)
-            bytesPerSecond >= 1_000 -> String.format("%.2f KB", bytesPerSecond / 1_000.0)
-            else -> String.format("%.0f B", bytesPerSecond)
-        }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Start monitoring
+        viewModel.startMonitoring()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         viewModel.stopMonitoring()
-        _binding = null
     }
 }
 
