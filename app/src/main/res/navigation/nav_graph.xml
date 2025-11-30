@@ -112,6 +112,50 @@
         android:name="com.ble1st.connectias.feature.network.ui.WifiAnalyzerFragment"
         android:label="WiFi Analyzer" />
 
+    <!-- Network Analysis Features -->
+    <fragment
+        android:id="@+id/nav_mac_analyzer"
+        android:name="com.ble1st.connectias.feature.network.analysis.ui.MacAnalyzerFragment"
+        android:label="MAC Address Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_subnet_analyzer"
+        android:name="com.ble1st.connectias.feature.network.analysis.ui.SubnetAnalyzerFragment"
+        android:label="Subnet Analyzer" />
+
+    <fragment
+        android:id="@+id/nav_vlan_analyzer"
+        android:name="com.ble1st.connectias.feature.network.analysis.ui.VlanAnalyzerFragment"
+        android:label="VLAN Analyzer" />
+
+    <!-- Network Topology -->
+    <fragment
+        android:id="@+id/nav_topology"
+        android:name="com.ble1st.connectias.feature.network.topology.ui.TopologyFragment"
+        android:label="Network Topology" />
+
+    <!-- Network Monitoring Features -->
+    <fragment
+        android:id="@+id/nav_bandwidth_monitor"
+        android:name="com.ble1st.connectias.feature.network.ui.BandwidthMonitorFragment"
+        android:label="Bandwidth Monitor" />
+
+    <fragment
+        android:id="@+id/nav_flow_analyzer"
+        android:name="com.ble1st.connectias.feature.network.ui.FlowAnalyzerFragment"
+        android:label="Flow Analyzer" />
+
+    <!-- Network Detection Features -->
+    <fragment
+        android:id="@+id/nav_dhcp_lease"
+        android:name="com.ble1st.connectias.feature.network.ui.DhcpLeaseFragment"
+        android:label="DHCP Lease Viewer" />
+
+    <fragment
+        android:id="@+id/nav_hypervisor_detector"
+        android:name="com.ble1st.connectias.feature.network.ui.HypervisorDetectorFragment"
+        android:label="Hypervisor Detector" />
+
     <!-- Utilities Dashboard (Optional) -->
     <fragment
         android:id="@+id/nav_utilities_dashboard"

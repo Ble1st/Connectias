@@ -71,6 +71,16 @@ dependencies {
         implementation(project(":feature-network"))
     }
 
+    val featureNetworkAnalysisEnabled = project.findProperty("feature.network.analysis.enabled") == "true"
+    if (featureNetworkAnalysisEnabled) {
+        implementation(project(":feature-network-analysis"))
+    }
+
+    val featureNetworkTopologyEnabled = project.findProperty("feature.network.topology.enabled") == "true"
+    if (featureNetworkTopologyEnabled) {
+        implementation(project(":feature-network-topology"))
+    }
+
     val featureUtilitiesEnabled = project.findProperty("feature.utilities.enabled") == "true"
     if (featureUtilitiesEnabled) {
         implementation(project(":feature-utilities"))

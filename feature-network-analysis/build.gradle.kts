@@ -5,10 +5,11 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "com.ble1st.connectias.feature.network"
+    namespace = "com.ble1st.connectias.feature.network.analysis"
     compileSdk = 36
 
     defaultConfig {
@@ -42,6 +43,7 @@ dependencies {
     // Core Modules
     implementation(project(":core"))
     implementation(project(":common"))
+    implementation(project(":feature-network"))
 
     // Android Core
     implementation(libs.androidx.core.ktx)
@@ -83,9 +85,8 @@ dependencies {
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
 
-    // Network-specific dependencies
-    // DNS Java for DNS lookups
-    implementation(libs.dnsjava)
+    // Kotlin Serialization for OUI database
+    implementation(libs.kotlinx.serialization.json)
 
     // Testing
     testImplementation(libs.junit)
@@ -94,4 +95,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

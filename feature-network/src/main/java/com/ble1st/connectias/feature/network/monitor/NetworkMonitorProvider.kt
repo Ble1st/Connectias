@@ -8,6 +8,7 @@ import android.net.NetworkCapabilities
 import android.net.TrafficStats
 import android.os.Build
 import androidx.annotation.RequiresApi
+import com.ble1st.connectias.core.models.ConnectionType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -23,7 +24,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class NetworkMonitorProvider @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
 
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -177,14 +178,5 @@ data class NetworkInterface(
     val mtu: Int
 )
 
-/**
- * Connection type.
- */
-enum class ConnectionType {
-    NONE,
-    WIFI,
-    MOBILE,
-    ETHERNET,
-    UNKNOWN
-}
+// ConnectionType is defined in core module
 

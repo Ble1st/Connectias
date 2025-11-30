@@ -8,7 +8,7 @@ plugins {
 }
 
 android {
-    namespace = "com.ble1st.connectias.feature.network"
+    namespace = "com.ble1st.connectias.feature.network.topology"
     compileSdk = 36
 
     defaultConfig {
@@ -42,6 +42,8 @@ dependencies {
     // Core Modules
     implementation(project(":core"))
     implementation(project(":common"))
+    implementation(project(":feature-network"))
+    implementation(project(":feature-network-analysis"))
 
     // Android Core
     implementation(libs.androidx.core.ktx)
@@ -83,10 +85,6 @@ dependencies {
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
 
-    // Network-specific dependencies
-    // DNS Java for DNS lookups
-    implementation(libs.dnsjava)
-
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -94,4 +92,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

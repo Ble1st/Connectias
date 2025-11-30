@@ -61,3 +61,13 @@ val featureWasmEnabled = providers.gradleProperty("feature.wasm.enabled").orNull
 if (featureWasmEnabled) {
     include(":feature-wasm")
 }
+
+val featureNetworkAnalysisEnabled = providers.gradleProperty("feature.network.analysis.enabled").orNull == "true"
+if (featureNetworkAnalysisEnabled) {
+    include(":feature-network-analysis")
+}
+
+val featureNetworkTopologyEnabled = providers.gradleProperty("feature.network.topology.enabled").orNull == "true"
+if (featureNetworkTopologyEnabled) {
+    include(":feature-network-topology")
+}

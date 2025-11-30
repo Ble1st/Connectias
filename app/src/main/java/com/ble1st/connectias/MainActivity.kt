@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private var binding: ActivityMainBinding? = null
 
     private var isSecurityCheckPending = true
+    private var isMainUIInitialized = false
 
 
 
@@ -211,65 +212,49 @@ class MainActivity : AppCompatActivity() {
      */
 
     private fun initializeMainUI() {
-
-        // Initialize main UI binding
-
-        val mainBinding = ActivityMainBinding.inflate(layoutInflater)
-
-        binding = mainBinding
-
-        setContentView(mainBinding.root)
-
-
-
-        // Enable edge-to-edge for main UI (splash screen intentionally does not use it)
-
-        enableEdgeToEdge()
-
-
-
-        // Handle system UI insets
-
-        ViewCompat.setOnApplyWindowInsetsListener(mainBinding.root) { v, insets ->
-
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-
-            insets
-
+        // Prevent multiple initializations
+        if (isMainUIInitialized) {
+            Timber.w("Main UI already initialized, skipping")
+            return
         }
 
+        try {
+            // Initialize main UI binding
+            val mainBinding = ActivityMainBinding.inflate(layoutInflater)
+            binding = mainBinding
+            setContentView(mainBinding.root)
 
+            // Enable edge-to-edge for main UI (splash screen intentionally does not use it)
+            enableEdgeToEdge()
 
-        // Navigation setup
-
-        setupNavigation()
-
-
-
-        // Module Discovery
-
-        setupModuleDiscovery()
-
-
-
-        // Log rotation (Hilt injection is guaranteed after super.onCreate())
-
-        lifecycleScope.launch {
-
-            try {
-
-                loggingService.rotateLogs()
-
-            } catch (e: Exception) {
-
-                Timber.e(e, "Failed to perform log rotation on app start")
-
+            // Handle system UI insets
+            ViewCompat.setOnApplyWindowInsetsListener(mainBinding.root) { v, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
+                insets
             }
 
-        }
+            // Navigation setup
+            setupNavigation()
 
+            // Module Discovery
+            setupModuleDiscovery()
+
+            // Log rotation (Hilt injection is guaranteed after super.onCreate())
+            lifecycleScope.launch {
+                try {
+                    loggingService.rotateLogs()
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to perform log rotation on app start")
+                }
+            }
+
+            // Set flag only after all initialization completes successfully
+            isMainUIInitialized = true
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize main UI")
+            // Don't set flag on error so retry is possible
+        }
     }
 
 

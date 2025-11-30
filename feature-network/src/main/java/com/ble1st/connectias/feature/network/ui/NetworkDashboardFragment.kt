@@ -66,7 +66,15 @@ class NetworkDashboardFragment : Fragment() {
                         onNavigateToPortScanner = { navigateTo("nav_port_scanner") },
                         onNavigateToDnsLookup = { navigateTo("nav_dns_lookup") },
                         onNavigateToNetworkMonitor = { navigateTo("nav_network_monitor") },
-                        onNavigateToWifiAnalyzer = { navigateTo("nav_wifi_analyzer") }
+                        onNavigateToWifiAnalyzer = { navigateTo("nav_wifi_analyzer") },
+                        onNavigateToMacAnalyzer = { navigateTo("nav_mac_analyzer") },
+                        onNavigateToSubnetAnalyzer = { navigateTo("nav_subnet_analyzer") },
+                        onNavigateToVlanAnalyzer = { navigateTo("nav_vlan_analyzer") },
+                        onNavigateToTopology = { navigateTo("nav_topology") },
+                        onNavigateToBandwidthMonitor = { navigateTo("nav_bandwidth_monitor") },
+                        onNavigateToFlowAnalyzer = { navigateTo("nav_flow_analyzer") },
+                        onNavigateToDhcpLease = { navigateTo("nav_dhcp_lease") },
+                        onNavigateToHypervisorDetector = { navigateTo("nav_hypervisor_detector") }
                     )
                 }
             }

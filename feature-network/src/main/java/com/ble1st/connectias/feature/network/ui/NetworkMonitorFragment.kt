@@ -13,6 +13,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.core.models.ConnectionType
 import com.ble1st.connectias.feature.network.monitor.NetworkMonitorProvider
 import com.ble1st.connectias.feature.network.monitor.NetworkTraffic
 import dagger.hilt.android.AndroidEntryPoint
@@ -73,7 +74,7 @@ class NetworkMonitorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _trafficFlow = MutableStateFlow<NetworkTraffic>(
-        NetworkTraffic(0, 0, 0.0, 0.0, com.ble1st.connectias.feature.network.monitor.ConnectionType.NONE, System.currentTimeMillis())
+        NetworkTraffic(0, 0, 0.0, 0.0, ConnectionType.NONE, System.currentTimeMillis())
     )
     val trafficFlow: StateFlow<NetworkTraffic> = _trafficFlow.asStateFlow()
 
