@@ -14,7 +14,7 @@
 extern "C" {
 
 JNIEXPORT jobjectArray JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_enumerateDevices(JNIEnv *env, jclass clazz) {
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_enumerateDevicesNative(JNIEnv *env, jobject clazz) {
     LOGD("Enumerating USB devices...");
     
     // Find the device class
@@ -53,7 +53,7 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_enumerateDevices(JNIEnv 
 }
 
 JNIEXPORT jlong JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_openDevice(JNIEnv *env, jclass clazz, jint vendorId, jint productId) {
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_openDevice(JNIEnv *env, jobject clazz, jint vendorId, jint productId) {
     LOGD("Opening USB device: Vendor=0x%04X, Product=0x%04X", vendorId, productId);
     
     // TODO: Implement actual libusb device opening
@@ -64,7 +64,7 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_openDevice(JNIEnv *env, 
 }
 
 JNIEXPORT jint JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_closeDevice(JNIEnv *env, jclass clazz, jlong handle) {
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_closeDevice(JNIEnv *env, jobject clazz, jlong handle) {
     LOGD("Closing USB device, handle: %ld", handle);
     
     // TODO: Implement actual libusb device closing
@@ -75,7 +75,7 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_closeDevice(JNIEnv *env,
 }
 
 JNIEXPORT jint JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_bulkTransfer(JNIEnv *env, jclass clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_bulkTransfer(JNIEnv *env, jobject clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
     LOGD("Bulk transfer: handle=%ld, endpoint=0x%02X, length=%d, timeout=%d", handle, endpoint, length, timeout);
     
     // Null check for data parameter
@@ -106,7 +106,7 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_bulkTransfer(JNIEnv *env
 }
 
 JNIEXPORT jint JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_interruptTransfer(JNIEnv *env, jclass clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_interruptTransfer(JNIEnv *env, jobject clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
     LOGD("Interrupt transfer: handle=%ld, endpoint=0x%02X, length=%d, timeout=%d", handle, endpoint, length, timeout);
     
     // Null check for data parameter
@@ -137,11 +137,16 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_interruptTransfer(JNIEnv
 }
 
 JNIEXPORT jint JNICALL
-Java_com_ble1st_connectias_feature_usb_native_UsbNative_controlTransfer(JNIEnv *env, jclass clazz, jlong handle, jint requestType, jint request, jint value, jint index, jbyteArray data) {
-    LOGD("Control transfer: handle=%ld, requestType=0x%02X, request=0x%02X", handle, requestType, request);
+Java_com_ble1st_connectias_feature_usb_native_UsbNative_controlTransfer(JNIEnv *env, jobject clazz, jlong handle, jint requestType, jint request, jint value, jint index, jbyteArray data, jint length, jint timeout) {
+    LOGD("Control transfer: handle=%ld, requestType=0x%02X, request=0x%02X, length=%d, timeout=%d", handle, requestType, request, length, timeout);
     
     // TODO: Implement actual libusb control transfer
-    jsize length = data ? env->GetArrayLength(data) : 0;
+    if (data != nullptr) {
+        jsize arrayLength = env->GetArrayLength(data);
+        if (length > arrayLength) {
+            length = arrayLength;
+        }
+    }
     LOGD("Control transfer complete: %d bytes", length);
     return length;
 }

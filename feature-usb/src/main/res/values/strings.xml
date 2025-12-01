@@ -14,44 +14,6 @@
     <string name="nav_dvd_cd_detail">DVD/CD Details</string>
     <string name="nav_dvd_player">DVD Player</string>
     
-    <!-- CSS Decryption (English) -->
-    <string name="css_decryption_title">CSS-Decryption</string>
-    <string name="css_decryption_description">Enables playback of copy-protected DVDs. Legally problematic - see disclaimer.</string>
-    <string name="css_decryption_enabled">Enabled</string>
-    <string name="css_decryption_warning">CSS-Decryption is enabled. You are liable for lawful use.</string>
-    
-    <!-- CSS Decryption Disclaimer (English) -->
-    <string name="css_decryption_disclaimer_title">Important Legal Notice - Disclaimer</string>
-    <string name="css_decryption_disclaimer">IMPORTANT LEGAL NOTICE - DISCLAIMER
-
-The CSS-Decryption feature (libdvdcss) enables circumvention of copy-protection mechanisms on DVDs.
-
-LEGAL VIOLATION:
-The use of this feature may be illegal in various jurisdictions, particularly under the Digital Millennium Copyright Act (DMCA) in the USA and similar laws in other countries.
-
-GEOGRAPHIC SCOPE:
-This disclaimer applies globally, with specific laws varying by jurisdiction. Key jurisdictions with relevant laws include:
-- USA: Digital Millennium Copyright Act (DMCA)
-- EU Member States: EU Copyright Directive and national implementations
-- United Kingdom: Copyright, Designs and Patents Act
-- Canada: Copyright Act
-- Australia: Copyright Act
-
-This disclaimer is not exhaustive and does not cover all possible jurisdictions. Laws may change and vary by country.
-
-DISCLAIMER:
-- The developer of this software assumes NO liability for the use of this feature
-- The user is solely responsible for lawful use
-- The user is liable for all legal consequences of use
-- No guarantee is given for functionality or legality
-
-By enabling this feature, you confirm that you:
-1. Understand the legal risks
-2. Accept full responsibility for use
-3. Release the developer from any liability</string>
-    <string name="css_decryption_disclaimer_checkbox">I understand and accept responsibility</string>
-    <string name="accept">Accept</string>
-    <string name="cancel">Cancel</string>
     
     <!-- USB Permission -->
     <string name="usb_permission_title">USB Permission Required</string>
@@ -74,7 +36,6 @@ By enabling this feature, you confirm that you:
     <string name="close">Close</string>
     
     <!-- DVD Player -->
-    <string name="dvd_player_css_decryption_enabled">CSS-Decryption enabled</string>
     <string name="dvd_player_previous">Previous</string>
     <string name="dvd_player_play">Play</string>
     <string name="dvd_player_pause">Pause</string>

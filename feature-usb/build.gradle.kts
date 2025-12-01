@@ -20,15 +20,8 @@ android {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
         }
         
-        // Feature-Flag für CSS-Decryption
-        buildConfigField("boolean", "ENABLE_DVD_CSS", 
-            project.findProperty("feature.usb.dvd.css.enabled")?.toString() ?: "false")
-        
-        externalNativeBuild {
-            cmake {
-                arguments.add("-DENABLE_DVD_CSS=${project.findProperty("feature.usb.dvd.css.enabled") ?: "OFF"}")
-            }
-        }
+        // CSS-Decryption ist jetzt immer aktiviert (libdvdcss ist statisch in libdvdread eingebettet)
+        buildConfigField("boolean", "ENABLE_DVD_CSS", "true")
     }
     
     compileOptions {
@@ -113,6 +106,9 @@ dependencies {
 
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
+
+    // Security Crypto (for EncryptedSharedPreferences)
+    implementation(libs.security.crypto)
 
     // Testing
     testImplementation(libs.junit)

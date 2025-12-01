@@ -17,23 +17,41 @@ import androidx.media3.ui.PlayerView
 import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.media.DvdPlayer
 import com.ble1st.connectias.feature.usb.models.VideoStream
-import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import timber.log.Timber
 
 @Composable
 fun DvdPlayerScreen(
     videoStream: VideoStream,
     dvdPlayer: DvdPlayer,
-    dvdSettings: DvdSettings,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val player = remember { dvdPlayer.getPlayer() }
-    var isPlaying by remember { mutableStateOf(player?.isPlaying ?: false) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
     
     // PlayerView for ExoPlayer video rendering
     // Use a non-state reference to avoid storing Android View in Compose state
     val playerViewRef = remember { arrayOf<PlayerView?>(null) }
+    
+    // Start playback when the screen is displayed
+    LaunchedEffect(videoStream) {
+        Timber.d("DvdPlayerScreen: Starting playback for URI: ${videoStream.uri}")
+        try {
+            dvdPlayer.playStream(videoStream)
+            isLoading = false
+            Timber.d("DvdPlayerScreen: Playback started successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "DvdPlayerScreen: Failed to start playback")
+            playbackError = e.message ?: "Unknown playback error"
+            isLoading = false
+        }
+    }
+    
+    // Get player after it's initialized
+    val player = remember(isLoading) { 
+        if (!isLoading) dvdPlayer.getPlayer() else null 
+    }
     
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -44,6 +62,25 @@ fun DvdPlayerScreen(
             
             override fun onPlaybackStateChanged(playbackState: Int) {
                 Timber.d("Player playback state changed: $playbackState")
+                when (playbackState) {
+                    Player.STATE_READY -> {
+                        Timber.d("Player is ready")
+                    }
+                    Player.STATE_BUFFERING -> {
+                        Timber.d("Player is buffering")
+                    }
+                    Player.STATE_ENDED -> {
+                        Timber.d("Playback ended")
+                    }
+                    Player.STATE_IDLE -> {
+                        Timber.d("Player is idle")
+                    }
+                }
+            }
+            
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                Timber.e(error, "Player error: ${error.errorCodeName}")
+                playbackError = "Playback error: ${error.message}"
             }
         }
         player?.addListener(listener)
@@ -65,24 +102,63 @@ fun DvdPlayerScreen(
                 .weight(1f),
             contentAlignment = Alignment.Center
         ) {
-            AndroidView(
-                factory = { ctx ->
-                    val view = PlayerView(ctx)
-                    view.layoutParams = FrameLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT
+            // Show loading indicator while initializing
+            if (isLoading) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    CircularProgressIndicator()
+                    Text(
+                        text = "Preparing playback...",
+                        style = MaterialTheme.typography.bodyMedium
                     )
-                    playerViewRef[0] = view
-                    view
-                },
-                update = { view ->
-                    player?.let {
-                        view.player = it
-                        dvdPlayer.attachPlayerToView(view)
+                }
+            }
+            // Show error if playback failed
+            else if (playbackError != null) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Error,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Text(
+                        text = playbackError ?: "Playback error",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                    Button(onClick = onBack) {
+                        Text("Back")
                     }
-                },
-                modifier = Modifier.fillMaxSize()
-            )
+                }
+            }
+            // Show player view when ready
+            else {
+                AndroidView(
+                    factory = { ctx ->
+                        val view = PlayerView(ctx)
+                        view.layoutParams = FrameLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                        playerViewRef[0] = view
+                        view
+                    },
+                    update = { view ->
+                        player?.let {
+                            view.player = it
+                            dvdPlayer.attachPlayerToView(view)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
         
         // Control Bar
@@ -93,33 +169,6 @@ fun DvdPlayerScreen(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // CSS-Decryption Status
-                if (dvdSettings.isCssDecryptionEnabled()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.errorContainer,
-                        shape = MaterialTheme.shapes.small
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Warning,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                            Text(
-                                text = stringResource(R.string.dvd_player_css_decryption_enabled),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onErrorContainer
-                            )
-                        }
-                    }
-                }
-                
                 // Playback Controls
                 val noPreviousChapterText = stringResource(R.string.dvd_player_no_previous_chapter)
                 Row(

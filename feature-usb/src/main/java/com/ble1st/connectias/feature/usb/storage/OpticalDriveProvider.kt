@@ -1,17 +1,19 @@
 package com.ble1st.connectias.feature.usb.storage
 
+import android.content.Context
+import android.hardware.usb.UsbManager
 import com.ble1st.connectias.feature.usb.detection.UsbDeviceDetector
+import com.ble1st.connectias.feature.usb.driver.scsi.ScsiDriver
 import com.ble1st.connectias.feature.usb.models.DiscType
 import com.ble1st.connectias.feature.usb.models.FileSystem
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
-import com.ble1st.connectias.feature.usb.models.UsbDevice
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import timber.log.Timber
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,170 +22,166 @@ import javax.inject.Singleton
  */
 @Singleton
 class OpticalDriveProvider @Inject constructor(
-    private val deviceDetector: UsbDeviceDetector,
-    private val mountManager: MountManager,
-    private val fileSystemReader: FileSystemReader
+    @ApplicationContext private val context: Context,
+    private val deviceDetector: UsbDeviceDetector
 ) {
     
     private companion object {
         const val DEVICE_DETECT_TIMEOUT_MS = 5_000L
+        const val SCSI_TYPE_CDROM = 0x05
+    }
+
+    private val usbManager: UsbManager by lazy {
+        context.getSystemService(Context.USB_SERVICE) as UsbManager
     }
     
     /**
-     * Detects and mounts an optical drive.
+     * Detects an optical drive via SCSI INQUIRY.
      */
-    suspend fun detectAndMountOpticalDrive(): OpticalDrive? = withContext(Dispatchers.IO) {
-        Timber.d("Starting optical drive detection...")
+    suspend fun detectOpticalDrive(): OpticalDrive? = withContext(Dispatchers.IO) {
+        Timber.d("Starting optical drive detection via SCSI...")
         
         try {
-            // 1. Get USB devices from detector (uses Android USB Manager API)
-            Timber.d("Enumerating USB devices...")
+            // 1. Get USB devices
             val devices = withTimeout(DEVICE_DETECT_TIMEOUT_MS) {
                 deviceDetector.detectedDevices.first()
             }
-            Timber.d("Found ${devices.size} USB devices")
             
-            // 2. Find Mass Storage device (check isMassStorage flag, not just deviceClass)
-            Timber.d("Searching for Mass Storage devices...")
-            val massStorageDevice = devices.find { device ->
-                device.isMassStorage
-            }
-            
-            if (massStorageDevice == null) {
-                Timber.w("No Mass Storage device found. Available devices:")
-                devices.forEach { device ->
-                    Timber.d("  Device: ${device.product} (Vendor=0x%04X, Product=0x%04X, MassStorage=%b, DeviceClass=%d)",
-                        device.vendorId, device.productId, device.isMassStorage, device.deviceClass)
+            // 2. Iterate and check for Optical Drive type (SCSI Type 0x05)
+            for (device in devices) {
+                // Filter candidates: Mass Storage (Class 8)
+                if (!device.isMassStorage && device.deviceClass != 0) { // 0 = per-interface
+                    continue
                 }
-                return@withContext null
+
+                // We need to open the device to send SCSI INQUIRY
+                // Find Android UsbDevice
+                val androidDevice = usbManager.deviceList.values.find { 
+                    it.vendorId == device.vendorId && it.productId == device.productId 
+                } ?: continue
+
+                if (!usbManager.hasPermission(androidDevice)) {
+                    Timber.w("No permission for device: ${device.product}")
+                    continue
+                }
+
+                val connection = usbManager.openDevice(androidDevice) ?: continue
+                
+                try {
+                    // Find Mass Storage Interface
+                    var interfaceIndex = -1
+                    for (i in 0 until androidDevice.interfaceCount) {
+                        if (androidDevice.getInterface(i).interfaceClass == 8) {
+                            interfaceIndex = i
+                            break
+                        }
+                    }
+                    if (interfaceIndex == -1) {
+                        connection.close()
+                        continue
+                    }
+                    
+                    val usbInterface = androidDevice.getInterface(interfaceIndex)
+                    val driver = ScsiDriver(connection, usbInterface)
+                    
+                    try {
+                        val inquiryData = driver.inquiry()
+                        if (inquiryData.isNotEmpty()) {
+                            val periphType = inquiryData[0].toInt() and 0x1F
+                            Timber.d("Device ${device.product} SCSI Type: 0x%02X", periphType)
+                            
+                            if (periphType == SCSI_TYPE_CDROM) {
+                                Timber.i("Found Optical Drive: ${device.product}")
+                                return@withContext OpticalDrive(
+                                    device = device,
+                                    mountPoint = null, // No longer needed/available
+                                    devicePath = null, // Legacy
+                                    fileSystem = FileSystem.UNKNOWN,
+                                    type = DiscType.UNKNOWN // Will be determined on access
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.w("SCSI INQUIRY failed for ${device.product}: ${e.message}")
+                    } finally {
+                        driver.close()
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "Error checking device ${device.product}")
+                    connection.close()
+                }
             }
             
-            Timber.i("Found Mass Storage device: Vendor=0x%04X, Product=0x%04X", 
-                massStorageDevice.vendorId, massStorageDevice.productId)
-            
-            // 3. Determine mount point
-            Timber.d("Determining mount point...")
-            val mountPoint = mountManager.findMountPoint(massStorageDevice)
-            
-            if (mountPoint == null) {
-                Timber.w("Could not determine mount point for device")
-                return@withContext null
-            }
-            
-            Timber.i("Mount point determined: $mountPoint")
-            
-            // 4. Check mount point accessibility
-            if (!mountManager.isMountPointAccessible(mountPoint)) {
-                Timber.w("Mount point is not accessible: $mountPoint")
-                return@withContext null
-            }
-            
-            // 5. Detect file system
-            Timber.d("Detecting file system...")
-            val fileSystem = fileSystemReader.detectFileSystem(mountPoint)
-            Timber.d("File system detected: $fileSystem")
-            
-            // 6. Detect disc type
-            Timber.d("Detecting disc type...")
-            val discType = detectDiscType(mountPoint, fileSystem)
-            Timber.i("Disc type detected: $discType")
-            
-            val drive = OpticalDrive(
-                device = massStorageDevice,
-                mountPoint = mountPoint,
-                fileSystem = fileSystem,
-                type = discType
-            )
-            
-            Timber.i("Optical drive successfully detected and mounted: type=$discType, fileSystem=$fileSystem")
-            return@withContext drive
+            Timber.w("No Optical Drive found")
+            null
         } catch (e: TimeoutCancellationException) {
-            Timber.w(e, "Timeout waiting for USB device detection (${DEVICE_DETECT_TIMEOUT_MS}ms)")
-            return@withContext null
+            Timber.w("Timeout waiting for USB devices")
+            null
         } catch (e: Exception) {
             Timber.e(e, "Error during optical drive detection")
-            return@withContext null
+            null
         }
     }
     
     /**
-     * Lists files on an optical drive.
+     * Ejects the optical drive.
      */
-    suspend fun listFiles(drive: OpticalDrive): List<FileInfo> = withContext(Dispatchers.IO) {
+    suspend fun ejectDrive(drive: OpticalDrive): Boolean = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Listing files on optical drive: ${drive.mountPoint}")
-            val files = fileSystemReader.listFiles(drive.mountPoint)
-            Timber.i("Found ${files.size} items on optical drive")
-            files
+            Timber.d("Ejecting optical drive: ${drive.device.product}")
+            
+            val androidDevice = usbManager.deviceList.values.find { 
+                it.vendorId == drive.device.vendorId && it.productId == drive.device.productId 
+            } ?: return@withContext false
+
+            if (!usbManager.hasPermission(androidDevice)) return@withContext false
+
+            val connection = usbManager.openDevice(androidDevice) ?: return@withContext false
+            
+            try {
+                // Find Mass Storage Interface
+                var interfaceIndex = 0
+                for (i in 0 until androidDevice.interfaceCount) {
+                    if (androidDevice.getInterface(i).interfaceClass == 8) {
+                        interfaceIndex = i
+                        break
+                    }
+                }
+                val usbInterface = androidDevice.getInterface(interfaceIndex)
+                val driver = ScsiDriver(connection, usbInterface)
+                
+                try {
+                    // Wait for drive to be ready before eject
+                    if (!driver.waitForReady(maxAttempts = 5, delayMs = 300)) {
+                        Timber.w("Drive not ready for eject, attempting anyway...")
+                    }
+                    
+                    driver.eject()
+                    Timber.i("Eject command sent successfully via SCSI")
+                    return@withContext true
+                } catch (e: Exception) {
+                    Timber.e(e, "SCSI Eject failed: ${e.message}")
+                    false
+                } finally {
+                    driver.close()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Error setting up SCSI driver for eject")
+                try { connection.close() } catch (_: Exception) {}
+                false
+            }
         } catch (e: Exception) {
-            Timber.e(e, "Error listing files on optical drive")
-            emptyList()
+            Timber.e(e, "Error ejecting optical drive")
+            false
         }
     }
-    
+
     /**
-     * Detects the type of disc in the drive.
+     * Lists files on the optical drive.
+     * Currently returns empty list as file system mounting is not supported.
      */
-    private fun detectDiscType(mountPoint: String, fileSystem: FileSystem): DiscType {
-        Timber.d("Checking for disc type indicators at: $mountPoint")
-        
-        val rootDir = File(mountPoint)
-        if (!rootDir.exists() || !rootDir.isDirectory) {
-            Timber.w("Mount point does not exist: $mountPoint")
-            return DiscType.UNKNOWN
-        }
-        
-        // Check for VIDEO_TS directory (Video DVD)
-        val videoTsDir = File(rootDir, "VIDEO_TS")
-        if (videoTsDir.exists() && videoTsDir.isDirectory) {
-            Timber.d("VIDEO_TS directory found - Video DVD detected")
-            return DiscType.VIDEO_DVD
-        }
-        
-        // Check for AUDIO_TS directory (Audio DVD)
-        val audioTsDir = File(rootDir, "AUDIO_TS")
-        if (audioTsDir.exists() && audioTsDir.isDirectory) {
-            Timber.d("AUDIO_TS directory found - Audio DVD detected")
-            return DiscType.AUDIO_DVD
-        }
-        
-        // Check for CDDA file (Audio CD indicator)
-        val cddaFile = File(rootDir, "CDDA")
-        if (cddaFile.exists()) {
-            Timber.d("CDDA file found - Audio CD detected")
-            return DiscType.AUDIO_CD
-        }
-        
-        // Check for audio tracks (Audio CD)
-        val files = rootDir.listFiles()
-        val hasAudioTracks = files?.any { file ->
-            file.isFile && (file.name.endsWith(".cda", ignoreCase = true) || 
-                           file.name.matches(Regex("track\\d+\\.(wav|mp3)", RegexOption.IGNORE_CASE)))
-        } ?: false
-        
-        if (hasAudioTracks) {
-            Timber.d("Audio track files found - Audio CD detected")
-            return DiscType.AUDIO_CD
-        }
-        
-        // Default: Assume data disc
-        // Try to determine if it's DVD or CD based on file system
-        val discType = when (fileSystem) {
-            FileSystem.UDF -> {
-                Timber.d("UDF file system detected - assuming Data DVD")
-                DiscType.DATA_DVD
-            }
-            FileSystem.ISO9660 -> {
-                Timber.d("ISO9660 file system detected - assuming Data CD")
-                DiscType.DATA_CD
-            }
-            else -> {
-                Timber.d("Unknown file system - defaulting to Data DVD")
-                DiscType.DATA_DVD
-            }
-        }
-        
-        Timber.d("Disc type detection complete: $discType")
-        return discType
+    suspend fun listFiles(drive: OpticalDrive): List<FileInfo> {
+        Timber.w("Listing files not supported without mount point")
+        return emptyList()
     }
 }

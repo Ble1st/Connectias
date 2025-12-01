@@ -2,294 +2,233 @@ package com.ble1st.connectias.feature.usb.media
 
 import android.content.ContentProvider
 import android.content.ContentValues
-import android.content.pm.PackageManager
+import android.content.Context
 import android.database.Cursor
+import android.hardware.usb.UsbManager
 import android.net.Uri
 import android.os.ParcelFileDescriptor
+import com.ble1st.connectias.feature.usb.driver.scsi.ScsiDriver
 import com.ble1st.connectias.feature.usb.native.DvdNative
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPoints
-import dagger.hilt.components.SingletonComponent
 import timber.log.Timber
-import java.io.FileNotFoundException
+import java.io.IOException
+import kotlin.concurrent.thread
 
 /**
- * ContentProvider for streaming DVD video content.
+ * ContentProvider that streams DVD Video data via direct USB/SCSI.
  * 
- * Handles content:// URIs with the pattern:
- * content://com.ble1st.connectias.dvd/video/{mountPoint}/{titleNumber}/{chapterNumber}
+ * URI Format: content://com.ble1st.connectias.provider/dvd/{device_identifier}/{title_number}
  * 
- * The mountPoint is URL-encoded in the URI and must be decoded before use.
- * 
- * Security: This provider enforces runtime permission checks and validates
- * all input parameters to prevent path traversal attacks.
+ * Note: This provider bypasses the file system and talks directly to the USB device.
+ * It requires the application to have USB permissions for the device.
  */
 class DvdVideoContentProvider : ContentProvider() {
-    
+
     companion object {
-        private const val AUTHORITY = "com.ble1st.connectias.dvd"
-        private const val VIDEO_PATH = "video"
-        private const val MIME_TYPE_VIDEO = "video/mp2t" // MPEG-2 Transport Stream (common DVD format)
-        
-        /**
-         * Builds a content URI for DVD video streaming.
-         * 
-         * @param mountPoint The DVD mount point (will be URL-encoded)
-         * @param titleNumber The title number (>= 1)
-         * @param chapterNumber The chapter number (>= 1)
-         * @return The content URI
-         */
-        fun buildUri(mountPoint: String, titleNumber: Int, chapterNumber: Int): Uri {
-            val encodedMountPoint = Uri.encode(mountPoint)
-            return Uri.parse("content://$AUTHORITY/$VIDEO_PATH/$encodedMountPoint/$titleNumber/$chapterNumber")
-        }
+        const val AUTHORITY = "com.ble1st.connectias.provider"
     }
-    
-    @Volatile
-    private var handleRegistry: DvdHandleRegistry? = null
-    
-    private val registryLock = Any()
-    
+
     override fun onCreate(): Boolean {
-        Timber.d("DvdVideoContentProvider onCreate")
-        
-        // Get DvdHandleRegistry from Hilt entry point
-        // Note: ContentProvider is created before Application, so we need to use
-        // EntryPoints.get() with the application context
-        val context = context ?: return false
-        val appContext = context.applicationContext
-        
-        try {
-            // Use EntryPoints.get() which works even if Application is not yet initialized
-            // This requires the application context to have Hilt initialized
-            val entryPoint = EntryPoints.get(
-                appContext,
-                DvdHandleRegistryEntryPoint::class.java
-            )
-            handleRegistry = entryPoint.dvdHandleRegistry()
-            Timber.d("DvdVideoContentProvider initialized with registry")
-            return true
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize DvdVideoContentProvider")
-            // If initialization fails, we'll try to get it lazily on first access
-            // This allows the ContentProvider to be created even if Hilt isn't ready yet
-            return true
-        }
+        Timber.d("=== DvdVideoContentProvider: onCreate ===")
+        return true
     }
-    
-    /**
-     * Gets the handle registry, initializing it lazily if needed.
-     * Uses double-check locking pattern for thread-safe lazy initialization.
-     * 
-     * @return The DvdHandleRegistry instance
-     * @throws IllegalStateException if registry cannot be initialized
-     */
-    private fun getHandleRegistry(): DvdHandleRegistry {
-        // First check (outside synchronized block) for performance
-        val registry = handleRegistry
-        if (registry != null) {
-            return registry
-        }
-        
-        // Synchronized block for thread-safe initialization
-        synchronized(registryLock) {
-            // Double-check inside synchronized block
-            val registryAgain = handleRegistry
-            if (registryAgain != null) {
-                return registryAgain
-            }
-            
-            // Lazy initialization if onCreate() failed
-            val context = context ?: throw IllegalStateException("ContentProvider context is null")
-            val appContext = context.applicationContext
-            
-            try {
-                val entryPoint = EntryPoints.get(
-                    appContext,
-                    DvdHandleRegistryEntryPoint::class.java
-                )
-                val newRegistry = entryPoint.dvdHandleRegistry()
-                handleRegistry = newRegistry
-                Timber.d("DvdVideoContentProvider registry initialized lazily")
-                return newRegistry
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to initialize DvdVideoContentProvider registry")
-                throw IllegalStateException("ContentProvider registry not available", e)
-            }
-        }
-    }
-    
-    /**
-     * Parses the URI to extract mount point, title number, and chapter number.
-     * 
-     * @param uri The content URI
-     * @return ParsedUriData or null if URI is invalid
-     */
-    private fun parseUri(uri: Uri): ParsedUriData? {
-        val pathSegments = uri.pathSegments ?: return null
-        
-        // Expected format: /video/{mountPoint}/{titleNumber}/{chapterNumber}
-        // pathSegments includes all segments after the authority, so:
-        // pathSegments[0] = "video"
-        // pathSegments[1] = "{mountPoint}" (encoded)
-        // pathSegments[2] = "{titleNumber}"
-        // pathSegments[3] = "{chapterNumber}"
-        if (pathSegments.size != 4) {
-            Timber.w("Invalid URI path segments count: ${pathSegments.size}, expected 4")
-            return null
-        }
-        
-        if (pathSegments[0] != VIDEO_PATH) {
-            Timber.w("Invalid URI path prefix: ${pathSegments[0]}, expected '$VIDEO_PATH'")
-            return null
-        }
-        
-        val mountPointEncoded = pathSegments[1]
-        val mountPoint = try {
-            Uri.decode(mountPointEncoded)
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to decode mount point: $mountPointEncoded")
-            return null
-        }
-        
-        val titleNumber = try {
-            pathSegments[2].toInt()
-        } catch (e: NumberFormatException) {
-            Timber.e(e, "Invalid title number: ${pathSegments[2]}")
-            return null
-        }
-        
-        val chapterNumber = try {
-            pathSegments[3].toInt()
-        } catch (e: NumberFormatException) {
-            Timber.e(e, "Invalid chapter number: ${pathSegments[3]}")
-            return null
-        }
-        
-        // Validate parameters
-        if (titleNumber < 1) {
-            Timber.w("Invalid title number: $titleNumber (must be >= 1)")
-            return null
-        }
-        
-        if (chapterNumber < 1) {
-            Timber.w("Invalid chapter number: $chapterNumber (must be >= 1)")
-            return null
-        }
-        
-        // Security: Validate mount point to prevent path traversal
-        // Mount points typically start with "/" and should be absolute paths
-        // We check for ".." to prevent path traversal, but allow "/" as mount points are absolute paths
-        if (mountPoint.contains("..")) {
-            Timber.w("Invalid mount point (path traversal attempt): $mountPoint")
-            return null
-        }
-        
-        // Ensure mount point is an absolute path (starts with "/")
-        if (!mountPoint.startsWith("/")) {
-            Timber.w("Invalid mount point (not an absolute path): $mountPoint")
-            return null
-        }
-        
-        return ParsedUriData(mountPoint, titleNumber, chapterNumber)
-    }
-    
-    /**
-     * Checks if the caller has permission to read DVD content.
-     * 
-     * @param uri The content URI
-     * @param mode The access mode (ignored, always checks read permission)
-     * @return true if permission is granted, false otherwise
-     */
-    private fun checkPermission(uri: Uri, mode: String): Boolean {
-        val context = context ?: return false
-        
-        // Check if caller has READ_EXTERNAL_STORAGE permission
-        // For Android 13+, check READ_MEDIA_VIDEO
-        val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            android.Manifest.permission.READ_MEDIA_VIDEO
-        } else {
-            android.Manifest.permission.READ_EXTERNAL_STORAGE
-        }
-        
-        val result = context.checkCallingOrSelfPermission(permission)
-        val hasPermission = result == PackageManager.PERMISSION_GRANTED
-        
-        if (!hasPermission) {
-            Timber.w("Caller does not have permission: $permission")
-        }
-        
-        return hasPermission
-    }
-    
+
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? {
-        Timber.d("openFile called for URI: $uri, mode: $mode")
+        Timber.d("=== DvdVideoContentProvider: openFile CALLED ===")
+        Timber.d("DvdVideoContentProvider: URI = $uri")
+        Timber.d("DvdVideoContentProvider: Mode = $mode")
+        Timber.d("DvdVideoContentProvider: Authority = ${uri.authority}")
+        Timber.d("DvdVideoContentProvider: Path = ${uri.path}")
+        Timber.d("DvdVideoContentProvider: Path segments = ${uri.pathSegments}")
         
-        // Only support read mode
+        // Only "r" mode supported
         if (mode != "r") {
-            Timber.w("Unsupported file mode: $mode (only 'r' is supported)")
-            throw FileNotFoundException("Only read mode is supported")
-        }
-        
-        // Check permissions
-        if (!checkPermission(uri, mode)) {
-            throw SecurityException("Caller does not have permission to read DVD content")
+            Timber.e("DvdVideoContentProvider: Invalid mode '$mode', only 'r' supported")
+            throw java.io.FileNotFoundException("Only read-only mode supported")
         }
         
         // Parse URI
-        val parsedData = parseUri(uri) ?: throw FileNotFoundException("Invalid URI format")
+        // Expected: /dvd/{device_id}/{title_number}
+        // segments[0] = "dvd"
+        // segments[1] = device_id
+        // segments[2] = title_number
         
-        // Get DVD handle from registry (lazy initialization if needed)
-        val registry = getHandleRegistry()
-        val handle = registry.getHandle(parsedData.mountPoint)
-            ?: throw FileNotFoundException("DVD not found for mount point: ${parsedData.mountPoint}")
-        
-        // Validate handle
-        if (handle <= 0) {
-            throw FileNotFoundException("Invalid DVD handle")
+        val segments = uri.pathSegments
+        Timber.d("DvdVideoContentProvider: Segments count = ${segments.size}")
+        segments.forEachIndexed { index, segment ->
+            Timber.d("DvdVideoContentProvider: Segment[$index] = '$segment'")
         }
         
-        // Video streaming is not yet implemented
-        // Throw exception before calling native method to avoid unnecessary native invocation
-        // and potential side effects
-        throw UnsupportedOperationException(
-            "Video streaming not yet implemented. Native dvdExtractVideoStream needs to return " +
-            "an InputStream or file descriptor for streaming."
-        )
+        if (segments.size < 3 || segments[0] != "dvd") {
+            Timber.e("DvdVideoContentProvider: Invalid URI format: $uri")
+            Timber.e("DvdVideoContentProvider: Expected format: /dvd/{device_id}/{title_number}")
+            throw java.io.FileNotFoundException("Invalid URI format")
+        }
         
-        // TODO: Once streaming support is implemented, uncomment and use the following:
-        // try {
-        //     val videoStream = DvdNative.dvdExtractVideoStream(
-        //         handle,
-        //         parsedData.titleNumber,
-        //         parsedData.chapterNumber
-        //     )
-        //     
-        //     if (videoStream == null) {
-        //         Timber.w("Video stream extraction returned null for title ${parsedData.titleNumber}, chapter ${parsedData.chapterNumber}")
-        //         throw FileNotFoundException("Video stream not available")
-        //     }
-        //     
-        //     // Create a ParcelFileDescriptor that streams the video data
-        //     // Implementation depends on how dvdExtractVideoStream works
-        //     // If it returns metadata only, we need a separate method to stream the actual video bytes
-        //     
-        // } catch (e: Exception) {
-        //     Timber.e(e, "Failed to extract video stream")
-        //     throw FileNotFoundException("Failed to extract video stream: ${e.message}")
-        // }
+        val deviceId = segments[1].toIntOrNull()
+        val titleNumber = segments[2].toIntOrNull() ?: 1
+        
+        Timber.d("DvdVideoContentProvider: Parsed deviceId = $deviceId")
+        Timber.d("DvdVideoContentProvider: Parsed titleNumber = $titleNumber")
+        
+        if (deviceId == null) {
+            Timber.e("DvdVideoContentProvider: Invalid Device ID in URI")
+            throw java.io.FileNotFoundException("Invalid Device ID in URI")
+        }
+        
+        Timber.d("DvdVideoContentProvider: Creating pipe...")
+        val pipe = try {
+            ParcelFileDescriptor.createPipe()
+        } catch (e: IOException) {
+            Timber.e(e, "DvdVideoContentProvider: Failed to create pipe")
+            throw java.io.FileNotFoundException("Failed to create pipe: ${e.message}")
+        }
+        
+        val readSide = pipe[0]
+        val writeSide = pipe[1]
+        Timber.d("DvdVideoContentProvider: Pipe created - readFd=${readSide.fd}, writeFd=${writeSide.fd}")
+        
+        // Spawn worker thread to feed the pipe
+        Timber.d("DvdVideoContentProvider: Spawning streamer thread...")
+        thread(name = "DvdStreamer-${System.currentTimeMillis()}") {
+            Timber.d("=== DvdVideoContentProvider: Streamer thread STARTED ===")
+            streamDvdToPipe(writeSide, deviceId, titleNumber)
+            Timber.d("=== DvdVideoContentProvider: Streamer thread FINISHED ===")
+        }
+        
+        Timber.d("DvdVideoContentProvider: Returning read side of pipe")
+        return readSide
     }
     
-    override fun getType(uri: Uri): String? {
-        val parsedData = parseUri(uri)
-        return if (parsedData != null) {
-            MIME_TYPE_VIDEO
-        } else {
-            null
+    private fun streamDvdToPipe(writeSide: ParcelFileDescriptor, targetDeviceId: Int, titleNumber: Int) {
+        Timber.d("=== streamDvdToPipe: STARTED ===")
+        Timber.d("streamDvdToPipe: targetDeviceId=$targetDeviceId, titleNumber=$titleNumber")
+        
+        var connection: android.hardware.usb.UsbDeviceConnection? = null
+        var scsiDriver: ScsiDriver? = null
+        var dvdHandle: Long = -1
+        
+        try {
+            val context = context
+            if (context == null) {
+                Timber.e("streamDvdToPipe: Context is null!")
+                return
+            }
+            
+            val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+            Timber.d("streamDvdToPipe: UsbManager obtained")
+            
+            // Find device by ID
+            val deviceList = usbManager.deviceList
+            Timber.d("streamDvdToPipe: Found ${deviceList.size} USB devices")
+            deviceList.values.forEach { d ->
+                Timber.d("  - Device: ${d.deviceName}, ID=${d.deviceId}, Vendor=0x${d.vendorId.toString(16)}")
+            }
+            
+            val device = deviceList.values.find { it.deviceId == targetDeviceId }
+            
+            if (device == null) {
+                Timber.e("streamDvdToPipe: USB Device with ID $targetDeviceId NOT FOUND!")
+                return
+            }
+            Timber.d("streamDvdToPipe: Found device: ${device.deviceName}")
+            
+            if (!usbManager.hasPermission(device)) {
+                Timber.e("streamDvdToPipe: No permission for device ${device.deviceName}!")
+                return
+            }
+            Timber.d("streamDvdToPipe: USB permission verified")
+            
+            connection = usbManager.openDevice(device)
+            if (connection == null) {
+                Timber.e("streamDvdToPipe: Failed to open USB connection!")
+                return
+            }
+            Timber.d("streamDvdToPipe: USB connection opened")
+            
+            // Claim Mass Storage interface
+            val iface = (0 until device.interfaceCount).map { device.getInterface(it) }
+                .find { it.interfaceClass == 8 }
+            if (iface == null) {
+                Timber.e("streamDvdToPipe: No Mass Storage interface found!")
+                return
+            }
+            Timber.d("streamDvdToPipe: Mass Storage interface found")
+                
+            scsiDriver = ScsiDriver(connection, iface)
+            Timber.d("streamDvdToPipe: SCSI driver created")
+            
+            // Wait for drive to be ready
+            Timber.d("streamDvdToPipe: Waiting for drive to be ready...")
+            if (!scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)) {
+                Timber.e("streamDvdToPipe: Drive not ready or no medium present!")
+                return
+            }
+            Timber.d("streamDvdToPipe: Drive is ready")
+            
+            // NOTE: CSS authentication is now handled automatically by libdvdcss
+            // via the pf_ioctl callback in dvdcss_stream_cb. No manual authentication needed.
+            
+            // Initialize Native Layer if needed
+            Timber.d("streamDvdToPipe: Loading native library...")
+            if (!DvdNative.ensureLibraryLoaded()) {
+                Timber.e("streamDvdToPipe: Native library not loaded!")
+                return
+            }
+            Timber.d("streamDvdToPipe: Native library loaded")
+            
+            // Open Stream via ScsiDriver
+            Timber.d("streamDvdToPipe: Opening DVD stream via SCSI...")
+            dvdHandle = DvdNative.dvdOpenStream(scsiDriver)
+            if (dvdHandle <= 0) {
+                Timber.e("streamDvdToPipe: Failed to open DVD stream handle! (handle=$dvdHandle)")
+                return
+            }
+            Timber.d("streamDvdToPipe: DVD stream opened, handle=$dvdHandle")
+            
+            Timber.i("=== streamDvdToPipe: Starting native stream for Title $titleNumber to FD ${writeSide.fd} ===")
+            
+            // Blocking call - pumps data from USB to Pipe
+            val startTime = System.currentTimeMillis()
+            val bytes = DvdNative.dvdStreamToFdNative(dvdHandle, titleNumber, writeSide.fd)
+            val duration = System.currentTimeMillis() - startTime
+            
+            Timber.i("=== streamDvdToPipe: Stream finished ===")
+            Timber.i("streamDvdToPipe: Bytes written: $bytes")
+            Timber.i("streamDvdToPipe: Duration: ${duration}ms")
+            if (bytes > 0 && duration > 0) {
+                val mbPerSec = (bytes.toDouble() / (1024 * 1024)) / (duration.toDouble() / 1000)
+                Timber.i("streamDvdToPipe: Speed: %.2f MB/s".format(mbPerSec))
+            }
+            
+        } catch (e: Exception) {
+            Timber.e(e, "streamDvdToPipe: ERROR during DVD streaming")
+        } finally {
+            Timber.d("streamDvdToPipe: Cleanup started")
+            
+            // Cleanup
+            if (dvdHandle > 0) {
+                Timber.d("streamDvdToPipe: Closing DVD handle $dvdHandle")
+                DvdNative.dvdClose(dvdHandle)
+            }
+            try {
+                scsiDriver?.close()
+                Timber.d("streamDvdToPipe: SCSI driver closed")
+            } catch (e: Exception) {
+                Timber.w(e, "streamDvdToPipe: Error closing SCSI driver")
+            }
+            
+            // Close write side to signal EOF to reader
+            try {
+                writeSide.close()
+                Timber.d("streamDvdToPipe: Write pipe closed")
+            } catch (e: Exception) {
+                Timber.w(e, "streamDvdToPipe: Error closing write pipe")
+            }
+            
+            Timber.d("=== streamDvdToPipe: FINISHED ===")
         }
     }
-    
+
     override fun query(
         uri: Uri,
         projection: Array<out String>?,
@@ -297,46 +236,28 @@ class DvdVideoContentProvider : ContentProvider() {
         selectionArgs: Array<out String>?,
         sortOrder: String?
     ): Cursor? {
-        // This provider doesn't support query operations
         return null
     }
-    
+
+    override fun getType(uri: Uri): String? {
+        // DVD VOB files are MPEG-2 Program Stream (PS), NOT Transport Stream (TS)
+        return "video/mp2p" // MPEG-2 Program Stream (same as MimeTypes.VIDEO_PS)
+    }
+
     override fun insert(uri: Uri, values: ContentValues?): Uri? {
-        // This provider doesn't support insert operations
-        throw UnsupportedOperationException("Insert not supported")
+        throw UnsupportedOperationException()
     }
-    
+
     override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
-        // This provider doesn't support delete operations
-        throw UnsupportedOperationException("Delete not supported")
+        throw UnsupportedOperationException()
     }
-    
+
     override fun update(
         uri: Uri,
         values: ContentValues?,
         selection: String?,
         selectionArgs: Array<out String>?
     ): Int {
-        // This provider doesn't support update operations
-        throw UnsupportedOperationException("Update not supported")
-    }
-    
-    /**
-     * Data class for parsed URI information.
-     */
-    private data class ParsedUriData(
-        val mountPoint: String,
-        val titleNumber: Int,
-        val chapterNumber: Int
-    )
-    
-    /**
-     * Hilt entry point for accessing DvdHandleRegistry.
-     * This is needed because ContentProvider is created before Application.
-     */
-    @EntryPoint
-    @InstallIn(SingletonComponent::class)
-    interface DvdHandleRegistryEntryPoint {
-        fun dvdHandleRegistry(): DvdHandleRegistry
+        throw UnsupportedOperationException()
     }
 }

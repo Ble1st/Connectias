@@ -26,7 +26,18 @@ fun DiscInfoCard(
             
             InfoRow(stringResource(R.string.disc_info_type), drive.type.displayName)
             InfoRow(stringResource(R.string.disc_info_file_system), drive.fileSystem.displayName)
-            InfoRow(stringResource(R.string.disc_info_mount_point), drive.mountPoint)
+            
+            // Show mount point if available, otherwise show device path
+            val accessPath = drive.mountPoint ?: drive.devicePath
+            val accessLabel = if (drive.mountPoint != null) {
+                stringResource(R.string.disc_info_mount_point)
+            } else {
+                "Device Path"
+            }
+            if (accessPath != null) {
+                InfoRow(accessLabel, accessPath)
+            }
+            
             InfoRow(stringResource(R.string.disc_info_vendor_id), "0x%04X".format(drive.device.vendorId))
             InfoRow(stringResource(R.string.disc_info_product_id), "0x%04X".format(drive.device.productId))
         }

@@ -10,7 +10,8 @@
     <application>
         <activity
             android:name=".ui.UsbDashboardActivity"
-            android:exported="false">
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.DarkActionBar">
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
@@ -25,10 +26,9 @@
              operations are actually implemented. Only read operations are supported. -->
         <provider
             android:name=".media.DvdVideoContentProvider"
-            android:authorities="com.ble1st.connectias.dvd"
+            android:authorities="com.ble1st.connectias.provider"
             android:exported="false"
-            android:grantUriPermissions="true"
-            android:readPermission="android.permission.READ_EXTERNAL_STORAGE" />
+            android:grantUriPermissions="true" />
     </application>
     
 </manifest>

@@ -38,6 +38,7 @@ Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
     <string name="css_decryption_disclaimer_checkbox">Ich verstehe und übernehme die Verantwortung</string>
     <string name="accept">Akzeptieren</string>
     <string name="cancel">Abbrechen</string>
+    <string name="css_decryption_disclaimer_cancel">Abbrechen</string>
     
     <!-- DVD Player (German) -->
     <string name="dvd_player_css_decryption_enabled">CSS-Decryption aktiviert</string>

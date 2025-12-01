@@ -1,9 +1,7 @@
 package com.ble1st.connectias.feature.usb.provider
 
 import android.content.Context
-import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
+import android.hardware.usb.UsbManager
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import com.ble1st.connectias.feature.usb.models.UsbTransfer
 import com.ble1st.connectias.feature.usb.native.UsbClass
@@ -13,10 +11,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
-import java.security.GeneralSecurityException
-import java.security.MessageDigest
-import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,167 +30,18 @@ class UsbProvider @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     
-    // Persistent mapping for devices without stable identifiers
+    private val usbManager: UsbManager by lazy {
+        context.getSystemService(Context.USB_SERVICE) as UsbManager
+    }
+    
+    // Persistent mapping for devices without stable identifiers - REMOVED as we now use UsbManager directly
+    /*
     private val deviceMappingPrefs: SharedPreferences by lazy {
-        try {
-            val masterKey = MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            
-            EncryptedSharedPreferences.create(
-                context,
-                "usb_device_mapping",
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: GeneralSecurityException) {
-            // EncryptedSharedPreferences failed due to security/keystore issues
-            // Attempt to detect and handle corrupted encrypted file before falling back
-            val remediation = handleCorruptedEncryptedFile("usb_device_mapping")
-            Timber.w(e, "Failed to create EncryptedSharedPreferences for device mapping (GeneralSecurityException). " +
-                    "Remediation: $remediation. Using plain SharedPreferences with separate filename.")
-            context.getSharedPreferences("usb_device_mapping_plain", Context.MODE_PRIVATE)
-        } catch (e: Exception) {
-            // Other exceptions (IO, etc.) - check if encrypted file exists and might be corrupted
-            val remediation = handleCorruptedEncryptedFile("usb_device_mapping")
-            Timber.w(e, "Failed to create EncryptedSharedPreferences for device mapping. " +
-                    "Remediation: $remediation. Using plain SharedPreferences with separate filename.")
-            context.getSharedPreferences("usb_device_mapping_plain", Context.MODE_PRIVATE)
-        }
+        // ... removed ...
     }
+    */
     
-    /**
-     * Attempts to detect and handle a corrupted encrypted SharedPreferences file.
-     * If the encrypted file exists, it may contain encrypted bytes that would be unreadable
-     * as plain SharedPreferences. This method attempts to delete or rename the corrupted file.
-     * 
-     * @param prefsName The name of the SharedPreferences file (without .xml extension)
-     * @return String describing the remediation action taken
-     */
-    private fun handleCorruptedEncryptedFile(prefsName: String): String {
-        return try {
-            val prefsFile = File(context.filesDir.parent, "shared_prefs/$prefsName.xml")
-            if (prefsFile.exists()) {
-                // Encrypted file exists - attempt to detect if it's corrupted by trying a minimal read
-                // If it's encrypted, reading as plain XML will fail or return garbage
-                try {
-                    val testPrefs = context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-                    val testKey = "__corruption_test__"
-                    // Try to read a non-existent key - if file is encrypted, this might throw or return garbage
-                    testPrefs.getString(testKey, null)
-                    // If we get here without exception, file might be readable as plain (or empty)
-                    // But since EncryptedSharedPreferences.create() failed, it's likely corrupted
-                    // Delete it to prevent confusion
-                    val deleted = prefsFile.delete()
-                    if (deleted) {
-                        "Deleted potentially corrupted encrypted file: $prefsName.xml"
-                    } else {
-                        "Failed to delete potentially corrupted encrypted file: $prefsName.xml"
-                    }
-                } catch (readException: Exception) {
-                    // File is definitely corrupted or encrypted - delete it
-                    val deleted = prefsFile.delete()
-                    if (deleted) {
-                        "Deleted corrupted encrypted file (read test failed): $prefsName.xml"
-                    } else {
-                        "Failed to delete corrupted encrypted file (read test failed): $prefsName.xml"
-                    }
-                }
-            } else {
-                "Encrypted file does not exist, no remediation needed"
-            }
-        } catch (e: Exception) {
-            "Error during corruption detection: ${e.message}"
-        }
-    }
-    
-    /**
-     * Computes a stable hash-based identifier from device descriptor fields.
-     * Uses SHA-256 hash of stable descriptor fields (vendorId, productId, manufacturer, product, deviceClass).
-     * 
-     * @param native The native USB device descriptor
-     * @return Hexadecimal hash string (64 characters for SHA-256)
-     */
-    private fun computeStableHash(native: com.ble1st.connectias.feature.usb.native.UsbDeviceNative): String {
-        val descriptorString = buildString {
-            append("vid:${native.vendorId}")
-            append("|pid:${native.productId}")
-            append("|class:${native.deviceClass.value}")
-            native.manufacturer?.let { append("|mfg:$it") }
-            native.product?.let { append("|prod:$it") }
-        }
-        
-        return try {
-            val digest = MessageDigest.getInstance("SHA-256")
-            val hashBytes = digest.digest(descriptorString.toByteArray(Charsets.UTF_8))
-            hashBytes.joinToString("") { "%02x".format(it) }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to compute hash for device descriptor")
-            // Fallback to simple concatenation if hashing fails
-            descriptorString.replace("|", "_").replace(":", "_")
-        }
-    }
-    
-    /**
-     * Generates or retrieves a persistent UUID for a device fingerprint.
-     * Uses encrypted SharedPreferences to persist the mapping across app restarts.
-     * 
-     * @param fingerprint Temporary device fingerprint (e.g., hash of available fields)
-     * @return Stable UUID string for the device
-     */
-    private fun getOrCreatePersistentId(fingerprint: String): String {
-        val existingId = deviceMappingPrefs.getString(fingerprint, null)
-        if (existingId != null) {
-            return existingId
-        }
-        
-        // Generate new UUID and persist it
-        val newId = UUID.randomUUID().toString()
-        deviceMappingPrefs.edit().putString(fingerprint, newId).apply()
-        Timber.d("Generated new persistent ID for device fingerprint: $fingerprint -> $newId")
-        return newId
-    }
-    
-    /**
-     * Creates a stable unique identifier for a USB device.
-     * Priority order:
-     * 1. serialNumber (if available) - most stable
-     * 2. Hash of stable descriptor fields (vendorId, productId, manufacturer, product, deviceClass)
-     * 3. Persistent mapping from device fingerprint to generated UUID (for devices with no stable fields)
-     * 
-     * Note: Bus/port information is not available from the native layer, so we rely on descriptor fields.
-     * For devices without serial numbers and with identical descriptors, the hash will be the same,
-     * which may cause identification issues if multiple identical devices are connected.
-     * 
-     * @param native The native USB device descriptor
-     * @return Stable unique identifier string
-     */
-    private fun createStableUniqueId(native: com.ble1st.connectias.feature.usb.native.UsbDeviceNative): String {
-        // Priority 1: Use serial number if available (most stable)
-        if (!native.serialNumber.isNullOrBlank()) {
-            return native.serialNumber
-        }
-        
-        // Priority 2: Compute hash from stable descriptor fields
-        val hasStableFields = native.vendorId != 0 || native.productId != 0 || 
-                             !native.manufacturer.isNullOrBlank() || !native.product.isNullOrBlank()
-        
-        if (hasStableFields) {
-            val hash = computeStableHash(native)
-            Timber.d("Using hash-based identifier for device: Vendor=0x%04X, Product=0x%04X, Hash=$hash",
-                native.vendorId, native.productId)
-            return "hash_$hash"
-        }
-        
-        // Priority 3: Fallback to persistent mapping (for devices with no stable fields)
-        // This handles edge cases where device has no serial number and minimal descriptor info
-        val minimalFingerprint = "vid:${native.vendorId}|pid:${native.productId}|class:${native.deviceClass.value}"
-        val persistentId = getOrCreatePersistentId(minimalFingerprint)
-        Timber.w("Using persistent mapping for device with minimal descriptor: Vendor=0x%04X, Product=0x%04X, ID=$persistentId",
-            native.vendorId, native.productId)
-        return "persistent_$persistentId"
-    }
+    // Helper methods removed as they are no longer needed with UsbManager usage
     
     /**
      * Enumerates all connected USB devices.
@@ -204,24 +49,84 @@ class UsbProvider @Inject constructor(
      */
     suspend fun enumerateDevices(): UsbResult<List<UsbDevice>> = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Starting USB device enumeration...")
-            val nativeDevices = UsbNative.enumerateDevices().toList()
-            Timber.d("Native enumeration returned ${nativeDevices.size} devices")
+            Timber.d("Starting USB device enumeration via UsbManager...")
+            // Use Android's UsbManager directly instead of native enumeration
+            val androidDevices = usbManager.deviceList.values.toList()
+            Timber.d("UsbManager returned ${androidDevices.size} devices")
             
-            val devices = nativeDevices.map { native ->
-                // Create stable unique identifier using hash-based approach
-                val uniqueId = createStableUniqueId(native)
+            val devices = androidDevices.map { androidDevice ->
+                // Logic similar to UsbDeviceDetector to ensure consistency
+                
+                // Check permission for potential extra details
+                val hasPermission = usbManager.hasPermission(androidDevice)
+                
+                val serialNumber = if (hasPermission) {
+                    try { androidDevice.serialNumber } catch (e: SecurityException) { null }
+                } else null
+                
+                val manufacturer = if (hasPermission) {
+                    try { androidDevice.manufacturerName } catch (e: SecurityException) { null }
+                } else null
+                
+                val product = if (hasPermission) {
+                    try { androidDevice.productName } catch (e: SecurityException) { null }
+                } else null
+                
+                // Generate a unique ID (consistent with UsbDeviceDetector logic if possible, 
+                // or use our stable ID logic adapted for Android device)
+                val uniqueId = if (!serialNumber.isNullOrBlank()) {
+                    serialNumber
+                } else {
+                    // Fallback unique ID
+                    "${androidDevice.vendorId}_${androidDevice.productId}_${androidDevice.deviceId}"
+                }
+                
+                // Check for Mass Storage / Optical Drive indicators
+                val isDeviceClassMassStorage = androidDevice.deviceClass == UsbClass.MASS_STORAGE.value
+                
+                // Check interfaces
+                var hasMassStorageInterface = false
+                val interfaceCount = androidDevice.interfaceCount
+                for (i in 0 until interfaceCount) {
+                    try {
+                        val iface = androidDevice.getInterface(i)
+                        if (iface.interfaceClass == UsbClass.MASS_STORAGE.value) {
+                            hasMassStorageInterface = true
+                            break
+                        }
+                    } catch (e: Exception) {
+                        // Ignore errors reading interfaces
+                    }
+                }
+                
+                val productNameLower = product?.lowercase() ?: ""
+                val manufacturerNameLower = manufacturer?.lowercase() ?: ""
+                val hasDvdCdIndicators = productNameLower.contains("dvd") || 
+                                         productNameLower.contains("cd") || 
+                                         productNameLower.contains("optical") ||
+                                         productNameLower.contains("disc") ||
+                                         manufacturerNameLower.contains("dvd") ||
+                                         manufacturerNameLower.contains("cd") ||
+                                         manufacturerNameLower.contains("optical")
+                
+                val isMassStorage = isDeviceClassMassStorage || hasMassStorageInterface || hasDvdCdIndicators
+                
+                val effectiveDeviceClass = if (isMassStorage && !isDeviceClassMassStorage) {
+                     UsbClass.MASS_STORAGE.value
+                } else {
+                    androidDevice.deviceClass
+                }
                 
                 UsbDevice(
-                    vendorId = native.vendorId,
-                    productId = native.productId,
-                    deviceClass = native.deviceClass.value,
-                    deviceSubclass = 0, // Not available from native layer
-                    deviceProtocol = 0, // Not available from native layer
-                    serialNumber = native.serialNumber,
-                    manufacturer = native.manufacturer,
-                    product = native.product,
-                    version = null, // Not available from native layer
+                    vendorId = androidDevice.vendorId,
+                    productId = androidDevice.productId,
+                    deviceClass = effectiveDeviceClass,
+                    deviceSubclass = androidDevice.deviceSubclass,
+                    deviceProtocol = androidDevice.deviceProtocol,
+                    serialNumber = serialNumber,
+                    manufacturer = manufacturer,
+                    product = product,
+                    version = if (androidDevice.version != null) androidDevice.version else "1.0.0", 
                     uniqueId = uniqueId
                 )
             }

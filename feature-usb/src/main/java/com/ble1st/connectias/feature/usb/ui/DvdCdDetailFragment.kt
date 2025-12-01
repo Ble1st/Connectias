@@ -23,7 +23,6 @@ import com.ble1st.connectias.feature.usb.models.AudioTrack
 import com.ble1st.connectias.feature.usb.models.DiscType
 import com.ble1st.connectias.feature.usb.models.DvdInfo
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
-import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import com.ble1st.connectias.feature.usb.storage.OpticalDriveProvider
 import dagger.hilt.android.AndroidEntryPoint
 import com.google.android.material.snackbar.Snackbar
@@ -43,7 +42,6 @@ class DvdCdDetailFragment : Fragment() {
     @Inject lateinit var dvdVideoProvider: DvdVideoProvider
     @Inject lateinit var audioCdProvider: AudioCdProvider
     @Inject lateinit var audioCdPlayer: AudioCdPlayer
-    @Inject lateinit var dvdSettings: DvdSettings
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,17 +54,6 @@ class DvdCdDetailFragment : Fragment() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 ConnectiasTheme {
-                    val disclaimerText = remember {
-                        try {
-                            requireContext().resources.openRawResource(
-                                com.ble1st.connectias.feature.usb.R.raw.css_disclaimer
-                            ).bufferedReader().use { it.readText() }
-                        } catch (e: Exception) {
-                            Timber.e(e, "Error reading disclaimer text")
-                            "CSS-Decryption Disclaimer - See documentation for full text"
-                        }
-                    }
-                    
                     // Auto-detect optical drive
                     var drive by remember { mutableStateOf<OpticalDrive?>(null) }
                     var dvdInfo by remember { mutableStateOf<DvdInfo?>(null) }
@@ -77,7 +64,7 @@ class DvdCdDetailFragment : Fragment() {
                     LaunchedEffect(Unit) {
                         Timber.d("Auto-detecting optical drive...")
                         try {
-                            drive = opticalDriveProvider.detectAndMountOpticalDrive()
+                            drive = opticalDriveProvider.detectOpticalDrive()
                             if (drive == null) {
                                 errorMessage = "No optical disc detected. Please ensure:\n" +
                                         "• A DVD/CD is inserted in the drive\n" +
@@ -87,7 +74,7 @@ class DvdCdDetailFragment : Fragment() {
                                 val detectedDrive = drive
                                 // Open DVD to get DvdInfo for navigation
                                 try {
-                                    dvdInfo = dvdVideoProvider.openDvd(detectedDrive)
+                                    dvdInfo = detectedDrive?.let { dvdVideoProvider.openDvd(it) }
                                     Timber.d("DVD opened successfully for navigation")
                                 } catch (e: Exception) {
                                     Timber.e(e, "Error opening DVD for navigation")
@@ -123,40 +110,75 @@ class DvdCdDetailFragment : Fragment() {
                             opticalDriveProvider = opticalDriveProvider,
                             dvdVideoProvider = dvdVideoProvider,
                             audioCdProvider = audioCdProvider,
-                            dvdSettings = dvdSettings,
-                            disclaimerText = disclaimerText,
-                            onPlayTitle = { titleNumber ->
-                                Timber.d("Play title requested: $titleNumber")
+                            onDvdInfoLoaded = { loadedDvdInfo ->
+                                Timber.d("DvdCdDetailFragment: dvdInfo loaded from DvdCdDetailScreen with ${loadedDvdInfo.titles.size} titles")
+                                dvdInfo = loadedDvdInfo
+                            },
+                            onPlayTitle = { screenDvdInfo, titleNumber ->
+                                Timber.d("=== DvdCdDetailFragment: PLAY TITLE $titleNumber REQUESTED ===")
+                                Timber.d("DvdCdDetailFragment: Received dvdInfo directly from screen with ${screenDvdInfo.titles.size} titles")
                                 viewLifecycleOwner.lifecycleScope.launch {
                                     try {
-                                        if (!isAdded) return@launch
+                                        if (!isAdded) {
+                                            Timber.w("DvdCdDetailFragment: Fragment not added, aborting playTitle")
+                                            return@launch
+                                        }
                                         
-                                        val currentDvdInfo = dvdInfo
+                                        // Use dvdInfo passed directly from the screen (guaranteed to be current)
+                                        val currentDvdInfo = screenDvdInfo
                                         val currentDrive = drive
-                                        if (currentDvdInfo == null || currentDrive == null) {
-                                            Timber.e("Cannot play title: DvdInfo or Drive is null")
+                                        Timber.d("DvdCdDetailFragment: currentDvdInfo=${currentDvdInfo.titles.size} titles, currentDrive=${currentDrive != null}")
+                                        
+                                        if (currentDrive == null) {
+                                            Timber.e("DvdCdDetailFragment: Cannot play title: Drive is null")
                                             view?.let { v ->
                                                 Snackbar.make(
                                                     v,
-                                                    "Cannot play title: Drive or DVD information is missing",
+                                                    "Cannot play title: Drive information is missing",
                                                     Snackbar.LENGTH_LONG
                                                 ).show()
                                             }
                                             return@launch
                                         }
                                         
+                                        Timber.d("DvdCdDetailFragment: Creating VideoStream for title $titleNumber...")
                                         // Create VideoStream for the selected title
                                         val videoStream = dvdVideoProvider.playTitle(currentDvdInfo, titleNumber)
-                                        Timber.d("VideoStream created: codec=${videoStream.codec}, uri=${videoStream.uri}")
+                                        Timber.d("DvdCdDetailFragment: VideoStream created:")
+                                        Timber.d("  - codec: ${videoStream.codec}")
+                                        Timber.d("  - uri: ${videoStream.uri}")
+                                        Timber.d("  - width: ${videoStream.width}")
+                                        Timber.d("  - height: ${videoStream.height}")
                                         
-                                        if (!isAdded) return@launch
+                                        if (!isAdded) {
+                                            Timber.w("DvdCdDetailFragment: Fragment no longer added after creating VideoStream")
+                                            return@launch
+                                        }
                                         
                                         // Navigate to player screen with VideoStream
+                                        Timber.d("DvdCdDetailFragment: Creating navigation arguments...")
                                         val args = DvdPlayerFragment.createArguments(videoStream)
-                                        findNavController().navigate(R.id.nav_dvd_player, args)
-                                        Timber.d("Navigated to DVD player screen")
+                                        
+                                        Timber.d("DvdCdDetailFragment: Looking up navigation ID 'nav_dvd_player'...")
+                                        val navId = resources.getIdentifier("nav_dvd_player", "id", requireContext().packageName)
+                                        Timber.d("DvdCdDetailFragment: Navigation ID = $navId")
+                                        
+                                        if (navId != 0) {
+                                            Timber.d("=== DvdCdDetailFragment: NAVIGATING TO DVD PLAYER ===")
+                                            findNavController().navigate(navId, args)
+                                            Timber.d("DvdCdDetailFragment: Navigation completed")
+                                        } else {
+                                            Timber.e("DvdCdDetailFragment: Navigation ID nav_dvd_player not found!")
+                                            view?.let { v ->
+                                                Snackbar.make(
+                                                    v,
+                                                    "Navigation error: Player screen not found",
+                                                    Snackbar.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        }
                                     } catch (e: Exception) {
-                                        Timber.e(e, "Error navigating to DVD player")
+                                        Timber.e(e, "DvdCdDetailFragment: Error during playTitle")
                                         if (isAdded) {
                                             view?.let { v ->
                                                 Snackbar.make(
@@ -207,6 +229,39 @@ class DvdCdDetailFragment : Fragment() {
                                                 ).show()
                                             }
                                         }
+                                    }
+                                }
+                            },
+                            onEject = {
+                                Timber.d("Eject callback invoked")
+                                // Navigate back or refresh drive detection
+                                viewLifecycleOwner.lifecycleScope.launch {
+                                    try {
+                                        // Close any open DVD handles first
+                                        dvdInfo?.let {
+                                            try {
+                                                dvdVideoProvider.closeDvd(it)
+                                                Timber.d("Closed DVD handle before eject")
+                                            } catch (e: Exception) {
+                                                Timber.w(e, "Error closing DVD handle")
+                                            }
+                                        }
+                                        
+                                        // Show message to user
+                                        if (isAdded) {
+                                            view?.let { v ->
+                                                Snackbar.make(
+                                                    v,
+                                                    "Eject command sent. Please check if the disc was ejected.",
+                                                    Snackbar.LENGTH_LONG
+                                                ).show()
+                                            }
+                                        }
+                                        
+                                        // Optionally navigate back or refresh
+                                        // findNavController().popBackStack()
+                                    } catch (e: Exception) {
+                                        Timber.e(e, "Error in eject callback")
                                     }
                                 }
                             }

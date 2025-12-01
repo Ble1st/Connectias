@@ -5,6 +5,11 @@
     <!-- Mass Storage Class (class="8"): thumb drives, external HDD/SSD, card readers, optical drives -->
     <usb-device class="8" />
     
-    <!-- All USB devices (optional, can be more specific) -->
-    <!-- <usb-device /> -->
+    <!-- Per Interface Class (class="0"): Some devices like optical drives report as Per Interface
+         and have Mass Storage as an interface rather than device class -->
+    <usb-device class="0" />
+    
+    <!-- All USB devices - accept all to ensure we can request permission for any device -->
+    <!-- This allows the app to be notified when any USB device is attached -->
+    <usb-device />
 </usb-devices>

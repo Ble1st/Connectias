@@ -54,6 +54,10 @@ fun UsbDashboardScreen(
         activity ?: (context as? android.app.Activity)
     }
     
+    // Handle permission request flow - declare before use
+    var permissionFlow by remember { mutableStateOf<kotlinx.coroutines.flow.Flow<Boolean>?>(null) }
+    var currentPermissionDevice by remember { mutableStateOf<UsbDevice?>(null) }
+    
     // Automatische Erkennung via StateFlow
     val detectedDevices by deviceDetector.detectedDevices.collectAsState()
     LaunchedEffect(detectedDevices) {
@@ -69,6 +73,7 @@ fun UsbDashboardScreen(
         }
         
         // Check if permission was granted and refresh device info
+        // Also automatically request permission for new devices without permission
         detectedDevices.forEach { device ->
             val deviceKey = Pair(device.vendorId, device.productId)
             if (permissionManager.hasPermission(device)) {
@@ -80,6 +85,24 @@ fun UsbDashboardScreen(
                     Timber.d("Permission granted for new device, showing action dialog")
                     previouslyGrantedDevices = previouslyGrantedDevices + deviceKey
                     actionDialogDevice = device
+                }
+            } else {
+                // No permission yet - automatically request permission for new devices
+                // Only request if not already requested and activity is available
+                if (!previouslyGrantedDevices.contains(deviceKey) && 
+                    permissionRequest == null && 
+                    activityInstance != null &&
+                    currentPermissionDevice == null) {
+                    Timber.d("New device detected without permission, automatically requesting permission")
+                    permissionRequest = device
+                    scope.launch {
+                        try {
+                            permissionFlow = permissionManager.requestPermission(device, activityInstance)
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to request USB permission automatically")
+                            permissionRequest = null
+                        }
+                    }
                 }
             }
         }
@@ -118,10 +141,6 @@ fun UsbDashboardScreen(
             isLoading = false
         }
     }
-    
-    // Handle permission request flow
-    var permissionFlow by remember { mutableStateOf<kotlinx.coroutines.flow.Flow<Boolean>?>(null) }
-    var currentPermissionDevice by remember { mutableStateOf<UsbDevice?>(null) }
     
     // Collect permission result from flow
     LaunchedEffect(permissionFlow) {

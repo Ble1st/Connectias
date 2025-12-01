@@ -35,7 +35,7 @@ class UsbDashboardFragment : Fragment() {
         
         // BroadcastReceiver für automatische Erkennung registrieren
         try {
-            deviceDetector.registerReceiver(requireActivity())
+            deviceDetector.registerReceiver()
             Timber.d("USB BroadcastReceiver registered")
         } catch (e: Exception) {
             Timber.e(e, "Failed to register USB BroadcastReceiver")
@@ -75,7 +75,12 @@ class UsbDashboardFragment : Fragment() {
                             try {
                                 if (device.isMassStorage) {
                                     Timber.d("Navigating to DVD/CD detail screen for mass storage device")
-                                    findNavController().navigate(R.id.nav_dvd_cd_detail)
+                                    val navId = resources.getIdentifier("nav_dvd_cd_detail", "id", requireContext().packageName)
+                                    if (navId != 0) {
+                                        findNavController().navigate(navId)
+                                    } else {
+                                        Timber.e("Navigation ID nav_dvd_cd_detail not found")
+                                    }
                                     Timber.d("Navigated to DVD/CD detail screen")
                                 } else {
                                     Timber.w("Device is not mass storage: ${device.product}")

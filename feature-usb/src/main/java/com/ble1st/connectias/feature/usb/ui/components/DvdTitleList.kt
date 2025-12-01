@@ -1,12 +1,10 @@
 package com.ble1st.connectias.feature.usb.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.semantics.Role
-import androidx.compose.foundation.semantics.contentDescription
-import androidx.compose.foundation.semantics.role
-import androidx.compose.foundation.semantics.semantics
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -43,11 +41,11 @@ fun DvdTitleList(
             }
         }
     } else {
-        LazyColumn(
+        Column(
             modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(titles, key = { it.number }) { title ->
+            titles.forEach { title ->
                 DvdTitleCard(
                     title = title,
                     onClick = { onTitleSelected(title.number) }

@@ -336,10 +336,15 @@ class UsbDeviceDetector @Inject constructor(
         
         val isMassStorage = isDeviceClassMassStorage || hasMassStorageInterface || hasDvdCdIndicators
         
-        if (isMassStorage && !isDeviceClassMassStorage) {
+        // If device has Mass Storage interface but deviceClass is not Mass Storage,
+        // set deviceClass to Mass Storage so that isMassStorage computed property works correctly
+        val effectiveDeviceClass = if (isMassStorage && !isDeviceClassMassStorage) {
             Timber.d("Device detected as Mass Storage via interface or name indicators: Vendor=0x%04X, Product=0x%04X, " +
-                    "DeviceClass=${device.deviceClass}, HasInterface=$hasMassStorageInterface, HasIndicators=$hasDvdCdIndicators",
+                    "DeviceClass=${device.deviceClass} -> 8, HasInterface=$hasMassStorageInterface, HasIndicators=$hasDvdCdIndicators",
                 device.vendorId, device.productId)
+            UsbDeviceModel.USB_CLASS_MASS_STORAGE
+        } else {
+            device.deviceClass
         }
         
         // Generate unique identifier using centralized helper
@@ -348,14 +353,13 @@ class UsbDeviceDetector @Inject constructor(
         return UsbDeviceModel(
             vendorId = device.vendorId,
             productId = device.productId,
-            deviceClass = device.deviceClass,
+            deviceClass = effectiveDeviceClass,
             deviceSubclass = device.deviceSubclass,
             deviceProtocol = device.deviceProtocol,
             serialNumber = serialNumber,
             manufacturer = manufacturer,
             product = product,
             version = device.version,
-            isMassStorage = isMassStorage,
             uniqueId = uniqueId
         )
     }

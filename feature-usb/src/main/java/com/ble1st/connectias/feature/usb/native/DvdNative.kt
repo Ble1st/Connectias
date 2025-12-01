@@ -5,43 +5,87 @@ import timber.log.Timber
 
 /**
  * Native interface for DVD operations via libdvdread/libdvdnav/libdvdcss.
+ * 
+ * Uses lazy loading to prevent hard failures when native libraries are unavailable,
+ * allowing graceful degradation.
  */
 object DvdNative {
     
-    private val cssDecryptionEnabled: Boolean
+    @Volatile
+    private var libraryLoaded = false
     
-    init {
-        val cssEnabled = if (BuildConfig.ENABLE_DVD_CSS) {
-            try {
-                Timber.d("Loading libdvdcss (CSS decryption)...")
-                System.loadLibrary("dvdcss")
-                Timber.d("libdvdcss loaded successfully")
-                Timber.i("CSS decryption enabled")
-                true
-            } catch (e: UnsatisfiedLinkError) {
-                Timber.w(e, "libdvdcss not available (CSS decryption disabled)")
-                false
+    @Volatile
+    private var libraryAvailable = false
+    
+    @Volatile
+    private var cssDecryptionEnabled = false
+    
+    @Volatile
+    private var dvdReadAvailable = false
+    
+    private val libraryLoadLock = Any()
+    
+    /**
+     * Ensures the native library is loaded. Thread-safe and idempotent.
+     * @return true if library is available, false otherwise
+     */
+    internal fun ensureLibraryLoaded(): Boolean {
+        if (libraryLoaded) {
+            return libraryAvailable
+        }
+        
+        synchronized(libraryLoadLock) {
+            if (libraryLoaded) {
+                return libraryAvailable
             }
-        } else {
-            Timber.d("libdvdcss not loaded (CSS decryption disabled via build config)")
-            false
+            
+            try {
+                Timber.d("Loading DVD JNI native library...")
+                System.loadLibrary("dvd_jni")
+                libraryAvailable = true
+                // dvdread/dvdnav are statically linked into dvd_jni
+                dvdReadAvailable = true 
+                Timber.d("DVD JNI native library loaded successfully")
+            } catch (e: UnsatisfiedLinkError) {
+                libraryAvailable = false
+                dvdReadAvailable = false
+                Timber.e(e, "Failed to load DVD JNI native library - DVD functionality will be unavailable")
+                libraryLoaded = true
+                return false
+            }
+            
+            // CSS decryption is now statically linked into libdvdread/libdvd_jni
+            // No need to load libdvdcss separately - it's embedded in the native library
+            cssDecryptionEnabled = BuildConfig.ENABLE_DVD_CSS
+            if (cssDecryptionEnabled) {
+                Timber.i("CSS decryption enabled (statically linked via libdvdcss)")
+            } else {
+                Timber.d("CSS decryption disabled via build config")
+            }
+            
+            libraryLoaded = true
+            return true
         }
-        
-        cssDecryptionEnabled = cssEnabled
-        
-        try {
-            Timber.d("Loading DVD native libraries...")
-            System.loadLibrary("dvdread")
-            Timber.d("libdvdread loaded successfully")
-            System.loadLibrary("dvdnav")
-            Timber.d("libdvdnav loaded successfully")
-            System.loadLibrary("ffmpeg")
-            Timber.d("FFmpeg loaded successfully")
-            Timber.i("DVD native libraries loaded successfully")
-        } catch (e: UnsatisfiedLinkError) {
-            Timber.e(e, "Failed to load DVD native libraries")
-            throw IllegalStateException("DVD native libraries not available", e)
-        }
+    }
+    
+    /**
+     * Checks if the native JNI library is available.
+     * 
+     * @return true if dvd_jni is loaded and available, false otherwise
+     */
+    fun isLibraryAvailable(): Boolean {
+        ensureLibraryLoaded()
+        return libraryAvailable
+    }
+    
+    /**
+     * Checks if libdvdread is available for full DVD functionality.
+     * 
+     * @return true if libdvdread is loaded and available, false otherwise
+     */
+    fun isDvdReadAvailable(): Boolean {
+        ensureLibraryLoaded()
+        return dvdReadAvailable
     }
     
     /**
@@ -69,7 +113,61 @@ object DvdNative {
      * }
      * ```
      */
-    external fun dvdOpen(path: String): Long
+    fun dvdOpen(path: String): Long {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot open DVD")
+            return -1L
+        }
+        return dvdOpenNative(path)
+    }
+    
+    private external fun dvdOpenNative(path: String): Long
+
+    /**
+     * Opens a DVD using a file descriptor.
+     * 
+     * This is the preferred method on Android, as it allows using the UsbDeviceConnection
+     * file descriptor, bypassing permission issues with direct device path access.
+     * 
+     * @param fd The file descriptor (from UsbDeviceConnection.fileDescriptor)
+     * @return A valid handle (!= -1L) on success, or -1L on failure
+     */
+    fun dvdOpenFd(fd: Int): Long {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot open DVD via FD")
+            return -1L
+        }
+        return dvdOpenFdNative(fd)
+    }
+
+    private external fun dvdOpenFdNative(fd: Int): Long
+
+    /**
+     * Opens a DVD using a custom UsbBlockDevice stream.
+     *
+     * @param driver The UsbBlockDevice instance (e.g. ScsiDriver)
+     * @return A valid handle (!= -1L) on success, or -1L on failure
+     */
+    fun dvdOpenStream(driver: com.ble1st.connectias.feature.usb.driver.UsbBlockDevice): Long {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot open DVD via Stream")
+            return -1L
+        }
+        return dvdOpenStreamNative(driver)
+    }
+
+    private external fun dvdOpenStreamNative(driver: com.ble1st.connectias.feature.usb.driver.UsbBlockDevice): Long
+    
+    /**
+     * Streams a title to a file descriptor.
+     * This is a blocking call.
+     *
+     * @param handle The DVD handle
+     * @param titleNumber Title number (1-based)
+     * @param outFd File descriptor to write to
+     * @return Bytes written or -1
+     */
+    external fun dvdStreamToFdNative(handle: Long, titleNumber: Int, outFd: Int): Long
     
     /**
      * Closes a DVD handle.
@@ -86,22 +184,54 @@ object DvdNative {
      * 
      * @param handle The handle to close (valid handle from [dvdOpen], or <= 0 for no-op)
      */
-    external fun dvdClose(handle: Long)
+    fun dvdClose(handle: Long) {
+        if (!ensureLibraryLoaded()) {
+            Timber.w("DVD JNI library not available - cannot close DVD handle")
+            return
+        }
+        dvdCloseNative(handle)
+    }
+    
+    private external fun dvdCloseNative(handle: Long)
     
     /**
      * Gets the number of titles on the DVD.
      */
-    external fun dvdGetTitleCount(handle: Long): Int
+    fun dvdGetTitleCount(handle: Long): Int {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot get title count")
+            return -1
+        }
+        return dvdGetTitleCountNative(handle)
+    }
+    
+    private external fun dvdGetTitleCountNative(handle: Long): Int
     
     /**
      * Reads title information.
      */
-    external fun dvdReadTitle(handle: Long, titleNumber: Int): DvdTitleNative?
+    fun dvdReadTitle(handle: Long, titleNumber: Int): DvdTitleNative? {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot read title")
+            return null
+        }
+        return dvdReadTitleNative(handle, titleNumber)
+    }
+    
+    private external fun dvdReadTitleNative(handle: Long, titleNumber: Int): DvdTitleNative?
     
     /**
      * Reads chapter information.
      */
-    external fun dvdReadChapter(handle: Long, titleNumber: Int, chapterNumber: Int): DvdChapterNative?
+    fun dvdReadChapter(handle: Long, titleNumber: Int, chapterNumber: Int): DvdChapterNative? {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot read chapter")
+            return null
+        }
+        return dvdReadChapterNative(handle, titleNumber, chapterNumber)
+    }
+    
+    private external fun dvdReadChapterNative(handle: Long, titleNumber: Int, chapterNumber: Int): DvdChapterNative?
     
     /**
      * Decrypts CSS-protected sector (only available if libdvdcss is loaded).
@@ -120,12 +250,61 @@ object DvdNative {
     /**
      * Extracts video stream from DVD title/chapter.
      */
-    external fun dvdExtractVideoStream(handle: Long, titleNumber: Int, chapterNumber: Int): VideoStreamNative?
+    fun dvdExtractVideoStream(handle: Long, titleNumber: Int, chapterNumber: Int): VideoStreamNative? {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot extract video stream")
+            return null
+        }
+        return dvdExtractVideoStreamNative(handle, titleNumber, chapterNumber)
+    }
+    
+    private external fun dvdExtractVideoStreamNative(handle: Long, titleNumber: Int, chapterNumber: Int): VideoStreamNative?
     
     /**
      * Checks if CSS decryption is available.
      */
-    fun isCssDecryptionAvailable(): Boolean = cssDecryptionEnabled
+    fun isCssDecryptionAvailable(): Boolean {
+        ensureLibraryLoaded()
+        return cssDecryptionEnabled
+    }
+    
+    /**
+     * Gets the DVD name/title from the VMG.
+     * 
+     * Reads the DVD name from the Video Manager Information (VMG).
+     * May return null if the name is not available or not set.
+     * 
+     * @param handle DVD handle (must be > 0)
+     * @return DVD name/title, or null if not available
+     */
+    fun dvdGetName(handle: Long): String? {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot get DVD name")
+            return null
+        }
+        return dvdGetNameNative(handle)
+    }
+    
+    private external fun dvdGetNameNative(handle: Long): String?
+    
+    /**
+     * Ejects an optical drive device.
+     * 
+     * Attempts to eject the device using ioctl CDROMEJECT command.
+     * This requires appropriate permissions (typically root or special device access).
+     * 
+     * @param devicePath Device path (e.g., /dev/sg0, /dev/sr0)
+     * @return true if eject command was sent successfully, false otherwise
+     */
+    fun ejectDevice(devicePath: String): Boolean {
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DVD JNI library not available - cannot eject device")
+            return false
+        }
+        return ejectDeviceNative(devicePath)
+    }
+    
+    private external fun ejectDeviceNative(devicePath: String): Boolean
 }
 
 /**
@@ -256,6 +435,29 @@ class DvdHandle private constructor(val handle: Long) : AutoCloseable {
         checkValid()
         return DvdNative.dvdExtractVideoStream(handle, titleNumber, chapterNumber)
     }
+}
+
+/**
+ * Native DVD title information structure.
+ */
+data class DvdTitleNative(
+    val number: Int,
+    val chapterCount: Int,
+    val duration: Long // milliseconds
+)
+
+/**
+ * Native DVD chapter information structure.
+ */
+data class DvdChapterNative(
+    val number: Int,
+    val startTime: Long, // milliseconds
+    val duration: Long // milliseconds
+)
+
+/**
+ * Video stream information from DVD.
+ */
 data class VideoStreamNative(
     val codec: String,
     val width: Int,

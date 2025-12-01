@@ -1,8 +1,6 @@
 package com.ble1st.connectias.feature.usb.ui.components
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
@@ -39,11 +37,11 @@ fun AudioTrackList(
             }
         }
     } else {
-        LazyColumn(
+        Column(
             modifier = modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(tracks, key = { it.number }) { track ->
+            tracks.forEach { track ->
                 AudioTrackCard(
                     track = track,
                     onClick = { onTrackSelected(track) }

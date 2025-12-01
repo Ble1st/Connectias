@@ -1,6 +1,5 @@
 package com.ble1st.connectias.feature.usb.models
 
-import android.hardware.usb.UsbDevice
 import android.os.Parcelable
 import kotlinx.parcelize.Parcelize
 
@@ -10,10 +9,18 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class OpticalDrive(
     val device: UsbDevice,
-    val mountPoint: String,
+    val mountPoint: String?,
+    val devicePath: String?,
     val fileSystem: FileSystem,
     val type: DiscType
-) : Parcelable
+) : Parcelable {
+    /**
+     * Returns the path to use for DVD operations.
+     * Prefers mountPoint if available, otherwise falls back to devicePath.
+     */
+    val dvdPath: String?
+        get() = mountPoint ?: devicePath
+}
 
 /**
  * File system type.

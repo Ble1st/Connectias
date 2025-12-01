@@ -9,6 +9,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import timber.log.Timber
+import java.io.IOException
 import java.net.InetAddress
 import java.net.URL
 import java.util.concurrent.TimeUnit

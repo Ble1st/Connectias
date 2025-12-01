@@ -1,7 +1,6 @@
 package com.ble1st.connectias.feature.usb.settings
 
 import android.content.Context
-import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,81 +10,30 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Settings for DVD features, including CSS decryption.
+ * Settings for DVD features.
+ * 
+ * CSS decryption is always enabled - libdvdcss is mandatory for DVD playback.
  */
 @Singleton
 class DvdSettings @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    companion object {
-        private const val KEY_CSS_DECRYPTION_ENABLED = "css_decryption_enabled"
-        private const val KEY_CSS_DISCLAIMER_ACCEPTED = "css_disclaimer_accepted"
-    }
-    
-    private val _cssDecryptionEnabled = MutableStateFlow(false)
-    
-    private val prefs: SharedPreferences = context.getSharedPreferences("dvd_settings", Context.MODE_PRIVATE)
-    
-    private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == KEY_CSS_DECRYPTION_ENABLED) {
-            prefs.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false).let { newValue ->
-                _cssDecryptionEnabled.value = newValue
-            }
-        }
-    }
+    // CSS decryption is always enabled
+    private val _cssDecryptionEnabled = MutableStateFlow(true)
     
     init {
-        // Initialize StateFlow with current value
-        _cssDecryptionEnabled.value = prefs.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false)
-        
-        // Listen for SharedPreferences changes and update StateFlow
-        // Keep listener as a field to prevent garbage collection
-        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+        Timber.d("DvdSettings initialized - CSS decryption always enabled")
     }
     
     /**
      * Observable StateFlow for CSS decryption enabled state.
-     * Use this in Compose with collectAsState() for automatic recomposition.
+     * Always returns true as CSS is mandatory for DVD playback.
      */
     val cssDecryptionEnabled: StateFlow<Boolean> = _cssDecryptionEnabled.asStateFlow()
     
     /**
      * Checks if CSS decryption is enabled.
+     * Always returns true as CSS is mandatory for DVD playback.
      */
-    fun isCssDecryptionEnabled(): Boolean {
-        return prefs.getBoolean(KEY_CSS_DECRYPTION_ENABLED, false)
-    }
-    
-    /**
-     * Checks if the CSS decryption disclaimer has been accepted.
-     */
-    fun isDisclaimerAccepted(): Boolean {
-        return prefs.getBoolean(KEY_CSS_DISCLAIMER_ACCEPTED, false)
-    }
-    
-    /**
-     * Sets CSS decryption enabled state and disclaimer acceptance.
-     */
-    fun setCssDecryptionEnabled(enabled: Boolean, disclaimerAccepted: Boolean) {
-        Timber.i("Setting CSS decryption: enabled=$enabled, disclaimerAccepted=$disclaimerAccepted")
-        
-        // Enforce that CSS decryption cannot be enabled unless disclaimer is accepted
-        if (enabled && !disclaimerAccepted) {
-            Timber.e("Attempted to enable CSS decryption without accepting disclaimer - refusing to persist")
-            throw IllegalStateException("CSS decryption cannot be enabled without accepting the disclaimer")
-        }
-        
-        prefs.edit()
-            .putBoolean(KEY_CSS_DECRYPTION_ENABLED, enabled)
-            .putBoolean(KEY_CSS_DISCLAIMER_ACCEPTED, disclaimerAccepted)
-            .apply()
-        
-        // StateFlow will be updated automatically via the SharedPreferences listener
-        
-        if (enabled) {
-            Timber.w("CSS decryption enabled - user has accepted legal disclaimer")
-        } else {
-            Timber.d("CSS decryption disabled")
-        }
-    }
+    fun isCssDecryptionEnabled(): Boolean = true
 }

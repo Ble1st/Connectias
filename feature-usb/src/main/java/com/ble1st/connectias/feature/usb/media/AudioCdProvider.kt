@@ -1,142 +1,158 @@
 package com.ble1st.connectias.feature.usb.media
 
+import android.content.Context
+import android.hardware.usb.UsbManager
+import com.ble1st.connectias.feature.usb.driver.scsi.ScsiDriver
 import com.ble1st.connectias.feature.usb.models.AudioTrack
 import com.ble1st.connectias.feature.usb.models.OpticalDrive
+import com.ble1st.connectias.feature.usb.models.UsbDevice
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 import java.io.IOException
-import java.security.SecurityException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Provider for Audio CD operations.
+ * Provider for Audio CD operations using direct SCSI commands.
  */
 @Singleton
-class AudioCdProvider @Inject constructor() {
-    
-    companion object {
-        /**
-         * CD-quality audio constants: 44.1kHz, 16-bit, stereo
-         * Bytes per second: 44,100 samples/sec * 16 bits/sample / 8 * 2 channels = 176,400 B/s
-         * Bytes per minute: 176,400 * 60 = 10,584,000 B/min ≈ 10.58 MB/min
-         */
-        private const val CD_SAMPLE_RATE = 44_100
-        private const val CD_BITS_PER_SAMPLE = 16
-        private const val CD_CHANNELS = 2
-        private const val CD_BYTES_PER_SECOND = (CD_SAMPLE_RATE * CD_BITS_PER_SAMPLE / 8 * CD_CHANNELS).toLong() // 176,400
-        private const val CD_BYTES_PER_MINUTE = CD_BYTES_PER_SECOND * 60L // 10,584,000
-        
-        /**
-         * CDDA (Compact Disc Digital Audio) sector size: 2352 bytes
-         * This is the standard sector size for audio tracks on CDs
-         */
-        private const val CDDA_SECTOR_SIZE = 2352L
+class AudioCdProvider @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
+    private val usbManager: UsbManager by lazy {
+        context.getSystemService(Context.USB_SERVICE) as UsbManager
     }
-    
+
     /**
-     * Gets all tracks from an Audio CD.
-     * Returns a Result that wraps either the list of tracks or an error.
+     * Gets all tracks from an Audio CD by reading the Table of Contents (TOC).
      * 
      * @param drive The optical drive containing the Audio CD
      * @return AudioCdResult.Success with tracks, or AudioCdResult.Error on failure
      */
     suspend fun getTracks(drive: OpticalDrive): AudioCdResult = withContext(Dispatchers.IO) {
         try {
-            Timber.d("Reading Audio CD tracks from: ${drive.mountPoint}")
+            Timber.d("Reading Audio CD TOC from device: ${drive.device.product}")
             
-            val rootDir = File(drive.mountPoint)
-            if (!rootDir.exists() || !rootDir.isDirectory) {
-                val errorMsg = "Mount point does not exist: ${drive.mountPoint}"
-                Timber.w(errorMsg)
-                return@withContext AudioCdResult.Error(errorMsg)
+            // Find matching Android UsbDevice
+            val androidDevice = usbManager.deviceList.values.find { 
+                it.vendorId == drive.device.vendorId && it.productId == drive.device.productId 
+            } ?: return@withContext AudioCdResult.Error("USB Device not found")
+
+            if (!usbManager.hasPermission(androidDevice)) {
+                return@withContext AudioCdResult.Error("No USB permission")
             }
-            
-            // Look for audio track files
-            val files = rootDir.listFiles()
-            val tracks = mutableListOf<AudioTrack>()
-            
-            // Only uncompressed formats can use file-size-based duration estimation
-            // Compressed formats (mp3, ogg, m4a, aac) have variable bitrates and cannot
-            // be accurately estimated from file size alone
-            val audioExtensions = setOf("wav", "aiff")
-            val audioFiles = files?.filter { it.isFile && it.extension.lowercase() in audioExtensions } ?: emptyList()
-            
-            // Calculate cumulative sector positions for proper track indexing
-            var currentSector = 0L
-            
-            audioFiles.forEachIndexed { index, file ->
-                val trackNumber = index + 1
-                val fileSize = file.length()
-                val startSector = currentSector
-                // Calculate sectors: ceiling division, but ensure at least 1 sector for empty files
-                val sectorsInTrack = maxOf(1L, (fileSize + CDDA_SECTOR_SIZE - 1) / CDDA_SECTOR_SIZE)
-                val endSector = startSector + sectorsInTrack
-                
-                val track = AudioTrack(
-                    number = trackNumber,
-                    title = extractTrackTitle(file.name),
-                    duration = estimateTrackDuration(file),
-                    startSector = startSector,
-                    endSector = endSector
-                )
-                tracks.add(track)
-                currentSector = endSector
-                Timber.d("Track $trackNumber: ${track.title}, duration=${track.duration}ms, sectors=$startSector-$endSector")
-            }
-            
-            // If no files found, try CDDA structure
-            if (tracks.isEmpty()) {
-                val cddaTracks = parseCddaStructure(rootDir)
-                if (cddaTracks.isNotEmpty()) {
-                    tracks.addAll(cddaTracks)
+
+            val connection = usbManager.openDevice(androidDevice)
+                ?: return@withContext AudioCdResult.Error("Failed to open USB device connection")
+
+            try {
+                // Find Mass Storage Interface (usually index 0)
+                // Simplified: assume first interface is correct or find Mass Storage
+                var interfaceIndex = 0
+                for (i in 0 until androidDevice.interfaceCount) {
+                    if (androidDevice.getInterface(i).interfaceClass == 8) { // Mass Storage
+                        interfaceIndex = i
+                        break
+                    }
                 }
+                val usbInterface = androidDevice.getInterface(interfaceIndex)
+                
+                val driver = ScsiDriver(connection, usbInterface)
+                try {
+                    // Ensure unit is ready? (Test Unit Ready)
+                    // driver.testUnitReady() 
+                    
+                    val tocData = driver.readToc()
+                    val tracks = parseToc(tocData)
+                    
+                    Timber.i("Audio CD TOC read: ${tracks.size} tracks found")
+                    AudioCdResult.Success(tracks)
+                } finally {
+                    driver.close() // Releases interface and closes connection
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "SCSI error reading TOC")
+                connection.close()
+                AudioCdResult.Error.fromThrowable(e)
             }
-            
-            Timber.i("Audio CD read: ${tracks.size} tracks found")
-            AudioCdResult.Success(tracks)
-        } catch (e: IOException) {
-            val errorMsg = "I/O error reading Audio CD tracks: ${e.message}"
-            Timber.e(e, errorMsg)
-            AudioCdResult.Error.fromThrowable(e)
-        } catch (e: SecurityException) {
-            val errorMsg = "Security error accessing Audio CD: ${e.message}"
-            Timber.e(e, errorMsg)
-            AudioCdResult.Error.fromThrowable(e)
         } catch (e: Exception) {
-            // Re-throw unexpected exceptions to avoid hiding critical errors
-            val errorMsg = "Unexpected error reading Audio CD tracks: ${e.message}"
-            Timber.e(e, errorMsg)
-            throw e
+            Timber.e(e, "Unexpected error reading Audio CD")
+            AudioCdResult.Error.fromThrowable(e)
         }
     }
-    
-    private fun extractTrackTitle(fileName: String): String? {
-        // Try to extract title from filename
-        val nameWithoutExt = fileName.substringBeforeLast(".")
-        return if (nameWithoutExt.isNotEmpty()) nameWithoutExt else null
-    }
-    
+
     /**
-     * Estimates track duration based on file size assuming CD-quality audio.
-     * CD-quality: 44.1kHz, 16-bit, stereo ≈ 10.58 MB/min (176,400 bytes/sec)
+     * Parses raw TOC data into AudioTrack list.
      * 
-     * @param file The audio file
-     * @return Duration in milliseconds
+     * TOC Header (4 bytes):
+     * [0-1]: Data Length
+     * [2]: First Track
+     * [3]: Last Track
+     * 
+     * Descriptors (8 bytes each):
+     * [0]: Reserved
+     * [1]: ADR/Control
+     * [2]: Track Number
+     * [3]: Reserved
+     * [4-7]: Start Address (LBA) (Big Endian)
      */
-    private fun estimateTrackDuration(file: File): Long {
-        val fileSizeBytes = file.length()
-        // Duration in seconds = fileSizeBytes / bytesPerSecond
-        // Convert to milliseconds: * 1000
-        val durationMs = (fileSizeBytes * 1000L) / CD_BYTES_PER_SECOND
-        return durationMs
-    }
-    
-    private fun parseCddaStructure(rootDir: File): List<AudioTrack> {
-        Timber.d("Parsing CDDA structure...")
-        // TODO: Implement CDDA structure parsing
-        return emptyList()
+    private fun parseToc(tocData: ByteArray): List<AudioTrack> {
+        if (tocData.size < 4) return emptyList()
+        
+        val buffer = ByteBuffer.wrap(tocData).order(ByteOrder.BIG_ENDIAN)
+        val tocLength = buffer.short.toInt() + 2 // Length field doesn't include itself
+        val firstTrack = buffer.get().toInt()
+        val lastTrack = buffer.get().toInt()
+        
+        Timber.d("TOC: Length=$tocLength, Tracks=$firstTrack-$lastTrack")
+        
+        val tracks = mutableListOf<AudioTrack>()
+        val trackDescriptors = mutableMapOf<Int, Long>() // TrackNum -> StartLBA
+        var leadOutLba: Long = 0
+        
+        // Read descriptors
+        // Header is 4 bytes. Each descriptor is 8 bytes.
+        // We expect (lastTrack - firstTrack + 1) descriptors + Lead-Out descriptor.
+        
+        while (buffer.remaining() >= 8) {
+            buffer.get() // Reserved
+            val adrControl = buffer.get().toInt()
+            val trackNum = buffer.get().toInt()
+            buffer.get() // Reserved
+            val lba = buffer.int.toLong()
+            
+            if (trackNum == 0xAA) {
+                leadOutLba = lba
+            } else {
+                trackDescriptors[trackNum] = lba
+            }
+        }
+        
+        // Create AudioTrack objects
+        for (i in firstTrack..lastTrack) {
+            val startLba = trackDescriptors[i] ?: continue
+            
+            // Determine end LBA: Start of next track, or Lead-Out if last track
+            val nextStartLba = trackDescriptors[i + 1] ?: leadOutLba
+            
+            // Calculate duration
+            // 75 sectors per second (CD-DA)
+            val sectors = nextStartLba - startLba
+            val durationMs = (sectors * 1000L) / 75
+            
+            tracks.add(AudioTrack(
+                number = i,
+                title = "Track $i",
+                duration = durationMs,
+                startSector = startLba,
+                endSector = nextStartLba
+            ))
+        }
+        
+        return tracks
     }
 }

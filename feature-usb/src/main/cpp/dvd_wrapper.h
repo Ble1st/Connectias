@@ -33,8 +33,32 @@ extern "C" {
      * Performance: Blocks during I/O operations. Expected cost: moderate (file system access).
      */
     JNIEXPORT jlong JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdOpen(JNIEnv *env, jclass clazz, jstring path);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdOpenNative(JNIEnv *env, jobject clazz, jstring path);
     
+    /**
+     * Opens a DVD device using a custom stream callback (e.g. for USB Mass Storage).
+     * @param env JNI environment
+     * @param clazz Java class
+     * @param blockDevice UsbBlockDevice instance to read from
+     * @return Handle to DVD (non-zero on success, 0 on failure).
+     */
+    JNIEXPORT jlong JNICALL
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdOpenStreamNative(JNIEnv *env, jobject clazz, jobject blockDevice);
+
+    /**
+     * Streams title data directly to a file descriptor (Pipe).
+     * Blocks until completion or error.
+     *
+     * @param env JNI environment
+     * @param clazz Java class
+     * @param handle Handle to opened DVD
+     * @param titleNumber Title number to stream (1-based)
+     * @param outFd File descriptor to write data to
+     * @return Number of bytes written, or -1 on error
+     */
+    JNIEXPORT jlong JNICALL
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdStreamToFdNative(JNIEnv *env, jobject clazz, jlong handle, jint titleNumber, jint outFd);
+
     /**
      * Closes a DVD handle and releases resources.
      * @param env JNI environment
@@ -46,7 +70,7 @@ extern "C" {
      * Performance: Non-blocking. Expected cost: low (cleanup only).
      */
     JNIEXPORT void JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdClose(JNIEnv *env, jclass clazz, jlong handle);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdCloseNative(JNIEnv *env, jobject clazz, jlong handle);
     
     /**
      * Gets the number of titles on the DVD.
@@ -60,7 +84,7 @@ extern "C" {
      * Performance: Blocks during I/O. Expected cost: low (metadata read).
      */
     JNIEXPORT jint JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdGetTitleCount(JNIEnv *env, jclass clazz, jlong handle);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdGetTitleCountNative(JNIEnv *env, jobject clazz, jlong handle);
     
     /**
      * Reads title information from the DVD.
@@ -77,7 +101,7 @@ extern "C" {
      * Performance: Blocks during I/O. Expected cost: moderate (title metadata read).
      */
     JNIEXPORT jobject JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdReadTitle(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdReadTitleNative(JNIEnv *env, jobject clazz, jlong handle, jint titleNumber);
     
     /**
      * Reads chapter information from a specific title.
@@ -116,7 +140,7 @@ extern "C" {
      * Performance: Blocks during decryption. Expected cost: high (cryptographic operations).
      */
     JNIEXPORT jbyteArray JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdDecryptCss(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdDecryptCss(JNIEnv *env, jobject clazz, jlong handle, jint titleNumber);
     #endif
     
     /**
@@ -140,7 +164,34 @@ extern "C" {
      * Performance: Blocks during extraction. Expected cost: high (video decoding/transcoding).
      */
     JNIEXPORT jobject JNICALL
-    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdExtractVideoStream(JNIEnv *env, jclass clazz, jlong handle, jint titleNumber, jint chapterNumber);
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdExtractVideoStreamNative(JNIEnv *env, jobject clazz, jlong handle, jint titleNumber, jint chapterNumber);
+    
+    /**
+     * Gets the DVD name/title from the VMG.
+     * @param env JNI environment
+     * @param clazz Java class
+     * @param handle DVD handle (must be > 0)
+     * @return Local JNI reference to jstring containing DVD name (automatically freed when native method returns), or NULL on error/not available
+     * @throws IllegalArgumentException if handle is invalid (0 or negative)
+     * Thread-safe: No - handles are not shareable.
+     * Input validation: handle must be > 0
+     * Performance: Blocks during I/O. Expected cost: low (metadata read).
+     */
+    JNIEXPORT jstring JNICALL
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_dvdGetNameNative(JNIEnv *env, jobject clazz, jlong handle);
+    
+    /**
+     * Ejects an optical drive device.
+     * @param env JNI environment
+     * @param clazz Java class
+     * @param devicePath Device path (e.g., /dev/sg0, /dev/sr0)
+     * @return true if eject command was sent successfully, false otherwise
+     * @throws IOException if device cannot be accessed or eject fails
+     * Thread-safe: Yes - each call operates on a separate device path
+     * Performance: Blocks during ioctl operation. Expected cost: low (single system call).
+     */
+    JNIEXPORT jboolean JNICALL
+    Java_com_ble1st_connectias_feature_usb_native_DvdNative_ejectDeviceNative(JNIEnv *env, jobject clazz, jstring devicePath);
 }
 
 #endif // DVD_WRAPPER_H

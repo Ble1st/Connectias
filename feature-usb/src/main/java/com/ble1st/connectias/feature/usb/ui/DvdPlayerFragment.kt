@@ -22,7 +22,6 @@ import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.usb.R
 import com.ble1st.connectias.feature.usb.media.DvdPlayer
 import com.ble1st.connectias.feature.usb.models.VideoStream
-import com.ble1st.connectias.feature.usb.settings.DvdSettings
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import javax.inject.Inject
@@ -47,7 +46,6 @@ class DvdPlayerFragment : Fragment() {
     }
     
     @Inject lateinit var dvdPlayer: DvdPlayer
-    @Inject lateinit var dvdSettings: DvdSettings
     
     override fun onDestroyView() {
         super.onDestroyView()
@@ -108,7 +106,6 @@ class DvdPlayerFragment : Fragment() {
                     DvdPlayerScreen(
                         videoStream = videoStream,
                         dvdPlayer = dvdPlayer,
-                        dvdSettings = dvdSettings,
                         onBack = {
                             Timber.d("Back button clicked")
                             findNavController().popBackStack()

@@ -8,27 +8,36 @@ import kotlinx.parcelize.Parcelize
  * 
  * @property number DVD title index/ID (1-based). Must be greater than 0.
  * @property duration Duration in milliseconds. Must be non-negative (>= 0).
- * @property chapters List of chapters for this title. The size of this list represents the chapter count.
+ * @property chapterCount Number of chapters in this title. Used for lazy loading.
+ * @property chapters List of chapters for this title (may be empty if not yet loaded).
  *                    This list is immutable after construction.
  * 
- * Note: chapterCount is now a derived property computed from chapters.size rather than a constructor parameter.
+ * Note: Chapters are loaded lazily for performance. Use DvdNavigation.navigateToTitle()
+ * to load chapters when needed.
  */
 @Parcelize
 data class DvdTitle(
     val number: Int,
     val duration: Long, // milliseconds
-    val chapters: List<DvdChapter>
+    val chapterCount: Int,
+    val chapters: List<DvdChapter> = emptyList()
 ) : Parcelable {
     init {
         require(number > 0) { "Title number must be positive, got: $number" }
         require(duration >= 0) { "Duration cannot be negative, got: $duration ms" }
+        require(chapterCount >= 0) { "Chapter count cannot be negative, got: $chapterCount" }
     }
     
     /**
-     * Returns the number of chapters (derived from chapters.size).
+     * Returns true if chapters have been loaded.
      */
-    val chapterCount: Int
-        get() = chapters.size
+    val chaptersLoaded: Boolean
+        get() = chapters.isNotEmpty() || chapterCount == 0
     
-
+    /**
+     * Creates a copy with loaded chapters.
+     */
+    fun withChapters(loadedChapters: List<DvdChapter>): DvdTitle {
+        return copy(chapters = loadedChapters)
+    }
 }

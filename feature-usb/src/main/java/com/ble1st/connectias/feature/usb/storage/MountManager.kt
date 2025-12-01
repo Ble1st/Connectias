@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import com.ble1st.connectias.feature.usb.models.UsbDevice
+import com.ble1st.connectias.feature.usb.native.DvdNative
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -81,6 +82,12 @@ class MountManager @Inject constructor(
                         Timber.d("  Added candidate volume: $directory")
                     } else {
                         Timber.d("Volume directory exists but not accessible: $directory")
+                        // Even if not directly accessible, try to use it if it's the only removable volume
+                        // The directory path from StorageVolume might work even if direct File access fails
+                        if (state == "mounted") {
+                            Timber.d("  Volume is mounted but not directly accessible, will try as fallback: $directory")
+                            candidateVolumes.add(Pair(volume, directory))
+                        }
                     }
                 }
             }
@@ -121,9 +128,8 @@ class MountManager @Inject constructor(
             "/storage/usb",
             "/mnt/usbdisk",
             "/mnt/usb",
-            "/mnt/media_rw",
-            "/storage/emulated/0",
-            "/sdcard"
+            "/mnt/media_rw"
+            // Note: /storage/emulated/0 and /sdcard are internal storage, not USB devices
         )
         
         Timber.d("Scanning common mount points...")
@@ -183,33 +189,17 @@ class MountManager @Inject constructor(
      * Container directories like /mnt/media_rw contain subdirectories for individual volumes.
      */
     private fun isContainerDirectory(path: String): Boolean {
-        // Known container directories
-        val containerPatterns = listOf(
-            "media_rw",
-            "/mnt/media_rw",
-            "/storage/media"
-        )
-        
-        // Check if path matches known container patterns
-        if (containerPatterns.any { path.contains(it) || path.endsWith(it) }) {
-            return true
-        }
-        
-    private fun isContainerDirectory(path: String): Boolean {
-        // Known container directories
-        val containerPatterns = listOf(
-            "media_rw",
-            "/mnt/media_rw",
-            "/storage/media"
-        )
-        
-        // Check if path matches known container patterns
-        if (containerPatterns.any { path.contains(it) || path.endsWith(it) }) {
-            return true
-        }
-        
-        return false
-    }
+        try {
+            // Known container directories
+            val containerPatterns = listOf(
+                "media_rw",
+                "/mnt/media_rw",
+                "/storage/media"
+            )
+            
+            // Check if path matches known container patterns
+            if (containerPatterns.any { path.contains(it) || path.endsWith(it) }) {
+                return true
             }
         } catch (e: Exception) {
             Timber.d(e, "Error checking if $path is container")
@@ -229,6 +219,260 @@ class MountManager @Inject constructor(
             accessible
         } catch (e: Exception) {
             Timber.e(e, "Error checking mount point accessibility")
+            false
+        }
+    }
+    
+    /**
+     * Finds the device path for an optical drive (e.g., /dev/sg0, /dev/sr0).
+     * This is a fallback when mount point is not available.
+     * 
+     * @param device USB device to find device path for
+     * @return Device path (e.g., /dev/sg0) or null if not found
+     */
+    suspend fun findDevicePath(device: UsbDevice): String? = withContext(Dispatchers.IO) {
+        try {
+            Timber.d("Finding device path for USB device: Vendor=0x%04X, Product=0x%04X",
+                device.vendorId, device.productId)
+            
+            // Try to find SCSI generic device (sg*) - preferred for optical drives
+            val sgDevices = findSgDevices()
+            if (sgDevices.isNotEmpty()) {
+                // For now, return the first available sg device
+                // In a more sophisticated implementation, we could match by USB vendor/product
+                Timber.i("Found SCSI generic device: ${sgDevices.first()}")
+                return@withContext sgDevices.first()
+            }
+            
+            // Fallback: Try to find SCSI CD-ROM device (sr*)
+            val srDevices = findSrDevices()
+            if (srDevices.isNotEmpty()) {
+                Timber.i("Found SCSI CD-ROM device: ${srDevices.first()}")
+                return@withContext srDevices.first()
+            }
+            
+            // Additional fallback: Try /proc/partitions to find block devices
+            Timber.d("Trying /proc/partitions as fallback...")
+            val procDevices = findDevicesViaProcPartitions()
+            if (procDevices.isNotEmpty()) {
+                Timber.i("Found device via /proc/partitions: ${procDevices.first()}")
+                return@withContext procDevices.first()
+            }
+            
+            Timber.w("No device path found for USB device after trying all methods")
+            Timber.w("  - Checked /dev/sg0-15: ${sgDevices.size} found")
+            Timber.w("  - Checked /dev/sr0-15: ${srDevices.size} found")
+            Timber.w("  - Checked /proc/partitions: ${procDevices.size} found")
+            null
+        } catch (e: Exception) {
+            Timber.e(e, "Error finding device path")
+            null
+        }
+    }
+    
+    /**
+     * Finds available SCSI generic devices (/dev/sg*).
+     * These are preferred for optical drives as they provide low-level access.
+     */
+    private fun findSgDevices(): List<String> {
+        val devices = mutableListOf<String>()
+        try {
+            Timber.d("Scanning for SCSI generic devices (/dev/sg*)...")
+            // Check common SCSI generic device paths
+            for (i in 0..15) {
+                val devicePath = "/dev/sg$i"
+                try {
+                    val deviceFile = File(devicePath)
+                    val exists = deviceFile.exists()
+                    val canRead = if (exists) {
+                        try {
+                            deviceFile.canRead()
+                        } catch (e: SecurityException) {
+                            Timber.d("  $devicePath: exists=true, canRead=false (SecurityException: ${e.message})")
+                            false
+                        } catch (e: Exception) {
+                            Timber.d("  $devicePath: exists=true, canRead=false (${e.javaClass.simpleName}: ${e.message})")
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                    
+                    Timber.d("  Checking $devicePath: exists=$exists, canRead=$canRead")
+                    
+                    // Add device if it exists, even if canRead is false
+                    // The native library might be able to access it even if Java cannot
+                    if (exists) {
+                        devices.add(devicePath)
+                        if (canRead) {
+                            Timber.d("Found accessible SCSI generic device: $devicePath")
+                        } else {
+                            Timber.d("Found SCSI generic device (not readable from Java, but native library may access): $devicePath")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.d("  Error checking $devicePath: ${e.javaClass.simpleName}: ${e.message}")
+                }
+            }
+            Timber.d("Found ${devices.size} SCSI generic device(s)")
+        } catch (e: Exception) {
+            Timber.w(e, "Error scanning for SCSI generic devices")
+        }
+        return devices
+    }
+    
+    /**
+     * Finds available SCSI CD-ROM devices (/dev/sr*).
+     * These are traditional CD-ROM device paths.
+     */
+    private fun findSrDevices(): List<String> {
+        val devices = mutableListOf<String>()
+        try {
+            Timber.d("Scanning for SCSI CD-ROM devices (/dev/sr*)...")
+            // Check common SCSI CD-ROM device paths
+            for (i in 0..15) {
+                val devicePath = "/dev/sr$i"
+                try {
+                    val deviceFile = File(devicePath)
+                    val exists = deviceFile.exists()
+                    val canRead = if (exists) {
+                        try {
+                            deviceFile.canRead()
+                        } catch (e: SecurityException) {
+                            Timber.d("  $devicePath: exists=true, canRead=false (SecurityException: ${e.message})")
+                            false
+                        } catch (e: Exception) {
+                            Timber.d("  $devicePath: exists=true, canRead=false (${e.javaClass.simpleName}: ${e.message})")
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                    
+                    Timber.d("  Checking $devicePath: exists=$exists, canRead=$canRead")
+                    
+                    // Add device if it exists, even if canRead is false
+                    // The native library might be able to access it even if Java cannot
+                    if (exists) {
+                        devices.add(devicePath)
+                        if (canRead) {
+                            Timber.d("Found accessible SCSI CD-ROM device: $devicePath")
+                        } else {
+                            Timber.d("Found SCSI CD-ROM device (not readable from Java, but native library may access): $devicePath")
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.d("  Error checking $devicePath: ${e.javaClass.simpleName}: ${e.message}")
+                }
+            }
+            Timber.d("Found ${devices.size} SCSI CD-ROM device(s)")
+        } catch (e: Exception) {
+            Timber.w(e, "Error scanning for SCSI CD-ROM devices")
+        }
+        return devices
+    }
+    
+    /**
+     * Tries to find block devices via /proc/partitions.
+     * This can help identify optical drives even if /dev/sg* or /dev/sr* are not accessible.
+     */
+    private fun findDevicesViaProcPartitions(): List<String> {
+        val devices = mutableListOf<String>()
+        try {
+            Timber.d("Scanning /proc/partitions for block devices...")
+            val partitionsFile = File("/proc/partitions")
+            if (!partitionsFile.exists() || !partitionsFile.canRead()) {
+                Timber.d("Cannot read /proc/partitions")
+                return devices
+            }
+            
+            partitionsFile.readLines().forEachIndexed { index, line ->
+                // Skip header lines
+                if (index < 2) return@forEachIndexed
+                
+                val parts = line.trim().split("\\s+".toRegex())
+                if (parts.size >= 4) {
+                    val deviceName = parts[3]
+                    // Look for optical drive devices (sr*, sg*)
+                    if (deviceName.startsWith("sr") || deviceName.startsWith("sg")) {
+                        val devicePath = "/dev/$deviceName"
+                        Timber.d("Found potential optical device in /proc/partitions: $devicePath")
+                        devices.add(devicePath)
+                    }
+                }
+            }
+            Timber.d("Found ${devices.size} device(s) via /proc/partitions")
+        } catch (e: Exception) {
+            Timber.w(e, "Error reading /proc/partitions")
+        }
+        return devices
+    }
+    
+    /**
+     * Unmounts a storage volume.
+     * 
+     * @param mountPoint The mount point to unmount
+     * @return true if unmount was successful, false otherwise
+     */
+    suspend fun unmountVolume(mountPoint: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Timber.d("Attempting to unmount volume: $mountPoint")
+            
+            val volumes = storageManager?.storageVolumes
+            volumes?.forEach { volume ->
+                val volumePath = volume.directory?.absolutePath
+                if (volumePath == mountPoint || mountPoint.startsWith(volumePath ?: "")) {
+                    try {
+                        // Try to unmount using StorageManager API
+                        // Note: This may require special permissions
+                        Timber.d("Found matching volume, attempting unmount...")
+                        // StorageManager.unmount() is not directly accessible
+                        // We'll try alternative methods
+                        Timber.w("Direct unmount via StorageManager not available, trying alternative methods")
+                        return@withContext false
+                    } catch (e: Exception) {
+                        Timber.e(e, "Error unmounting volume")
+                        return@withContext false
+                    }
+                }
+            }
+            
+            Timber.w("Volume not found in StorageManager: $mountPoint")
+            false
+        } catch (e: Exception) {
+            Timber.e(e, "Error during unmount operation")
+            false
+        }
+    }
+    
+    /**
+     * Ejects an optical drive device using native ioctl.
+     * 
+     * @param devicePath Device path (e.g., /dev/sg0, /dev/sr0)
+     * @return true if eject command was sent successfully, false otherwise
+     */
+    suspend fun ejectDevice(devicePath: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            Timber.d("Attempting to eject device: $devicePath")
+            
+            // Use native eject function
+            val success = try {
+                DvdNative.ejectDevice(devicePath)
+            } catch (e: Exception) {
+                Timber.e(e, "Native eject function threw exception")
+                false
+            }
+            
+            if (success) {
+                Timber.i("Successfully sent eject command to device: $devicePath")
+            } else {
+                Timber.w("Eject command failed for device: $devicePath")
+                Timber.w("This is expected on Android without root access or special permissions")
+            }
+            
+            return@withContext success
+        } catch (e: Exception) {
+            Timber.e(e, "Error ejecting device: $devicePath")
             false
         }
     }

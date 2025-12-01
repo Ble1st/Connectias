@@ -63,11 +63,12 @@ class DvdNavigation @Inject constructor(
                 DvdTitle(
                     number = it.number,
                     duration = it.duration,
+                    chapterCount = it.chapterCount,
                     chapters = chapters
                 )
             }
             if (title != null) {
-                Timber.i("Title $titleNumber: ${title.chapters.size} chapters loaded, duration=${title.duration}ms")
+                Timber.i("Title $titleNumber: ${title.chapterCount} chapters loaded, duration=${title.duration}ms")
             } else {
                 Timber.w("Title $titleNumber not found")
             }
