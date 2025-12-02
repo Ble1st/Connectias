@@ -6,18 +6,13 @@ project("usb")
 find_library(log-lib log)
 
 # libusb Integration
-find_library(usb_lib usb PATHS ${CMAKE_SOURCE_DIR}/src/main/jniLibs/${ANDROID_ABI})
-if(NOT usb_lib)
-    message(WARNING "libusb not found - USB functionality may be limited")
-endif()
-
-# --- External Libraries (Build from Source) ---
-# Includes: libdvdcss (CSS decryption), libdvdread (DVD reading), libdvdnav (DVD navigation)
-add_subdirectory(external)
-# ----------------------------------------------
-
-# CSS decryption is now always enabled via libdvdcss built from source
-message(STATUS "CSS decryption enabled (libdvdcss built from source)")
+# Note: If libusb is prebuilt, we might need to point to it differently or build it here.
+# The original CMakeLists looked for it in jniLibs.
+# Assuming jniLibs might still be needed in feature-usb if it contained libusb.so?
+# I moved jniLibs to feature-dvd.
+# Does feature-usb need libusb.so? 
+# UsbNative.kt loads "usb_jni". "usb_jni" likely links against "libusb".
+# If libusb was in jniLibs, I moved it away. I should check jniLibs content in feature-dvd.
 
 # USB JNI Library
 add_library(usb_jni SHARED
@@ -35,29 +30,6 @@ target_link_libraries(usb_jni
     ${log-lib}
 )
 
-if(usb_lib)
-    target_link_libraries(usb_jni ${usb_lib})
-endif()
-
-# DVD JNI Library
-add_library(dvd_jni SHARED
-    dvd_jni.cpp
-)
-
-# 16 KB page size alignment for Android 15+ compatibility
-target_link_options(dvd_jni PRIVATE
-    -Wl,-z,max-page-size=16384
-    -Wl,-z,common-page-size=16384
-)
-
-# Link against our locally built static libraries
-target_link_libraries(dvd_jni
-    ${log-lib}
-    dvdread     # Linked from external (static)
-    dvdnav      # Linked from external (static)
-    android     # For system libs
-)
-
-# Define HAVE_DVDREAD to enable code in dvd_jni.cpp
-# CSS decryption is handled by libdvdcss which is statically linked into libdvdread
-target_compile_definitions(dvd_jni PRIVATE HAVE_DVDREAD)
+# If we had usb_lib logic:
+# find_library(usb_lib usb ...) 
+# target_link_libraries(usb_jni ${usb_lib})

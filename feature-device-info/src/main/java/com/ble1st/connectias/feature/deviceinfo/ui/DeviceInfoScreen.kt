@@ -19,11 +19,7 @@ import java.util.Locale
 @Composable
 fun DeviceInfoScreen(
     state: DeviceInfoState,
-    onRefresh: () -> Unit,
-    onNavigateToBatteryAnalyzer: () -> Unit,
-    onNavigateToStorageAnalyzer: () -> Unit,
-    onNavigateToProcessMonitor: () -> Unit,
-    onNavigateToSensorMonitor: () -> Unit
+    onRefresh: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -48,11 +44,7 @@ fun DeviceInfoScreen(
             is DeviceInfoState.Success -> {
                 DeviceInfoContent(
                     info = state.info,
-                    onRefresh = onRefresh,
-                    onNavigateToBatteryAnalyzer = onNavigateToBatteryAnalyzer,
-                    onNavigateToStorageAnalyzer = onNavigateToStorageAnalyzer,
-                    onNavigateToProcessMonitor = onNavigateToProcessMonitor,
-                    onNavigateToSensorMonitor = onNavigateToSensorMonitor
+                    onRefresh = onRefresh
                 )
             }
         }
@@ -62,11 +54,7 @@ fun DeviceInfoScreen(
 @Composable
 private fun DeviceInfoContent(
     info: DeviceInfo,
-    onRefresh: () -> Unit,
-    onNavigateToBatteryAnalyzer: () -> Unit,
-    onNavigateToStorageAnalyzer: () -> Unit,
-    onNavigateToProcessMonitor: () -> Unit,
-    onNavigateToSensorMonitor: () -> Unit
+    onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
     val scrollState = rememberScrollState()
@@ -136,15 +124,6 @@ private fun DeviceInfoContent(
         InfoCard(title = "Network Identity") {
             InfoRow("IP Address", info.networkInfo.ipAddress ?: "Not available")
             InfoRow("Android ID", info.networkInfo.androidId ?: "Not available")
-        }
-
-        Text("Tools", style = MaterialTheme.typography.titleLarge)
-        
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ToolButton("Battery Analyzer", Icons.Default.BatteryStd, onNavigateToBatteryAnalyzer)
-            ToolButton("Storage Analyzer", Icons.Default.Storage, onNavigateToStorageAnalyzer)
-            ToolButton("Process Monitor", Icons.Default.Memory, onNavigateToProcessMonitor)
-            ToolButton("Sensor Monitor", Icons.Default.Sensors, onNavigateToSensorMonitor)
         }
         
         Spacer(modifier = Modifier.height(24.dp))

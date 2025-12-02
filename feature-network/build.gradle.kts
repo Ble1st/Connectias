@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -13,20 +14,12 @@ android {
 
     defaultConfig {
         minSdk = 33
-        targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlin.RequiresOptIn",
-            "-Xannotation-default-target=param-property"
-        )
     }
     buildFeatures {
         viewBinding = true
@@ -35,6 +28,16 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xannotation-default-target=param-property"
+        )
     }
 }
 
@@ -86,6 +89,18 @@ dependencies {
     // Network-specific dependencies
     // DNS Java for DNS lookups
     implementation(libs.dnsjava)
+    
+    // OkHttp for network requests
+    implementation(libs.okhttp)
+    
+    // Kotlin Serialization
+    implementation(libs.kotlinx.serialization.json)
+    
+    // Hilt Navigation Compose
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    
+    // Material Theme Adapter for Compose
+    implementation(libs.compose.theme.adapter)
 
     // Testing
     testImplementation(libs.junit)

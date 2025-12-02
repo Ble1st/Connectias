@@ -16,6 +16,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url = uri("https://jitpack.io") }
     }
 }
 
@@ -77,3 +78,25 @@ val featureUsbEnabled = providers.gradleProperty("feature.usb.enabled").orNull =
 if (featureUsbEnabled) {
     include(":feature-usb")
 }
+
+val featureReportingEnabled = providers.gradleProperty("feature.reporting.enabled").orNull == "true"
+if (featureReportingEnabled) {
+    include(":feature-reporting")
+}
+
+val featureVulnerabilityScannerEnabled = providers.gradleProperty("feature.vulnerability.scanner.enabled").orNull == "true"
+if (featureVulnerabilityScannerEnabled) {
+    include(":feature-vulnerability-scanner")
+}
+
+val featureSecureNotesEnabled = providers.gradleProperty("feature.secure.notes.enabled").orNull == "true"
+if (featureSecureNotesEnabled) {
+    include(":feature-secure-notes")
+}
+
+val featureHardwareEnabled = providers.gradleProperty("feature.hardware.enabled").orNull == "true"
+if (featureHardwareEnabled) {
+    include(":feature-hardware")
+}
+
+include(":feature-dvd")

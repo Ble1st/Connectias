@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    
+    <application>
+        <!-- ContentProvider for DVD video streaming -->
+        <!-- Note: writePermission is intentionally omitted because all write methods
+             (insert/update/delete) throw UnsupportedOperationException and no write
+             operations are actually implemented. Only read operations are supported. -->
+        <provider
+            android:name=".media.DvdVideoContentProvider"
+            android:authorities="com.ble1st.connectias.provider"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+    
+</manifest>

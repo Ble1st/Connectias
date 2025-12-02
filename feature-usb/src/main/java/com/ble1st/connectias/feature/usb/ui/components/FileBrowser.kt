@@ -7,13 +7,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.feature.usb.storage.FileInfo
+import com.ble1st.connectias.feature.usb.browser.models.UsbFileEntry
 import timber.log.Timber
 
 @Composable
 fun FileBrowser(
-    files: List<FileInfo>,
-    onFileClick: (FileInfo) -> Unit = {},
+    files: List<UsbFileEntry>,
+    onFileClick: (UsbFileEntry) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     if (files.isEmpty()) {
@@ -53,7 +53,7 @@ fun FileBrowser(
 
 @Composable
 private fun FileItem(
-    file: FileInfo,
+    file: UsbFileEntry,
     onClick: () -> Unit
 ) {
     Card(
@@ -94,11 +94,7 @@ private fun FileItem(
 }
 
 private fun formatFileSize(bytes: Long): String {
-    // Negative file sizes should be caught at FileInfo creation (FileSystemReader),
-    // but handle defensively here as well. Negative values typically indicate:
-    // - Special files (device files, pipes) that don't have a meaningful size
-    // - File system errors or permission issues
-    // - Edge cases on certain Android versions or file systems
+    // Negative file sizes should be caught at creation
     if (bytes < 0) {
         Timber.w("formatFileSize received negative size: $bytes, returning 'Unknown size'")
         return "Unknown size"

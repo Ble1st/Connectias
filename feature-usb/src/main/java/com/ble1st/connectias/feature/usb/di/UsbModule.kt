@@ -9,7 +9,6 @@ import dagger.hilt.components.SingletonComponent
  * 
  * Note: Most classes use @Inject constructors and are automatically provided by Hilt.
  * This module only contains providers for classes that require custom instantiation logic.
- * Currently, all major components (OpticalDriveProvider, DvdVideoProvider, etc.) use standard injection.
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -23,12 +22,6 @@ object UsbModule {
     // - UsbDeviceDetector (@Inject constructor(@ApplicationContext context: Context))
     // - UsbCryptoProvider (@Inject constructor())
     // - MountManager (@Inject constructor(@ApplicationContext context: Context))
-    // - FileSystemReader (@Inject constructor())
-    // - OpticalDriveProvider (@Inject constructor(@ApplicationContext context: Context, ...))
-    // - AudioCdProvider (@Inject constructor())
-    // - AudioCdPlayer (@Inject constructor(@ApplicationContext context: Context))
-    // - DvdNavigation (@Inject constructor())
-    // - DvdSettings (@Inject constructor(@ApplicationContext context: Context))
-    // - DvdPlayer (@Inject constructor(@ApplicationContext context: Context))
-    // - DvdVideoProvider (@Inject constructor(@ApplicationContext context: Context, ...))
+    // 
+    // DVD/Optical drive components have been moved to DvdModule in feature-dvd.
 }

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- DVD/CD -->
+    <string name="dvd_cd_detail_title">Disc Information</string>
+    <string name="dvd_cd_no_titles">No titles found on DVD</string>
+    <string name="dvd_cd_no_tracks">No tracks found on Audio CD</string>
+    <string name="dvd_cd_no_files">No files found</string>
+    <string name="nav_dvd_cd_detail">DVD/CD Details</string>
+    <string name="nav_dvd_player">DVD Player</string>
+
+    <!-- DVD Player -->
+    <string name="dvd_player_previous">Previous</string>
+    <string name="dvd_player_play">Play</string>
+    <string name="dvd_player_pause">Pause</string>
+    <string name="dvd_player_next">Next</string>
+    <string name="dvd_player_stop">Stop</string>
+    <string name="dvd_player_no_next_chapter">No next chapter available</string>
+    <string name="dvd_player_no_previous_chapter">No previous chapter available</string>
+    <string name="dvd_player_error_no_stream">Video stream information is missing. Cannot play video.</string>
+    <string name="dvd_player_error_no_uri">Video stream URI is missing. Cannot play video.</string>
+    <string name="dvd_player_error_back">Back</string>
+    
+    <!-- Disc Information Card -->
+    <string name="disc_information_title">Disc Information</string>
+    <string name="disc_info_type">Type</string>
+    <string name="disc_info_file_system">File System</string>
+    <string name="disc_info_mount_point">Mount Point</string>
+    <string name="disc_info_vendor_id">Vendor ID</string>
+    <string name="disc_info_product_id">Product ID</string>
+    
+    <!-- DVD Title List -->
+    <string name="dvd_title_details">%1$d chapters • %2$s</string>
+    <string name="dvd_title_content_description">Title %1$d, %2$d chapters, duration %3$s</string>
+</resources>

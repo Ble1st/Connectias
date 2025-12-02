@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.storage.StorageManager
 import android.os.storage.StorageVolume
 import com.ble1st.connectias.feature.usb.models.UsbDevice
-import com.ble1st.connectias.feature.usb.native.DvdNative
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -441,38 +440,6 @@ class MountManager @Inject constructor(
             false
         } catch (e: Exception) {
             Timber.e(e, "Error during unmount operation")
-            false
-        }
-    }
-    
-    /**
-     * Ejects an optical drive device using native ioctl.
-     * 
-     * @param devicePath Device path (e.g., /dev/sg0, /dev/sr0)
-     * @return true if eject command was sent successfully, false otherwise
-     */
-    suspend fun ejectDevice(devicePath: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            Timber.d("Attempting to eject device: $devicePath")
-            
-            // Use native eject function
-            val success = try {
-                DvdNative.ejectDevice(devicePath)
-            } catch (e: Exception) {
-                Timber.e(e, "Native eject function threw exception")
-                false
-            }
-            
-            if (success) {
-                Timber.i("Successfully sent eject command to device: $devicePath")
-            } else {
-                Timber.w("Eject command failed for device: $devicePath")
-                Timber.w("This is expected on Android without root access or special permissions")
-            }
-            
-            return@withContext success
-        } catch (e: Exception) {
-            Timber.e(e, "Error ejecting device: $devicePath")
             false
         }
     }

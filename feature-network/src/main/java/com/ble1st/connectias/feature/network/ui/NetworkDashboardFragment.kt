@@ -15,12 +15,10 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.network.R
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
-import timber.log.Timber
 
 /**
  * Fragment for Network Dashboard.
@@ -62,35 +60,10 @@ class NetworkDashboardFragment : Fragment() {
                             }
                         },
                         onRefreshLan = { viewModel.refreshLocalDevices() },
-                        onRefreshAnalysis = { viewModel.refreshAnalysis() },
-                        onNavigateToPortScanner = { navigateTo("nav_port_scanner") },
-                        onNavigateToDnsLookup = { navigateTo("nav_dns_lookup") },
-                        onNavigateToNetworkMonitor = { navigateTo("nav_network_monitor") },
-                        onNavigateToWifiAnalyzer = { navigateTo("nav_wifi_analyzer") },
-                        onNavigateToMacAnalyzer = { navigateTo("nav_mac_analyzer") },
-                        onNavigateToSubnetAnalyzer = { navigateTo("nav_subnet_analyzer") },
-                        onNavigateToVlanAnalyzer = { navigateTo("nav_vlan_analyzer") },
-                        onNavigateToTopology = { navigateTo("nav_topology") },
-                        onNavigateToBandwidthMonitor = { navigateTo("nav_bandwidth_monitor") },
-                        onNavigateToFlowAnalyzer = { navigateTo("nav_flow_analyzer") },
-                        onNavigateToDhcpLease = { navigateTo("nav_dhcp_lease") },
-                        onNavigateToHypervisorDetector = { navigateTo("nav_hypervisor_detector") }
+                        onRefreshAnalysis = { viewModel.refreshAnalysis() }
                     )
                 }
             }
-        }
-    }
-
-    private fun navigateTo(resourceIdName: String) {
-        try {
-            val navId = resources.getIdentifier(resourceIdName, "id", requireContext().packageName)
-            if (navId != 0) {
-                findNavController().navigate(navId)
-            } else {
-                Timber.w("Navigation ID $resourceIdName not found")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to navigate to $resourceIdName")
         }
     }
 

@@ -18,10 +18,7 @@ import com.ble1st.connectias.feature.privacy.models.*
 @Composable
 fun PrivacyDashboardScreen(
     state: PrivacyDashboardState,
-    onRefresh: () -> Unit,
-    onNavigateToTrackerDetection: () -> Unit,
-    onNavigateToPermissionsAnalyzer: () -> Unit,
-    onNavigateToDataLeakage: () -> Unit
+    onRefresh: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -46,10 +43,7 @@ fun PrivacyDashboardScreen(
             is PrivacyDashboardState.Success -> {
                 PrivacyDashboardContent(
                     uiState = state.data,
-                    onRefresh = onRefresh,
-                    onNavigateToTrackerDetection = onNavigateToTrackerDetection,
-                    onNavigateToPermissionsAnalyzer = onNavigateToPermissionsAnalyzer,
-                    onNavigateToDataLeakage = onNavigateToDataLeakage
+                    onRefresh = onRefresh
                 )
             }
         }
@@ -59,10 +53,7 @@ fun PrivacyDashboardScreen(
 @Composable
 private fun PrivacyDashboardContent(
     uiState: UiState,
-    onRefresh: () -> Unit,
-    onNavigateToTrackerDetection: () -> Unit,
-    onNavigateToPermissionsAnalyzer: () -> Unit,
-    onNavigateToDataLeakage: () -> Unit
+    onRefresh: () -> Unit
 ) {
     LazyColumn(
         modifier = Modifier
@@ -89,18 +80,6 @@ private fun PrivacyDashboardContent(
 
         item {
             PrivacyDetailsSection(uiState)
-        }
-
-        item {
-            Text("Tools", style = MaterialTheme.typography.titleLarge)
-        }
-
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ToolButton("Tracker Detection", Icons.Default.VisibilityOff, onNavigateToTrackerDetection)
-                ToolButton("Permissions Analyzer", Icons.Default.Security, onNavigateToPermissionsAnalyzer)
-                ToolButton("Data Leakage Check", Icons.Default.Warning, onNavigateToDataLeakage)
-            }
         }
         
         item {

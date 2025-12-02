@@ -13,16 +13,12 @@ android {
 
     defaultConfig {
         minSdk = 33
-        targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     buildFeatures {
         viewBinding = true
@@ -31,6 +27,12 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -77,9 +79,27 @@ dependencies {
     implementation(libs.timber)
 
     // Utilities-specific dependencies
-    // ZXing for QR Code generation and scanning
+    // ZXing for QR Code generation
     implementation(libs.zxing.core)
     implementation(libs.zxing.android.embedded)
+    
+    // CameraX for QR Scanner
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    
+    // ML Kit Barcode Scanning
+    implementation(libs.mlkit.barcode)
+    
+    // Accompanist Permissions
+    implementation(libs.accompanist.permissions)
+    
+    // Material Theme Adapter for Compose
+    implementation(libs.compose.theme.adapter)
+    
+    // Hilt Navigation Compose
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
     
     // OkHttp for API Tester
     implementation(libs.okhttp)

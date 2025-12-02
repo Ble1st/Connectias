@@ -10,10 +10,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import dagger.hilt.android.AndroidEntryPoint
-import timber.log.Timber
 
 @AndroidEntryPoint
 class DeviceInfoFragment : Fragment() {
@@ -33,27 +31,10 @@ class DeviceInfoFragment : Fragment() {
                     
                     DeviceInfoScreen(
                         state = state,
-                        onRefresh = { viewModel.refresh() },
-                        onNavigateToBatteryAnalyzer = { navigateTo("nav_battery_analyzer") },
-                        onNavigateToStorageAnalyzer = { navigateTo("nav_storage_analyzer") },
-                        onNavigateToProcessMonitor = { navigateTo("nav_process_monitor") },
-                        onNavigateToSensorMonitor = { navigateTo("nav_sensor_monitor") }
+                        onRefresh = { viewModel.refresh() }
                     )
                 }
             }
-        }
-    }
-
-    private fun navigateTo(resourceIdName: String) {
-        try {
-            val navId = resources.getIdentifier(resourceIdName, "id", requireContext().packageName)
-            if (navId != 0) {
-                findNavController().navigate(navId)
-            } else {
-                Timber.w("Navigation ID $resourceIdName not found")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to navigate to $resourceIdName")
         }
     }
 }

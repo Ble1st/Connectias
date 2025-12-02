@@ -4,6 +4,10 @@
     <!-- Permissions for QR Code Scanner (Camera) -->
     <uses-permission android:name="android.permission.CAMERA" />
     
+    <!-- Camera feature (not required, scanner can work without it) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    
     <!-- Permissions for API Tester (Internet) -->
     <uses-permission android:name="android.permission.INTERNET" />
     

@@ -3,6 +3,8 @@ package com.ble1st.connectias.feature.wasm.ui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -31,11 +33,8 @@ fun PluginManagerScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onLoadPlugin,
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text("+")
+            FloatingActionButton(onClick = onLoadPlugin) {
+                Icon(Icons.Default.Add, contentDescription = "Load Plugin")
             }
         }
     ) { paddingValues ->

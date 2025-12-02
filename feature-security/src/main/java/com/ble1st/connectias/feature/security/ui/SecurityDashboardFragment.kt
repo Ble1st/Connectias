@@ -10,10 +10,8 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import dagger.hilt.android.AndroidEntryPoint
-import timber.log.Timber
 
 @AndroidEntryPoint
 class SecurityDashboardFragment : Fragment() {
@@ -35,27 +33,10 @@ class SecurityDashboardFragment : Fragment() {
                     
                     SecurityDashboardScreen(
                         state = state,
-                        onRefresh = { viewModel.performSecurityCheck() },
-                        onNavigateToCertificateAnalyzer = { navigateTo("nav_certificate_analyzer") },
-                        onNavigateToPasswordStrength = { navigateTo("nav_password_strength") },
-                        onNavigateToEncryptionTools = { navigateTo("nav_encryption_tools") },
-                        onNavigateToFirewallAnalyzer = { navigateTo("nav_firewall_analyzer") }
+                        onRefresh = { viewModel.performSecurityCheck() }
                     )
                 }
             }
-        }
-    }
-
-    private fun navigateTo(resourceIdName: String) {
-        try {
-            val navId = resources.getIdentifier(resourceIdName, "id", requireContext().packageName)
-            if (navId != 0) {
-                findNavController().navigate(navId)
-            } else {
-                Timber.w("Navigation ID $resourceIdName not found")
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to navigate to $resourceIdName")
         }
     }
 }

@@ -25,23 +25,7 @@ fun NetworkDashboardScreen(
     state: NetworkState,
     onRefreshWifi: () -> Unit,
     onRefreshLan: () -> Unit,
-    onRefreshAnalysis: () -> Unit,
-    onNavigateToPortScanner: () -> Unit,
-    onNavigateToDnsLookup: () -> Unit,
-    onNavigateToNetworkMonitor: () -> Unit,
-    onNavigateToWifiAnalyzer: () -> Unit = {},
-    // Analysis features
-    onNavigateToMacAnalyzer: () -> Unit = {},
-    onNavigateToSubnetAnalyzer: () -> Unit = {},
-    onNavigateToVlanAnalyzer: () -> Unit = {},
-    // Topology
-    onNavigateToTopology: () -> Unit = {},
-    // Monitoring features
-    onNavigateToBandwidthMonitor: () -> Unit = {},
-    onNavigateToFlowAnalyzer: () -> Unit = {},
-    // Detection features
-    onNavigateToDhcpLease: () -> Unit = {},
-    onNavigateToHypervisorDetector: () -> Unit = {}
+    onRefreshAnalysis: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
         when (state) {
@@ -72,19 +56,7 @@ fun NetworkDashboardScreen(
                     state = state,
                     onRefreshWifi = onRefreshWifi,
                     onRefreshLan = onRefreshLan,
-                    onRefreshAnalysis = onRefreshAnalysis,
-                    onNavigateToPortScanner = onNavigateToPortScanner,
-                    onNavigateToDnsLookup = onNavigateToDnsLookup,
-                    onNavigateToNetworkMonitor = onNavigateToNetworkMonitor,
-                    onNavigateToWifiAnalyzer = onNavigateToWifiAnalyzer,
-                    onNavigateToMacAnalyzer = onNavigateToMacAnalyzer,
-                    onNavigateToSubnetAnalyzer = onNavigateToSubnetAnalyzer,
-                    onNavigateToVlanAnalyzer = onNavigateToVlanAnalyzer,
-                    onNavigateToTopology = onNavigateToTopology,
-                    onNavigateToBandwidthMonitor = onNavigateToBandwidthMonitor,
-                    onNavigateToFlowAnalyzer = onNavigateToFlowAnalyzer,
-                    onNavigateToDhcpLease = onNavigateToDhcpLease,
-                    onNavigateToHypervisorDetector = onNavigateToHypervisorDetector
+                    onRefreshAnalysis = onRefreshAnalysis
                 )
             }
         }
@@ -96,25 +68,8 @@ private fun NetworkDashboardContent(
     state: NetworkState.NetworkDataHolder,
     onRefreshWifi: () -> Unit,
     onRefreshLan: () -> Unit,
-    onRefreshAnalysis: () -> Unit,
-    onNavigateToPortScanner: () -> Unit,
-    onNavigateToDnsLookup: () -> Unit,
-    onNavigateToNetworkMonitor: () -> Unit,
-    onNavigateToWifiAnalyzer: () -> Unit,
-    onNavigateToMacAnalyzer: () -> Unit,
-    onNavigateToSubnetAnalyzer: () -> Unit,
-    onNavigateToVlanAnalyzer: () -> Unit,
-    onNavigateToTopology: () -> Unit,
-    onNavigateToBandwidthMonitor: () -> Unit,
-    onNavigateToFlowAnalyzer: () -> Unit,
-    onNavigateToDhcpLease: () -> Unit,
-    onNavigateToHypervisorDetector: () -> Unit
+    onRefreshAnalysis: () -> Unit
 ) {
-    var analysisExpanded by remember { mutableStateOf(false) }
-    var topologyExpanded by remember { mutableStateOf(false) }
-    var monitoringExpanded by remember { mutableStateOf(false) }
-    var toolsExpanded by remember { mutableStateOf(true) }
-    var detectionExpanded by remember { mutableStateOf(false) }
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -177,73 +132,6 @@ private fun NetworkDashboardContent(
         }
         items(state.devices) { device ->
             NetworkDeviceItem(device)
-        }
-
-        // Analysis Category
-        item {
-            DashboardCategory(
-                title = "Analysis",
-                icon = Icons.Default.Info,
-                isExpanded = analysisExpanded,
-                onExpandedChange = { analysisExpanded = it }
-            ) {
-                ToolButton("MAC Address Analyzer", Icons.Default.Fingerprint, onNavigateToMacAnalyzer)
-                ToolButton("Subnet Analyzer", Icons.Default.NetworkCheck, onNavigateToSubnetAnalyzer)
-                ToolButton("VLAN Analyzer", Icons.Default.Layers, onNavigateToVlanAnalyzer)
-            }
-        }
-
-        // Topology Category
-        item {
-            DashboardCategory(
-                title = "Topology",
-                icon = Icons.Default.Share,
-                isExpanded = topologyExpanded,
-                onExpandedChange = { topologyExpanded = it }
-            ) {
-                ToolButton("Network Topology", Icons.Default.Share, onNavigateToTopology)
-            }
-        }
-
-        // Monitoring Category
-        item {
-            DashboardCategory(
-                title = "Monitoring",
-                icon = Icons.Default.Timeline,
-                isExpanded = monitoringExpanded,
-                onExpandedChange = { monitoringExpanded = it }
-            ) {
-                ToolButton("Network Monitor", Icons.Default.Timeline, onNavigateToNetworkMonitor)
-                ToolButton("Bandwidth Monitor", Icons.Default.Timeline, onNavigateToBandwidthMonitor)
-                ToolButton("Flow Analyzer", Icons.Default.Timeline, onNavigateToFlowAnalyzer)
-            }
-        }
-
-        // Tools Category
-        item {
-            DashboardCategory(
-                title = "Tools",
-                icon = Icons.Default.Settings,
-                isExpanded = toolsExpanded,
-                onExpandedChange = { toolsExpanded = it }
-            ) {
-                ToolButton("Port Scanner", Icons.Default.Search, onNavigateToPortScanner)
-                ToolButton("DNS Lookup", Icons.Default.Info, onNavigateToDnsLookup)
-                ToolButton("Wi-Fi Analyzer", Icons.Default.SignalWifi4Bar, onNavigateToWifiAnalyzer)
-            }
-        }
-
-        // Detection Category
-        item {
-            DashboardCategory(
-                title = "Detection",
-                icon = Icons.Default.Search,
-                isExpanded = detectionExpanded,
-                onExpandedChange = { detectionExpanded = it }
-            ) {
-                ToolButton("DHCP Lease Viewer", Icons.Default.Info, onNavigateToDhcpLease)
-                ToolButton("Hypervisor Detector", Icons.Default.Info, onNavigateToHypervisorDetector)
-            }
         }
         
         item {

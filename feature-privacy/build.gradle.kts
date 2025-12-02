@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -21,15 +22,18 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         viewBinding = true
         compose = true
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -76,6 +80,18 @@ dependencies {
 
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
+
+    // Kotlin Serialization
+    implementation(libs.kotlinx.serialization.json)
+    
+    // OkHttp for network requests
+    implementation(libs.okhttp)
+    
+    // Hilt Navigation Compose
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    
+    // Material Theme Adapter for Compose
+    implementation(libs.compose.theme.adapter)
 
     // Testing
     testImplementation(libs.junit)

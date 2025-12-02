@@ -23,19 +23,21 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-    kotlinOptions {
-        jvmTarget = "17"
     }
     buildFeatures {
         buildConfig = true
@@ -44,6 +46,19 @@ android {
     }
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/NOTICE.md"
+            excludes += "/META-INF/LICENSE.md"
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -99,6 +114,27 @@ dependencies {
     val featureUsbEnabled = project.findProperty("feature.usb.enabled") == "true"
     if (featureUsbEnabled) {
         implementation(project(":feature-usb"))
+        implementation(project(":feature-dvd"))
+    }
+
+    val featureReportingEnabled = project.findProperty("feature.reporting.enabled") == "true"
+    if (featureReportingEnabled) {
+        implementation(project(":feature-reporting"))
+    }
+
+    val featureVulnerabilityScannerEnabled = project.findProperty("feature.vulnerability.scanner.enabled") == "true"
+    if (featureVulnerabilityScannerEnabled) {
+        implementation(project(":feature-vulnerability-scanner"))
+    }
+
+    val featureSecureNotesEnabled = project.findProperty("feature.secure.notes.enabled") == "true"
+    if (featureSecureNotesEnabled) {
+        implementation(project(":feature-secure-notes"))
+    }
+
+    val featureHardwareEnabled = project.findProperty("feature.hardware.enabled") == "true"
+    if (featureHardwareEnabled) {
+        implementation(project(":feature-hardware"))
     }
 
     // Android Core
@@ -114,6 +150,8 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.activity)
     implementation(libs.androidx.lifecycle.runtime.compose)
 

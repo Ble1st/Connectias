@@ -33,6 +33,16 @@
         android:name="com.ble1st.connectias.feature.security.firewall.FirewallAnalyzerFragment"
         android:label="Firewall Analyzer" />
 
+    <fragment
+        android:id="@+id/nav_wifi_security_auditor"
+        android:name="com.ble1st.connectias.feature.security.wifi.WifiSecurityAuditorFragment"
+        android:label="WiFi Security Auditor" />
+
+    <fragment
+        android:id="@+id/nav_vulnerability_scanner"
+        android:name="com.ble1st.connectias.feature.vulnerability.scanner.ui.VulnerabilityScannerFragment"
+        android:label="Vulnerability Scanner" />
+
     <!-- Device Info (Optional - MVP Proof of Concept) -->
     <fragment
         android:id="@+id/nav_device_info"
@@ -83,6 +93,11 @@
         android:id="@+id/nav_data_leakage"
         android:name="com.ble1st.connectias.feature.privacy.leakage.DataLeakageFragment"
         android:label="Data Leakage Scanner" />
+
+    <fragment
+        android:id="@+id/nav_permission_timeline"
+        android:name="com.ble1st.connectias.feature.privacy.timeline.PermissionTimelineFragment"
+        android:label="Permission Timeline" />
 
     <!-- Network Dashboard (Optional) -->
     <fragment
@@ -139,6 +154,16 @@
         android:id="@+id/nav_bandwidth_monitor"
         android:name="com.ble1st.connectias.feature.network.ui.BandwidthMonitorFragment"
         android:label="Bandwidth Monitor" />
+
+    <fragment
+        android:id="@+id/nav_speed_test"
+        android:name="com.ble1st.connectias.feature.network.speedtest.SpeedTestFragment"
+        android:label="Speed Test" />
+
+    <fragment
+        android:id="@+id/nav_wake_on_lan"
+        android:name="com.ble1st.connectias.feature.network.wol.WolFragment"
+        android:label="Wake-on-LAN" />
 
     <fragment
         android:id="@+id/nav_flow_analyzer"
@@ -199,6 +224,11 @@
         android:name="com.ble1st.connectias.feature.utilities.color.ColorFragment"
         android:label="@string/color_tool_title" />
 
+    <fragment
+        android:id="@+id/nav_qr_scanner"
+        android:name="com.ble1st.connectias.feature.utilities.qrscanner.QrScannerFragment"
+        android:label="QR Scanner" />
+
     <!-- Backup Dashboard (Optional) -->
     <fragment
         android:id="@+id/nav_backup_dashboard"
@@ -229,15 +259,20 @@
         android:name="com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment"
         android:label="@string/nav_usb_dashboard" />
 
+    <fragment
+        android:id="@+id/nav_usb_storage_browser"
+        android:name="com.ble1st.connectias.feature.usb.browser.UsbStorageBrowserFragment"
+        android:label="USB Storage Browser" />
+
     <!-- USB Tools -->
     <fragment
         android:id="@+id/nav_dvd_cd_detail"
-        android:name="com.ble1st.connectias.feature.usb.ui.DvdCdDetailFragment"
+        android:name="com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
         android:label="@string/nav_dvd_cd_detail" />
 
     <fragment
         android:id="@+id/nav_dvd_player"
-        android:name="com.ble1st.connectias.feature.usb.ui.DvdPlayerFragment"
+        android:name="com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
         android:label="@string/nav_dvd_player" />
 
 </navigation>

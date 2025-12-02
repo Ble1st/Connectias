@@ -14,11 +14,7 @@ import com.ble1st.connectias.core.security.models.SecurityThreat
 @Composable
 fun SecurityDashboardScreen(
     state: SecurityState,
-    onRefresh: () -> Unit,
-    onNavigateToCertificateAnalyzer: () -> Unit,
-    onNavigateToPasswordStrength: () -> Unit,
-    onNavigateToEncryptionTools: () -> Unit,
-    onNavigateToFirewallAnalyzer: () -> Unit
+    onRefresh: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -57,15 +53,6 @@ fun SecurityDashboardScreen(
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(32.dp))
-        Text("Tools", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ToolButton("Certificate Analyzer", onNavigateToCertificateAnalyzer)
-        ToolButton("Password Strength", onNavigateToPasswordStrength)
-        ToolButton("Encryption Tools", onNavigateToEncryptionTools)
-        ToolButton("Firewall Analyzer", onNavigateToFirewallAnalyzer)
     }
 }
 

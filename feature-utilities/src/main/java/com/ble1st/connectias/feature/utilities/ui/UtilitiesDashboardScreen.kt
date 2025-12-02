@@ -12,16 +12,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun UtilitiesDashboardScreen(
-    onNavigateToHash: () -> Unit,
-    onNavigateToEncoding: () -> Unit,
-    onNavigateToQrCode: () -> Unit,
-    onNavigateToText: () -> Unit,
-    onNavigateToColor: () -> Unit,
-    onNavigateToLog: () -> Unit,
-    onNavigateToApiTester: () -> Unit,
-    onNavigateToUsbAndMedia: () -> Unit = {}
-) {
+fun UtilitiesDashboardScreen() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -34,64 +25,12 @@ fun UtilitiesDashboardScreen(
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-
-        UtilityCard(
-            title = "Hash Calculator",
-            description = "Calculate and verify MD5, SHA-1, SHA-256, SHA-512 hashes",
-            icon = Icons.Default.Fingerprint,
-            onClick = onNavigateToHash
-        )
-
-        UtilityCard(
-            title = "Encoding Tools",
-            description = "Encode/decode Base64, Base32, Hex, URL, HTML Entity, Unicode",
-            icon = Icons.Default.Code,
-            onClick = onNavigateToEncoding
-        )
-
-        UtilityCard(
-            title = "QR Code Generator",
-            description = "Generate and scan QR codes for text, WiFi, contacts, URLs",
-            icon = Icons.Default.QrCode,
-            onClick = onNavigateToQrCode
-        )
-
-        UtilityCard(
-            title = "Text Utilities",
-            description = "Text case conversion, word/char counting, regex testing, JSON formatting",
-            icon = Icons.Default.TextFields,
-            onClick = onNavigateToText
-        )
-
-        UtilityCard(
-            title = "Color Picker",
-            description = "Pick and convert colors (Hex, RGB, CMYK)",
-            icon = Icons.Default.Palette,
-            onClick = onNavigateToColor
-        )
-
-        UtilityCard(
-            title = "Log Viewer",
-            description = "View and export application logs",
-            icon = Icons.Default.ListAlt,
-            onClick = onNavigateToLog
-        )
-
-        UtilityCard(
-            title = "API Tester",
-            description = "Test REST APIs with customizable requests",
-            icon = Icons.Default.Http,
-            onClick = onNavigateToApiTester
-        )
-
-        UtilityCard(
-            title = "USB & DVD/CD",
-            description = "USB device management and DVD/CD playback",
-            icon = Icons.Default.Usb,
-            onClick = onNavigateToUsbAndMedia
-        )
         
-        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "Select a tool from the main menu.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
