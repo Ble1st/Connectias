@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    
+    <!-- Appearance Section -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System Default</string>
+    <string name="settings_dynamic_color">Dynamic Color</string>
+    <string name="settings_dynamic_color_description">Use Material You dynamic colors (Android 12+)</string>
+    
+    <!-- Security Section -->
+    <string name="settings_security">Security</string>
+    <string name="settings_auto_lock">Auto Lock</string>
+    <string name="settings_auto_lock_description">Automatically lock the app after inactivity</string>
+    <string name="settings_rasp_logging">RASP Logging</string>
+    <string name="settings_rasp_logging_description">Enable logging for Runtime Application Self-Protection</string>
+    
+    <!-- Network Section -->
+    <string name="settings_network">Network</string>
+    <string name="settings_dns_server">DNS Server</string>
+    <string name="settings_dns_server_hint">e.g., 8.8.8.8</string>
+    <string name="settings_scan_timeout">Scan Timeout</string>
+    <string name="settings_scan_timeout_seconds">%1$dms</string>
+    <string name="settings_scan_timeout_min">1s</string>
+    <string name="settings_scan_timeout_max">30s</string>
+    
+    <!-- Privacy Section -->
+    <string name="settings_privacy">Privacy</string>
+    <string name="settings_clipboard_auto_clear">Clipboard Auto-Clear</string>
+    <string name="settings_clipboard_auto_clear_description">Automatically clear clipboard after a delay</string>
+    
+    <!-- Advanced Section -->
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_logging_level">Logging Level</string>
+    
+    <!-- Reset Section -->
+    <string name="settings_reset">Reset</string>
+    <string name="settings_reset_all">Reset All Settings</string>
+    <string name="settings_reset_confirm_title">Reset Settings?</string>
+    <string name="settings_reset_confirm_message">This will reset all settings to their default values. This action cannot be undone.</string>
+    <string name="settings_reset_confirm_button">Reset</string>
+    <string name="settings_reset_cancel_button">Cancel</string>
+    
+    <!-- Messages -->
+    <string name="settings_reset_success">Settings reset successfully</string>
+    <string name="settings_error_loading">Failed to load settings</string>
+    <string name="settings_error_saving">Failed to save settings</string>
+</resources>
+

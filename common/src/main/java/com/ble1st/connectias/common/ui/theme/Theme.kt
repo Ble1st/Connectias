@@ -59,14 +59,27 @@ fun ConnectiasTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
+    // Optional theme preference from settings ("light", "dark", "system", or null)
+    themePreference: String? = null,
     content: @Composable () -> Unit
 ) {
+    // Determine dark theme: use themePreference if available, otherwise use parameter or system default
+    val actualDarkTheme = when (themePreference) {
+        "light" -> false
+        "dark" -> true
+        "system", null -> darkTheme // Use parameter (which defaults to system)
+        else -> darkTheme
+    }
+    
+    // Use provided dynamicColor parameter
+    val actualDynamicColor = dynamicColor
+    
     val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+        actualDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            if (actualDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-        darkTheme -> DarkColorScheme
+        actualDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
     val view = LocalView.current
@@ -80,8 +93,8 @@ fun ConnectiasTheme(
                 
                 // Set status bar icons based on theme (light icons for dark theme, dark icons for light)
                 val insetsController = WindowCompat.getInsetsController(window, view)
-                insetsController.isAppearanceLightStatusBars = !darkTheme
-                insetsController.isAppearanceLightNavigationBars = !darkTheme
+                insetsController.isAppearanceLightStatusBars = !actualDarkTheme
+                insetsController.isAppearanceLightNavigationBars = !actualDarkTheme
             }
         }
     }

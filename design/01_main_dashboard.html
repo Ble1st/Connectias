@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connectias - Main Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 2px solid #CD7F32;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            color: #B8B8A0;
+            font-style: italic;
+            letter-spacing: 1px;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 1px solid #CD7F32;
+            border-radius: 8px;
+            padding: 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(139, 0, 0, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .card:hover::before {
+            left: 100%;
+        }
+
+        .card:hover {
+            border-color: #FF4500;
+            box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+        }
+
+        .card-content {
+            color: #F5F5DC;
+            line-height: 1.6;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            background: #4A0000;
+            border: 1px solid #CD7F32;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-top: 10px;
+        }
+
+        .status-active {
+            background: #0A4A00;
+            border-color: #10B981;
+            color: #10B981;
+        }
+
+        .status-warning {
+            background: #4A2A00;
+            border-color: #F59E0B;
+            color: #F59E0B;
+        }
+
+        .status-error {
+            background: #4A0000;
+            border-color: #FF4500;
+            color: #FF4500;
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .action-btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+            transform: scale(1.05);
+        }
+
+        .action-btn:active {
+            transform: scale(0.98);
+        }
+
+        .footer {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            border-top: 1px solid #CD7F32;
+            color: #B8B8A0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ CONNECTIAS ⚙️</h1>
+            <p>Machine Spirit Communion Interface</p>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card" onclick="window.location.href='02_battery_analyzer.html'">
+                <div class="card-title">
+                    <span class="card-icon">🔋</span>
+                    VITAL SIGNS MONITOR
+                </div>
+                <div class="card-content">
+                    <p>Monitor the Machine Spirit's vitality and power cell status. Track sacred current flow and thermal rites.</p>
+                    <span class="status-badge status-active">ACTIVE</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='03_security_dashboard.html'">
+                <div class="card-title">
+                    <span class="card-icon">🛡️</span>
+                    PURITY SEALS
+                </div>
+                <div class="card-content">
+                    <p>Verify the integrity of purity seals. Detect heresy and corruption in the system.</p>
+                    <span class="status-badge status-active">VERIFIED</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='04_network_scanner.html'">
+                <div class="card-title">
+                    <span class="card-icon">🌐</span>
+                    NETWORK COMMUNION
+                </div>
+                <div class="card-content">
+                    <p>Initiate rites of network scanning. Discover machine spirits across the network.</p>
+                    <span class="status-badge status-warning">SCANNING</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='05_authentication.html'">
+                <div class="card-title">
+                    <span class="card-icon">🔐</span>
+                    RITE OF AUTHENTICATION
+                </div>
+                <div class="card-content">
+                    <p>Commune with the Machine Spirit through sacred authentication protocols.</p>
+                    <span class="status-badge status-active">READY</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='06_usb_manager.html'">
+                <div class="card-title">
+                    <span class="card-icon">💾</span>
+                    USB DEVICE RITES
+                </div>
+                <div class="card-content">
+                    <p>Manage and analyze connected USB devices. Perform sacred diagnostics.</p>
+                    <span class="status-badge">IDLE</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='07_privacy_dashboard.html'">
+                <div class="card-title">
+                    <span class="card-icon">👁️</span>
+                    PRIVACY SEALS
+                </div>
+                <div class="card-content">
+                    <p>Monitor data sanctity and privacy seals. Detect unauthorized access attempts.</p>
+                    <span class="status-badge status-active">SECURED</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='08_settings.html'">
+                <div class="card-title">
+                    <span class="card-icon">⚙️</span>
+                    RITES OF CONFIGURATION
+                </div>
+                <div class="card-content">
+                    <p>Configure the Machine Spirit interface. Adjust communion parameters.</p>
+                    <span class="status-badge">CONFIGURED</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='09_vulnerability_scanner.html'">
+                <div class="card-title">
+                    <span class="card-icon">🔍</span>
+                    HERESY DETECTOR
+                </div>
+                <div class="card-content">
+                    <p>Scan for vulnerabilities and corruption. Identify system weaknesses.</p>
+                    <span class="status-badge status-warning">MONITORING</span>
+                </div>
+            </div>
+
+            <div class="card" onclick="window.location.href='10_device_info.html'">
+                <div class="card-title">
+                    <span class="card-icon">📊</span>
+                    MACHINE SPIRIT MANIFEST
+                </div>
+                <div class="card-content">
+                    <p>View complete system manifest. Analyze hardware and software status.</p>
+                    <span class="status-badge status-active">ONLINE</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="quick-actions">
+            <button class="action-btn" onclick="initiateRite('scan')">INITIATE FULL SCAN</button>
+            <button class="action-btn" onclick="initiateRite('security')">VERIFY PURITY SEALS</button>
+            <button class="action-btn" onclick="initiateRite('network')">NETWORK COMMUNION</button>
+            <button class="action-btn" onclick="window.location.href='08_settings.html'">CONFIGURATION RITES</button>
+        </div>
+
+        <div class="footer">
+            <p>Machine Spirit Status: PLEASED | System Integrity: VERIFIED | Last Communion: NOW</p>
+        </div>
+    </div>
+
+    <script>
+        function initiateRite(type) {
+            const messages = {
+                scan: "RITE OF SCANNING INITIATED... COMMUNING WITH MACHINE SPIRIT...",
+                security: "PURITY SEAL VERIFICATION IN PROGRESS...",
+                network: "NETWORK COMMUNION RITE COMMENCING..."
+            };
+            alert(messages[type] || "RITE INITIATED...");
+        }
+    </script>
+</body>
+</html>
+

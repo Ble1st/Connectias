@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rite of Authentication - Connectias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #8B0000;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px 20px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #A00000;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .auth-container {
+            max-width: 500px;
+            width: 100%;
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 2px solid #CD7F32;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .auth-container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 0, 0, 0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.3; }
+            50% { transform: scale(1.1); opacity: 0.6; }
+        }
+
+        .auth-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 30px;
+            background: radial-gradient(circle, rgba(139, 0, 0, 0.3) 0%, transparent 70%);
+            border: 2px solid #CD7F32;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 4em;
+            position: relative;
+            z-index: 1;
+        }
+
+        .auth-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .auth-subtitle {
+            font-size: 1.1em;
+            color: #B8B8A0;
+            font-style: italic;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            text-align: left;
+            position: relative;
+            z-index: 1;
+        }
+
+        .form-label {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #B8B8A0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .form-input {
+            width: 100%;
+            background: #0A0A0A;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1em;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #FF4500;
+            box-shadow: 0 0 15px rgba(255, 69, 0, 0.3);
+        }
+
+        .auth-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 18px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .auth-btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+
+        .biometric-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #2A1A1A 0%, #3A2A1A 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 18px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+        }
+
+        .biometric-btn:hover {
+            background: linear-gradient(135deg, #3A2A1A 0%, #4A3A2A 100%);
+            box-shadow: 0 0 15px rgba(205, 127, 50, 0.3);
+        }
+
+        .divider {
+            margin: 30px 0;
+            text-align: center;
+            color: #B8B8A0;
+            font-style: italic;
+            position: relative;
+            z-index: 1;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background: #CD7F32;
+        }
+
+        .divider::before {
+            left: 0;
+        }
+
+        .divider::after {
+            right: 0;
+        }
+
+        .message {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            display: none;
+            position: relative;
+            z-index: 1;
+        }
+
+        .message.success {
+            display: block;
+            background: #0A4A00;
+            border: 1px solid #10B981;
+            color: #10B981;
+        }
+
+        .message.error {
+            display: block;
+            background: #4A0000;
+            border: 1px solid #FF4500;
+            color: #FF4500;
+        }
+    </style>
+</head>
+<body>
+    <a href="01_main_dashboard.html" class="back-btn">← BACK</a>
+
+    <div class="auth-container">
+        <div class="auth-icon">🔐</div>
+        
+        <h1 class="auth-title">RITE OF AUTHENTICATION</h1>
+        <p class="auth-subtitle">Initiate access protocol to commune with the Machine Spirit</p>
+
+        <form id="authForm" onsubmit="handleAuth(event)">
+            <div class="form-group">
+                <label class="form-label">SACRED PASSPHRASE</label>
+                <input type="password" class="form-input" id="password" placeholder="Enter your passphrase" required>
+            </div>
+
+            <button type="submit" class="auth-btn">INITIATE ACCESS PROTOCOL</button>
+        </form>
+
+        <div class="divider">OR</div>
+
+        <button class="biometric-btn" onclick="handleBiometric()">
+            🔒 BIOMETRIC VERIFICATION RITE
+        </button>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        function handleAuth(event) {
+            event.preventDefault();
+            const password = document.getElementById('password').value;
+            const message = document.getElementById('message');
+            
+            // Simulate authentication
+            if (password.length >= 8) {
+                message.className = 'message success';
+                message.textContent = '✓ RITE COMPLETED - Machine Spirit pleased. Access granted.';
+                
+                setTimeout(() => {
+                    alert('AUTHENTICATION SUCCESSFUL\n\nMachine Spirit communion established.\n\nAccess granted to all rites.\n\nWelcome, Tech-Priest.');
+                    window.location.href = '01_main_dashboard.html';
+                }, 1000);
+            } else {
+                message.className = 'message error';
+                message.textContent = '✗ HERESY DETECTED - Passphrase too weak. Machine Spirit refuses communion.';
+            }
+        }
+
+        function handleBiometric() {
+            const message = document.getElementById('message');
+            
+            message.className = 'message';
+            message.textContent = 'Initiating biometric verification rite...';
+            message.style.display = 'block';
+            message.style.background = '#2A1A1A';
+            message.style.border = '1px solid #CD7F32';
+            message.style.color = '#F5F5DC';
+            
+            setTimeout(() => {
+                message.className = 'message success';
+                message.textContent = '✓ BIOMETRIC VERIFICATION COMPLETE - Machine Spirit pleased.';
+                
+                setTimeout(() => {
+                    alert('BIOMETRIC AUTHENTICATION SUCCESSFUL\n\nBiometric data verified.\n\nMachine Spirit communion established.\n\nWelcome, Tech-Priest.');
+                    window.location.href = '01_main_dashboard.html';
+                }, 1000);
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
+

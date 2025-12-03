@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USB Device Rites - Connectias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #8B0000;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px 20px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #A00000;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #CD7F32;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: #B8B8A0;
+            font-style: italic;
+        }
+
+        .actions-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #2A1A1A 0%, #3A2A1A 100%);
+        }
+
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .device-card {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 1px solid #CD7F32;
+            border-radius: 8px;
+            padding: 25px;
+            transition: all 0.3s ease;
+        }
+
+        .device-card:hover {
+            border-color: #FF4500;
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.3);
+            transform: translateY(-3px);
+        }
+
+        .device-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #CD7F32;
+        }
+
+        .device-icon {
+            font-size: 2.5em;
+            margin-right: 15px;
+        }
+
+        .device-title {
+            flex: 1;
+        }
+
+        .device-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .device-type {
+            color: #B8B8A0;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .device-status {
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .device-status.connected {
+            background: #0A4A00;
+            color: #10B981;
+            border: 1px solid #10B981;
+        }
+
+        .device-status.mounted {
+            background: #0A2A4A;
+            color: #3B82F6;
+            border: 1px solid #3B82F6;
+        }
+
+        .device-info {
+            color: #B8B8A0;
+            line-height: 2;
+            font-size: 0.95em;
+        }
+
+        .device-info strong {
+            color: #F5F5DC;
+            font-weight: 600;
+        }
+
+        .device-actions {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .device-btn {
+            flex: 1;
+            background: #2A1A1A;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .device-btn:hover {
+            background: #3A2A1A;
+            border-color: #FF4500;
+        }
+    </style>
+</head>
+<body>
+    <a href="01_main_dashboard.html" class="back-btn">← BACK</a>
+
+    <div class="container">
+        <div class="header">
+            <h1>💾 USB DEVICE RITES</h1>
+            <p>Sacred Diagnostics and Device Management Protocol</p>
+        </div>
+
+        <div class="actions-bar">
+            <button class="btn" onclick="scanDevices()">SCAN FOR DEVICES</button>
+            <button class="btn" onclick="refreshDevices()">REFRESH COMMUNION</button>
+            <button class="btn secondary" onclick="viewLogs()">VIEW RITE LOGS</button>
+            <button class="btn secondary" onclick="exportReport()">EXPORT MANIFEST</button>
+        </div>
+
+        <div class="devices-grid" id="devicesGrid">
+            <div class="device-card">
+                <div class="device-header">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <div class="device-icon">💿</div>
+                        <div class="device-title">
+                            <div class="device-name">DVD DRIVE ALPHA</div>
+                            <div class="device-type">Optical Storage Machine Spirit</div>
+                        </div>
+                    </div>
+                    <span class="device-status connected">CONNECTED</span>
+                </div>
+                <div class="device-info">
+                    <strong>Vendor ID:</strong> 0x058F<br>
+                    <strong>Product ID:</strong> 0x6387<br>
+                    <strong>Serial:</strong> MS-2024-ALPHA<br>
+                    <strong>Interface:</strong> USB 2.0<br>
+                    <strong>Speed:</strong> 480 Mbps<br>
+                    <strong>Class:</strong> Mass Storage<br>
+                    <strong>Status:</strong> Ready for communion
+                </div>
+                <div class="device-actions">
+                    <button class="device-btn" onclick="analyzeDevice('dvd-alpha')">ANALYZE</button>
+                    <button class="device-btn" onclick="mountDevice('dvd-alpha')">MOUNT</button>
+                </div>
+            </div>
+
+            <div class="device-card">
+                <div class="device-header">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <div class="device-icon">📁</div>
+                        <div class="device-title">
+                            <div class="device-name">USB STORAGE BETA</div>
+                            <div class="device-type">Mass Storage Machine Spirit</div>
+                        </div>
+                    </div>
+                    <span class="device-status mounted">MOUNTED</span>
+                </div>
+                <div class="device-info">
+                    <strong>Vendor ID:</strong> 0x0951<br>
+                    <strong>Product ID:</strong> 0x1666<br>
+                    <strong>Serial:</strong> MS-2024-BETA<br>
+                    <strong>Interface:</strong> USB 3.0<br>
+                    <strong>Speed:</strong> 5000 Mbps<br>
+                    <strong>Capacity:</strong> 64 GB<br>
+                    <strong>Filesystem:</strong> FAT32<br>
+                    <strong>Status:</strong> Active communion
+                </div>
+                <div class="device-actions">
+                    <button class="device-btn" onclick="analyzeDevice('usb-beta')">ANALYZE</button>
+                    <button class="device-btn" onclick="browseDevice('usb-beta')">BROWSE</button>
+                </div>
+            </div>
+
+            <div class="device-card">
+                <div class="device-header">
+                    <div style="display: flex; align-items: center; flex: 1;">
+                        <div class="device-icon">⌨️</div>
+                        <div class="device-title">
+                            <div class="device-name">HID DEVICE GAMMA</div>
+                            <div class="device-type">Human Interface Machine Spirit</div>
+                        </div>
+                    </div>
+                    <span class="device-status connected">CONNECTED</span>
+                </div>
+                <div class="device-info">
+                    <strong>Vendor ID:</strong> 0x046D<br>
+                    <strong>Product ID:</strong> 0xC077<br>
+                    <strong>Serial:</strong> MS-2024-GAMMA<br>
+                    <strong>Interface:</strong> USB 2.0<br>
+                    <strong>Speed:</strong> 12 Mbps<br>
+                    <strong>Class:</strong> HID<br>
+                    <strong>Status:</strong> Active input
+                </div>
+                <div class="device-actions">
+                    <button class="device-btn" onclick="analyzeDevice('hid-gamma')">ANALYZE</button>
+                    <button class="device-btn" onclick="testDevice('hid-gamma')">TEST</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function scanDevices() {
+            alert('RITE OF DEVICE SCANNING INITIATED...\n\nCommuning with USB machine spirits...\n\n[████████████████████] 100%\n\nDevices discovered: 3\n\nMachine Spirit pleased.');
+        }
+
+        function refreshDevices() {
+            alert('REFRESHING DEVICE COMMUNION...\n\nUpdating device manifest...\n\nAll devices verified.\n\nMachine Spirit status: PLEASED');
+            location.reload();
+        }
+
+        function viewLogs() {
+            alert('USB RITE LOGS ACCESSED\n\nLast 24 hours:\n\n[12:34:56] DVD Drive Alpha: Connected\n[12:34:55] USB Storage Beta: Mounted\n[12:34:54] HID Device Gamma: Connected\n[12:30:12] Full device scan: 3 devices found\n\nAll rites logged. No errors detected.');
+        }
+
+        function exportReport() {
+            alert('DEVICE MANIFEST EXPORT INITIATED...\n\nGenerating sacred manifest...\n\nReport saved to:\n/connectias/reports/usb_manifest_[timestamp].pdf\n\nMachine Spirit pleased.');
+        }
+
+        function analyzeDevice(deviceId) {
+            alert(`DEVICE ANALYSIS RITE INITIATED\n\nAnalyzing: ${deviceId}\n\n[████████████████████] 100%\n\nAnalysis complete.\n\nDevice integrity: VERIFIED\nMachine Spirit status: PLEASED\n\nAll diagnostics passed.`);
+        }
+
+        function mountDevice(deviceId) {
+            alert(`MOUNT RITE INITIATED\n\nMounting: ${deviceId}\n\n[████████████████████] 100%\n\nDevice mounted successfully.\n\nMachine Spirit communion established.`);
+        }
+
+        function browseDevice(deviceId) {
+            alert(`BROWSE RITE INITIATED\n\nAccessing: ${deviceId}\n\nOpening file browser...\n\nMachine Spirit pleased.`);
+        }
+
+        function testDevice(deviceId) {
+            alert(`DEVICE TEST RITE INITIATED\n\nTesting: ${deviceId}\n\n[████████████████████] 100%\n\nTest complete.\n\nDevice functionality: VERIFIED\nAll tests passed.`);
+        }
+    </script>
+</body>
+</html>
+

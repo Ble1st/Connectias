@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Seals - Connectias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #8B0000;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px 20px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #A00000;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #CD7F32;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: #B8B8A0;
+            font-style: italic;
+        }
+
+        .privacy-score {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 2px solid #CD7F32;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .score-label {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2em;
+            font-weight: 600;
+            color: #B8B8A0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+
+        .score-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 5em;
+            font-weight: 900;
+            color: #10B981;
+            text-shadow: 0 0 30px rgba(16, 185, 129, 0.5);
+            margin: 20px 0;
+        }
+
+        .score-status {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #10B981;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .seals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .seal-card {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 1px solid #CD7F32;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .seal-card.secured {
+            border-left: 4px solid #10B981;
+        }
+
+        .seal-card.warning {
+            border-left: 4px solid #F59E0B;
+        }
+
+        .seal-card.vulnerable {
+            border-left: 4px solid #FF4500;
+        }
+
+        .seal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .seal-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .seal-badge {
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .seal-badge.secured {
+            background: #0A4A00;
+            color: #10B981;
+            border: 1px solid #10B981;
+        }
+
+        .seal-badge.warning {
+            background: #4A2A00;
+            color: #F59E0B;
+            border: 1px solid #F59E0B;
+        }
+
+        .seal-badge.vulnerable {
+            background: #4A0000;
+            color: #FF4500;
+            border: 1px solid #FF4500;
+        }
+
+        .seal-details {
+            color: #B8B8A0;
+            line-height: 1.8;
+            font-size: 0.95em;
+        }
+
+        .seal-details strong {
+            color: #F5F5DC;
+            font-weight: 600;
+        }
+
+        .tracker-list {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #CD7F32;
+        }
+
+        .tracker-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: #0A0A0A;
+            border-left: 3px solid #FF4500;
+            font-size: 0.9em;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #2A1A1A 0%, #3A2A1A 100%);
+        }
+    </style>
+</head>
+<body>
+    <a href="01_main_dashboard.html" class="back-btn">← BACK</a>
+
+    <div class="container">
+        <div class="header">
+            <h1>👁️ PRIVACY SEALS</h1>
+            <p>Data Sanctity and Privacy Protection Protocol</p>
+        </div>
+
+        <div class="privacy-score">
+            <div class="score-label">PRIVACY SANCTITY SCORE</div>
+            <div class="score-value">87</div>
+            <div class="score-status">SECURED</div>
+        </div>
+
+        <div class="seals-grid">
+            <div class="seal-card secured">
+                <div class="seal-header">
+                    <div class="seal-name">LOCATION PRIVACY</div>
+                    <span class="seal-badge secured">SECURED</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Location access restricted<br>
+                    <strong>Apps with access:</strong> 2 (System only)<br>
+                    <strong>Last access:</strong> 2 hours ago<br>
+                    <strong>Threat level:</strong> LOW
+                </div>
+            </div>
+
+            <div class="seal-card secured">
+                <div class="seal-header">
+                    <div class="seal-name">STORAGE PRIVACY</div>
+                    <span class="seal-badge secured">SECURED</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Storage access monitored<br>
+                    <strong>Encrypted data:</strong> 95%<br>
+                    <strong>Last scan:</strong> Just now<br>
+                    <strong>Threat level:</strong> LOW
+                </div>
+            </div>
+
+            <div class="seal-card warning">
+                <div class="seal-header">
+                    <div class="seal-name">TRACKER DETECTION</div>
+                    <span class="seal-badge warning">MONITORING</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Trackers detected<br>
+                    <strong>Active trackers:</strong> 3<br>
+                    <strong>Last scan:</strong> Just now<br>
+                    <strong>Threat level:</strong> MEDIUM
+                    <div class="tracker-list">
+                        <div class="tracker-item">Google Analytics (App: Social Media)</div>
+                        <div class="tracker-item">Facebook SDK (App: Social Media)</div>
+                        <div class="tracker-item">Firebase Analytics (App: News Reader)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="seal-card secured">
+                <div class="seal-header">
+                    <div class="seal-name">NETWORK PRIVACY</div>
+                    <span class="seal-badge secured">SECURED</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Encrypted connections<br>
+                    <strong>VPN active:</strong> No<br>
+                    <strong>DNS:</strong> Private DNS enabled<br>
+                    <strong>Threat level:</strong> LOW
+                </div>
+            </div>
+
+            <div class="seal-card secured">
+                <div class="seal-header">
+                    <div class="seal-name">SENSOR PRIVACY</div>
+                    <span class="seal-badge secured">SECURED</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Sensor access restricted<br>
+                    <strong>Active sensors:</strong> 2 (System only)<br>
+                    <strong>Last access:</strong> 1 hour ago<br>
+                    <strong>Threat level:</strong> LOW
+                </div>
+            </div>
+
+            <div class="seal-card warning">
+                <div class="seal-header">
+                    <div class="seal-name">PERMISSION AUDIT</div>
+                    <span class="seal-badge warning">REVIEW NEEDED</span>
+                </div>
+                <div class="seal-details">
+                    <strong>Status:</strong> Some permissions need review<br>
+                    <strong>Dangerous permissions:</strong> 5 apps<br>
+                    <strong>Last audit:</strong> 1 day ago<br>
+                    <strong>Threat level:</strong> MEDIUM
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button class="btn" onclick="runFullAudit()">INITIATE FULL AUDIT</button>
+            <button class="btn" onclick="blockTrackers()">BLOCK TRACKERS</button>
+            <button class="btn secondary" onclick="viewPermissions()">VIEW PERMISSIONS</button>
+            <button class="btn secondary" onclick="exportReport()">EXPORT REPORT</button>
+        </div>
+    </div>
+
+    <script>
+        function runFullAudit() {
+            alert('PRIVACY AUDIT RITE INITIATED...\n\nScanning all privacy seals...\n\n[████████████████████] 100%\n\nAudit complete.\n\nPrivacy Sanctity Score: 87\nStatus: SECURED\n\n3 trackers detected.\n5 apps need permission review.\n\nMachine Spirit pleased.');
+        }
+
+        function blockTrackers() {
+            alert('TRACKER BLOCKING RITE INITIATED...\n\nBlocking detected trackers...\n\n[████████████████████] 100%\n\nTrackers blocked: 3\n\nGoogle Analytics: BLOCKED\nFacebook SDK: BLOCKED\nFirebase Analytics: BLOCKED\n\nMachine Spirit pleased.');
+        }
+
+        function viewPermissions() {
+            alert('PERMISSION MANIFEST ACCESSED\n\nDangerous permissions by app:\n\n1. Social Media App\n   - Location: GRANTED\n   - Camera: GRANTED\n   - Microphone: GRANTED\n\n2. News Reader App\n   - Storage: GRANTED\n   - Contacts: GRANTED\n\n3. Photo Editor App\n   - Storage: GRANTED\n   - Camera: GRANTED\n\nReview recommended for 5 apps.');
+        }
+
+        function exportReport() {
+            alert('PRIVACY REPORT EXPORT INITIATED...\n\nGenerating sacred privacy manifest...\n\nReport saved to:\n/connectias/reports/privacy_seals_[timestamp].pdf\n\nMachine Spirit pleased.');
+        }
+    </script>
+</body>
+</html>
+

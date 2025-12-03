@@ -66,6 +66,7 @@ import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -78,6 +79,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -98,6 +100,7 @@ import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.services.LoggingService
 import com.ble1st.connectias.core.services.SecurityService
+import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.databinding.ActivityMainBinding
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
@@ -124,6 +127,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var securityService: SecurityService
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install Splash Screen before super.onCreate()
@@ -227,7 +233,14 @@ class MainActivity : AppCompatActivity() {
         val composeView = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
+                // Observe theme and dynamic color changes reactively
+                val theme by settingsRepository.observeTheme().collectAsState(initial = settingsRepository.getTheme())
+                val dynamicColor by settingsRepository.observeDynamicColor().collectAsState(initial = settingsRepository.getDynamicColor())
+                
+                ConnectiasTheme(
+                    themePreference = theme,
+                    dynamicColor = dynamicColor
+                ) {
                     FabWithBottomSheet(
                         onFeatureSelected = { navId ->
                             navigateToFeature(navId)
@@ -457,7 +470,8 @@ fun getFeatureCategories(): List<FeatureCategory> {
             Feature("Utilities", Icons.Default.Build, R.id.nav_utilities_dashboard),
             Feature("USB Devices", Icons.Default.Usb, R.id.nav_usb_dashboard),
             Feature("USB Storage Browser", Icons.Default.FolderOpen, R.id.nav_usb_storage_browser),
-            Feature("WASM Plugins", Icons.Default.Extension, R.id.nav_plugin_manager)
+            Feature("WASM Plugins", Icons.Default.Extension, R.id.nav_plugin_manager),
+            Feature("Settings", Icons.Default.Settings, R.id.nav_settings)
         )),
         FeatureCategory("Security Tools", listOf(
             Feature("Certificate Analyzer", Icons.Default.VerifiedUser, R.id.nav_certificate_analyzer),

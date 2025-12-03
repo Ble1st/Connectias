@@ -5,6 +5,9 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
@@ -32,7 +35,7 @@ import javax.inject.Singleton
  *        If null, recovery proceeds without notification.
  */
 @Singleton
-class SettingsRepository @Inject constructor(
+class SettingsRepository constructor(
     @ApplicationContext private val context: Context,
     private val onRecoveryWillEraseData: (() -> Unit)? = null
 ) {
@@ -176,6 +179,24 @@ class SettingsRepository @Inject constructor(
     }
     
     /**
+     * Observes theme preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the theme changes.
+     */
+    fun observeTheme(): Flow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "theme") {
+                trySend(getTheme())
+            }
+        }
+        plainPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value immediately
+        trySend(getTheme())
+        awaitClose {
+            plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    
+    /**
      * Audits which keys are currently stored in encrypted preferences.
      * This helps verify that no unexpected user data will be lost during recovery.
      * 
@@ -191,6 +212,230 @@ class SettingsRepository @Inject constructor(
         } catch (e: Exception) {
             Timber.w(e, "Cannot audit encrypted preferences (may not be initialized or corrupted)")
             emptySet()
+        }
+    }
+
+    // ============================================================================
+    // Plain SharedPreferences - Non-sensitive settings
+    // ============================================================================
+
+    /**
+     * Gets the dynamic color preference (Material You).
+     * Uses plain SharedPreferences as this is not sensitive data.
+     */
+    fun getDynamicColor(): Boolean {
+        return plainPrefs.getBoolean("dynamic_color", true)
+    }
+
+    /**
+     * Sets the dynamic color preference.
+     * Uses plain SharedPreferences as this is not sensitive data.
+     */
+    fun setDynamicColor(enabled: Boolean) {
+        plainPrefs.edit().putBoolean("dynamic_color", enabled).apply()
+    }
+    
+    /**
+     * Observes dynamic color preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the dynamic color setting changes.
+     */
+    fun observeDynamicColor(): Flow<Boolean> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "dynamic_color") {
+                trySend(getDynamicColor())
+            }
+        }
+        plainPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value immediately
+        trySend(getDynamicColor())
+        awaitClose {
+            plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
+    // ============================================================================
+    // EncryptedSharedPreferences - Sensitive settings
+    // ============================================================================
+
+    /**
+     * Gets the auto-lock enabled preference.
+     * Uses EncryptedSharedPreferences as this is a security setting.
+     */
+    fun getAutoLockEnabled(): Boolean {
+        return try {
+            encryptedPrefs.getBoolean("auto_lock_enabled", false)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get auto_lock_enabled, returning default")
+            false
+        }
+    }
+
+    /**
+     * Sets the auto-lock enabled preference.
+     * Uses EncryptedSharedPreferences as this is a security setting.
+     */
+    fun setAutoLockEnabled(enabled: Boolean) {
+        try {
+            encryptedPrefs.edit().putBoolean("auto_lock_enabled", enabled).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set auto_lock_enabled")
+        }
+    }
+
+    /**
+     * Gets the RASP logging enabled preference.
+     * Uses EncryptedSharedPreferences as this is a security setting.
+     */
+    fun getRaspLoggingEnabled(): Boolean {
+        return try {
+            encryptedPrefs.getBoolean("rasp_logging_enabled", true)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get rasp_logging_enabled, returning default")
+            true
+        }
+    }
+
+    /**
+     * Sets the RASP logging enabled preference.
+     * Uses EncryptedSharedPreferences as this is a security setting.
+     */
+    fun setRaspLoggingEnabled(enabled: Boolean) {
+        try {
+            encryptedPrefs.edit().putBoolean("rasp_logging_enabled", enabled).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set rasp_logging_enabled")
+        }
+    }
+
+    /**
+     * Gets the DNS server preference.
+     * Uses EncryptedSharedPreferences as this may contain sensitive network information.
+     */
+    fun getDnsServer(): String {
+        return try {
+            encryptedPrefs.getString("dns_server", "") ?: ""
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get dns_server, returning default")
+            ""
+        }
+    }
+
+    /**
+     * Sets the DNS server preference.
+     * Uses EncryptedSharedPreferences as this may contain sensitive network information.
+     */
+    fun setDnsServer(server: String) {
+        try {
+            encryptedPrefs.edit().putString("dns_server", server).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set dns_server")
+        }
+    }
+
+    /**
+     * Gets the logging level preference.
+     * Uses EncryptedSharedPreferences as this may contain debug information.
+     */
+    fun getLoggingLevel(): String {
+        return try {
+            encryptedPrefs.getString("logging_level", "INFO") ?: "INFO"
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get logging_level, returning default")
+            "INFO"
+        }
+    }
+
+    /**
+     * Sets the logging level preference.
+     * Uses EncryptedSharedPreferences as this may contain debug information.
+     */
+    fun setLoggingLevel(level: String) {
+        try {
+            encryptedPrefs.edit().putString("logging_level", level).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set logging_level")
+        }
+    }
+
+    /**
+     * Gets the clipboard auto-clear preference.
+     * Uses EncryptedSharedPreferences as this is a privacy setting.
+     */
+    fun getClipboardAutoClear(): Boolean {
+        return try {
+            encryptedPrefs.getBoolean("clipboard_auto_clear", false)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get clipboard_auto_clear, returning default")
+            false
+        }
+    }
+
+    /**
+     * Sets the clipboard auto-clear preference.
+     * Uses EncryptedSharedPreferences as this is a privacy setting.
+     */
+    fun setClipboardAutoClear(enabled: Boolean) {
+        try {
+            encryptedPrefs.edit().putBoolean("clipboard_auto_clear", enabled).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set clipboard_auto_clear")
+        }
+    }
+
+    /**
+     * Gets the scan timeout preference (in milliseconds).
+     * Uses EncryptedSharedPreferences as this is a network configuration.
+     */
+    fun getScanTimeout(): Int {
+        return try {
+            encryptedPrefs.getInt("scan_timeout", 5000)
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to get scan_timeout, returning default")
+            5000
+        }
+    }
+
+    /**
+     * Sets the scan timeout preference (in milliseconds).
+     * Uses EncryptedSharedPreferences as this is a network configuration.
+     */
+    fun setScanTimeout(timeout: Int) {
+        try {
+            encryptedPrefs.edit().putInt("scan_timeout", timeout).apply()
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to set scan_timeout")
+        }
+    }
+
+    // ============================================================================
+    // Reset functionality
+    // ============================================================================
+
+    /**
+     * Resets all settings to their default values.
+     * This will clear both plain and encrypted preferences.
+     * 
+     * @param resetPlainSettings If true, resets plain settings (theme, dynamic color)
+     * @param resetEncryptedSettings If true, resets encrypted settings (security, network, privacy)
+     */
+    fun resetAllSettings(
+        resetPlainSettings: Boolean = true,
+        resetEncryptedSettings: Boolean = true
+    ) {
+        try {
+            if (resetPlainSettings) {
+                plainPrefs.edit().clear().apply()
+                Timber.d("Reset plain settings to defaults")
+            }
+            
+            if (resetEncryptedSettings) {
+                encryptedPrefs.edit().clear().apply()
+                Timber.d("Reset encrypted settings to defaults")
+            }
+            
+            Timber.d("Settings reset completed")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to reset settings")
         }
     }
 }

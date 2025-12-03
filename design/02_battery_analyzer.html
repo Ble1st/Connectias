@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vital Signs Monitor - Connectias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #CD7F32;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: #B8B8A0;
+            font-style: italic;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #8B0000;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px 20px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #A00000;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .vitality-display {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 2px solid #CD7F32;
+            border-radius: 12px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .vitality-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(139, 0, 0, 0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .percentage {
+            font-family: 'Orbitron', monospace;
+            font-size: 5em;
+            font-weight: 900;
+            margin: 20px 0;
+            text-shadow: 0 0 30px currentColor;
+            position: relative;
+            z-index: 1;
+        }
+
+        .percentage.high { color: #10B981; }
+        .percentage.medium { color: #F59E0B; }
+        .percentage.low { color: #FF4500; }
+        .percentage.critical { color: #DC2626; }
+
+        .status-label {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .status-label.charging {
+            color: #8B0000;
+            text-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+        }
+
+        .status-label.discharging {
+            color: #CD7F32;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 1px solid #CD7F32;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .info-label {
+            font-family: 'Orbitron', monospace;
+            font-size: 0.9em;
+            font-weight: 600;
+            color: #B8B8A0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .info-value {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #F5F5DC;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(135deg, #2A1A1A 0%, #3A2A1A 100%);
+        }
+
+        .btn.secondary:hover {
+            background: linear-gradient(135deg, #3A2A1A 0%, #4A3A2A 100%);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #1A1A1A;
+            border: 2px solid #CD7F32;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #8B0000 0%, #FF4500 100%);
+            transition: width 0.5s ease;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+    </style>
+</head>
+<body>
+    <a href="01_main_dashboard.html" class="back-btn">← BACK</a>
+
+    <div class="container">
+        <div class="header">
+            <h1>🔋 VITAL SIGNS MONITOR</h1>
+            <p>Machine Spirit Diagnostics Protocol</p>
+        </div>
+
+        <div class="vitality-display">
+            <div class="status-label">MACHINE SPIRIT VITALITY</div>
+            <div class="percentage high" id="percentage">75%</div>
+            <div class="status-label charging" id="status">RITE OF RECHARGING ACTIVE</div>
+            
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 75%"></div>
+            </div>
+        </div>
+
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-label">SPIRIT INTEGRITY</div>
+                <div class="info-value" id="health">GOOD</div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">POWER TRANSFER TYPE</div>
+                <div class="info-value" id="chargeType">AC</div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">SACRED CURRENT</div>
+                <div class="info-value" id="voltage">4200 mV</div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">THERMAL RITE STATUS</div>
+                <div class="info-value" id="temperature">32.5°C</div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">POWER CELL CAPACITY</div>
+                <div class="info-value" id="capacity">4500 mAh</div>
+            </div>
+
+            <div class="info-card">
+                <div class="info-label">ENERGY FLOW RATE</div>
+                <div class="info-value" id="current">+1500 mA</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" onclick="initiateScan()">INITIATE SCAN</button>
+            <button class="btn" onclick="calculateRite()">CALCULATE RITE</button>
+            <button class="btn secondary" onclick="startMonitoring()">START VIGILANCE</button>
+            <button class="btn secondary" onclick="stopMonitoring()">STOP VIGILANCE</button>
+        </div>
+    </div>
+
+    <script>
+        let monitoringInterval = null;
+        let currentPercentage = 75;
+
+        function updateDisplay(percentage, isCharging) {
+            const percentageEl = document.getElementById('percentage');
+            const statusEl = document.getElementById('status');
+            const progressFill = document.getElementById('progressFill');
+            
+            currentPercentage = percentage;
+            percentageEl.textContent = percentage + '%';
+            progressFill.style.width = percentage + '%';
+            
+            // Update color based on percentage
+            percentageEl.className = 'percentage';
+            if (percentage > 75) percentageEl.classList.add('high');
+            else if (percentage > 50) percentageEl.classList.add('medium');
+            else if (percentage > 25) percentageEl.classList.add('low');
+            else percentageEl.classList.add('critical');
+            
+            statusEl.textContent = isCharging 
+                ? 'RITE OF RECHARGING ACTIVE' 
+                : 'MACHINE SPIRIT IDLE';
+            statusEl.className = isCharging 
+                ? 'status-label charging' 
+                : 'status-label discharging';
+        }
+
+        function initiateScan() {
+            alert('RITE OF SCANNING INITIATED...\nCOMMUNING WITH MACHINE SPIRIT...\n\nVitality: ' + currentPercentage + '%\nStatus: VERIFIED');
+            // Simulate scan
+            updateDisplay(currentPercentage, currentPercentage < 100);
+        }
+
+        function calculateRite() {
+            const hours = Math.floor((100 - currentPercentage) / 10);
+            const minutes = Math.floor(((100 - currentPercentage) % 10) * 6);
+            alert(`RITE CALCULATION COMPLETE\n\nEstimated time to full charge:\n${hours}h ${minutes}m\n\nMachine Spirit pleased.`);
+        }
+
+        function startMonitoring() {
+            if (monitoringInterval) return;
+            
+            alert('VIGILANCE PROTOCOL ACTIVATED\n\nMonitoring Machine Spirit vitality...');
+            
+            monitoringInterval = setInterval(() => {
+                if (currentPercentage < 100) {
+                    currentPercentage = Math.min(100, currentPercentage + 1);
+                    updateDisplay(currentPercentage, true);
+                } else {
+                    stopMonitoring();
+                }
+            }, 2000);
+        }
+
+        function stopMonitoring() {
+            if (monitoringInterval) {
+                clearInterval(monitoringInterval);
+                monitoringInterval = null;
+                alert('VIGILANCE PROTOCOL DEACTIVATED\n\nMachine Spirit status logged.');
+            }
+        }
+
+        // Simulate real-time updates
+        setInterval(() => {
+            if (!monitoringInterval && Math.random() > 0.7) {
+                const change = Math.random() > 0.5 ? 1 : -1;
+                currentPercentage = Math.max(0, Math.min(100, currentPercentage + change));
+                updateDisplay(currentPercentage, currentPercentage < 100);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
+

@@ -69,6 +69,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":common"))
     implementation(project(":feature-security"))
+    implementation(project(":feature-settings"))
 
     // Optional Modules (included based on gradle.properties)
     val featureDeviceInfoEnabled = project.findProperty("feature.device.info.enabled") == "true"

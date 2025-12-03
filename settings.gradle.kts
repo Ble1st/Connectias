@@ -29,6 +29,7 @@ include(":app")
 include(":common")
 include(":core")
 include(":feature-security")
+include(":feature-settings")
 
 // ============================================================================
 // Optional Modules (included based on gradle.properties)

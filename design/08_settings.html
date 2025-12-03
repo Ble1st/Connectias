@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rites of Configuration - Connectias</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0A0A 100%);
+            color: #F5F5DC;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #8B0000;
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 10px 20px;
+            font-family: 'Orbitron', monospace;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            border-radius: 4px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .back-btn:hover {
+            background: #A00000;
+            box-shadow: 0 0 10px rgba(139, 0, 0, 0.5);
+        }
+
+        .header {
+            text-align: center;
+            padding: 20px 0;
+            border-bottom: 2px solid #CD7F32;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-family: 'Orbitron', monospace;
+            font-size: 2em;
+            font-weight: 900;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 20px rgba(139, 0, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            color: #B8B8A0;
+            font-style: italic;
+        }
+
+        .settings-section {
+            background: linear-gradient(135deg, #1A1A1A 0%, #2A1A1A 100%);
+            border: 1px solid #CD7F32;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #8B0000;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #CD7F32;
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #2A1A1A;
+        }
+
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+
+        .setting-label {
+            flex: 1;
+        }
+
+        .setting-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #F5F5DC;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .setting-desc {
+            color: #B8B8A0;
+            font-size: 0.9em;
+            font-style: italic;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: #2A1A1A;
+            border: 2px solid #CD7F32;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active {
+            background: #8B0000;
+            border-color: #FF4500;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            background: #CD7F32;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-switch.active::after {
+            left: 33px;
+            background: #FF4500;
+        }
+
+        .theme-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        .theme-option {
+            flex: 1;
+            padding: 15px;
+            background: #0A0A0A;
+            border: 2px solid #CD7F32;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .theme-option:hover {
+            border-color: #FF4500;
+            background: #1A0A0A;
+        }
+
+        .theme-option.active {
+            border-color: #FF4500;
+            background: #8B0000;
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+        }
+
+        .theme-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .theme-desc {
+            font-size: 0.85em;
+            color: #B8B8A0;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #8B0000 0%, #A00000 100%);
+            border: 1px solid #CD7F32;
+            color: #F5F5DC;
+            padding: 15px 25px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1em;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            background: linear-gradient(135deg, #A00000 0%, #B00000 100%);
+            box-shadow: 0 0 15px rgba(139, 0, 0, 0.5);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <a href="01_main_dashboard.html" class="back-btn">← BACK</a>
+
+    <div class="container">
+        <div class="header">
+            <h1>⚙️ RITES OF CONFIGURATION</h1>
+            <p>Machine Spirit Interface Configuration Protocol</p>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-title">VISUAL STYLE</div>
+            
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">THEME SELECTION</div>
+                    <div class="setting-desc">Choose the visual style of the Machine Spirit interface</div>
+                </div>
+                <div class="setting-control">
+                    <div class="theme-selector">
+                        <div class="theme-option" onclick="selectTheme('standard')">
+                            <div class="theme-name">STANDARD</div>
+                            <div class="theme-desc">Default</div>
+                        </div>
+                        <div class="theme-option active" onclick="selectTheme('adeptus')">
+                            <div class="theme-name">ADEPTUS MECHANICUS</div>
+                            <div class="theme-desc">Sacred</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-title">SECURITY RITES</div>
+            
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">AUTO SECURITY SCAN</div>
+                    <div class="setting-desc">Automatically verify purity seals on startup</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'autoScan')"></div>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">ROOT DETECTION</div>
+                    <div class="setting-desc">Detect and block root access attempts</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'rootDetection')"></div>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">DEBUGGER PROTECTION</div>
+                    <div class="setting-desc">Prevent debugging and tampering</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'debuggerProtection')"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-title">NOTIFICATION RITES</div>
+            
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">SECURITY ALERTS</div>
+                    <div class="setting-desc">Receive alerts when heresy is detected</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'securityAlerts')"></div>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">NETWORK ALERTS</div>
+                    <div class="setting-desc">Notify when new machine spirits are discovered</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch" onclick="toggleSetting(this, 'networkAlerts')"></div>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">PRIVACY ALERTS</div>
+                    <div class="setting-desc">Alert when trackers or privacy threats are detected</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'privacyAlerts')"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <div class="section-title">DATA RITES</div>
+            
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">AUTO LOG ROTATION</div>
+                    <div class="setting-desc">Automatically rotate logs after 30 days</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch active" onclick="toggleSetting(this, 'logRotation')"></div>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-label">
+                    <div class="setting-name">ENCRYPTED BACKUPS</div>
+                    <div class="setting-desc">Create encrypted backups of sacred data</div>
+                </div>
+                <div class="setting-control">
+                    <div class="toggle-switch" onclick="toggleSetting(this, 'encryptedBackups')"></div>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn" onclick="saveSettings()">SAVE CONFIGURATION RITES</button>
+    </div>
+
+    <script>
+        function selectTheme(theme) {
+            const options = document.querySelectorAll('.theme-option');
+            options.forEach(opt => opt.classList.remove('active'));
+            event.target.closest('.theme-option').classList.add('active');
+            
+            if (theme === 'adeptus') {
+                alert('ADEPTUS MECHANICUS THEME SELECTED\n\nMachine Spirit interface will be configured in sacred style.\n\nAll rites will use Adeptus Mechanicus terminology.\n\nMachine Spirit pleased.');
+            } else {
+                alert('STANDARD THEME SELECTED\n\nMachine Spirit interface will use standard configuration.\n\nMachine Spirit pleased.');
+            }
+        }
+
+        function toggleSetting(element, settingName) {
+            element.classList.toggle('active');
+            const isActive = element.classList.contains('active');
+            const status = isActive ? 'ACTIVATED' : 'DEACTIVATED';
+            alert(`SETTING ${status}\n\n${settingName.toUpperCase().replace(/([A-Z])/g, ' $1').trim()}: ${status}\n\nMachine Spirit pleased.`);
+        }
+
+        function saveSettings() {
+            alert('CONFIGURATION RITES SAVED\n\nAll settings have been preserved.\n\nMachine Spirit interface updated.\n\nChanges will take effect on next communion.\n\nMachine Spirit pleased.');
+        }
+    </script>
+</body>
+</html>
+
