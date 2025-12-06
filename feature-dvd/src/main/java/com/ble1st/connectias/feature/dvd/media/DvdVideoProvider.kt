@@ -15,17 +15,16 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.ble1st.connectias.feature.dvd.storage.OpticalDriveProvider
+
 /**
  * Provider for Video DVD operations using Direct USB/SCSI access.
  */
 @Singleton
 class DvdVideoProvider @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val opticalDriveProvider: OpticalDriveProvider
 ) {
-    
-    private val usbManager: UsbManager by lazy {
-        context.getSystemService(Context.USB_SERVICE) as UsbManager
-    }
     
     /**
      * Opens a Video DVD, reads its structure (Titles/Chapters), and closes it.
@@ -33,37 +32,13 @@ class DvdVideoProvider @Inject constructor(
      */
     suspend fun openDvd(drive: OpticalDrive): DvdInfo = withContext(Dispatchers.IO) {
         var handle: Long = -1
-        var connection: android.hardware.usb.UsbDeviceConnection? = null
-        var scsiDriver: ScsiDriver? = null
+        
+        // Acquire exclusive session via provider (locks mutex)
+        val scsiDriver = opticalDriveProvider.openSession(drive) 
+            ?: throw IllegalStateException("Failed to open driver session or device busy")
         
         try {
             Timber.d("Opening DVD: ${drive.device.product}")
-            
-            // Find matching Android UsbDevice
-            val androidDevice = usbManager.deviceList.values.find { 
-                it.vendorId == drive.device.vendorId && it.productId == drive.device.productId 
-            } ?: throw IllegalStateException("USB device not found")
-
-            if (!usbManager.hasPermission(androidDevice)) {
-                throw SecurityException("No USB permission")
-            }
-
-            connection = usbManager.openDevice(androidDevice) 
-                ?: throw IllegalStateException("Failed to open USB connection")
-
-            // Find Mass Storage Interface
-            var interfaceIndex = -1
-            for (i in 0 until androidDevice.interfaceCount) {
-                if (androidDevice.getInterface(i).interfaceClass == 8) {
-                    interfaceIndex = i
-                    break
-                }
-            }
-            
-            if (interfaceIndex == -1) throw IllegalStateException("No Mass Storage interface found")
-            
-            val usbInterface = androidDevice.getInterface(interfaceIndex)
-            scsiDriver = ScsiDriver(connection, usbInterface)
             
             // Wait for drive to be ready before attempting DVD operations
             if (!scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)) {
@@ -117,15 +92,15 @@ class DvdVideoProvider @Inject constructor(
             return@withContext DvdInfo(
                 handle = -1, // Handle is invalid after return
                 mountPoint = "", // Not used
-                deviceId = androidDevice.deviceId,
+                deviceId = drive.device.deviceId, // Use device ID from drive object
                 titles = titles,
                 name = dvdName
             )
             
         } finally {
-            // Always close after reading structure to release exclusive access
+            // Always close native handle and release session
             if (handle > 0) DvdNative.dvdClose(handle)
-            scsiDriver?.close() // Closes connection
+            opticalDriveProvider.closeSession()
         }
     }
     

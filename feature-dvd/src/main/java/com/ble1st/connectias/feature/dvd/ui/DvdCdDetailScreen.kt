@@ -51,12 +51,20 @@ fun DvdCdDetailScreen(
     
     LaunchedEffect(drive) {
         Timber.d("=== DvdCdDetailScreen: LaunchedEffect STARTED ===")
+        
+        // Optimization: If we already have content for this drive instance, don't reload
+        if ((dvdInfo != null || audioTracks.isNotEmpty() || files.isNotEmpty()) && !isLoading) {
+            Timber.d("DvdCdDetailScreen: Content already loaded, skipping detection.")
+            return@LaunchedEffect
+        }
+
         Timber.d("DvdCdDetailScreen: Starting disc detection for type: ${drive.type}")
         isLoading = true
         errorMessage = null
-        dvdInfo = null
-        audioTracks = emptyList()
-        files = emptyList()
+        // Don't clear data yet to avoid flickering if we just refresh
+        // dvdInfo = null 
+        // audioTracks = emptyList()
+        // files = emptyList()
         
         try {
             when (drive.type) {
