@@ -16,8 +16,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.settings.R
+import com.ble1st.connectias.common.ui.strings.LocalAppStrings
 
 /**
  * Main Settings screen composable.
@@ -26,7 +30,8 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onNavigateToLogViewer: () -> Unit // New parameter for navigation
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -50,10 +55,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = { Text(LocalAppStrings.current.settingsTitle) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = LocalAppStrings.current.actionCancel) // Changed to themed string
                     }
                 }
             )
@@ -69,15 +74,20 @@ fun SettingsScreen(
         ) {
             // Appearance Section
             item {
-                SettingsSection(title = "Appearance") {
+                SettingsSection(title = getThemedString(stringResource(R.string.settings_appearance))) { // This uses stringResource, keep it for now.
                     ThemeSelector(
                         currentTheme = uiState.theme,
                         onThemeSelected = { viewModel.setTheme(it) }
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ThemeStyleSelector(
+                        currentThemeStyle = uiState.themeStyle,
+                        onThemeStyleSelected = { viewModel.setThemeStyle(it) }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     SettingsSwitch(
-                        title = "Dynamic Color",
-                        description = "Use Material You dynamic colors (Android 12+)",
+                        title = getThemedString(stringResource(R.string.settings_dynamic_color)),
+                        description = getThemedString(stringResource(R.string.settings_dynamic_color_description)),
                         checked = uiState.dynamicColor,
                         onCheckedChange = { viewModel.setDynamicColor(it) }
                     )
@@ -86,17 +96,17 @@ fun SettingsScreen(
 
             // Security Section
             item {
-                SettingsSection(title = "Security") {
+                SettingsSection(title = LocalAppStrings.current.securityTitle) { // Changed to themed string
                     SettingsSwitch(
-                        title = "Auto Lock",
-                        description = "Automatically lock the app after inactivity",
+                        title = getThemedString(stringResource(R.string.settings_auto_lock)),
+                        description = getThemedString(stringResource(R.string.settings_auto_lock_description)),
                         checked = uiState.autoLockEnabled,
                         onCheckedChange = { viewModel.setAutoLockEnabled(it) }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     SettingsSwitch(
-                        title = "RASP Logging",
-                        description = "Enable logging for Runtime Application Self-Protection",
+                        title = getThemedString(stringResource(R.string.settings_rasp_logging)),
+                        description = getThemedString(stringResource(R.string.settings_rasp_logging_description)),
                         checked = uiState.raspLoggingEnabled,
                         onCheckedChange = { viewModel.setRaspLoggingEnabled(it) }
                     )
@@ -105,7 +115,7 @@ fun SettingsScreen(
 
             // Network Section
             item {
-                SettingsSection(title = "Network") {
+                SettingsSection(title = LocalAppStrings.current.networkTitle) { // Changed to themed string
                     DnsServerInput(
                         value = uiState.dnsServer,
                         onValueChange = { viewModel.setDnsServer(it) }
@@ -118,31 +128,43 @@ fun SettingsScreen(
                 }
             }
 
-            // Privacy Section
+            // Privacy Section (Now consolidated into Security) - if any settings remain.
+            // For now, removing this section as Privacy is integrated into Security logic.
+            /*
             item {
-                SettingsSection(title = "Privacy") {
+                SettingsSection(title = getThemedString(stringResource(R.string.settings_privacy))) {
                     SettingsSwitch(
-                        title = "Clipboard Auto-Clear",
-                        description = "Automatically clear clipboard after a delay",
+                        title = getThemedString(stringResource(R.string.settings_clipboard_auto_clear)),
+                        description = getThemedString(stringResource(R.string.settings_clipboard_auto_clear_description)),
                         checked = uiState.clipboardAutoClear,
                         onCheckedChange = { viewModel.setClipboardAutoClear(it) }
                     )
                 }
             }
+            */
 
             // Advanced Section
             item {
-                SettingsSection(title = "Advanced") {
+                SettingsSection(title = getThemedString(stringResource(R.string.settings_advanced))) {
                     LoggingLevelSelector(
                         currentLevel = uiState.loggingLevel,
                         onLevelSelected = { viewModel.setLoggingLevel(it) }
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = onNavigateToLogViewer, // Use the new navigation lambda
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Description, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(LocalAppStrings.current.logViewerTitle) // Themed string
+                    }
                 }
             }
 
             // Reset Section
             item {
-                SettingsSection(title = "Reset") {
+                SettingsSection(title = getThemedString(stringResource(R.string.settings_reset))) {
                     ResetSettingsButton(
                         onResetAll = {
                             viewModel.resetAllSettings(
@@ -188,7 +210,7 @@ fun SettingsSection(
 }
 
 /**
- * Theme selector with radio buttons.
+ * Theme selector with radio buttons (light/dark/system).
  */
 @Composable
 fun ThemeSelector(
@@ -196,15 +218,10 @@ fun ThemeSelector(
     onThemeSelected: (String) -> Unit
 ) {
     val themes = listOf("light", "dark", "system")
-    val themeLabels = mapOf(
-        "light" to "Light",
-        "dark" to "Dark",
-        "system" to "System Default"
-    )
 
     Column {
         Text(
-            text = "Theme",
+            text = getThemedString(stringResource(R.string.settings_theme)),
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -221,7 +238,57 @@ fun ThemeSelector(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = themeLabels[theme] ?: theme,
+                    text = getThemedString(
+                        when (theme) {
+                            "light" -> stringResource(R.string.settings_theme_light)
+                            "dark" -> stringResource(R.string.settings_theme_dark)
+                            else -> stringResource(R.string.settings_theme_system)
+                        }
+                    ),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Theme style selector with radio buttons (standard/adeptus_mechanicus).
+ */
+@Composable
+fun ThemeStyleSelector(
+    currentThemeStyle: String,
+    onThemeStyleSelected: (String) -> Unit
+) {
+    val themeStyles = listOf("standard", "adeptus_mechanicus")
+
+    Column {
+        Text(
+            text = getThemedString(stringResource(R.string.settings_theme_style)),
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        themeStyles.forEach { style ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RadioButton(
+                    selected = currentThemeStyle == style,
+                    onClick = { onThemeStyleSelected(style) }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = getThemedString(
+                        when (style) {
+                            "standard" -> stringResource(R.string.settings_theme_style_standard)
+                            "adeptus_mechanicus" -> stringResource(R.string.settings_theme_style_adeptus_mechanicus)
+                            else -> stringResource(R.string.settings_theme_style_standard)
+                        }
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f)
                 )
@@ -277,8 +344,8 @@ fun DnsServerInput(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text("DNS Server") },
-        placeholder = { Text("e.g., 8.8.8.8") },
+        label = { Text(getThemedString(stringResource(R.string.settings_dns_server))) },
+        placeholder = { Text(getThemedString(stringResource(R.string.settings_dns_server_hint))) },
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         leadingIcon = {
@@ -302,7 +369,7 @@ fun ScanTimeoutSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Scan Timeout",
+                text = getThemedString(stringResource(R.string.settings_scan_timeout)),
                 style = MaterialTheme.typography.bodyLarge
             )
             Text(
@@ -348,7 +415,7 @@ fun LoggingLevelSelector(
     
     Column {
         Text(
-            text = "Logging Level",
+            text = getThemedString(stringResource(R.string.settings_logging_level)),
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -363,7 +430,7 @@ fun LoggingLevelSelector(
                     selected = currentLevel == level,
                     onClick = { onLevelSelected(level) }
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.size(8.dp))
                 Text(
                     text = level,
                     style = MaterialTheme.typography.bodyMedium,
@@ -393,15 +460,15 @@ fun ResetSettingsButton(
             )
         ) {
             Icon(Icons.Default.RestartAlt, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Reset All Settings")
+            Spacer(modifier = Modifier.size(8.dp))
+            Text(getThemedString(stringResource(R.string.settings_reset_all)))
         }
 
         if (showConfirmDialog) {
             AlertDialog(
                 onDismissRequest = { showConfirmDialog = false },
-                title = { Text("Reset Settings?") },
-                text = { Text("This will reset all settings to their default values. This action cannot be undone.") },
+                title = { Text(getThemedString(stringResource(R.string.settings_reset_confirm_title))) },
+                text = { Text(getThemedString(stringResource(R.string.settings_reset_confirm_message))) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -409,16 +476,15 @@ fun ResetSettingsButton(
                             showConfirmDialog = false
                         }
                     ) {
-                        Text("Reset", color = MaterialTheme.colorScheme.error)
+                        Text(getThemedString(stringResource(R.string.settings_reset_confirm_button)), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showConfirmDialog = false }) {
-                        Text("Cancel")
+                        Text(getThemedString(stringResource(R.string.settings_reset_cancel_button)))
                     }
                 }
             )
         }
     }
 }
-

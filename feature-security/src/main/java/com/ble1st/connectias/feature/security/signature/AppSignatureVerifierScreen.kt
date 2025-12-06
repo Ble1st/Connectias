@@ -47,6 +47,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -85,7 +88,7 @@ fun AppSignatureVerifierScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Signature Verifier") },
+                title = { Text(getThemedString(stringResource(R.string.signature_verifier))) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -119,8 +122,8 @@ fun AppSignatureVerifierScreen(
                         OutlinedTextField(
                             value = packageName,
                             onValueChange = { packageName = it },
-                            label = { Text("Package Name") },
-                            placeholder = { Text("e.g., com.example.app") },
+                            label = { Text(getThemedString(stringResource(R.string.package_name))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.package_name_hint))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             enabled = !isLoading
@@ -148,7 +151,7 @@ fun AppSignatureVerifierScreen(
                                     Icon(Icons.Default.VerifiedUser, contentDescription = null)
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Verify")
+                                Text(getThemedString(stringResource(R.string.verify)))
                             }
 
                             FilledTonalButton(
@@ -159,7 +162,7 @@ fun AppSignatureVerifierScreen(
                             ) {
                                 Icon(Icons.Default.Android, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("This App")
+                                Text(getThemedString(stringResource(R.string.this_app)))
                             }
                         }
                     }
@@ -481,7 +484,7 @@ private fun SignatureDetailsCard(signature: SignatureDetails) {
                 if (signature.isExpired) {
                     AssistChip(
                         onClick = { },
-                        label = { Text("Expired") }
+                        label = { Text(getThemedString(stringResource(R.string.expired))) }
                     )
                 }
             }

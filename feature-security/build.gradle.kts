@@ -4,6 +4,8 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.parcelize) // Added for Parcelize
+    alias(libs.plugins.kotlin.serialization) // Added for Serialization
 }
 
 android {
@@ -76,6 +78,12 @@ dependencies {
     // Logging
     implementation(libs.timber)
 
+    // OkHttp for network requests
+    implementation(libs.okhttp)
+
+    // Kotlin Serialization
+    implementation(libs.kotlinx.serialization.json) // Added for Serialization
+
     // Compose Theme Adapter
     implementation(libs.compose.theme.adapter)
 
@@ -91,4 +99,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

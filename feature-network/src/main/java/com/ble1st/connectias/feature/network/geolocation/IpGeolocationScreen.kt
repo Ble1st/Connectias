@@ -52,9 +52,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import kotlinx.coroutines.launch
 
 /**
@@ -76,7 +79,7 @@ fun IpGeolocationScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("IP Geolocation") },
+                title = { Text(getThemedString(stringResource(R.string.ip_geolocation_title))) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -110,8 +113,8 @@ fun IpGeolocationScreen(
                         OutlinedTextField(
                             value = ipInput,
                             onValueChange = { ipInput = it },
-                            label = { Text("IP Address") },
-                            placeholder = { Text("e.g., 8.8.8.8") },
+                            label = { Text(getThemedString(stringResource(R.string.ip_address_label))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.ip_address_placeholder))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             enabled = !isLoading
@@ -141,7 +144,7 @@ fun IpGeolocationScreen(
                                     Icon(Icons.Default.Search, contentDescription = null)
                                 }
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Lookup")
+                                Text(getThemedString(stringResource(R.string.lookup)))
                             }
 
                             OutlinedButton(
@@ -156,7 +159,7 @@ fun IpGeolocationScreen(
                             ) {
                                 Icon(Icons.Default.MyLocation, contentDescription = null)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("My IP")
+                                Text(getThemedString(stringResource(R.string.my_ip)))
                             }
                         }
                     }
@@ -430,19 +433,19 @@ private fun FlagsCard(result: GeolocationResult) {
                 if (result.isProxy == true) {
                     AssistChip(
                         onClick = { },
-                        label = { Text("Proxy/VPN") }
+                        label = { Text(getThemedString(stringResource(R.string.proxy_vpn))) }
                     )
                 }
                 if (result.isHosting == true) {
                     AssistChip(
                         onClick = { },
-                        label = { Text("Hosting/Datacenter") }
+                        label = { Text(getThemedString(stringResource(R.string.hosting_datacenter))) }
                     )
                 }
                 if (result.isMobile == true) {
                     AssistChip(
                         onClick = { },
-                        label = { Text("Mobile Network") }
+                        label = { Text(getThemedString(stringResource(R.string.mobile_network))) }
                     )
                 }
             }

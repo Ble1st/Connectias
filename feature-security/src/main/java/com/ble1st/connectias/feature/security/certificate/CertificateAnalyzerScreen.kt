@@ -13,7 +13,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -32,7 +35,7 @@ fun CertificateAnalyzerScreen(
     ) {
         item {
             Text(
-                text = "Certificate Analyzer",
+                text = getThemedString(stringResource(R.string.certificate_analyzer_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
         }
@@ -43,8 +46,8 @@ fun CertificateAnalyzerScreen(
                     OutlinedTextField(
                         value = url,
                         onValueChange = { url = it },
-                        label = { Text("Enter URL") },
-                        placeholder = { Text("https://example.com") },
+                        label = { Text(getThemedString(stringResource(R.string.enter_url))) },
+                        placeholder = { Text(getThemedString(stringResource(R.string.url_hint))) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -61,7 +64,7 @@ fun CertificateAnalyzerScreen(
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Text("Analyze")
+                            Text(getThemedString(stringResource(R.string.analyze)))
                         }
                     }
                 }
@@ -76,26 +79,26 @@ fun CertificateAnalyzerScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Certificate Details", style = MaterialTheme.typography.titleMedium)
+                        Text(getThemedString(stringResource(R.string.certificate_details)), style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         StatusBadge(info)
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        InfoRow("Subject", info.subject)
-                        InfoRow("Issuer", info.issuer)
-                        InfoRow("Valid From", SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(info.notBefore))
-                        InfoRow("Valid To", SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(info.notAfter))
-                        InfoRow("Days Remaining", "${info.daysUntilExpiry}")
-                        InfoRow("Self-Signed", if (info.isSelfSigned) "Yes" else "No")
-                        InfoRow("Signature Algo", info.signatureAlgorithm)
+                        InfoRow(getThemedString(stringResource(R.string.subject)), info.subject)
+                        InfoRow(getThemedString(stringResource(R.string.issuer)), info.issuer)
+                        InfoRow(getThemedString(stringResource(R.string.valid_from)), SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(info.notBefore))
+                        InfoRow(getThemedString(stringResource(R.string.valid_to)), SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(info.notAfter))
+                        InfoRow(getThemedString(stringResource(R.string.days_remaining)), "${info.daysUntilExpiry}")
+                        InfoRow(getThemedString(stringResource(R.string.self_signed)), if (info.isSelfSigned) getThemedString(stringResource(R.string.yes)) else getThemedString(stringResource(R.string.no)))
+                        InfoRow(getThemedString(stringResource(R.string.signature_algo)), info.signatureAlgorithm)
                     }
                 }
             }
         } else if (state is CertificateState.Error) {
             item {
                 Text(
-                    text = "Error: ${state.message}",
+                    text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                     color = MaterialTheme.colorScheme.error
                 )
             }
@@ -106,10 +109,10 @@ fun CertificateAnalyzerScreen(
 @Composable
 private fun StatusBadge(info: CertificateInfo) {
     val (color, text) = when {
-        info.isExpired -> MaterialTheme.colorScheme.error to "EXPIRED"
-        info.isNotYetValid -> Color(0xFFFF9800) to "NOT YET VALID"
-        info.daysUntilExpiry <= 30 -> Color(0xFFFF9800) to "EXPIRING SOON"
-        else -> Color(0xFF4CAF50) to "VALID"
+        info.isExpired -> MaterialTheme.colorScheme.error to getThemedString(stringResource(R.string.expired))
+        info.isNotYetValid -> Color(0xFFFF9800) to getThemedString(stringResource(R.string.not_yet_valid))
+        info.daysUntilExpiry <= 30 -> Color(0xFFFF9800) to getThemedString(stringResource(R.string.expiring_soon))
+        else -> Color(0xFF4CAF50) to getThemedString(stringResource(R.string.valid))
     }
     
     Surface(

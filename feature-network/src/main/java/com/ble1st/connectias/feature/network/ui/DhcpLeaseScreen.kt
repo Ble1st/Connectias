@@ -9,7 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -26,7 +29,7 @@ fun DhcpLeaseScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "DHCP Lease Viewer",
+            text = getThemedString(stringResource(R.string.dhcp_lease_viewer_title)),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -47,7 +50,7 @@ fun DhcpLeaseScreen(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "DHCP leases are inferred from device discovery since Android doesn't provide direct DHCP access.",
+                    text = getThemedString(stringResource(R.string.dhcp_lease_info)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
@@ -76,7 +79,7 @@ fun DhcpLeaseScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Text(
-                                text = "Reserved IPs (${state.reservedIps.size})",
+                                text = getThemedString(stringResource(R.string.reserved_ips, state.reservedIps.size)),
                                 style = MaterialTheme.typography.titleMedium
                             )
                             state.reservedIps.forEach { ip ->
@@ -90,7 +93,7 @@ fun DhcpLeaseScreen(
                 }
 
                 Text(
-                    text = "DHCP Leases (${state.leases.size})",
+                    text = getThemedString(stringResource(R.string.dhcp_leases, state.leases.size)),
                     style = MaterialTheme.typography.titleLarge
                 )
 
@@ -117,7 +120,7 @@ fun DhcpLeaseScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Error: ${state.message}",
+                            text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         Row(
@@ -128,13 +131,13 @@ fun DhcpLeaseScreen(
                                 onClick = onResetState,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Reset")
+                                Text(getThemedString(stringResource(R.string.reset)))
                             }
                             Button(
                                 onClick = onAnalyzeLeases,
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Retry")
+                                Text(getThemedString(stringResource(R.string.hypervisor_retry)))
                             }
                         }
                     }
@@ -147,12 +150,12 @@ fun DhcpLeaseScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "DHCP lease analysis requires discovered devices.",
+                            text = getThemedString(stringResource(R.string.dhcp_lease_analysis_requires_devices)),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Use the Network Dashboard to discover devices first.",
+                            text = getThemedString(stringResource(R.string.use_network_dashboard_first)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -160,7 +163,7 @@ fun DhcpLeaseScreen(
                             onClick = onAnalyzeLeases,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Analyze Leases")
+                            Text(getThemedString(stringResource(R.string.analyze_leases)))
                         }
                     }
                 }

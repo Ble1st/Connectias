@@ -11,6 +11,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.feature.usb.detection.UsbDeviceDetector
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import com.ble1st.connectias.feature.usb.permission.UsbPermissionManager
@@ -28,6 +30,7 @@ class UsbDashboardFragment : Fragment() {
     @Inject lateinit var usbProvider: UsbProvider
     @Inject lateinit var permissionManager: UsbPermissionManager
     @Inject lateinit var deviceDetector: UsbDeviceDetector
+    @Inject lateinit var settingsRepository: SettingsRepository
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -65,8 +68,13 @@ class UsbDashboardFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    UsbDashboardScreen(
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        UsbDashboardScreen(
                         usbProvider = usbProvider,
                         permissionManager = permissionManager,
                         deviceDetector = deviceDetector,
@@ -91,6 +99,7 @@ class UsbDashboardFragment : Fragment() {
                         },
                         activity = requireActivity()
                     )
+                    }
                 }
             }
         }

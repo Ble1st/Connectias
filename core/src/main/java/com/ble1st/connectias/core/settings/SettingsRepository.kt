@@ -38,7 +38,7 @@ import javax.inject.Singleton
 class SettingsRepository constructor(
     @ApplicationContext private val context: Context,
     private val onRecoveryWillEraseData: (() -> Unit)? = null
-) {
+) : com.ble1st.connectias.common.ui.theme.ThemeSettingsProvider {
     // Plain SharedPreferences for non-sensitive settings like theme
     private val plainPrefs: SharedPreferences by lazy {
         context.getSharedPreferences("connectias_settings", Context.MODE_PRIVATE)
@@ -165,7 +165,7 @@ class SettingsRepository constructor(
      * Gets the theme preference.
      * Uses plain SharedPreferences as theme is not sensitive data.
      */
-    fun getTheme(): String {
+    override fun getTheme(): String {
         return plainPrefs.getString("theme", "system") ?: "system"
     }
 
@@ -179,10 +179,47 @@ class SettingsRepository constructor(
     }
     
     /**
+     * Gets the theme style preference (Standard or Adeptus Mechanicus).
+     * Uses plain SharedPreferences as theme style is not sensitive data.
+     */
+    override fun getThemeStyle(): String {
+        return plainPrefs.getString("theme_style", "standard") ?: "standard"
+    }
+
+    /**
+     * Sets the theme style preference asynchronously.
+     * Uses plain SharedPreferences as theme style is not sensitive data.
+     * apply() schedules the write asynchronously and returns immediately.
+     */
+    fun setThemeStyle(themeStyle: String) {
+        plainPrefs.edit().putString("theme_style", themeStyle).apply()
+    }
+    
+    /**
+     * Observes theme style preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the theme style changes.
+     */
+    override fun observeThemeStyle(): Flow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "theme_style") {
+                trySend(getThemeStyle())
+            }
+        }
+        plainPrefs.registerOnSharedPreferenceChangeListener(listener)
+        
+        // Emit current value
+        trySend(getThemeStyle())
+        
+        awaitClose {
+            plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+    
+    /**
      * Observes theme preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the theme changes.
      */
-    fun observeTheme(): Flow<String> = callbackFlow {
+    override fun observeTheme(): Flow<String> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "theme") {
                 trySend(getTheme())
@@ -223,7 +260,7 @@ class SettingsRepository constructor(
      * Gets the dynamic color preference (Material You).
      * Uses plain SharedPreferences as this is not sensitive data.
      */
-    fun getDynamicColor(): Boolean {
+    override fun getDynamicColor(): Boolean {
         return plainPrefs.getBoolean("dynamic_color", true)
     }
 
@@ -239,7 +276,7 @@ class SettingsRepository constructor(
      * Observes dynamic color preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the dynamic color setting changes.
      */
-    fun observeDynamicColor(): Flow<Boolean> = callbackFlow {
+    override fun observeDynamicColor(): Flow<Boolean> = callbackFlow {
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "dynamic_color") {
                 trySend(getDynamicColor())

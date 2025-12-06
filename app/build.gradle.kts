@@ -77,29 +77,9 @@ dependencies {
         implementation(project(":feature-device-info"))
     }
 
-    val featurePrivacyEnabled = project.findProperty("feature.privacy.enabled") == "true"
-    if (featurePrivacyEnabled) {
-        implementation(project(":feature-privacy"))
-    }
-
     val featureNetworkEnabled = project.findProperty("feature.network.enabled") == "true"
     if (featureNetworkEnabled) {
         implementation(project(":feature-network"))
-    }
-
-    val featureNetworkAnalysisEnabled = project.findProperty("feature.network.analysis.enabled") == "true"
-    if (featureNetworkAnalysisEnabled) {
-        implementation(project(":feature-network-analysis"))
-    }
-
-    val featureNetworkTopologyEnabled = project.findProperty("feature.network.topology.enabled") == "true"
-    if (featureNetworkTopologyEnabled) {
-        implementation(project(":feature-network-topology"))
-    }
-
-    val featureUtilitiesEnabled = project.findProperty("feature.utilities.enabled") == "true"
-    if (featureUtilitiesEnabled) {
-        implementation(project(":feature-utilities"))
     }
 
     val featureBackupEnabled = project.findProperty("feature.backup.enabled") == "true"
@@ -123,19 +103,9 @@ dependencies {
         implementation(project(":feature-reporting"))
     }
 
-    val featureVulnerabilityScannerEnabled = project.findProperty("feature.vulnerability.scanner.enabled") == "true"
-    if (featureVulnerabilityScannerEnabled) {
-        implementation(project(":feature-vulnerability-scanner"))
-    }
-
     val featureSecureNotesEnabled = project.findProperty("feature.secure.notes.enabled") == "true"
     if (featureSecureNotesEnabled) {
         implementation(project(":feature-secure-notes"))
-    }
-
-    val featureHardwareEnabled = project.findProperty("feature.hardware.enabled") == "true"
-    if (featureHardwareEnabled) {
-        implementation(project(":feature-hardware"))
     }
 
     // Android Core

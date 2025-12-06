@@ -97,6 +97,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ThemeStyle
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.services.LoggingService
 import com.ble1st.connectias.core.services.SecurityService
@@ -233,12 +234,15 @@ class MainActivity : AppCompatActivity() {
         val composeView = ComposeView(this).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                // Observe theme and dynamic color changes reactively
+                // Observe theme, theme style, and dynamic color changes reactively
                 val theme by settingsRepository.observeTheme().collectAsState(initial = settingsRepository.getTheme())
+                val themeStyleString by settingsRepository.observeThemeStyle().collectAsState(initial = settingsRepository.getThemeStyle())
                 val dynamicColor by settingsRepository.observeDynamicColor().collectAsState(initial = settingsRepository.getDynamicColor())
+                val themeStyle = remember(themeStyleString) { ThemeStyle.fromString(themeStyleString) }
                 
                 ConnectiasTheme(
                     themePreference = theme,
+                    themeStyle = themeStyle,
                     dynamicColor = dynamicColor
                 ) {
                     FabWithBottomSheet(
@@ -466,22 +470,21 @@ fun getFeatureCategories(): List<FeatureCategory> {
             Feature("Security Dashboard", Icons.Default.Security, R.id.nav_security_dashboard),
             Feature("Network Dashboard", Icons.Default.Wifi, R.id.nav_network_dashboard),
             Feature("Device Info", Icons.Default.PermDeviceInformation, R.id.nav_device_info),
-            Feature("Privacy Dashboard", Icons.Default.Lock, R.id.nav_privacy_dashboard),
-            Feature("Utilities", Icons.Default.Build, R.id.nav_utilities_dashboard),
             Feature("USB Devices", Icons.Default.Usb, R.id.nav_usb_dashboard),
             Feature("USB Storage Browser", Icons.Default.FolderOpen, R.id.nav_usb_storage_browser),
             Feature("WASM Plugins", Icons.Default.Extension, R.id.nav_plugin_manager),
             Feature("Settings", Icons.Default.Settings, R.id.nav_settings)
         )),
-        FeatureCategory("Security Tools", listOf(
+        FeatureCategory("Security Suite", listOf(
             Feature("Certificate Analyzer", Icons.Default.VerifiedUser, R.id.nav_certificate_analyzer),
             Feature("Password Strength", Icons.Default.Password, R.id.nav_password_strength),
             Feature("Encryption Tools", Icons.Default.EnhancedEncryption, R.id.nav_encryption_tools),
             Feature("Firewall Analyzer", Icons.Default.Security, R.id.nav_firewall_analyzer),
             Feature("WiFi Security Auditor", Icons.Default.WifiTethering, R.id.nav_wifi_security_auditor),
-            Feature("Vulnerability Scanner", Icons.Default.BugReport, R.id.nav_vulnerability_scanner)
+            Feature("Vulnerability Scanner", Icons.Default.BugReport, R.id.nav_vulnerability_scanner),
+            Feature("Hash Calculator", Icons.Default.Tag, R.id.nav_hash_tool)
         )),
-        FeatureCategory("Network Tools", listOf(
+        FeatureCategory("Network Command", listOf(
             Feature("Port Scanner", Icons.Default.Search, R.id.nav_port_scanner),
             Feature("DNS Lookup", Icons.Default.Dns, R.id.nav_dns_lookup),
             Feature("Network Monitor", Icons.Default.Speed, R.id.nav_network_monitor),
@@ -491,34 +494,19 @@ fun getFeatureCategories(): List<FeatureCategory> {
             Feature("DHCP Lease Viewer", Icons.Default.List, R.id.nav_dhcp_lease),
             Feature("Hypervisor Detector", Icons.Default.Computer, R.id.nav_hypervisor_detector),
             Feature("Speed Test", Icons.Default.Router, R.id.nav_speed_test),
-            Feature("Wake-on-LAN", Icons.Default.Power, R.id.nav_wake_on_lan)
-        )),
-        FeatureCategory("Network Analysis", listOf(
+            Feature("Wake-on-LAN", Icons.Default.Power, R.id.nav_wake_on_lan),
             Feature("Network Topology", Icons.Default.Share, R.id.nav_topology),
             Feature("MAC Analyzer", Icons.Default.Fingerprint, R.id.nav_mac_analyzer),
             Feature("Subnet Analyzer", Icons.Default.Grid4x4, R.id.nav_subnet_analyzer),
             Feature("VLAN Analyzer", Icons.Default.Layers, R.id.nav_vlan_analyzer)
         )),
-        FeatureCategory("Device Info Tools", listOf(
+        FeatureCategory("Machine Spirit (Hardware)", listOf(
             Feature("Battery Analyzer", Icons.Default.BatteryStd, R.id.nav_battery_analyzer),
             Feature("Storage Analyzer", Icons.Default.Storage, R.id.nav_storage_analyzer),
             Feature("Process Monitor", Icons.Default.Memory, R.id.nav_process_monitor),
             Feature("Sensor Monitor", Icons.Default.Sensors, R.id.nav_sensor_monitor)
         )),
-        FeatureCategory("Privacy Tools", listOf(
-            Feature("Tracker Detection", Icons.Default.TrackChanges, R.id.nav_tracker_detection),
-            Feature("Permissions Analyzer", Icons.Default.FactCheck, R.id.nav_permissions_analyzer),
-            Feature("Data Leakage Scanner", Icons.Default.Warning, R.id.nav_data_leakage),
-            Feature("Permission Timeline", Icons.Default.History, R.id.nav_permission_timeline)
-        )),
-        FeatureCategory("Utilities", listOf(
-            Feature("Hash Calculator", Icons.Default.Tag, R.id.nav_hash_tool),
-            Feature("Encoding Tools", Icons.Default.Code, R.id.nav_encoding_tool),
-            Feature("QR Code Generator", Icons.Default.QrCode, R.id.nav_qrcode_tool),
-            Feature("QR Scanner", Icons.Default.CameraAlt, R.id.nav_qr_scanner),
-            Feature("Text Tools", Icons.Default.TextFields, R.id.nav_text_tool),
-            Feature("Color Picker", Icons.Default.Palette, R.id.nav_color_tool),
-            Feature("API Tester", Icons.Default.Http, R.id.nav_api_tester),
+        FeatureCategory("System Tools", listOf(
             Feature("Log Viewer", Icons.Default.Description, R.id.nav_log_viewer)
         )),
         FeatureCategory("Media", listOf(

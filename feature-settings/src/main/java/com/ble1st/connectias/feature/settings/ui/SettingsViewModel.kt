@@ -38,6 +38,7 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { currentState ->
                     currentState.copy(
                         theme = settingsRepository.getTheme(),
+                        themeStyle = settingsRepository.getThemeStyle(),
                         dynamicColor = settingsRepository.getDynamicColor(),
                         autoLockEnabled = settingsRepository.getAutoLockEnabled(),
                         raspLoggingEnabled = settingsRepository.getRaspLoggingEnabled(),
@@ -55,7 +56,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Updates theme preference.
+     * Updates theme preference (light/dark/system).
      */
     fun setTheme(theme: String) {
         viewModelScope.launch {
@@ -65,6 +66,21 @@ class SettingsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set theme")
                 _uiState.update { it.copy(errorMessage = "Failed to set theme: ${e.message}") }
+            }
+        }
+    }
+
+    /**
+     * Updates theme style preference (standard/adeptus_mechanicus).
+     */
+    fun setThemeStyle(themeStyle: String) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setThemeStyle(themeStyle)
+                _uiState.update { it.copy(themeStyle = themeStyle) }
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to set theme style")
+                _uiState.update { it.copy(errorMessage = "Failed to set theme style: ${e.message}") }
             }
         }
     }
@@ -209,7 +225,8 @@ class SettingsViewModel @Inject constructor(
  * UI State for Settings screen.
  */
 data class SettingsUiState(
-    val theme: String = "system",
+    val theme: String = "system", // light, dark, system
+    val themeStyle: String = "standard", // standard, adeptus_mechanicus
     val dynamicColor: Boolean = true,
     val autoLockEnabled: Boolean = false,
     val raspLoggingEnabled: Boolean = true,

@@ -93,7 +93,7 @@ dependencies {
     implementation(libs.compose.theme.adapter)
     
     // iText for PDF generation
-    implementation(libs.itext.core)
+    implementation("com.itextpdf:itext7-core:${libs.versions.itext.get()}")
 
     // Testing
     testImplementation(libs.junit)

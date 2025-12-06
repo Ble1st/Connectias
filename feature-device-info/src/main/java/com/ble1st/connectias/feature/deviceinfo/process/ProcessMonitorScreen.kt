@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.deviceinfo.R
 import java.util.Locale
 
 @Composable
@@ -30,7 +33,7 @@ fun ProcessMonitorScreen(
             ) {
                 item {
                     Text(
-                        text = "Process Monitor",
+                        text = getThemedString(stringResource(R.string.process_monitor_title)),
                         style = MaterialTheme.typography.headlineMedium
                     )
                     
@@ -40,7 +43,7 @@ fun ProcessMonitorScreen(
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Refresh Processes")
+                        Text(getThemedString(stringResource(R.string.refresh_processes)))
                     }
                 }
 
@@ -56,11 +59,11 @@ fun ProcessMonitorScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                "Running Processes",
+                                getThemedString(stringResource(R.string.running_processes)),
                                 style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                "${state.processes.size} found",
+                                "${state.processes.size} ${getThemedString(stringResource(R.string.found))}",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -87,7 +90,7 @@ fun ProcessMonitorScreen(
 private fun MemoryStatsCard(stats: MemoryStats) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("System Memory", style = MaterialTheme.typography.titleMedium)
+            Text(getThemedString(stringResource(R.string.system_memory)), style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
             
             LinearProgressIndicator(
@@ -101,8 +104,8 @@ private fun MemoryStatsCard(stats: MemoryStats) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Used: ${formatBytes(stats.usedMemory)}")
-                Text("Free: ${formatBytes(stats.availableMemory)}")
+                Text("${getThemedString(stringResource(R.string.used))}: ${formatBytes(stats.usedMemory)}")
+                Text("${getThemedString(stringResource(R.string.free))}: ${formatBytes(stats.availableMemory)}")
             }
             
             Spacer(modifier = Modifier.height(4.dp))
@@ -111,10 +114,10 @@ private fun MemoryStatsCard(stats: MemoryStats) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Total: ${formatBytes(stats.totalMemory)}")
+                Text("${getThemedString(stringResource(R.string.total))}: ${formatBytes(stats.totalMemory)}")
                 if (stats.lowMemory) {
                     Text(
-                        "Low Memory Warning!",
+                        getThemedString(stringResource(R.string.low_memory_warning)),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelSmall
                     )
@@ -148,7 +151,7 @@ private fun ProcessItem(process: ProcessInfo) {
                         shape = MaterialTheme.shapes.small
                     ) {
                         Text(
-                            text = "System",
+                            text = getThemedString(stringResource(R.string.system)),
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -169,7 +172,7 @@ private fun ProcessItem(process: ProcessInfo) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("PID: ${process.pid}", style = MaterialTheme.typography.bodySmall)
+                Text("${getThemedString(stringResource(R.string.pid))}: ${process.pid}", style = MaterialTheme.typography.bodySmall)
                 Text(formatBytes(process.memoryUsage), style = MaterialTheme.typography.bodySmall)
             }
         }

@@ -29,6 +29,9 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.ui.res.stringResource
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -91,7 +94,7 @@ fun CertificateGeneratorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Certificate Generator") },
+                title = { Text(getThemedString(stringResource(R.string.certificate_generator))) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -133,8 +136,8 @@ fun CertificateGeneratorScreen(
                         OutlinedTextField(
                             value = commonName,
                             onValueChange = { commonName = it },
-                            label = { Text("Common Name (CN)") },
-                            placeholder = { Text("example.com") },
+                            label = { Text(getThemedString(stringResource(R.string.common_name_cn))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.common_name_hint))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -144,8 +147,8 @@ fun CertificateGeneratorScreen(
                         OutlinedTextField(
                             value = organization,
                             onValueChange = { organization = it },
-                            label = { Text("Organization (O)") },
-                            placeholder = { Text("My Company") },
+                            label = { Text(getThemedString(stringResource(R.string.organization_o))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.organization_hint))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -155,8 +158,8 @@ fun CertificateGeneratorScreen(
                         OutlinedTextField(
                             value = country,
                             onValueChange = { country = it.take(2).uppercase() },
-                            label = { Text("Country (C)") },
-                            placeholder = { Text("US") },
+                            label = { Text(getThemedString(stringResource(R.string.country_c))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.country_hint))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true
                         )
@@ -189,7 +192,7 @@ fun CertificateGeneratorScreen(
                             listOf(1024, 2048, 4096).forEach { size ->
                                 FilterChip(
                                     onClick = { selectedKeySize = size },
-                                    label = { Text("$size bit") },
+                                    label = { Text(getThemedString(stringResource(R.string.key_size_bit, size))) },
                                     selected = selectedKeySize == size
                                 )
                             }
@@ -198,7 +201,7 @@ fun CertificateGeneratorScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Signature Algorithm",
+                            text = getThemedString(stringResource(R.string.signature_algorithm)),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -219,7 +222,7 @@ fun CertificateGeneratorScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Validity: ${validityDays.toInt()} days",
+                            text = getThemedString(stringResource(R.string.validity_days, validityDays.toInt())),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -269,7 +272,7 @@ fun CertificateGeneratorScreen(
                         Icon(Icons.Default.Key, contentDescription = null)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Generate Certificate")
+                    Text(getThemedString(stringResource(R.string.generate_certificate)))
                 }
             }
 

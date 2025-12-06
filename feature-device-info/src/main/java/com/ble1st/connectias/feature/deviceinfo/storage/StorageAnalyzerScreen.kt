@@ -11,8 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.deviceinfo.R
 import java.util.Locale
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,7 +40,7 @@ fun StorageAnalyzerScreen(
             ) {
                 item {
                     Text(
-                        text = "Storage Analyzer",
+                        text = getThemedString(stringResource(R.string.storage_analyzer_title)),
                         style = MaterialTheme.typography.headlineMedium
                     )
                     
@@ -47,14 +50,14 @@ fun StorageAnalyzerScreen(
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Refresh Storage Info")
+                        Text(getThemedString(stringResource(R.string.refresh_storage_info)))
                     }
                 }
 
                 if (state is StorageState.Info) {
                     item {
                         StorageCard(
-                            title = "Internal Storage",
+                            title = getThemedString(stringResource(R.string.internal_storage)),
                             storageInfo = state.info.internalStorage
                         )
                     }
@@ -62,7 +65,7 @@ fun StorageAnalyzerScreen(
                     if (state.info.externalStorage != null) {
                          item {
                             StorageCard(
-                                title = "External Storage",
+                                title = getThemedString(stringResource(R.string.external_storage)),
                                 storageInfo = state.info.externalStorage!!
                             )
                         }
@@ -72,7 +75,7 @@ fun StorageAnalyzerScreen(
                 item {
                     Card(modifier = Modifier.fillMaxWidth()) {
                          Column(modifier = Modifier.padding(16.dp)) {
-                             Text("Find Large Files", style = MaterialTheme.typography.titleMedium)
+                             Text(getThemedString(stringResource(R.string.find_large_files)), style = MaterialTheme.typography.titleMedium)
                              Spacer(modifier = Modifier.height(8.dp))
                              
                              Row(
@@ -83,7 +86,7 @@ fun StorageAnalyzerScreen(
                                  OutlinedTextField(
                                      value = minSizeText,
                                      onValueChange = { minSizeText = it },
-                                     label = { Text("Min Size (MB)") },
+                                     label = { Text(getThemedString(stringResource(R.string.min_size_mb))) },
                                      keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                      modifier = Modifier.weight(1f)
                                  )
@@ -93,7 +96,7 @@ fun StorageAnalyzerScreen(
                                          minSizeText.toIntOrNull()?.let { onFindLargeFiles(it) } 
                                      }
                                  ) {
-                                     Text("Find")
+                                     Text(getThemedString(stringResource(R.string.find)))
                                  }
                              }
                          }
@@ -103,7 +106,7 @@ fun StorageAnalyzerScreen(
                 if (state is StorageState.LargeFiles) {
                     item {
                          Text(
-                            "Found ${state.files.size} large files",
+                            getThemedString(stringResource(R.string.found_large_files, state.files.size)),
                             style = MaterialTheme.typography.titleMedium
                         )
                     }
@@ -134,11 +137,11 @@ private fun StorageCard(title: String, storageInfo: StorageStats) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Used: ${formatBytes(storageInfo.usedBytes)}")
-                Text("Free: ${formatBytes(storageInfo.freeBytes)}")
+                Text("${getThemedString(stringResource(R.string.used))}: ${formatBytes(storageInfo.usedBytes)}")
+                Text("${getThemedString(stringResource(R.string.free))}: ${formatBytes(storageInfo.freeBytes)}")
             }
              Text(
-                "Total: ${formatBytes(storageInfo.totalBytes)}",
+                "${getThemedString(stringResource(R.string.total))}: ${formatBytes(storageInfo.totalBytes)}",
                 style = MaterialTheme.typography.bodySmall,
                 modifier = Modifier.align(Alignment.End)
             )

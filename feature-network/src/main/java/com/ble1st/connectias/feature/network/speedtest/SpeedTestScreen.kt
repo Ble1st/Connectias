@@ -65,9 +65,12 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.speedtest.models.SpeedTestPhase
 import com.ble1st.connectias.feature.network.speedtest.models.SpeedTestResult
 import com.ble1st.connectias.feature.network.speedtest.models.SpeedTestServer
@@ -93,7 +96,7 @@ fun SpeedTestScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Speed Test") },
+                title = { Text(getThemedString(stringResource(R.string.speed_test_title))) },
                 actions = {
                     IconButton(onClick = { showHistory = true }) {
                         Icon(Icons.Default.History, contentDescription = "History")
@@ -207,7 +210,7 @@ private fun ServerSelector(
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
-            label = { Text("Test Server") },
+            label = { Text(getThemedString(stringResource(R.string.test_server))) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -448,7 +451,7 @@ private fun TestButton(
         ) {
             Icon(Icons.Default.Stop, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Stop Test")
+            Text(getThemedString(stringResource(R.string.stop_test)))
         }
     } else {
         Button(
@@ -458,7 +461,7 @@ private fun TestButton(
         ) {
             Icon(Icons.Default.PlayArrow, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Start Test")
+            Text(getThemedString(stringResource(R.string.start_test)))
         }
     }
 }
@@ -485,7 +488,7 @@ private fun HistorySheet(
             )
             if (history.isNotEmpty()) {
                 OutlinedButton(onClick = onClear) {
-                    Text("Clear")
+                    Text(getThemedString(stringResource(R.string.clear)))
                 }
             }
         }

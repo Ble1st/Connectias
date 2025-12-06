@@ -11,14 +11,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.LocalAppStrings
 import com.ble1st.connectias.feature.network.models.NetworkAnalysis
 import com.ble1st.connectias.feature.network.models.NetworkDevice
 import com.ble1st.connectias.feature.network.models.WifiNetwork
-import com.ble1st.connectias.feature.network.ui.components.DashboardCategory
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 
 @Composable
 fun NetworkDashboardScreen(
@@ -38,7 +34,7 @@ fun NetworkDashboardScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Error: ${state.message}",
+                        text = "${LocalAppStrings.current.alertError}: ${state.message}",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyLarge
                     )
@@ -47,7 +43,7 @@ fun NetworkDashboardScreen(
                         onRefreshLan()
                         onRefreshAnalysis()
                     }, modifier = Modifier.padding(top = 16.dp)) {
-                        Text("Retry All")
+                        Text(LocalAppStrings.current.retryAll)
                     }
                 }
             }
@@ -78,7 +74,7 @@ private fun NetworkDashboardContent(
     ) {
         item {
             Text(
-                text = "Network Dashboard",
+                text = LocalAppStrings.current.navNetworkDashboard,
                 style = MaterialTheme.typography.headlineMedium
             )
         }
@@ -102,7 +98,7 @@ private fun NetworkDashboardContent(
 
         item {
             SectionHeader(
-                title = "Network Analysis",
+                title = LocalAppStrings.current.networkAnalysisTitle,
                 onRefresh = onRefreshAnalysis
             )
             NetworkAnalysisCard(state.analysis)
@@ -110,11 +106,11 @@ private fun NetworkDashboardContent(
 
         item {
             SectionHeader(
-                title = "Wi-Fi Networks",
+                title = LocalAppStrings.current.wifiNetworksTitle,
                 onRefresh = onRefreshWifi
             )
             if (state.wifiNetworks.isEmpty()) {
-                EmptyStateText("No Wi-Fi networks found.")
+                EmptyStateText(LocalAppStrings.current.noWifiNetworks)
             }
         }
         items(state.wifiNetworks) { network ->
@@ -123,11 +119,11 @@ private fun NetworkDashboardContent(
 
         item {
             SectionHeader(
-                title = "LAN Devices",
+                title = LocalAppStrings.current.lanDevicesTitle,
                 onRefresh = onRefreshLan
             )
             if (state.devices.isEmpty()) {
-                EmptyStateText("No devices found on local network.")
+                EmptyStateText(LocalAppStrings.current.noLanDevices)
             }
         }
         items(state.devices) { device ->
@@ -158,10 +154,22 @@ private fun SectionHeader(title: String, onRefresh: () -> Unit) {
 private fun NetworkAnalysisCard(analysis: NetworkAnalysis) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(16.dp)) {
-            InfoRow("Connection Type", analysis.connectionType.name)
-            InfoRow("Connected", if (analysis.isConnected) "Yes" else "No")
-            InfoRow("Gateway", analysis.gateway ?: "N/A")
-            InfoRow("DNS Servers", if (analysis.dnsServers.isEmpty()) "N/A" else analysis.dnsServers.joinToString(", "))
+            InfoRow(
+                LocalAppStrings.current.connectionType,
+                analysis.connectionType.name
+            )
+            InfoRow(
+                LocalAppStrings.current.connected,
+                if (analysis.isConnected) LocalAppStrings.current.yes else LocalAppStrings.current.no
+            )
+            InfoRow(
+                LocalAppStrings.current.gateway,
+                analysis.gateway ?: LocalAppStrings.current.notAvailable
+            )
+            InfoRow(
+                LocalAppStrings.current.dnsServers,
+                if (analysis.dnsServers.isEmpty()) LocalAppStrings.current.notAvailable else analysis.dnsServers.joinToString(", ")
+            )
         }
     }
 }

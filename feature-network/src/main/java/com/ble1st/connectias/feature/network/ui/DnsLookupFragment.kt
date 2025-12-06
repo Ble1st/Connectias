@@ -11,9 +11,11 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import dagger.hilt.android.lifecycle.HiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,9 @@ class DnsLookupFragment : Fragment() {
 
     private val viewModel: DnsLookupViewModel by viewModels()
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -38,15 +43,21 @@ class DnsLookupFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    val state by viewModel.dnsState.collectAsState()
-                    
-                    DnsLookupScreen(
-                        state = state,
-                        onLookup = { domain, type, server -> viewModel.lookup(domain, type, server) },
-                        onReverseLookup = { ip, server -> viewModel.reverseLookup(ip, server) },
-                        onTestDns = { server -> viewModel.testDnsServer(server) }
-                    )
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        val state by viewModel.dnsState.collectAsState()
+                        
+                        DnsLookupScreen(
+                            state = state,
+                            onLookup = { domain, type, server -> viewModel.lookup(domain, type, server) },
+                            onReverseLookup = { ip, server -> viewModel.reverseLookup(ip, server) },
+                            onTestDns = { server -> viewModel.testDnsServer(server) }
+                        )
+                    }
                 }
             }
         }

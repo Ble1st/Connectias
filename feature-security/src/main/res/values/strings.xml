@@ -2,5 +2,108 @@
 <resources>
     <string name="security_dashboard_title">Security Dashboard</string>
     <string name="security_dashboard_description">Security Dashboard showing device security status</string>
+    <string name="checking_security">Checking security...</string>
+    <string name="retry">Retry</string>
+    <string name="refresh_status">Refresh Status</string>
+    <string name="threats_found">Threats found:</string>
+    <string name="no_threats_detected">No threats detected. System is secure.</string>
+    <string name="error_prefix">Error: %1$s</string>
+    <string name="signature_verifier">Signature Verifier</string>
+    <string name="package_name">Package Name</string>
+    <string name="package_name_hint">e.g., com.example.app</string>
+    <string name="verify">Verify</string>
+    <string name="this_app">This App</string>
+    <string name="certificate_generator">Certificate Generator</string>
+    <string name="common_name_cn">Common Name (CN)</string>
+    <string name="common_name_hint">example.com</string>
+    <string name="organization_o">Organization (O)</string>
+    <string name="organization_hint">My Company</string>
+    <string name="country_c">Country (C)</string>
+    <string name="country_hint">US</string>
+    
+    <!-- Certificate Analyzer -->
+    <string name="certificate_analyzer_title">Certificate Analyzer</string>
+    <string name="enter_url">Enter URL</string>
+    <string name="url_hint">https://example.com</string>
+    <string name="certificate_details">Certificate Details</string>
+    <string name="subject">Subject</string>
+    <string name="issuer">Issuer</string>
+    <string name="valid_from">Valid From</string>
+    <string name="valid_to">Valid To</string>
+    <string name="days_remaining">Days Remaining</string>
+    <string name="self_signed">Self-Signed</string>
+    <string name="signature_algo">Signature Algo</string>
+    <string name="expired">EXPIRED</string>
+    <string name="not_yet_valid">NOT YET VALID</string>
+    <string name="expiring_soon">EXPIRING SOON</string>
+    <string name="valid">VALID</string>
+    
+    <!-- Password Strength -->
+    <string name="password_strength_title">Password Strength</string>
+    <string name="password_label">Password</string>
+    <string name="check_strength">Check Strength</string>
+    <string name="password_generator">Password Generator</string>
+    <string name="length">Length</string>
+    <string name="special_chars">Special Chars</string>
+    <string name="generate_secure_password">Generate Secure Password</string>
+    <string name="score">Score: %1$d/10</string>
+    <string name="entropy">Entropy: %1$s bits</string>
+    <string name="feedback">Feedback:</string>
+    <string name="very_weak">Very Weak</string>
+    <string name="weak">Weak</string>
+    <string name="moderate">Moderate</string>
+    <string name="strong">Strong</string>
+    <string name="very_strong">Very Strong</string>
+    
+    <!-- Encryption -->
+    <string name="encryption_tools_title">Encryption Tools</string>
+    <string name="operation">Operation</string>
+    <string name="encrypt">Encrypt</string>
+    <string name="decrypt">Decrypt</string>
+    <string name="generate_key">Generate Key</string>
+    <string name="text_to_encrypt">Text to Encrypt</string>
+    <string name="encrypted_data_base64">Encrypted Data (Base64)</string>
+    <string name="iv_initialization_vector">IV (Initialization Vector)</string>
+    <string name="salt">Salt</string>
+    <string name="execute">Execute</string>
+    <string name="result">Result</string>
+    <string name="encrypted_data">Encrypted Data:</string>
+    <string name="iv">IV:</string>
+    <string name="plaintext">Plaintext:</string>
+    <string name="generated_key">Generated Key:</string>
+    
+    <!-- Firewall Analyzer -->
+    <string name="firewall_analyzer_title">Firewall Analyzer</string>
+    <string name="analyze_network_permissions">Analyze Network Permissions</string>
+    <string name="analysis_summary">Analysis Summary</string>
+    <string name="total_apps_network_access">Total apps with network access: %1$d</string>
+    <string name="risky_apps_identified">Risky apps identified: %1$d</string>
+    <string name="tap_analyze_network_permissions">Tap \'Analyze Network Permissions\' to scan installed apps for network access risks.</string>
+    <string name="risk_factors">Risk Factors:</string>
+    <string name="high_risk">High Risk</string>
+    <string name="medium_risk">Medium Risk</string>
+    <string name="low_risk">Low Risk</string>
+    
+    <!-- WiFi Security Auditor -->
+    <string name="wifi_security_audit_title">WiFi Security Audit</string>
+    <string name="run_security_scan">Run Security Scan</string>
+    <string name="vulnerabilities">Vulnerabilities (%1$d)</string>
+    <string name="suspicious_access_points">Suspicious Access Points (%1$d)</string>
+    
+    <!-- Certificate Generator -->
+    <string name="key_size_bit">%1$d bit</string>
+    <string name="signature_algorithm">Signature Algorithm</string>
+    <string name="validity_days">Validity: %1$d days</string>
+    <string name="generate_certificate">Generate Certificate</string>
+    
+    <!-- Certificate Analyzer -->
+    <string name="analyze">Analyze</string>
+    
+    <!-- Common -->
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    
+    <!-- Firewall Analyzer -->
+    <string name="risky_apps">Risky Apps</string>
 </resources>
 

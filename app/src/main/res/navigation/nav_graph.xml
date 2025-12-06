@@ -46,8 +46,13 @@
 
     <fragment
         android:id="@+id/nav_vulnerability_scanner"
-        android:name="com.ble1st.connectias.feature.vulnerability.scanner.ui.VulnerabilityScannerFragment"
+        android:name="com.ble1st.connectias.feature.security.scanner.ui.VulnerabilityScannerFragment"
         android:label="Vulnerability Scanner" />
+
+    <fragment
+        android:id="@+id/nav_hash_tool"
+        android:name="com.ble1st.connectias.feature.security.crypto.hash.HashFragment"
+        android:label="Hash Calculator" />
 
     <!-- Device Info (Optional - MVP Proof of Concept) -->
     <fragment
@@ -76,34 +81,6 @@
         android:id="@+id/nav_sensor_monitor"
         android:name="com.ble1st.connectias.feature.deviceinfo.sensor.SensorMonitorFragment"
         android:label="Sensor Monitor" />
-
-    <!-- Privacy Dashboard (Optional) -->
-    <fragment
-        android:id="@+id/nav_privacy_dashboard"
-        android:name="com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment"
-        android:label="@string/nav_privacy_dashboard"
-        tools:layout="@layout/fragment_privacy_dashboard" />
-
-    <!-- Privacy Tools -->
-    <fragment
-        android:id="@+id/nav_tracker_detection"
-        android:name="com.ble1st.connectias.feature.privacy.tracker.TrackerDetectionFragment"
-        android:label="Tracker Detection" />
-
-    <fragment
-        android:id="@+id/nav_permissions_analyzer"
-        android:name="com.ble1st.connectias.feature.privacy.permissions.PermissionsAnalyzerFragment"
-        android:label="Permissions Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_data_leakage"
-        android:name="com.ble1st.connectias.feature.privacy.leakage.DataLeakageFragment"
-        android:label="Data Leakage Scanner" />
-
-    <fragment
-        android:id="@+id/nav_permission_timeline"
-        android:name="com.ble1st.connectias.feature.privacy.timeline.PermissionTimelineFragment"
-        android:label="Permission Timeline" />
 
     <!-- Network Dashboard (Optional) -->
     <fragment
@@ -187,71 +164,11 @@
         android:name="com.ble1st.connectias.feature.network.ui.HypervisorDetectorFragment"
         android:label="Hypervisor Detector" />
 
-    <!-- Utilities Dashboard (Optional) -->
-    <fragment
-        android:id="@+id/nav_utilities_dashboard"
-        android:name="com.ble1st.connectias.feature.utilities.ui.UtilitiesDashboardFragment"
-        android:label="@string/utilities_module_name"
-        tools:layout="@layout/fragment_utilities_dashboard" />
-
-    <!-- Utilities Tools -->
-    <fragment
-        android:id="@+id/nav_hash_tool"
-        android:name="com.ble1st.connectias.feature.utilities.hash.HashFragment"
-        android:label="@string/hash_tool_title" />
-
-    <fragment
-        android:id="@+id/nav_encoding_tool"
-        android:name="com.ble1st.connectias.feature.utilities.encoding.EncodingFragment"
-        android:label="@string/encoding_tool_title" />
-
-    <fragment
-        android:id="@+id/nav_qrcode_tool"
-        android:name="com.ble1st.connectias.feature.utilities.qrcode.QrCodeFragment"
-        android:label="@string/qrcode_tool_title" />
-
-    <fragment
-        android:id="@+id/nav_text_tool"
-        android:name="com.ble1st.connectias.feature.utilities.text.TextFragment"
-        android:label="@string/text_tool_title" />
-
-    <fragment
-        android:id="@+id/nav_api_tester"
-        android:name="com.ble1st.connectias.feature.utilities.api.ApiTesterFragment"
-        android:label="@string/api_tester_title" />
-
+    <!-- System Tools -->
     <fragment
         android:id="@+id/nav_log_viewer"
-        android:name="com.ble1st.connectias.feature.utilities.log.LogFragment"
-        android:label="@string/log_viewer_title" />
-
-    <fragment
-        android:id="@+id/nav_color_tool"
-        android:name="com.ble1st.connectias.feature.utilities.color.ColorFragment"
-        android:label="@string/color_tool_title" />
-
-    <fragment
-        android:id="@+id/nav_qr_scanner"
-        android:name="com.ble1st.connectias.feature.utilities.qrscanner.QrScannerFragment"
-        android:label="QR Scanner" />
-
-    <!-- Backup Dashboard (Optional) -->
-    <fragment
-        android:id="@+id/nav_backup_dashboard"
-        android:name="com.ble1st.connectias.feature.backup.ui.BackupDashboardFragment"
-        android:label="Backup &amp; Restore"
-        tools:layout="@layout/fragment_backup_dashboard" />
-
-    <!-- Backup Tools -->
-    <fragment
-        android:id="@+id/nav_export"
-        android:name="com.ble1st.connectias.feature.backup.export.ExportFragment"
-        android:label="Export Data" />
-
-    <fragment
-        android:id="@+id/nav_import"
-        android:name="com.ble1st.connectias.feature.backup.import.ImportFragment"
-        android:label="Import Data" />
+        android:name="com.ble1st.connectias.core.logging.ui.LogViewerFragment"
+        android:label="Log Viewer" />
 
     <!-- WASM Plugin Manager (Optional) -->
     <fragment
@@ -282,4 +199,3 @@
         android:label="@string/nav_dvd_player" />
 
 </navigation>
-

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connectias Icon Preview</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f2f5;
+            margin: 0;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        p { color: #666; margin-bottom: 30px; }
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 30px;
+            justify-items: center;
+        }
+        .icon-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .label {
+            font-size: 12px;
+            color: #888;
+        }
+        img {
+            display: block;
+        }
+        /* Dark mode preview background */
+        .dark-preview {
+            background-color: #1a1a1a;
+            padding: 10px;
+            border-radius: 12px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Connectias Icon Set</h1>
+    <p>Vector Design Preview (SVG)</p>
+
+    <div class="icon-grid">
+        <div class="icon-wrapper">
+            <!-- Embedding the SVG directly or referencing it -->
+            <img src="app_icon.svg" width="192" height="192" alt="App Icon 192px">
+            <span class="label">192px (xxxhdpi)</span>
+        </div>
+
+        <div class="icon-wrapper">
+            <img src="app_icon.svg" width="96" height="96" alt="App Icon 96px">
+            <span class="label">96px (xhdpi)</span>
+        </div>
+
+        <div class="icon-wrapper">
+            <img src="app_icon.svg" width="48" height="48" alt="App Icon 48px">
+            <span class="label">48px (mdpi)</span>
+        </div>
+        
+        <div class="icon-wrapper">
+            <div class="dark-preview">
+                 <img src="app_icon.svg" width="96" height="96" alt="App Icon Dark Mode">
+            </div>
+            <span class="label">Dark Background</span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

@@ -7,7 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.models.FlowStats
 import com.ble1st.connectias.feature.network.models.TopTalker
 import java.util.Locale
@@ -25,7 +28,7 @@ fun FlowAnalyzerScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Network Flow Analyzer",
+            text = getThemedString(stringResource(R.string.network_flow_analyzer_title)),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -56,14 +59,14 @@ fun FlowAnalyzerScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Error: ${state.message}",
+                            text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                             color = MaterialTheme.colorScheme.onErrorContainer
                         )
                         TextButton(
                             onClick = onResetState,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Reset")
+                            Text(getThemedString(stringResource(R.string.reset)))
                         }
                     }
                 }
@@ -75,12 +78,12 @@ fun FlowAnalyzerScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = "Click the button below to start flow analysis.",
+                            text = getThemedString(stringResource(R.string.click_to_start_flow_analysis)),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "For best results, use the Network Dashboard to discover devices first.",
+                            text = getThemedString(stringResource(R.string.for_best_results_use_dashboard)),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -88,7 +91,7 @@ fun FlowAnalyzerScreen(
                             onClick = onAnalyzeFlows,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Analyze Flows")
+                            Text(getThemedString(stringResource(R.string.analyze_flows)))
                         }
                     }
                 }
@@ -111,7 +114,7 @@ private fun FlowStatsContent(
                 onClick = onRefresh,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Refresh Analysis")
+                Text(getThemedString(stringResource(R.string.refresh_analysis)))
             }
         }
         

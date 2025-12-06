@@ -16,9 +16,12 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.feature.network.R
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Fragment for Network Dashboard.
@@ -28,6 +31,9 @@ import dagger.hilt.android.AndroidEntryPoint
 class NetworkDashboardFragment : Fragment() {
 
     private val viewModel: NetworkDashboardViewModel by viewModels()
+
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -47,21 +53,27 @@ class NetworkDashboardFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    val state by viewModel.networkState.collectAsState()
-                    
-                    NetworkDashboardScreen(
-                        state = state,
-                        onRefreshWifi = {
-                            if (checkLocationPermission()) {
-                                viewModel.refreshWifiNetworks()
-                            } else {
-                                requestLocationPermissionIfNeeded()
-                            }
-                        },
-                        onRefreshLan = { viewModel.refreshLocalDevices() },
-                        onRefreshAnalysis = { viewModel.refreshAnalysis() }
-                    )
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        val state by viewModel.networkState.collectAsState()
+                        
+                        NetworkDashboardScreen(
+                            state = state,
+                            onRefreshWifi = {
+                                if (checkLocationPermission()) {
+                                    viewModel.refreshWifiNetworks()
+                                } else {
+                                    requestLocationPermissionIfNeeded()
+                                }
+                            },
+                            onRefreshLan = { viewModel.refreshLocalDevices() },
+                            onRefreshAnalysis = { viewModel.refreshAnalysis() }
+                        )
+                    }
                 }
             }
         }

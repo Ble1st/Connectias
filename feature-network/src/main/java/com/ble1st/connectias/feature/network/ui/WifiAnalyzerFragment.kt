@@ -17,6 +17,8 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.feature.network.scanner.ChannelOverlap
 import com.ble1st.connectias.feature.network.scanner.WifiAnalyzerProvider
 import com.ble1st.connectias.feature.network.scanner.WifiChannelInfo
@@ -38,6 +40,9 @@ class WifiAnalyzerFragment : Fragment() {
 
     private val viewModel: WifiAnalyzerViewModel by viewModels()
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -56,19 +61,25 @@ class WifiAnalyzerFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    val state by viewModel.analyzerState.collectAsState()
-                    
-                    WifiAnalyzerScreen(
-                        state = state,
-                        onAnalyze = {
-                            if (checkLocationPermission()) {
-                                viewModel.analyzeWifiNetworks()
-                            } else {
-                                requestLocationPermissionIfNeeded()
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        val state by viewModel.analyzerState.collectAsState()
+                        
+                        WifiAnalyzerScreen(
+                            state = state,
+                            onAnalyze = {
+                                if (checkLocationPermission()) {
+                                    viewModel.analyzeWifiNetworks()
+                                } else {
+                                    requestLocationPermissionIfNeeded()
+                                }
                             }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }

@@ -11,7 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.scanner.ChannelOverlap
 import com.ble1st.connectias.feature.network.scanner.WifiChannelInfo
 
@@ -29,12 +32,12 @@ fun WifiAnalyzerScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Error: ${state.message}",
+                    text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                     color = MaterialTheme.colorScheme.error,
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Button(onClick = onAnalyze, modifier = Modifier.padding(top = 16.dp)) {
-                    Text("Retry")
+                    Text(getThemedString(stringResource(R.string.hypervisor_retry)))
                 }
             }
         } else {
@@ -59,7 +62,7 @@ private fun WifiAnalyzerContent(
     ) {
         item {
             Text(
-                text = "Wi-Fi Analyzer",
+                text = getThemedString(stringResource(R.string.wifi_analyzer_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
             
@@ -69,7 +72,7 @@ private fun WifiAnalyzerContent(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Analyze Networks")
+                Text(getThemedString(stringResource(R.string.analyze_networks)))
             }
         }
 
@@ -89,9 +92,9 @@ private fun WifiAnalyzerContent(
                             Icon(Icons.Default.Wifi, contentDescription = null)
                             Spacer(modifier = Modifier.width(16.dp))
                             Column {
-                                Text("Recommendation", style = MaterialTheme.typography.labelLarge)
+                                Text(getThemedString(stringResource(R.string.recommendation)), style = MaterialTheme.typography.labelLarge)
                                 Text(
-                                    "Best Channel: ${state.bestChannel}",
+                                    getThemedString(stringResource(R.string.best_channel, state.bestChannel)),
                                     style = MaterialTheme.typography.headlineSmall
                                 )
                             }
@@ -109,7 +112,7 @@ private fun WifiAnalyzerContent(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Channel Overlaps", style = MaterialTheme.typography.titleMedium)
+                            Text(getThemedString(stringResource(R.string.channel_overlaps)), style = MaterialTheme.typography.titleMedium)
                             Spacer(modifier = Modifier.height(8.dp))
                             state.overlaps.forEach { overlap ->
                                 Text(
@@ -123,7 +126,7 @@ private fun WifiAnalyzerContent(
             }
 
             item {
-                Text("Channel Details", style = MaterialTheme.typography.titleLarge)
+                Text(getThemedString(stringResource(R.string.channel_details)), style = MaterialTheme.typography.titleLarge)
             }
 
             items(state.channelInfos) { channelInfo ->
@@ -132,7 +135,7 @@ private fun WifiAnalyzerContent(
         } else if (state is WifiAnalyzerState.Idle) {
             item {
                  Text(
-                    text = "Tap 'Analyze Networks' to start scanning for Wi-Fi channels and interference.",
+                    text = getThemedString(stringResource(R.string.port_scanner_idle_message)),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -167,7 +170,7 @@ private fun WifiChannelItem(info: WifiChannelInfo) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("${info.networkCount} networks")
+                Text(getThemedString(stringResource(R.string.networks_count, info.networkCount)))
                 
                 val signalColor = when {
                     info.avgSignalStrength >= -50 -> Color(0xFF4CAF50) // Green

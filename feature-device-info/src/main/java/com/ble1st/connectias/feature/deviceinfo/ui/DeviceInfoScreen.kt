@@ -12,7 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.deviceinfo.R
 import com.ble1st.connectias.feature.deviceinfo.provider.DeviceInfo
 import java.util.Locale
 
@@ -32,12 +35,12 @@ fun DeviceInfoScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "Error: ${state.message}",
+                        text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyLarge
                     )
                     Button(onClick = onRefresh, modifier = Modifier.padding(top = 16.dp)) {
-                        Text("Retry")
+                        Text(getThemedString(stringResource(R.string.retry)))
                     }
                 }
             }
@@ -67,16 +70,16 @@ private fun DeviceInfoContent(
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         Text(
-            text = "Device Information",
+            text = getThemedString(stringResource(R.string.device_information)),
             style = MaterialTheme.typography.headlineMedium
         )
         
         Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
-             Text("Refresh Info")
+             Text(getThemedString(stringResource(R.string.refresh_info)))
         }
 
         // OS Info
-        InfoCard(title = "Operating System") {
+        InfoCard(title = getThemedString(stringResource(R.string.operating_system))) {
             InfoRow("Version", info.osInfo.version)
             InfoRow("SDK", info.osInfo.sdkVersion.toString())
             InfoRow("Manufacturer", info.osInfo.manufacturer)
@@ -84,14 +87,14 @@ private fun DeviceInfoContent(
         }
 
         // CPU Info
-        InfoCard(title = "CPU") {
+        InfoCard(title = getThemedString(stringResource(R.string.cpu))) {
             InfoRow("Cores", info.cpuInfo.cores.toString())
             InfoRow("Architecture", info.cpuInfo.architecture)
             InfoRow("Frequency", "${info.cpuInfo.frequency} MHz")
         }
 
         // RAM Info
-        InfoCard(title = "RAM") {
+        InfoCard(title = getThemedString(stringResource(R.string.ram))) {
             InfoRow("Used", Formatter.formatShortFileSize(context, info.ramInfo.used))
             InfoRow("Total", Formatter.formatShortFileSize(context, info.ramInfo.total))
             LinearProgressIndicator(
@@ -121,7 +124,7 @@ private fun DeviceInfoContent(
         }
 
         // Network Info
-        InfoCard(title = "Network Identity") {
+        InfoCard(title = getThemedString(stringResource(R.string.network_identity))) {
             InfoRow("IP Address", info.networkInfo.ipAddress ?: "Not available")
             InfoRow("Android ID", info.networkInfo.androidId ?: "Not available")
         }

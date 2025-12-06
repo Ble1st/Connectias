@@ -12,9 +12,10 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ThemeStyle
 import com.ble1st.connectias.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import javax.inject.Inject
+import com.ble1st.connectias.R
 
 /**
  * Fragment for Settings screen.
@@ -36,19 +37,24 @@ class SettingsFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                // Observe theme and dynamic color changes reactively
+                // Observe theme, theme style, and dynamic color changes reactively
                 val theme by settingsRepository.observeTheme().collectAsState(initial = settingsRepository.getTheme())
+                val themeStyleString by settingsRepository.observeThemeStyle().collectAsState(initial = settingsRepository.getThemeStyle())
                 val dynamicColor by settingsRepository.observeDynamicColor().collectAsState(initial = settingsRepository.getDynamicColor())
+                val themeStyle = remember(themeStyleString) { ThemeStyle.fromString(themeStyleString) }
                 
                 ConnectiasTheme(
                     themePreference = theme,
+                    themeStyle = themeStyle,
                     dynamicColor = dynamicColor
                 ) {
                     SettingsScreen(
                         viewModel = viewModel,
                         onNavigateBack = {
-                            // Navigation is handled by Navigation Component
-                            // This callback can be used for custom back handling if needed
+                            findNavController().popBackStack()
+                        },
+                        onNavigateToLogViewer = {
+                            findNavController().navigate(R.id.nav_log_viewer)
                         }
                     )
                 }

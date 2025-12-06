@@ -48,9 +48,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 import com.ble1st.connectias.feature.security.wifi.models.EncryptionStrength
 import com.ble1st.connectias.feature.security.wifi.models.RiskLevel
 import com.ble1st.connectias.feature.security.wifi.models.WifiSecurityReport
@@ -82,7 +85,7 @@ fun WifiSecurityAuditorScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("WiFi Security Audit") },
+                title = { Text(getThemedString(stringResource(R.string.wifi_security_audit_title))) },
                 actions = {
                     IconButton(
                         onClick = { viewModel.runFullScan() },
@@ -133,7 +136,7 @@ fun WifiSecurityAuditorScreen(
                 if (vulnerabilities.isNotEmpty()) {
                     item {
                         Text(
-                            text = "Vulnerabilities (${vulnerabilities.size})",
+                            text = getThemedString(stringResource(R.string.vulnerabilities, vulnerabilities.size)),
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
@@ -148,7 +151,7 @@ fun WifiSecurityAuditorScreen(
             if (uiState.suspiciousAPs.isNotEmpty()) {
                 item {
                     Text(
-                        text = "Suspicious Access Points (${uiState.suspiciousAPs.size})",
+                        text = getThemedString(stringResource(R.string.suspicious_access_points, uiState.suspiciousAPs.size)),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.error
@@ -182,7 +185,7 @@ fun WifiSecurityAuditorScreen(
                     ) {
                         Icon(Icons.Default.Security, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Run Security Scan")
+                        Text(getThemedString(stringResource(R.string.run_security_scan)))
                     }
                 }
             }

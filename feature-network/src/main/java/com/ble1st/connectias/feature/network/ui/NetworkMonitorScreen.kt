@@ -9,7 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.monitor.NetworkTraffic
 import java.util.Locale
 
@@ -28,7 +31,7 @@ fun NetworkMonitorScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Network Monitor",
+            text = getThemedString(stringResource(R.string.network_monitor_title)),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -39,7 +42,7 @@ fun NetworkMonitorScreen(
             )
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Connection Type", style = MaterialTheme.typography.labelMedium)
+                Text(getThemedString(stringResource(R.string.connection_type)), style = MaterialTheme.typography.labelMedium)
                 Text(
                     traffic.connectionType.name,
                     style = MaterialTheme.typography.headlineSmall
@@ -53,13 +56,13 @@ fun NetworkMonitorScreen(
         ) {
             TrafficCard(
                 modifier = Modifier.weight(1f),
-                title = "Download Rate",
+                title = getThemedString(stringResource(R.string.download_rate)),
                 value = "${formatBytesPerSecond(traffic.rxRate)}/s",
                 total = formatBytes(traffic.rxBytes)
             )
             TrafficCard(
                 modifier = Modifier.weight(1f),
-                title = "Upload Rate",
+                title = getThemedString(stringResource(R.string.upload_rate)),
                 value = "${formatBytesPerSecond(traffic.txRate)}/s",
                 total = formatBytes(traffic.txBytes)
             )
@@ -67,7 +70,7 @@ fun NetworkMonitorScreen(
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text("Total Data Transferred", style = MaterialTheme.typography.titleMedium)
+                Text(getThemedString(stringResource(R.string.total_data_transferred)), style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     formatBytes(traffic.rxBytes + traffic.txBytes),
@@ -83,7 +86,7 @@ fun NetworkMonitorScreen(
         ) {
             Icon(Icons.Default.Refresh, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Refresh Metrics")
+            Text(getThemedString(stringResource(R.string.refresh_metrics)))
         }
     }
 }
@@ -103,7 +106,7 @@ private fun TrafficCard(
             Text(title, style = MaterialTheme.typography.labelMedium)
             Text(value, style = MaterialTheme.typography.titleLarge)
             Spacer(modifier = Modifier.height(4.dp))
-            Text("Total: $total", style = MaterialTheme.typography.bodySmall)
+            Text(getThemedString(stringResource(R.string.total, total)), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

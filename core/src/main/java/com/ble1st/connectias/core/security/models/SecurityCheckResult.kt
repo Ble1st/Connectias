@@ -49,11 +49,11 @@ data class SecurityCheckResult private constructor(
         }
     }
 }
-sealed class SecurityThreat {
-    data class RootDetected(val method: String) : SecurityThreat()
-    data class DebuggerDetected(val method: String) : SecurityThreat()
-    data class EmulatorDetected(val method: String) : SecurityThreat()
-    data class TamperDetected(val method: String) : SecurityThreat()
-    data class HookDetected(val method: String) : SecurityThreat()
+sealed class SecurityThreat(open val name: String) {
+    data class RootDetected(val method: String) : SecurityThreat("Root Detected")
+    data class DebuggerDetected(val method: String) : SecurityThreat("Debugger Detected")
+    data class EmulatorDetected(val method: String) : SecurityThreat("Emulator Detected")
+    data class TamperDetected(val method: String) : SecurityThreat("Tamper Detected")
+    data class HookDetected(val method: String) : SecurityThreat("Hook Detected")
 }
 

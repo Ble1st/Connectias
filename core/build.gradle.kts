@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
@@ -23,6 +24,10 @@ android {
     }
     buildFeatures {
         buildConfig = true
+        compose = true // Added for Compose support
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
 }
 
@@ -55,7 +60,7 @@ dependencies {
     // - Google Play Integrity API or SafetyNet attestation with server-side verification
     // - Combining multiple signals server-side rather than relying on client-only heuristics
     // - Regular security audits and dependency monitoring (Dependabot/Snyk)
-    // Version pinned to 0.1.1 - verify security posture before upgrading
+    // - Version pinned to 0.1.1 - verify security posture before upgrading
     implementation(libs.rootbeer)
 
     // Hilt
@@ -63,6 +68,13 @@ dependencies {
     ksp(libs.hilt.compiler)
     // Explicitly add JavaPoet 1.13.0 for Hilt compatibility
     implementation(libs.javapoet)
+
+    // Hilt WorkManager
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.work.compiler)
+
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Logging
     implementation(libs.timber)
@@ -80,6 +92,22 @@ dependencies {
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
     api(libs.kotlin.reflect)
+
+    // Fragment
+    implementation(libs.androidx.fragment.ktx)
+
+    // Lifecycle
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
+
+    // Jetpack Compose
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.tooling.preview)
+    implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.foundation)
+    implementation(libs.androidx.compose.material.icons.extended)
+    implementation(libs.androidx.compose.activity)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     // Testing
     testImplementation(libs.junit)

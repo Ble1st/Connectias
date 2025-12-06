@@ -14,9 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 
 @Composable
 fun PasswordStrengthScreen(
@@ -44,7 +47,7 @@ fun PasswordStrengthScreen(
     ) {
         item {
             Text(
-                text = "Password Strength",
+                text = getThemedString(stringResource(R.string.password_strength_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
         }
@@ -55,7 +58,7 @@ fun PasswordStrengthScreen(
                     OutlinedTextField(
                         value = password,
                         onValueChange = { password = it },
-                        label = { Text("Password") },
+                        label = { Text(getThemedString(stringResource(R.string.password_label))) },
                         modifier = Modifier.fillMaxWidth(),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -75,7 +78,7 @@ fun PasswordStrengthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = password.isNotEmpty()
                     ) {
-                        Text("Check Strength")
+                        Text(getThemedString(stringResource(R.string.check_strength)))
                     }
                 }
             }
@@ -90,7 +93,7 @@ fun PasswordStrengthScreen(
         item {
             Card(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Password Generator", style = MaterialTheme.typography.titleMedium)
+                    Text(getThemedString(stringResource(R.string.password_generator)), style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     Row(
@@ -101,7 +104,7 @@ fun PasswordStrengthScreen(
                         OutlinedTextField(
                             value = lengthText,
                             onValueChange = { lengthText = it },
-                            label = { Text("Length") },
+                            label = { Text(getThemedString(stringResource(R.string.length))) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
                         )
@@ -114,7 +117,7 @@ fun PasswordStrengthScreen(
                                 checked = includeSpecial,
                                 onCheckedChange = { includeSpecial = it }
                             )
-                            Text("Special Chars")
+                            Text(getThemedString(stringResource(R.string.special_chars)))
                         }
                     }
                     
@@ -128,7 +131,7 @@ fun PasswordStrengthScreen(
                         modifier = Modifier.fillMaxWidth(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text("Generate Secure Password")
+                        Text(getThemedString(stringResource(R.string.generate_secure_password)))
                     }
                 }
             }
@@ -139,11 +142,11 @@ fun PasswordStrengthScreen(
 @Composable
 private fun StrengthResultCard(strength: PasswordStrength) {
     val (color, text) = when (strength.strength) {
-        Strength.VERY_WEAK -> Color.Red to "Very Weak"
-        Strength.WEAK -> Color(0xFFFF9800) to "Weak"
-        Strength.MODERATE -> Color(0xFFFFC107) to "Moderate"
-        Strength.STRONG -> Color(0xFF4CAF50) to "Strong"
-        Strength.VERY_STRONG -> Color(0xFF2E7D32) to "Very Strong"
+        Strength.VERY_WEAK -> Color.Red to getThemedString(stringResource(R.string.very_weak))
+        Strength.WEAK -> Color(0xFFFF9800) to getThemedString(stringResource(R.string.weak))
+        Strength.MODERATE -> Color(0xFFFFC107) to getThemedString(stringResource(R.string.moderate))
+        Strength.STRONG -> Color(0xFF4CAF50) to getThemedString(stringResource(R.string.strong))
+        Strength.VERY_STRONG -> Color(0xFF2E7D32) to getThemedString(stringResource(R.string.very_strong))
     }
 
     Card(
@@ -156,7 +159,7 @@ private fun StrengthResultCard(strength: PasswordStrength) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Score: ${strength.score}/10", style = MaterialTheme.typography.titleMedium, color = color)
+                Text(getThemedString(stringResource(R.string.score, strength.score)), style = MaterialTheme.typography.titleMedium, color = color)
                 Surface(
                     color = color.copy(alpha = 0.1f),
                     shape = MaterialTheme.shapes.small,
@@ -179,11 +182,11 @@ private fun StrengthResultCard(strength: PasswordStrength) {
             )
             Spacer(modifier = Modifier.height(8.dp))
             
-            Text("Entropy: ${String.format("%.2f", strength.entropy)} bits", style = MaterialTheme.typography.bodyMedium)
+            Text(getThemedString(stringResource(R.string.entropy, String.format("%.2f", strength.entropy))), style = MaterialTheme.typography.bodyMedium)
             
             if (strength.feedback.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Feedback:", style = MaterialTheme.typography.labelMedium)
+                Text(getThemedString(stringResource(R.string.feedback)), style = MaterialTheme.typography.labelMedium)
                 strength.feedback.forEach { feedback ->
                     Text("• $feedback", style = MaterialTheme.typography.bodySmall)
                 }

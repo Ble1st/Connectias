@@ -56,10 +56,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import kotlinx.coroutines.launch
 
 /**
@@ -83,7 +86,7 @@ fun WhoisScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("WHOIS Lookup") },
+                title = { Text(getThemedString(stringResource(R.string.whois_lookup_title))) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -123,14 +126,14 @@ fun WhoisScreen(
                                 onClick = { lookupType = 0 },
                                 shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                             ) {
-                                Text("Domain")
+                                Text(getThemedString(stringResource(R.string.domain)))
                             }
                             SegmentedButton(
                                 selected = lookupType == 1,
                                 onClick = { lookupType = 1 },
                                 shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                             ) {
-                                Text("IP Address")
+                                Text(getThemedString(stringResource(R.string.ip_address)))
                             }
                         }
 
@@ -139,9 +142,9 @@ fun WhoisScreen(
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            label = { Text(if (lookupType == 0) "Domain Name" else "IP Address") },
+                            label = { Text(if (lookupType == 0) getThemedString(stringResource(R.string.domain_name_label)) else getThemedString(stringResource(R.string.ip_address))) },
                             placeholder = { 
-                                Text(if (lookupType == 0) "example.com" else "8.8.8.8") 
+                                Text(if (lookupType == 0) getThemedString(stringResource(R.string.domain_hint)) else getThemedString(stringResource(R.string.ip_address_hint))) 
                             },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
@@ -173,7 +176,7 @@ fun WhoisScreen(
                                 Icon(Icons.Default.Search, contentDescription = null)
                             }
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Lookup")
+                            Text(getThemedString(stringResource(R.string.lookup)))
                         }
                     }
                 }

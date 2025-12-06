@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Orbitron Font Family -->
+    <!-- Regular weight (400) -->
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="400"
+        android:font="@font/orbitron_regular" />
+    <!-- Bold weight (700) -->
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="700"
+        android:font="@font/orbitron_bold" />
+    <!-- Black weight (900) -->
+    <font
+        android:fontStyle="normal"
+        android:fontWeight="900"
+        android:font="@font/orbitron_black" />
+</font-family>
+

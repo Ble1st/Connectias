@@ -13,6 +13,8 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.core.models.ConnectionType
 import com.ble1st.connectias.feature.network.monitor.NetworkMonitorProvider
 import com.ble1st.connectias.feature.network.monitor.NetworkTraffic
@@ -33,6 +35,9 @@ class NetworkMonitorFragment : Fragment() {
 
     private val viewModel: NetworkMonitorViewModel by viewModels()
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -41,13 +46,19 @@ class NetworkMonitorFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    val traffic by viewModel.trafficFlow.collectAsState()
-                    
-                    NetworkMonitorScreen(
-                        traffic = traffic,
-                        onRefresh = { viewModel.refreshCurrentTraffic() }
-                    )
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        val traffic by viewModel.trafficFlow.collectAsState()
+                        
+                        NetworkMonitorScreen(
+                            traffic = traffic,
+                            onRefresh = { viewModel.refreshCurrentTraffic() }
+                        )
+                    }
                 }
             }
         }

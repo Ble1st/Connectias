@@ -26,4 +26,7 @@
     <string name="view_device_details">View Device Details</string>
     <string name="open_dvd_drive">Eject DVD/CD Drive</string>
     <string name="close">Close</string>
+    <string name="usb_storage">USB Storage</string>
+    <string name="search_files">Search files...</string>
+    <string name="scan_for_devices">Scan for devices</string>
 </resources>

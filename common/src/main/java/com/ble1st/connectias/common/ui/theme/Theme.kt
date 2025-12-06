@@ -4,17 +4,28 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.os.Build
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.Typography
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
+import com.ble1st.connectias.common.ui.strings.AdeptusDictionary
+import com.ble1st.connectias.common.ui.strings.LocalAppStrings
+import com.ble1st.connectias.common.ui.strings.StandardDictionary
 
 /**
  * Finds the Activity from a Context, handling FragmentContextWrapper.
@@ -42,66 +53,85 @@ private val LightColorScheme = lightColorScheme(
     primary = Purple40,
     secondary = PurpleGrey40,
     tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
 )
 
 @Composable
 fun ConnectiasTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
-    // Optional theme preference from settings ("light", "dark", "system", or null)
     themePreference: String? = null,
+    themeStyle: ThemeStyle = ThemeStyle.Standard,
     content: @Composable () -> Unit
 ) {
-    // Determine dark theme: use themePreference if available, otherwise use parameter or system default
     val actualDarkTheme = when (themePreference) {
         "light" -> false
         "dark" -> true
-        "system", null -> darkTheme // Use parameter (which defaults to system)
+        "system", null -> darkTheme 
         else -> darkTheme
     }
     
-    // Use provided dynamicColor parameter
-    val actualDynamicColor = dynamicColor
+    val actualDynamicColor = dynamicColor && themeStyle is ThemeStyle.Standard
     
-    val colorScheme = when {
-        actualDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+    val colorScheme: ColorScheme = when {
+        actualDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && themeStyle is ThemeStyle.Standard -> {
             val context = LocalContext.current
             if (actualDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        themeStyle is ThemeStyle.AdeptusMechanicus -> {
+            // Force dark-ish scheme for Adeptus Mechanicus regardless of system setting, 
+            // but respect high-contrast/light mode slightly if implemented in AdeptusMechanicusLightColorScheme
+            if (actualDarkTheme) AdeptusMechanicusDarkColorScheme else AdeptusMechanicusLightColorScheme
         }
         actualDarkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
+    
+    val typography: Typography = when (themeStyle) {
+        is ThemeStyle.AdeptusMechanicus -> AdeptusMechanicusTypography
+        is ThemeStyle.Standard -> Typography
+    }
+
+    // Select the correct String Dictionary
+    val stringDictionary = when (themeStyle) {
+        is ThemeStyle.AdeptusMechanicus -> AdeptusDictionary
+        is ThemeStyle.Standard -> StandardDictionary
+    }
+    
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val activity = view.context.findActivity()
             activity?.window?.let { window ->
-                // Edge-to-Edge: Keep system bars transparent for fullscreen experience
                 window.statusBarColor = Color.TRANSPARENT
                 window.navigationBarColor = Color.TRANSPARENT
                 
-                // Set status bar icons based on theme (light icons for dark theme, dark icons for light)
                 val insetsController = WindowCompat.getInsetsController(window, view)
-                insetsController.isAppearanceLightStatusBars = !actualDarkTheme
-                insetsController.isAppearanceLightNavigationBars = !actualDarkTheme
+                // For Adeptus Mechanicus, we generally want light status bars (dark icons) only if the background is light,
+                // but since Adeptus is dark-themed, we usually want light content (isAppearanceLightStatusBars = false).
+                val isLightStatusBars = !actualDarkTheme && themeStyle is ThemeStyle.Standard
+                
+                insetsController.isAppearanceLightStatusBars = isLightStatusBars
+                insetsController.isAppearanceLightNavigationBars = isLightStatusBars
             }
         }
     }
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
-    )
+    CompositionLocalProvider(
+        LocalThemeStyle provides themeStyle,
+        LocalAppStrings provides stringDictionary
+    ) {
+        AnimatedContent(
+            targetState = themeStyle,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+            },
+            label = "ThemeTransition"
+        ) { currentThemeStyle ->
+            MaterialTheme(
+                colorScheme = colorScheme,
+                typography = typography,
+                content = content
+            )
+        }
+    }
 }

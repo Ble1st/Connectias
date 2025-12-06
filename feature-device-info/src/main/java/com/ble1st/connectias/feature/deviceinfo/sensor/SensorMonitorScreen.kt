@@ -10,7 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.deviceinfo.R
 
 @Composable
 fun SensorMonitorScreen(
@@ -63,12 +66,12 @@ private fun ActiveMonitoringView(
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
         ) {
             Column(modifier = Modifier.padding(24.dp)) {
-                Text("Values", style = MaterialTheme.typography.titleMedium)
+                Text(getThemedString(stringResource(R.string.values)), style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 data.values.forEachIndexed { index, value ->
                     Text(
-                        text = "Axis $index: ${String.format("%.4f", value)}",
+                        text = "${getThemedString(stringResource(R.string.axis, index))}: ${String.format("%.4f", value)}",
                         style = MaterialTheme.typography.headlineSmall
                     )
                 }
@@ -76,13 +79,13 @@ private fun ActiveMonitoringView(
                 Spacer(modifier = Modifier.height(16.dp))
                 
                 val accuracyText = when (data.accuracy) {
-                    SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> "High"
-                    SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> "Medium"
-                    SensorManager.SENSOR_STATUS_ACCURACY_LOW -> "Low"
-                    SensorManager.SENSOR_STATUS_UNRELIABLE -> "Unreliable"
-                    else -> "Unknown"
+                    SensorManager.SENSOR_STATUS_ACCURACY_HIGH -> getThemedString(stringResource(R.string.accuracy_high))
+                    SensorManager.SENSOR_STATUS_ACCURACY_MEDIUM -> getThemedString(stringResource(R.string.accuracy_medium))
+                    SensorManager.SENSOR_STATUS_ACCURACY_LOW -> getThemedString(stringResource(R.string.accuracy_low))
+                    SensorManager.SENSOR_STATUS_UNRELIABLE -> getThemedString(stringResource(R.string.accuracy_unreliable))
+                    else -> getThemedString(stringResource(R.string.unknown))
                 }
-                Text("Accuracy: $accuracyText", style = MaterialTheme.typography.bodyMedium)
+                Text("${getThemedString(stringResource(R.string.accuracy))}: $accuracyText", style = MaterialTheme.typography.bodyMedium)
             }
         }
 
@@ -95,7 +98,7 @@ private fun ActiveMonitoringView(
         ) {
             Icon(Icons.Default.Stop, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Stop Monitoring")
+            Text(getThemedString(stringResource(R.string.stop_monitor)))
         }
     }
 }
@@ -114,7 +117,7 @@ private fun SensorListView(
     ) {
         item {
             Text(
-                text = "Sensor Monitor",
+                text = getThemedString(stringResource(R.string.sensor_monitor_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
             
@@ -124,14 +127,14 @@ private fun SensorListView(
             ) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Refresh Sensors")
+                Text(getThemedString(stringResource(R.string.refresh_sensors)))
             }
         }
 
         if (state is SensorState.Sensors) {
             item {
                 Text(
-                    "${state.sensors.size} sensors found",
+                    getThemedString(stringResource(R.string.sensors_found, state.sensors.size)),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -143,7 +146,7 @@ private fun SensorListView(
         } else if (state is SensorState.Idle) {
             item {
                  Text(
-                    text = "Tap 'Refresh Sensors' to list available sensors.",
+                    text = getThemedString(stringResource(R.string.tap_refresh_sensors)),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -175,7 +178,7 @@ private fun SensorItem(sensor: SensorInfo, onClick: () -> Unit) {
             
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Vendor: ${sensor.vendor}",
+                text = "${getThemedString(stringResource(R.string.vendor))}: ${sensor.vendor}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -186,8 +189,8 @@ private fun SensorItem(sensor: SensorInfo, onClick: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Max Range: ${sensor.maxRange}", style = MaterialTheme.typography.bodySmall)
-                Text("Resolution: ${sensor.resolution}", style = MaterialTheme.typography.bodySmall)
+                Text("${getThemedString(stringResource(R.string.max_range))}: ${sensor.maxRange}", style = MaterialTheme.typography.bodySmall)
+                Text("${getThemedString(stringResource(R.string.resolution))}: ${sensor.resolution}", style = MaterialTheme.typography.bodySmall)
             }
         }
     }

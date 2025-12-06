@@ -52,10 +52,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -79,7 +82,7 @@ fun TracerouteScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Traceroute") },
+                title = { Text(getThemedString(stringResource(R.string.traceroute_title))) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -113,8 +116,8 @@ fun TracerouteScreen(
                         OutlinedTextField(
                             value = targetHost,
                             onValueChange = { targetHost = it },
-                            label = { Text("Target Host") },
-                            placeholder = { Text("e.g., google.com or 8.8.8.8") },
+                            label = { Text(getThemedString(stringResource(R.string.target_host))) },
+                            placeholder = { Text(getThemedString(stringResource(R.string.target_host_hint))) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             enabled = !isTracing
@@ -149,7 +152,7 @@ fun TracerouteScreen(
                                     contentDescription = null
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(if (isTracing) "Stop" else "Trace")
+                                Text(if (isTracing) getThemedString(stringResource(R.string.stop)) else getThemedString(stringResource(R.string.trace)))
                             }
                         }
                     }

@@ -11,8 +11,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.models.PortScanResult
 
 @Composable
@@ -40,7 +43,7 @@ fun PortScannerScreen(
                 OutlinedTextField(
                     value = host,
                     onValueChange = { host = it },
-                    label = { Text("Host / IP") },
+                    label = { Text(getThemedString(stringResource(R.string.host_ip))) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -50,8 +53,8 @@ fun PortScannerScreen(
                 OutlinedTextField(
                     value = portsText,
                     onValueChange = { portsText = it },
-                    label = { Text("Ports (optional, comma-separated)") },
-                    placeholder = { Text("e.g. 80, 443, 8080") },
+                    label = { Text(getThemedString(stringResource(R.string.ports_optional))) },
+                    placeholder = { Text(getThemedString(stringResource(R.string.ports_hint))) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -78,9 +81,9 @@ fun PortScannerScreen(
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Scanning...")
+                        Text(getThemedString(stringResource(R.string.scanning)))
                     } else {
-                        Text("Start Scan")
+                        Text(getThemedString(stringResource(R.string.start_scan)))
                     }
                 }
             }
@@ -130,7 +133,7 @@ fun PortScannerScreen(
                 }
                 is PortScanState.Idle -> {
                     Text(
-                        text = "Enter a host and optional ports to start scanning.",
+                        text = getThemedString(stringResource(R.string.port_scanner_idle_message)),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.align(Alignment.Center)

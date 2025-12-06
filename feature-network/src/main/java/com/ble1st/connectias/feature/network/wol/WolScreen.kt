@@ -64,9 +64,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.wol.models.WolDevice
 import com.ble1st.connectias.feature.network.wol.models.WolHistoryEntry
 import com.ble1st.connectias.feature.network.wol.models.WolResult
@@ -125,7 +128,7 @@ fun WolScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Wake-on-LAN") },
+                title = { Text(getThemedString(stringResource(R.string.wake_on_lan_title))) },
                 actions = {
                     IconButton(onClick = { viewModel.refreshDeviceStatuses() }) {
                         if (uiState.isRefreshing) {
@@ -263,7 +266,7 @@ private fun EmptyDevicesState(
         Button(onClick = onAddDevice) {
             Icon(Icons.Default.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Device")
+            Text(getThemedString(stringResource(R.string.add_device)))
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -271,7 +274,7 @@ private fun EmptyDevicesState(
         OutlinedButton(onClick = onQuickWake) {
             Icon(Icons.Default.FlashOn, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Quick Wake")
+            Text(getThemedString(stringResource(R.string.quick_wake)))
         }
     }
 }
@@ -406,7 +409,7 @@ private fun AddEditDeviceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (device != null) "Edit Device" else "Add Device") },
+        title = { Text(if (device != null) getThemedString(stringResource(R.string.edit_device)) else getThemedString(stringResource(R.string.add_device))) },
         text = {
             Column {
                 OutlinedTextField(
@@ -415,7 +418,7 @@ private fun AddEditDeviceDialog(
                         name = it
                         nameError = null
                     },
-                    label = { Text("Name") },
+                    label = { Text(getThemedString(stringResource(R.string.name))) },
                     isError = nameError != null,
                     supportingText = nameError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -429,8 +432,8 @@ private fun AddEditDeviceDialog(
                         macAddress = it.uppercase()
                         macError = null
                     },
-                    label = { Text("MAC Address") },
-                    placeholder = { Text("XX:XX:XX:XX:XX:XX") },
+                    label = { Text(getThemedString(stringResource(R.string.mac_address))) },
+                    placeholder = { Text(getThemedString(stringResource(R.string.mac_address_hint))) },
                     isError = macError != null,
                     supportingText = macError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -441,8 +444,8 @@ private fun AddEditDeviceDialog(
                 OutlinedTextField(
                     value = ipAddress,
                     onValueChange = { ipAddress = it },
-                    label = { Text("IP Address (optional)") },
-                    placeholder = { Text("192.168.1.100") },
+                    label = { Text(getThemedString(stringResource(R.string.ip_address_optional))) },
+                    placeholder = { Text(getThemedString(stringResource(R.string.ip_address_optional_hint))) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -455,14 +458,14 @@ private fun AddEditDeviceDialog(
                     OutlinedTextField(
                         value = broadcastAddress,
                         onValueChange = { broadcastAddress = it },
-                        label = { Text("Broadcast") },
+                        label = { Text(getThemedString(stringResource(R.string.broadcast))) },
                         modifier = Modifier.weight(1f)
                     )
 
                     OutlinedTextField(
                         value = port,
                         onValueChange = { port = it.filter { c -> c.isDigit() } },
-                        label = { Text("Port") },
+                        label = { Text(getThemedString(stringResource(R.string.port))) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.width(80.dp)
                     )
@@ -495,12 +498,12 @@ private fun AddEditDeviceDialog(
                     onSave(newDevice)
                 }
             ) {
-                Text("Save")
+                Text(getThemedString(stringResource(R.string.save)))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(getThemedString(stringResource(R.string.cancel)))
             }
         }
     )
@@ -518,7 +521,7 @@ private fun QuickWakeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Quick Wake") },
+        title = { Text(getThemedString(stringResource(R.string.quick_wake))) },
         text = {
             Column {
                 Text(
@@ -535,8 +538,8 @@ private fun QuickWakeDialog(
                         macAddress = it.uppercase()
                         macError = null
                     },
-                    label = { Text("MAC Address") },
-                    placeholder = { Text("XX:XX:XX:XX:XX:XX") },
+                    label = { Text(getThemedString(stringResource(R.string.mac_address))) },
+                    placeholder = { Text(getThemedString(stringResource(R.string.mac_address_hint))) },
                     isError = macError != null,
                     supportingText = macError?.let { { Text(it) } },
                     modifier = Modifier.fillMaxWidth()
@@ -551,14 +554,14 @@ private fun QuickWakeDialog(
                     OutlinedTextField(
                         value = broadcastAddress,
                         onValueChange = { broadcastAddress = it },
-                        label = { Text("Broadcast") },
+                        label = { Text(getThemedString(stringResource(R.string.broadcast))) },
                         modifier = Modifier.weight(1f)
                     )
 
                     OutlinedTextField(
                         value = port,
                         onValueChange = { port = it.filter { c -> c.isDigit() } },
-                        label = { Text("Port") },
+                        label = { Text(getThemedString(stringResource(R.string.port))) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.width(80.dp)
                     )
@@ -578,12 +581,12 @@ private fun QuickWakeDialog(
             ) {
                 Icon(Icons.Default.Power, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Wake")
+                Text(getThemedString(stringResource(R.string.wake)))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(getThemedString(stringResource(R.string.cancel)))
             }
         }
     )
@@ -611,7 +614,7 @@ private fun HistorySheet(
             )
             if (history.isNotEmpty()) {
                 OutlinedButton(onClick = onClear) {
-                    Text("Clear")
+                    Text(getThemedString(stringResource(R.string.clear)))
                 }
             }
         }

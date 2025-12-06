@@ -11,14 +11,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 
-enum class EncryptionOperation(val label: String) {
-    ENCRYPT("Encrypt"),
-    DECRYPT("Decrypt"),
-    GENERATE_KEY("Generate Key")
+enum class EncryptionOperation(val labelKey: String) {
+    ENCRYPT("encrypt"),
+    DECRYPT("decrypt"),
+    GENERATE_KEY("generate_key")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +61,7 @@ fun EncryptionScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Encryption Tools",
+            text = getThemedString(stringResource(R.string.encryption_tools_title)),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -70,9 +73,13 @@ fun EncryptionScreen(
             OutlinedTextField(
                 modifier = Modifier.menuAnchor().fillMaxWidth(),
                 readOnly = true,
-                value = selectedOperation.label,
+                value = when (selectedOperation) {
+                    EncryptionOperation.ENCRYPT -> getThemedString(stringResource(R.string.encrypt))
+                    EncryptionOperation.DECRYPT -> getThemedString(stringResource(R.string.decrypt))
+                    EncryptionOperation.GENERATE_KEY -> getThemedString(stringResource(R.string.generate_key))
+                },
                 onValueChange = {},
-                label = { Text("Operation") },
+                label = { Text(getThemedString(stringResource(R.string.operation))) },
                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                 colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
             )
@@ -82,7 +89,13 @@ fun EncryptionScreen(
             ) {
                 EncryptionOperation.values().forEach { operation ->
                     DropdownMenuItem(
-                        text = { Text(operation.label) },
+                        text = { 
+                            Text(when (operation) {
+                                EncryptionOperation.ENCRYPT -> getThemedString(stringResource(R.string.encrypt))
+                                EncryptionOperation.DECRYPT -> getThemedString(stringResource(R.string.decrypt))
+                                EncryptionOperation.GENERATE_KEY -> getThemedString(stringResource(R.string.generate_key))
+                            })
+                        },
                         onClick = {
                             selectedOperation = operation
                             expanded = false
@@ -97,7 +110,7 @@ fun EncryptionScreen(
             OutlinedTextField(
                 value = input,
                 onValueChange = { input = it },
-                label = { Text(if (selectedOperation == EncryptionOperation.ENCRYPT) "Text to Encrypt" else "Encrypted Data (Base64)") },
+                label = { Text(if (selectedOperation == EncryptionOperation.ENCRYPT) getThemedString(stringResource(R.string.text_to_encrypt)) else getThemedString(stringResource(R.string.encrypted_data_base64))) },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3
             )
@@ -105,7 +118,7 @@ fun EncryptionScreen(
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Password") },
+                label = { Text(getThemedString(stringResource(R.string.password_label))) },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -123,13 +136,13 @@ fun EncryptionScreen(
             OutlinedTextField(
                 value = iv,
                 onValueChange = { iv = it },
-                label = { Text("IV (Initialization Vector)") },
+                label = { Text(getThemedString(stringResource(R.string.iv_initialization_vector))) },
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
                 value = salt,
                 onValueChange = { salt = it },
-                label = { Text("Salt") },
+                label = { Text(getThemedString(stringResource(R.string.salt))) },
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -152,7 +165,7 @@ fun EncryptionScreen(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Execute")
+                Text(getThemedString(stringResource(R.string.execute)))
             }
         }
 
@@ -164,24 +177,24 @@ fun EncryptionScreen(
                 )
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Result", style = MaterialTheme.typography.titleMedium)
+                    Text(getThemedString(stringResource(R.string.result)), style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
                     
                     when (state) {
                         is EncryptionState.Encrypted -> {
-                            ResultRow("Encrypted Data:", state.encryptedData)
-                            ResultRow("IV:", state.iv)
-                            ResultRow("Salt:", state.salt)
+                            ResultRow(getThemedString(stringResource(R.string.encrypted_data)), state.encryptedData)
+                            ResultRow(getThemedString(stringResource(R.string.iv)), state.iv)
+                            ResultRow(getThemedString(stringResource(R.string.salt)), state.salt)
                         }
                         is EncryptionState.Decrypted -> {
-                            ResultRow("Plaintext:", state.plaintext)
+                            ResultRow(getThemedString(stringResource(R.string.plaintext)), state.plaintext)
                         }
                         is EncryptionState.KeyGenerated -> {
-                            ResultRow("Generated Key:", state.key)
+                            ResultRow(getThemedString(stringResource(R.string.generated_key)), state.key)
                         }
                         is EncryptionState.Error -> {
                             Text(
-                                text = "Error: ${state.message}",
+                                text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                                 color = MaterialTheme.colorScheme.error
                             )
                         }

@@ -23,6 +23,20 @@
     <string name="no_lan_devices">No devices found on local network</string>
     <string name="partial_success_prefix">Warning: %1$s</string>
     <string name="unknown_error">An unknown error occurred</string>
+    <string name="retry_all">Retry All</string>
+    <string name="connection_type">Connection Type</string>
+    <string name="connected">Connected</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+    <string name="gateway">Gateway</string>
+    <string name="dns_servers">DNS Servers</string>
+    <string name="not_available">N/A</string>
+    <string name="port_scanner_idle_message">Enter a host and optional ports to start scanning.</string>
+    <string name="host_ip">Host / IP</string>
+    <string name="ports_optional">Ports (optional, comma-separated)</string>
+    <string name="ports_hint">e.g. 80, 443, 8080</string>
+    <string name="scanning">Scanning...</string>
+    <string name="start_scan">Start Scan</string>
     
     <!-- Hypervisor Detector -->
     <string name="hypervisor_detector_title">Hypervisor/VM Detector</string>
@@ -37,5 +51,105 @@
     <string name="hypervisor_reset">Reset</string>
     <string name="hypervisor_retry">Retry</string>
     <string name="hypervisor_loading_description">Loading hypervisor detection results</string>
+    
+    <!-- DNS Lookup -->
+    <string name="dns_diagnostics_title">DNS Diagnostics</string>
+    <string name="domain_ip">Domain / IP</string>
+    <string name="dns_server_optional">DNS Server (Optional)</string>
+    <string name="dns_server_hint">e.g. 8.8.8.8</string>
+    <string name="record_type">Record Type</string>
+    <string name="lookup">Lookup</string>
+    <string name="reverse">Reverse</string>
+    <string name="test_dns_server">Test DNS Server</string>
+    <string name="results">Results</string>
+    
+    <!-- WiFi Analyzer -->
+    <string name="wifi_analyzer_title">Wi‑Fi Analyzer</string>
+    <string name="analyze_networks">Analyze Networks</string>
+    <string name="recommendation">Recommendation</string>
+    <string name="best_channel">Best Channel: %1$d</string>
+    <string name="channel_overlaps">Channel Overlaps</string>
+    <string name="channel_details">Channel Details</string>
+    <string name="networks_count">%1$d networks</string>
+    
+    <!-- Network Monitor -->
+    <string name="network_monitor_title">Network Monitor</string>
+    <string name="download_rate">Download Rate</string>
+    <string name="upload_rate">Upload Rate</string>
+    <string name="total_data_transferred">Total Data Transferred</string>
+    <string name="refresh_metrics">Refresh Metrics</string>
+    <string name="total">Total: %1$s</string>
+    
+    <!-- Speed Test -->
+    <string name="speed_test_title">Speed Test</string>
+    <string name="test_server">Test Server</string>
+    <string name="stop_test">Stop Test</string>
+    <string name="start_test">Start Test</string>
+    <string name="clear">Clear</string>
+    
+    <!-- Traceroute -->
+    <string name="traceroute_title">Traceroute</string>
+    <string name="target_host">Target Host</string>
+    <string name="target_host_hint">e.g., google.com or 8.8.8.8</string>
+    
+    <!-- WHOIS -->
+    <string name="whois_lookup_title">WHOIS Lookup</string>
+    <string name="domain">Domain</string>
+    <string name="ip_address">IP Address</string>
+    <string name="domain_name">Domain Name</string>
+    <string name="domain_hint">example.com</string>
+    <string name="ip_address_hint">8.8.8.8</string>
+    
+    <!-- Wake-on-LAN -->
+    <string name="wake_on_lan_title">Wake-on-LAN</string>
+    <string name="add_device">Add Device</string>
+    <string name="quick_wake">Quick Wake</string>
+    <string name="name">Name</string>
+    <string name="mac_address">MAC Address</string>
+    <string name="mac_address_hint">XX:XX:XX:XX:XX:XX</string>
+    <string name="ip_address_optional">IP Address (optional)</string>
+    <string name="ip_address_optional_hint">192.168.1.100</string>
+    <string name="broadcast">Broadcast</string>
+    <string name="port">Port</string>
+    <string name="save">Save</string>
+    <string name="cancel">Cancel</string>
+    <string name="wake">Wake</string>
+    
+    <!-- IP Geolocation -->
+    <string name="ip_geolocation_title">IP Geolocation</string>
+    <string name="ip_address_label">IP Address</string>
+    <string name="ip_address_placeholder">e.g., 8.8.8.8</string>
+    <string name="my_ip">My IP</string>
+    <string name="proxy_vpn">Proxy/VPN</string>
+    <string name="hosting_datacenter">Hosting/Datacenter</string>
+    <string name="mobile_network">Mobile Network</string>
+    
+    <!-- Flow Analyzer -->
+    <string name="reset">Reset</string>
+    <string name="analyze_flows">Analyze Flows</string>
+    
+    <!-- DHCP Lease -->
+    <string name="dhcp_lease_viewer_title">DHCP Lease Viewer</string>
+    <string name="dhcp_lease_info">DHCP leases are inferred from device discovery since Android doesn\'t provide direct DHCP access.</string>
+    <string name="reserved_ips">Reserved IPs (%1$d)</string>
+    <string name="dhcp_leases">DHCP Leases (%1$d)</string>
+    <string name="dhcp_lease_analysis_requires_devices">DHCP lease analysis requires discovered devices.</string>
+    <string name="use_network_dashboard_first">Use the Network Dashboard to discover devices first.</string>
+    <string name="analyze_leases">Analyze Leases</string>
+    
+    <!-- Flow Analyzer -->
+    <string name="network_flow_analyzer_title">Network Flow Analyzer</string>
+    <string name="click_to_start_flow_analysis">Click the button below to start flow analysis.</string>
+    <string name="for_best_results_use_dashboard">For best results, use the Network Dashboard to discover devices first.</string>
+    
+    <!-- Traceroute -->
+    <string name="stop">Stop</string>
+    <string name="trace">Trace</string>
+    
+    <!-- WHOIS -->
+    <string name="domain_name_label">Domain Name</string>
+    
+    <!-- Wake-on-LAN -->
+    <string name="edit_device">Edit Device</string>
 </resources>
 

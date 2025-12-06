@@ -9,7 +9,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.network.R
 import com.ble1st.connectias.feature.network.scanner.DnsLookupProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,7 +36,7 @@ fun DnsLookupScreen(
     ) {
         item {
             Text(
-                text = "DNS Diagnostics",
+                text = getThemedString(stringResource(R.string.dns_diagnostics_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
         }
@@ -44,7 +47,7 @@ fun DnsLookupScreen(
                     OutlinedTextField(
                         value = domain,
                         onValueChange = { domain = it },
-                        label = { Text("Domain / IP") },
+                        label = { Text(getThemedString(stringResource(R.string.domain_ip))) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -54,8 +57,8 @@ fun DnsLookupScreen(
                     OutlinedTextField(
                         value = dnsServer,
                         onValueChange = { dnsServer = it },
-                        label = { Text("DNS Server (Optional)") },
-                        placeholder = { Text("e.g. 8.8.8.8") },
+                        label = { Text(getThemedString(stringResource(R.string.dns_server_optional))) },
+                        placeholder = { Text(getThemedString(stringResource(R.string.dns_server_hint))) },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -71,7 +74,7 @@ fun DnsLookupScreen(
                             readOnly = true,
                             value = selectedRecordType.name,
                             onValueChange = {},
-                            label = { Text("Record Type") },
+                            label = { Text(getThemedString(stringResource(R.string.record_type))) },
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                             colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
                         )
@@ -103,14 +106,14 @@ fun DnsLookupScreen(
                             modifier = Modifier.weight(1f),
                             enabled = state !is DnsState.Loading && domain.isNotBlank()
                         ) {
-                            Text("Lookup")
+                            Text(getThemedString(stringResource(R.string.lookup)))
                         }
                         Button(
                             onClick = { onReverseLookup(domain, dnsServer.takeIf { it.isNotBlank() }) },
                             modifier = Modifier.weight(1f),
                             enabled = state !is DnsState.Loading && domain.isNotBlank()
                         ) {
-                            Text("Reverse")
+                            Text(getThemedString(stringResource(R.string.reverse)))
                         }
                     }
                     
@@ -122,7 +125,7 @@ fun DnsLookupScreen(
                         enabled = state !is DnsState.Loading && dnsServer.isNotBlank(),
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
                     ) {
-                        Text("Test DNS Server")
+                        Text(getThemedString(stringResource(R.string.test_dns_server)))
                     }
                 }
             }
@@ -136,7 +139,7 @@ fun DnsLookupScreen(
              }
         } else if (state is DnsState.Success) {
              item {
-                 Text("Results", style = MaterialTheme.typography.titleLarge)
+                 Text(getThemedString(stringResource(R.string.results)), style = MaterialTheme.typography.titleLarge)
              }
              
              items(state.results) { result ->

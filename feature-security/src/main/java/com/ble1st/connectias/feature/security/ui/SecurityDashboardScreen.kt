@@ -7,7 +7,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 import com.ble1st.connectias.core.security.models.SecurityCheckResult
 import com.ble1st.connectias.core.security.models.SecurityThreat
 
@@ -24,7 +27,7 @@ fun SecurityDashboardScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Security Dashboard",
+            text = getThemedString(stringResource(R.string.security_dashboard_title)),
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(bottom = 24.dp)
         )
@@ -32,15 +35,15 @@ fun SecurityDashboardScreen(
         when (state) {
             is SecurityState.Loading -> {
                 CircularProgressIndicator()
-                Text("Checking security...", modifier = Modifier.padding(top = 16.dp))
+                Text(getThemedString(stringResource(R.string.checking_security)), modifier = Modifier.padding(top = 16.dp))
             }
             is SecurityState.Error -> {
                 Text(
-                    text = "Error: ${state.message}",
+                    text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                     color = MaterialTheme.colorScheme.error
                 )
                 Button(onClick = onRefresh, modifier = Modifier.padding(top = 16.dp)) {
-                    Text("Retry")
+                    Text(getThemedString(stringResource(R.string.retry)))
                 }
             }
             is SecurityState.Success -> {
@@ -49,7 +52,7 @@ fun SecurityDashboardScreen(
                 Spacer(modifier = Modifier.height(24.dp))
                 
                 Button(onClick = onRefresh) {
-                    Text("Refresh Status")
+                    Text(getThemedString(stringResource(R.string.refresh_status)))
                 }
             }
         }
@@ -80,12 +83,12 @@ fun SecurityStatusContent(result: SecurityCheckResult) {
             Spacer(modifier = Modifier.height(8.dp))
             
             if (result.threats.isNotEmpty()) {
-                Text("Threats found:", style = MaterialTheme.typography.labelLarge)
+                Text(getThemedString(stringResource(R.string.threats_found)), style = MaterialTheme.typography.labelLarge)
                 result.threats.forEach { threat ->
                     Text("• ${formatThreat(threat)}")
                 }
             } else {
-                Text("No threats detected. System is secure.")
+                Text(getThemedString(stringResource(R.string.no_threats_detected)))
             }
         }
     }

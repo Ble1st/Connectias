@@ -40,6 +40,10 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":common"))
 
+    // TEMPORARY: Direct dependency to app module to resolve R.id.nav_log_viewer
+    // This creates a tight coupling and should be refactored with proper navigation contracts
+    implementation(project(":app"))
+
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -59,6 +63,9 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 
+    // Explicitly add javax.inject for @Inject annotation resolution
+    implementation("javax.inject:javax.inject:1")
+
     // Navigation
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
@@ -77,10 +84,8 @@ dependencies {
     implementation(libs.timber)
 
     // Compose Theme Adapter
-    implementation(libs.compose.theme.adapter)
-
-    // Hilt Navigation Compose
-    implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
+    implementation("androidx.hilt:hilt-navigation-compose:1.2.0") // Using direct string as libs.hiltNavigation was for fragment.ktx
+    // Note: The above might be correct for app module, but here we need hilt-navigation-compose for composables.
 
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
@@ -91,4 +96,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-

@@ -47,6 +47,9 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.usb.R
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -136,7 +139,7 @@ fun UsbStorageBrowserScreen(
                             )
                         }
                     } else {
-                        Text("USB Storage")
+                        Text(getThemedString(stringResource(R.string.usb_storage)))
                     }
                 },
                 navigationIcon = {
@@ -180,7 +183,7 @@ fun UsbStorageBrowserScreen(
                     onSearch = { viewModel.search(it) },
                     active = false,
                     onActiveChange = {},
-                    placeholder = { Text("Search files...") },
+                    placeholder = { Text(getThemedString(stringResource(R.string.search_files))) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     trailingIcon = {
                         if (searchQuery.isNotEmpty()) {
@@ -284,7 +287,7 @@ private fun DeviceSelectionScreen(
             Button(onClick = onRefresh) {
                 Icon(Icons.Default.Refresh, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Scan for devices")
+                Text(getThemedString(stringResource(R.string.scan_for_devices)))
             }
         } else {
             Text(

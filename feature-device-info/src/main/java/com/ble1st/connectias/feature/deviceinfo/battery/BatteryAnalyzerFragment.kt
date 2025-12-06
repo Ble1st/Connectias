@@ -11,7 +11,10 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
+import com.ble1st.connectias.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 /**
  * Fragment for Battery Analyzer.
@@ -21,6 +24,9 @@ class BatteryAnalyzerFragment : Fragment() {
 
     private val viewModel: BatteryAnalyzerViewModel by viewModels()
 
+    @Inject
+    lateinit var settingsRepository: SettingsRepository
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -29,19 +35,25 @@ class BatteryAnalyzerFragment : Fragment() {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
-                ConnectiasTheme {
-                    val state by viewModel.batteryState.collectAsState()
-                    
-                    BatteryAnalyzerScreen(
-                        state = state,
-                        onGetInfo = { viewModel.getBatteryInfo() },
-                        onStartMonitoring = { viewModel.startMonitoring() },
-                        onStopMonitoring = { viewModel.stopMonitoring() },
-                        onEstimateTime = { 
-                            viewModel.estimateTimeToFullCharge()
-                            viewModel.estimateTimeToEmpty()
-                        }
-                    )
+                ObserveThemeSettings(settingsRepository) { theme, themeStyle, dynamicColor ->
+                    ConnectiasTheme(
+                        themePreference = theme,
+                        themeStyle = themeStyle,
+                        dynamicColor = dynamicColor
+                    ) {
+                        val state by viewModel.batteryState.collectAsState()
+                        
+                        BatteryAnalyzerScreen(
+                            state = state,
+                            onGetInfo = { viewModel.getBatteryInfo() },
+                            onStartMonitoring = { viewModel.startMonitoring() },
+                            onStopMonitoring = { viewModel.stopMonitoring() },
+                            onEstimateTime = { 
+                                viewModel.estimateTimeToFullCharge()
+                                viewModel.estimateTimeToEmpty()
+                            }
+                        )
+                    }
                 }
             }
         }

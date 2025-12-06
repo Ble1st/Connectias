@@ -11,7 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.security.R
 
 @Composable
 fun FirewallAnalyzerScreen(
@@ -43,7 +46,7 @@ private fun FirewallAnalyzerContent(
     ) {
         item {
             Text(
-                text = "Firewall Analyzer",
+                text = getThemedString(stringResource(R.string.firewall_analyzer_title)),
                 style = MaterialTheme.typography.headlineMedium
             )
             
@@ -53,7 +56,7 @@ private fun FirewallAnalyzerContent(
             ) {
                 Icon(Icons.Default.Shield, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Analyze Network Permissions")
+                Text(getThemedString(stringResource(R.string.analyze_network_permissions)))
             }
         }
 
@@ -67,19 +70,19 @@ private fun FirewallAnalyzerContent(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Analysis Summary",
+                            getThemedString(stringResource(R.string.analysis_summary)),
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Total apps with network access: ${state.apps.size}")
-                        Text("Risky apps identified: ${state.riskyApps.size}")
+                        Text(getThemedString(stringResource(R.string.total_apps_network_access, state.apps.size)))
+                        Text(getThemedString(stringResource(R.string.risky_apps_identified, state.riskyApps.size)))
                     }
                 }
             }
 
             if (state.riskyApps.isNotEmpty()) {
                 item {
-                    Text("Risky Apps", style = MaterialTheme.typography.titleLarge)
+                    Text(getThemedString(stringResource(R.string.risky_apps)), style = MaterialTheme.typography.titleLarge)
                 }
                 
                 items(state.riskyApps) { riskyApp ->
@@ -89,7 +92,7 @@ private fun FirewallAnalyzerContent(
         } else if (state is FirewallState.Idle) {
             item {
                 Text(
-                    text = "Tap 'Analyze Network Permissions' to scan installed apps for network access risks.",
+                    text = getThemedString(stringResource(R.string.tap_analyze_network_permissions)),
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -97,7 +100,7 @@ private fun FirewallAnalyzerContent(
         } else if (state is FirewallState.Error) {
             item {
                 Text(
-                    text = "Error: ${state.message}",
+                    text = getThemedString(stringResource(R.string.error_prefix, state.message)),
                     color = MaterialTheme.colorScheme.error
                 )
             }
@@ -134,7 +137,7 @@ private fun RiskyAppItem(riskyApp: RiskyApp) {
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "Risk Factors:",
+                text = getThemedString(stringResource(R.string.risk_factors)),
                 style = MaterialTheme.typography.labelMedium
             )
             riskyApp.reasons.forEach { reason ->
@@ -150,9 +153,9 @@ private fun RiskyAppItem(riskyApp: RiskyApp) {
 @Composable
 private fun RiskBadge(level: RiskLevel) {
     val (color, text) = when (level) {
-        RiskLevel.HIGH -> MaterialTheme.colorScheme.error to "High Risk"
-        RiskLevel.MEDIUM -> Color(0xFFFF9800) to "Medium Risk"
-        RiskLevel.LOW -> Color(0xFF4CAF50) to "Low Risk"
+        RiskLevel.HIGH -> MaterialTheme.colorScheme.error to getThemedString(stringResource(R.string.high_risk))
+        RiskLevel.MEDIUM -> Color(0xFFFF9800) to getThemedString(stringResource(R.string.medium_risk))
+        RiskLevel.LOW -> Color(0xFF4CAF50) to getThemedString(stringResource(R.string.low_risk))
     }
     
     Surface(

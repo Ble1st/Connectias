@@ -14,6 +14,7 @@ constraintlayout = "2.2.1"
 # Downgraded to 2.56.1 due to JavaPoet compatibility issue with 2.57.2
 hilt = "2.57.2"
 hiltNavigation = "1.3.0"
+hiltWork = "1.2.0" # Added for Hilt WorkManager integration
 
 # Room Database
 room = "2.8.4"
@@ -42,6 +43,9 @@ coreSplashscreen = "1.0.1"
 
 # Logging
 timber = "5.0.1"
+
+# WorkManager
+workManager = "2.9.0" # Added for WorkManager
 
 # Security
 securityCrypto = "1.1.0"
@@ -117,6 +121,9 @@ material = { group = "com.google.android.material", name = "material", version.r
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
 hilt-navigation-fragment = { group = "androidx.hilt", name = "hilt-navigation-fragment", version.ref = "hiltNavigation" }
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" } # Added for Hilt WorkManager integration
+androidx-hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" } # KSP for Hilt WorkManager
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigation" } # Added
 
 # Room Database
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
@@ -144,6 +151,9 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+
+# WorkManager
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" } # Added for WorkManager
 
 # Security
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
@@ -175,7 +185,7 @@ bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", ver
 bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
 dnsjava = { group = "dnsjava", name = "dnsjava", version.ref = "dnsjava" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
-itext-core = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
+itext = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
 mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
 chicory-runtime = { group = "com.dylibso.chicory", name = "runtime", version.ref = "chicory" }
 

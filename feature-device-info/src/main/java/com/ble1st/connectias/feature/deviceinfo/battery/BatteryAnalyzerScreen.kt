@@ -10,7 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.common.ui.strings.getThemedString
+import com.ble1st.connectias.feature.deviceinfo.R
 
 @Composable
 fun BatteryAnalyzerScreen(
@@ -30,7 +33,7 @@ fun BatteryAnalyzerScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Battery Analyzer",
+            text = getThemedString(stringResource(R.string.battery_analyzer_title)),
             style = MaterialTheme.typography.headlineMedium
         )
 
@@ -40,10 +43,10 @@ fun BatteryAnalyzerScreen(
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Button(onClick = onGetInfo, modifier = Modifier.weight(1f)) {
-                Text("Refresh Info")
+                Text(getThemedString(stringResource(R.string.refresh_info)))
             }
             Button(onClick = onEstimateTime, modifier = Modifier.weight(1f)) {
-                Text("Estimate Time")
+                Text(getThemedString(stringResource(R.string.estimate_time)))
             }
         }
 
@@ -56,14 +59,14 @@ fun BatteryAnalyzerScreen(
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
-                Text("Start Monitor")
+                Text(getThemedString(stringResource(R.string.start_monitor)))
             }
             Button(
                 onClick = onStopMonitoring,
                 modifier = Modifier.weight(1f),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
-                Text("Stop Monitor")
+                Text(getThemedString(stringResource(R.string.stop_monitor)))
             }
         }
 
@@ -73,7 +76,7 @@ fun BatteryAnalyzerScreen(
                 
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Battery Status", style = MaterialTheme.typography.titleMedium)
+                        Text(getThemedString(stringResource(R.string.battery_status)), style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -92,13 +95,19 @@ fun BatteryAnalyzerScreen(
                         }
                         
                         Spacer(modifier = Modifier.height(16.dp))
-                        InfoRow("Status", if (info.isCharging) "Charging" else "Not Charging")
-                        InfoRow("Health", info.healthStatus.name)
-                        InfoRow("Charge Type", info.chargeType.name)
-                        InfoRow("Voltage", "${info.voltage} mV")
-                        InfoRow("Temperature", "${info.temperature}°C")
-                        InfoRow("Capacity", if (info.capacity > 0) "${info.capacity / 1000} mAh" else "Unknown")
-                        InfoRow("Current", "${info.currentAverage / 1000} mA")
+                        InfoRow(
+                            getThemedString(stringResource(R.string.status)),
+                            if (info.isCharging) getThemedString(stringResource(R.string.charging)) else getThemedString(stringResource(R.string.not_charging))
+                        )
+                        InfoRow(getThemedString(stringResource(R.string.health)), info.healthStatus.name)
+                        InfoRow(getThemedString(stringResource(R.string.charge_type)), info.chargeType.name)
+                        InfoRow(getThemedString(stringResource(R.string.voltage)), "${info.voltage} mV")
+                        InfoRow(getThemedString(stringResource(R.string.temperature)), "${info.temperature}°C")
+                        InfoRow(
+                            getThemedString(stringResource(R.string.capacity)),
+                            if (info.capacity > 0) "${info.capacity / 1000} mAh" else getThemedString(stringResource(R.string.unknown))
+                        )
+                        InfoRow(getThemedString(stringResource(R.string.current)), "${info.currentAverage / 1000} mA")
                     }
                 }
             }
@@ -108,13 +117,13 @@ fun BatteryAnalyzerScreen(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        Text("Time Estimate", style = MaterialTheme.typography.titleMedium)
+                        Text(getThemedString(stringResource(R.string.time_estimate)), style = MaterialTheme.typography.titleMedium)
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         if (state.timeMs != null) {
                             val hours = state.timeMs / (1000 * 60 * 60)
                             val minutes = (state.timeMs % (1000 * 60 * 60)) / (1000 * 60)
-                            val label = if (state.isCharging) "Time to full charge" else "Time to empty"
+                            val label = if (state.isCharging) getThemedString(stringResource(R.string.time_to_full_charge)) else getThemedString(stringResource(R.string.time_to_empty))
                             
                             Text(label, style = MaterialTheme.typography.labelMedium)
                             Text(
@@ -122,14 +131,14 @@ fun BatteryAnalyzerScreen(
                                 style = MaterialTheme.typography.headlineSmall
                             )
                         } else {
-                            Text("Unable to estimate time. Ensure device is discharging or charging steadily.")
+                            Text(getThemedString(stringResource(R.string.unable_to_estimate_time)))
                         }
                     }
                 }
             }
             is BatteryState.Idle -> {
                 Text(
-                    "Tap 'Refresh Info' to view battery details.",
+                    getThemedString(stringResource(R.string.tap_refresh_battery)),
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
