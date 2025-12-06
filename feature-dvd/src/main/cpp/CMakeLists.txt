@@ -16,6 +16,12 @@ message(STATUS "CSS decryption enabled (libdvdcss built from source)")
 # DVD JNI Library
 add_library(dvd_jni SHARED
     dvd_jni.cpp
+    vlc_jni.cpp
+)
+
+# Include directories
+target_include_directories(dvd_jni PRIVATE
+    src/main/cpp/include
 )
 
 # 16 KB page size alignment for Android 15+ compatibility

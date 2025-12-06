@@ -80,6 +80,9 @@ accompanist = "0.34.0"
 # USB Mass Storage
 libaums = "0.10.0"
 
+# LibVLC
+libvlc = "3.6.0"
+
 # DataStore
 datastore = "1.1.1"
 
@@ -219,6 +222,9 @@ accompanist-permissions = { group = "com.google.accompanist", name = "accompanis
 # USB Mass Storage
 libaums-core = { group = "me.jahnen.libaums", name = "core", version.ref = "libaums" }
 libaums-libusbcommunication = { group = "me.jahnen.libaums", name = "libusbcommunication", version.ref = "libaums" }
+
+# LibVLC
+libvlc-all = { group = "org.videolan.android", name = "libvlc-all", version.ref = "libvlc" }
 
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }

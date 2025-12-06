@@ -11,11 +11,12 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.common.ui.theme.ThemeStyle
 import com.ble1st.connectias.core.settings.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
-import com.ble1st.connectias.R
+import javax.inject.Inject
 
 /**
  * Fragment for Settings screen.
@@ -54,7 +55,12 @@ class SettingsFragment : Fragment() {
                             findNavController().popBackStack()
                         },
                         onNavigateToLogViewer = {
-                            findNavController().navigate(R.id.nav_log_viewer)
+                            // Use getIdentifier to avoid circular dependency with app module
+                            // This allows navigation without direct R.id reference
+                            val navId = resources.getIdentifier("nav_log_viewer", "id", requireContext().packageName)
+                            if (navId != 0) {
+                                findNavController().navigate(navId)
+                            }
                         }
                     )
                 }

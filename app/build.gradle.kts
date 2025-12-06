@@ -95,6 +95,10 @@ dependencies {
     val featureUsbEnabled = project.findProperty("feature.usb.enabled") == "true"
     if (featureUsbEnabled) {
         implementation(project(":feature-usb"))
+    }
+
+    val featureDvdEnabled = project.findProperty("feature.dvd.enabled") == "true"
+    if (featureDvdEnabled) {
         implementation(project(":feature-dvd"))
     }
 

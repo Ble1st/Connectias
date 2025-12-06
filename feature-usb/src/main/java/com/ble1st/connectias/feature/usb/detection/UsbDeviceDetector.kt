@@ -323,18 +323,17 @@ class UsbDeviceDetector @Inject constructor(
             Timber.w(e, "Error checking USB interfaces")
         }
         
-        // 3. Check for known DVD/CD drive indicators in product/manufacturer names
-        val productNameLower = product?.lowercase() ?: ""
-        val manufacturerNameLower = manufacturer?.lowercase() ?: ""
-        val hasDvdCdIndicators = productNameLower.contains("dvd") || 
-                                 productNameLower.contains("cd") || 
-                                 productNameLower.contains("optical") ||
-                                 productNameLower.contains("disc") ||
-                                 manufacturerNameLower.contains("dvd") ||
-                                 manufacturerNameLower.contains("cd") ||
-                                 manufacturerNameLower.contains("optical")
-        
-        val isMassStorage = isDeviceClassMassStorage || hasMassStorageInterface || hasDvdCdIndicators
+            // 3. Combine checks
+            val isMassStorage = isDeviceClassMassStorage || hasMassStorageInterface
+            
+            Timber.d("USB Detection Detail for ${device.deviceName}: " +
+                    "Class=${device.deviceClass}, " +
+                    "Subclass=${device.deviceSubclass}, " +
+                    "Protocol=${device.deviceProtocol}, " +
+                    "Interfaces=${device.interfaceCount}, " +
+                    "IsMassStorageClass=$isDeviceClassMassStorage, " +
+                    "HasMassStorageInterface=$hasMassStorageInterface => " +
+                    "Result: IsMassStorage=$isMassStorage")
         
         // If device has Mass Storage interface but deviceClass is not Mass Storage,
         // set deviceClass to Mass Storage so that isMassStorage computed property works correctly

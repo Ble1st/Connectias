@@ -32,7 +32,6 @@ fun UsbDeviceActionDialog(
     device: UsbDevice,
     onDismiss: () -> Unit,
     onViewDetails: () -> Unit,
-    onOpenDvdCd: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     AlertDialog(
@@ -54,15 +53,15 @@ fun UsbDeviceActionDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
+
                 Divider()
-                
+
                 // Available actions
                 Text(
                     text = stringResource(R.string.available_actions),
                     style = MaterialTheme.typography.labelLarge
                 )
-                
+
                 // Always show "View Details"
                 ActionButton(
                     icon = Icons.Default.Info,
@@ -72,18 +71,6 @@ fun UsbDeviceActionDialog(
                         onDismiss()
                     }
                 )
-                
-                // Show DVD/CD option for mass storage devices
-                if (device.isMassStorage) {
-                    ActionButton(
-                        icon = Icons.Default.PlayArrow,
-                        text = stringResource(R.string.open_dvd_drive),
-                        onClick = {
-                            onOpenDvdCd()
-                            onDismiss()
-                        }
-                    )
-                }
             }
         },
         confirmButton = {
@@ -93,7 +80,6 @@ fun UsbDeviceActionDialog(
         }
     )
 }
-
 @Composable
 private fun ActionButton(
     icon: ImageVector,

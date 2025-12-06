@@ -1,47 +1,39 @@
 package com.ble1st.connectias.feature.dvd.driver
 
+import timber.log.Timber
+import java.io.IOException
+
 /**
- * Interface for a block-based USB device.
- * Abstracts the underlying communication protocol (e.g., SCSI/Bulk-Only Transport).
+ * Interface for a USB Mass Storage Block Device (e.g., SCSI).
+ * Provides raw read access to sectors.
  */
-interface UsbBlockDevice {
-    /**
-     * Device block size in bytes (typically 512 for DVD/HDD, 2048 or 2352 for CD).
-     */
-    val blockSize: Int
-
-    /**
-     * Total number of addressable blocks.
-     */
-    val blockCount: Long
-
+interface UsbBlockDevice : AutoCloseable {
     /**
      * Reads data from the device.
-     *
      * @param lba Logical Block Address to start reading from.
-     * @param buffer Buffer to store the read data.
+     * @param buffer Destination buffer.
      * @param length Number of bytes to read.
-     * @return Number of bytes actually read, or -1 on error.
+     * @return Number of bytes read, or -1 on error.
      */
     fun read(lba: Long, buffer: ByteArray, length: Int): Int
     
     /**
-     * Performs a CSS (Content Scramble System) IOCTL operation.
-     * This is used by libdvdcss for DVD copy protection handling.
-     *
-     * @param op Operation type (see [CssIoctlOp] constants)
-     * @param data Data buffer for input/output (may be null for some operations)
-     * @param agid Authentication Grant ID (input/output parameter)
-     * @param lba Logical Block Address (used for title key operations)
-     * @return 0 on success, negative on error
+     * Gets the logical block size of the device (e.g. 2048 for DVD).
      */
-    fun cssIoctl(op: Int, data: ByteArray?, agid: IntArray, lba: Int): Int {
-        // Default implementation returns error - override in implementations that support CSS
-        return -1
-    }
+    val blockSize: Int
+    
+    /**
+     * Gets the total block count of the device.
+     */
+    val blockCount: Long
+    
+    /**
+     * Performs a raw CSS IOCTL operation (for decryption).
+     */
+    fun cssIoctl(op: Int, data: ByteArray?, agid: IntArray, lba: Int): Int
     
     /**
      * Closes the device connection.
      */
-    fun close()
+    override fun close()
 }

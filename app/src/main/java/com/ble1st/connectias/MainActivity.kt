@@ -377,14 +377,14 @@ fun FabWithBottomSheet(onFeatureSelected: (Int) -> Unit) {
             sheetState = sheetState
         ) {
             FeatureList(
-                onFeatureClick = { feature ->
+                onFeatureClick = { navId ->
                     scope.launch {
                         sheetState.hide()
                     }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
                             showBottomSheet = false
                         }
-                        onFeatureSelected(feature.navId)
+                        onFeatureSelected(navId)
                     }
                 }
             )
@@ -394,8 +394,12 @@ fun FabWithBottomSheet(onFeatureSelected: (Int) -> Unit) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun FeatureList(onFeatureClick: (Feature) -> Unit) {
-    val categories = remember { getFeatureCategories() }
+fun FeatureList(onFeatureClick: (Int) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // Resolve features dynamically on each composition to ensure only existing features are shown
+    // This ensures that features are filtered based on what's actually available in the navigation graph
+    // The function is fast enough to run on each composition without performance issues
+    val categories = resolveFeatureCategories(context)
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Text(
@@ -409,22 +413,24 @@ fun FeatureList(onFeatureClick: (Feature) -> Unit) {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 24.dp)
         ) {
             categories.forEach { category ->
-                stickyHeader {
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = MaterialTheme.colorScheme.surface
-                    ) {
-                        Text(
-                            text = category.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                if (category.features.isNotEmpty()) {
+                    stickyHeader {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface
+                        ) {
+                            Text(
+                                text = category.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                        }
                     }
-                }
-                
-                items(category.features) { feature ->
-                    FeatureRow(feature, onClick = { onFeatureClick(feature) })
+                    
+                    items(category.features) { feature ->
+                        FeatureRow(feature, onClick = { onFeatureClick(feature.resolvedId) })
+                    }
                 }
             }
         }
@@ -432,7 +438,7 @@ fun FeatureList(onFeatureClick: (Feature) -> Unit) {
 }
 
 @Composable
-fun FeatureRow(feature: Feature, onClick: () -> Unit) {
+fun FeatureRow(feature: ResolvedFeature, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
@@ -461,56 +467,165 @@ fun FeatureRow(feature: Feature, onClick: () -> Unit) {
     }
 }
 
-data class FeatureCategory(val title: String, val features: List<Feature>)
-data class Feature(val name: String, val icon: ImageVector, val navId: Int)
+// Data classes for definition (String IDs) and resolved state (Int IDs)
+data class FeatureCategoryDef(val title: String, val features: List<FeatureDef>)
+data class FeatureDef(val name: String, val icon: ImageVector, val navIdName: String)
 
-fun getFeatureCategories(): List<FeatureCategory> {
+data class ResolvedFeatureCategory(val title: String, val features: List<ResolvedFeature>)
+data class ResolvedFeature(val name: String, val icon: ImageVector, val resolvedId: Int)
+
+/**
+ * Maps navigation IDs to their corresponding Fragment class names.
+ * This allows checking if the Fragment class actually exists at runtime.
+ */
+private fun getFragmentClassNameForNavId(navIdName: String): String? {
+    return when (navIdName) {
+        // Core modules (always available)
+        "nav_security_dashboard" -> "com.ble1st.connectias.feature.security.ui.SecurityDashboardFragment"
+        "nav_settings" -> "com.ble1st.connectias.feature.settings.ui.SettingsFragment"
+        
+        // Security features
+        "nav_certificate_analyzer" -> "com.ble1st.connectias.feature.security.certificate.CertificateAnalyzerFragment"
+        "nav_password_strength" -> "com.ble1st.connectias.feature.security.password.PasswordStrengthFragment"
+        "nav_encryption_tools" -> "com.ble1st.connectias.feature.security.encryption.EncryptionFragment"
+        "nav_firewall_analyzer" -> "com.ble1st.connectias.feature.security.firewall.FirewallAnalyzerFragment"
+        "nav_wifi_security_auditor" -> "com.ble1st.connectias.feature.security.wifi.WifiSecurityAuditorFragment"
+        "nav_vulnerability_scanner" -> "com.ble1st.connectias.feature.security.scanner.ui.VulnerabilityScannerFragment"
+        "nav_hash_tool" -> "com.ble1st.connectias.feature.security.crypto.hash.HashFragment"
+        
+        // Device Info features
+        "nav_device_info" -> "com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
+        "nav_battery_analyzer" -> "com.ble1st.connectias.feature.deviceinfo.battery.BatteryAnalyzerFragment"
+        "nav_storage_analyzer" -> "com.ble1st.connectias.feature.deviceinfo.storage.StorageAnalyzerFragment"
+        "nav_process_monitor" -> "com.ble1st.connectias.feature.deviceinfo.process.ProcessMonitorFragment"
+        "nav_sensor_monitor" -> "com.ble1st.connectias.feature.deviceinfo.sensor.SensorMonitorFragment"
+        
+        // Network features
+        "nav_network_dashboard" -> "com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment"
+        "nav_port_scanner" -> "com.ble1st.connectias.feature.network.ui.PortScannerFragment"
+        "nav_dns_lookup" -> "com.ble1st.connectias.feature.network.ui.DnsLookupFragment"
+        "nav_network_monitor" -> "com.ble1st.connectias.feature.network.ui.NetworkMonitorFragment"
+        "nav_wifi_analyzer" -> "com.ble1st.connectias.feature.network.ui.WifiAnalyzerFragment"
+        "nav_mac_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.MacAnalyzerFragment"
+        "nav_subnet_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.SubnetAnalyzerFragment"
+        "nav_vlan_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.VlanAnalyzerFragment"
+        "nav_topology" -> "com.ble1st.connectias.feature.network.topology.ui.TopologyFragment"
+        "nav_bandwidth_monitor" -> "com.ble1st.connectias.feature.network.ui.BandwidthMonitorFragment"
+        "nav_speed_test" -> "com.ble1st.connectias.feature.network.speedtest.SpeedTestFragment"
+        "nav_wake_on_lan" -> "com.ble1st.connectias.feature.network.wol.WolFragment"
+        "nav_flow_analyzer" -> "com.ble1st.connectias.feature.network.ui.FlowAnalyzerFragment"
+        "nav_dhcp_lease" -> "com.ble1st.connectias.feature.network.ui.DhcpLeaseFragment"
+        "nav_hypervisor_detector" -> "com.ble1st.connectias.feature.network.ui.HypervisorDetectorFragment"
+        
+        // System tools
+        "nav_log_viewer" -> "com.ble1st.connectias.core.logging.ui.LogViewerFragment"
+        
+        // WASM features
+        "nav_plugin_manager" -> "com.ble1st.connectias.feature.wasm.ui.PluginManagerFragment"
+        
+        // USB features
+        "nav_usb_dashboard" -> "com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment"
+        "nav_usb_storage_browser" -> "com.ble1st.connectias.feature.usb.browser.UsbStorageBrowserFragment"
+        
+        // DVD features
+        "nav_dvd_player" -> "com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
+        "nav_dvd_cd_detail" -> "com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
+        
+        else -> null
+    }
+}
+
+/**
+ * Checks if a Fragment class exists at runtime by attempting to load it.
+ */
+private fun isFragmentClassAvailable(className: String?): Boolean {
+    if (className == null) return false
+    return try {
+        Class.forName(className)
+        true
+    } catch (e: ClassNotFoundException) {
+        false
+    }
+}
+
+fun resolveFeatureCategories(context: android.content.Context): List<ResolvedFeatureCategory> {
+    val definitions = getFeatureDefinitions()
+    val packageName = context.packageName
+    
+    return definitions.mapNotNull { category ->
+        val resolvedFeatures = category.features.mapNotNull { featureDef ->
+            // First check if navigation ID exists
+            val id = context.resources.getIdentifier(featureDef.navIdName, "id", packageName)
+            if (id == 0) {
+                Timber.d("Feature filtered (nav ID not found): ${featureDef.name} (${featureDef.navIdName})")
+                return@mapNotNull null
+            }
+            
+            // Then check if Fragment class exists
+            val fragmentClassName = getFragmentClassNameForNavId(featureDef.navIdName)
+            if (!isFragmentClassAvailable(fragmentClassName)) {
+                Timber.d("Feature filtered (Fragment class not available): ${featureDef.name} (${featureDef.navIdName}) - class: $fragmentClassName")
+                return@mapNotNull null
+            }
+            
+            ResolvedFeature(featureDef.name, featureDef.icon, id)
+        }
+        
+        if (resolvedFeatures.isNotEmpty()) {
+            ResolvedFeatureCategory(category.title, resolvedFeatures)
+        } else {
+            null
+        }
+    }
+}
+
+fun getFeatureDefinitions(): List<FeatureCategoryDef> {
     return listOf(
-        FeatureCategory("Dashboards", listOf(
-            Feature("Security Dashboard", Icons.Default.Security, R.id.nav_security_dashboard),
-            Feature("Network Dashboard", Icons.Default.Wifi, R.id.nav_network_dashboard),
-            Feature("Device Info", Icons.Default.PermDeviceInformation, R.id.nav_device_info),
-            Feature("USB Devices", Icons.Default.Usb, R.id.nav_usb_dashboard),
-            Feature("USB Storage Browser", Icons.Default.FolderOpen, R.id.nav_usb_storage_browser),
-            Feature("WASM Plugins", Icons.Default.Extension, R.id.nav_plugin_manager),
-            Feature("Settings", Icons.Default.Settings, R.id.nav_settings)
+        FeatureCategoryDef("Dashboards", listOf(
+            FeatureDef("Security Dashboard", Icons.Default.Security, "nav_security_dashboard"),
+            FeatureDef("Network Dashboard", Icons.Default.Wifi, "nav_network_dashboard"),
+            FeatureDef("Device Info", Icons.Default.PermDeviceInformation, "nav_device_info"),
+            FeatureDef("USB Devices", Icons.Default.Usb, "nav_usb_dashboard"),
+            FeatureDef("USB Storage Browser", Icons.Default.FolderOpen, "nav_usb_storage_browser"),
+            FeatureDef("WASM Plugins", Icons.Default.Extension, "nav_plugin_manager"),
+            FeatureDef("Settings", Icons.Default.Settings, "nav_settings")
         )),
-        FeatureCategory("Security Suite", listOf(
-            Feature("Certificate Analyzer", Icons.Default.VerifiedUser, R.id.nav_certificate_analyzer),
-            Feature("Password Strength", Icons.Default.Password, R.id.nav_password_strength),
-            Feature("Encryption Tools", Icons.Default.EnhancedEncryption, R.id.nav_encryption_tools),
-            Feature("Firewall Analyzer", Icons.Default.Security, R.id.nav_firewall_analyzer),
-            Feature("WiFi Security Auditor", Icons.Default.WifiTethering, R.id.nav_wifi_security_auditor),
-            Feature("Vulnerability Scanner", Icons.Default.BugReport, R.id.nav_vulnerability_scanner),
-            Feature("Hash Calculator", Icons.Default.Tag, R.id.nav_hash_tool)
+        FeatureCategoryDef("Security Suite", listOf(
+            FeatureDef("Certificate Analyzer", Icons.Default.VerifiedUser, "nav_certificate_analyzer"),
+            FeatureDef("Password Strength", Icons.Default.Password, "nav_password_strength"),
+            FeatureDef("Encryption Tools", Icons.Default.EnhancedEncryption, "nav_encryption_tools"),
+            FeatureDef("Firewall Analyzer", Icons.Default.Security, "nav_firewall_analyzer"),
+            FeatureDef("WiFi Security Auditor", Icons.Default.WifiTethering, "nav_wifi_security_auditor"),
+            FeatureDef("Vulnerability Scanner", Icons.Default.BugReport, "nav_vulnerability_scanner"),
+            FeatureDef("Hash Calculator", Icons.Default.Tag, "nav_hash_tool")
         )),
-        FeatureCategory("Network Command", listOf(
-            Feature("Port Scanner", Icons.Default.Search, R.id.nav_port_scanner),
-            Feature("DNS Lookup", Icons.Default.Dns, R.id.nav_dns_lookup),
-            Feature("Network Monitor", Icons.Default.Speed, R.id.nav_network_monitor),
-            Feature("WiFi Analyzer", Icons.Default.SignalWifi4Bar, R.id.nav_wifi_analyzer),
-            Feature("Bandwidth Monitor", Icons.Default.DataUsage, R.id.nav_bandwidth_monitor),
-            Feature("Flow Analyzer", Icons.Default.Timeline, R.id.nav_flow_analyzer),
-            Feature("DHCP Lease Viewer", Icons.Default.List, R.id.nav_dhcp_lease),
-            Feature("Hypervisor Detector", Icons.Default.Computer, R.id.nav_hypervisor_detector),
-            Feature("Speed Test", Icons.Default.Router, R.id.nav_speed_test),
-            Feature("Wake-on-LAN", Icons.Default.Power, R.id.nav_wake_on_lan),
-            Feature("Network Topology", Icons.Default.Share, R.id.nav_topology),
-            Feature("MAC Analyzer", Icons.Default.Fingerprint, R.id.nav_mac_analyzer),
-            Feature("Subnet Analyzer", Icons.Default.Grid4x4, R.id.nav_subnet_analyzer),
-            Feature("VLAN Analyzer", Icons.Default.Layers, R.id.nav_vlan_analyzer)
+        FeatureCategoryDef("Network Command", listOf(
+            FeatureDef("Port Scanner", Icons.Default.Search, "nav_port_scanner"),
+            FeatureDef("DNS Lookup", Icons.Default.Dns, "nav_dns_lookup"),
+            FeatureDef("Network Monitor", Icons.Default.Speed, "nav_network_monitor"),
+            FeatureDef("WiFi Analyzer", Icons.Default.SignalWifi4Bar, "nav_wifi_analyzer"),
+            FeatureDef("Bandwidth Monitor", Icons.Default.DataUsage, "nav_bandwidth_monitor"),
+            FeatureDef("Flow Analyzer", Icons.Default.Timeline, "nav_flow_analyzer"),
+            FeatureDef("DHCP Lease Viewer", Icons.Default.List, "nav_dhcp_lease"),
+            FeatureDef("Hypervisor Detector", Icons.Default.Computer, "nav_hypervisor_detector"),
+            FeatureDef("Speed Test", Icons.Default.Router, "nav_speed_test"),
+            FeatureDef("Wake-on-LAN", Icons.Default.Power, "nav_wake_on_lan"),
+            FeatureDef("Network Topology", Icons.Default.Share, "nav_topology"),
+            FeatureDef("MAC Analyzer", Icons.Default.Fingerprint, "nav_mac_analyzer"),
+            FeatureDef("Subnet Analyzer", Icons.Default.Grid4x4, "nav_subnet_analyzer"),
+            FeatureDef("VLAN Analyzer", Icons.Default.Layers, "nav_vlan_analyzer")
         )),
-        FeatureCategory("Machine Spirit (Hardware)", listOf(
-            Feature("Battery Analyzer", Icons.Default.BatteryStd, R.id.nav_battery_analyzer),
-            Feature("Storage Analyzer", Icons.Default.Storage, R.id.nav_storage_analyzer),
-            Feature("Process Monitor", Icons.Default.Memory, R.id.nav_process_monitor),
-            Feature("Sensor Monitor", Icons.Default.Sensors, R.id.nav_sensor_monitor)
+        FeatureCategoryDef("Machine Spirit (Hardware)", listOf(
+            FeatureDef("Battery Analyzer", Icons.Default.BatteryStd, "nav_battery_analyzer"),
+            FeatureDef("Storage Analyzer", Icons.Default.Storage, "nav_storage_analyzer"),
+            FeatureDef("Process Monitor", Icons.Default.Memory, "nav_process_monitor"),
+            FeatureDef("Sensor Monitor", Icons.Default.Sensors, "nav_sensor_monitor")
         )),
-        FeatureCategory("System Tools", listOf(
-            Feature("Log Viewer", Icons.Default.Description, R.id.nav_log_viewer)
+        FeatureCategoryDef("System Tools", listOf(
+            FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer")
         )),
-        FeatureCategory("Media", listOf(
-            Feature("DVD Player", Icons.Default.Album, R.id.nav_dvd_player)
+        FeatureCategoryDef("Media", listOf(
+            FeatureDef("DVD Player", Icons.Default.Album, "nav_dvd_cd_detail")
         ))
     )
 }

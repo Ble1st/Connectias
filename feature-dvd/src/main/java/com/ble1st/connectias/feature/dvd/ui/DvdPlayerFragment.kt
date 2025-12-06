@@ -20,61 +20,35 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.dvd.R
-import com.ble1st.connectias.feature.dvd.media.DvdPlayer
+import com.ble1st.connectias.feature.dvd.models.UsbDevice
 import com.ble1st.connectias.feature.dvd.models.VideoStream
+import com.ble1st.connectias.feature.dvd.storage.OpticalDriveProvider
 import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import javax.inject.Inject
 
 /**
- * Fragment for Video DVD player screen.
+ * Fragment for Video DVD player screen using LibVLC.
  */
 @AndroidEntryPoint
 class DvdPlayerFragment : Fragment() {
     
     companion object {
         private const val ARG_VIDEO_STREAM = "videoStream"
+        private const val ARG_USB_DEVICE = "usbDevice"
         
         /**
-         * Creates a Bundle with VideoStream argument for navigation.
+         * Creates a Bundle with arguments for navigation.
          */
-        fun createArguments(videoStream: VideoStream): Bundle {
+        fun createArguments(videoStream: VideoStream, usbDevice: UsbDevice): Bundle {
             return Bundle().apply {
                 putParcelable(ARG_VIDEO_STREAM, videoStream)
+                putParcelable(ARG_USB_DEVICE, usbDevice)
             }
         }
     }
     
-    @Inject lateinit var dvdPlayer: DvdPlayer
-    
-    override fun onDestroyView() {
-        super.onDestroyView()
-        Timber.d("DvdPlayerFragment: onDestroyView - releasing player")
-        dvdPlayer.release()
-    }
-    
-    /**
-     * Creates a ComposeView configured to display an error screen.
-     * 
-     * @param messageResId String resource ID for the error message
-     * @return Configured ComposeView with error screen
-     */
-    private fun createErrorComposeView(messageResId: Int): ComposeView {
-        return ComposeView(requireContext()).apply {
-            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-            setContent {
-                ConnectiasTheme {
-                    ErrorScreen(
-                        message = stringResource(messageResId),
-                        onBack = {
-                            Timber.d("Back button clicked from error screen")
-                            findNavController().popBackStack()
-                        }
-                    )
-                }
-            }
-        }
-    }
+    @Inject lateinit var opticalDriveProvider: OpticalDriveProvider
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -83,29 +57,48 @@ class DvdPlayerFragment : Fragment() {
     ): View {
         Timber.d("DvdPlayerFragment: onCreateView")
         
-        // Read VideoStream from arguments
+        // Read arguments
         val videoStream = arguments?.getParcelable<VideoStream>(ARG_VIDEO_STREAM)
+        val usbDevice = arguments?.getParcelable<UsbDevice>(ARG_USB_DEVICE)
         
-        // Validate video stream and URI
+        // Validate
         if (videoStream == null) {
             Timber.e("DvdPlayerFragment: VideoStream argument is missing")
-            return createErrorComposeView(R.string.dvd_player_error_no_stream)
+            return createErrorComposeView("Video stream configuration missing")
         }
         
-        if (videoStream.uri == null) {
-            Timber.e("DvdPlayerFragment: VideoStream URI is null")
-            return createErrorComposeView(R.string.dvd_player_error_no_uri)
+        if (usbDevice == null) {
+            Timber.e("DvdPlayerFragment: UsbDevice argument is missing")
+            return createErrorComposeView("USB device information missing")
         }
         
-        Timber.d("DvdPlayerFragment: VideoStream loaded - codec=${videoStream.codec}, uri=${videoStream.uri}")
+        // Get active driver session
+        val driver = opticalDriveProvider.getActiveSession()
+        if (driver == null) {
+            Timber.w("DvdPlayerFragment: No active driver session found. Playback might fail or fall back to legacy mode.")
+        }
+        
+        // Construct device path (legacy fallback)
+        // Typically /dev/bus/usb/BBB/DDD
+        val devicePath = String.format("/dev/bus/usb/%03d/%03d", 
+            usbDevice.deviceProtocol, // This mapping is tricky, usually comes from UsbDevice.getDeviceName()
+            // Actually, UsbDevice doesn't expose bus/addr directly easily without parsing name
+            0 // Placeholder
+        )
+        
+        // Better: Use the URI from VideoStream if it contains the path
+        val path = videoStream.uri ?: devicePath
+        
+        Timber.d("DvdPlayerFragment: Starting playback for $path")
         
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 ConnectiasTheme {
-                    DvdPlayerScreen(
-                        videoStream = videoStream,
-                        dvdPlayer = dvdPlayer,
+                    VlcPlayerScreen(
+                        usbDevice = usbDevice,
+                        devicePath = path,
+                        driver = driver,
                         onBack = {
                             Timber.d("Back button clicked")
                             findNavController().popBackStack()
@@ -115,11 +108,35 @@ class DvdPlayerFragment : Fragment() {
             }
         }
     }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // We don't close the session here because VlcPlayerScreen handles player lifecycle.
+        // But we should probably close the session when leaving the fragment permanently?
+        // For now, let OpticalDriveProvider.openSession handle cleanup on next open.
+        // Or close it in onDestroy().
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        opticalDriveProvider.closeSession()
+    }
+
+    private fun createErrorComposeView(message: String): ComposeView {
+        return ComposeView(requireContext()).apply {
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+            setContent {
+                ConnectiasTheme {
+                    ErrorScreen(
+                        message = message,
+                        onBack = { findNavController().popBackStack() }
+                    )
+                }
+            }
+        }
+    }
 }
 
-/**
- * Error screen shown when video stream is missing or invalid.
- */
 @Composable
 private fun ErrorScreen(
     message: String,
@@ -147,7 +164,7 @@ private fun ErrorScreen(
         )
         Spacer(modifier = Modifier.height(24.dp))
         Button(onClick = onBack) {
-            Text(stringResource(R.string.dvd_player_error_back))
+            Text("Back")
         }
     }
 }

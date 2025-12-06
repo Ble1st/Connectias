@@ -54,7 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.ble1st.connectias.common.ui.strings.getThemedString
-import com.ble1st.connectias.feature.security.privacy.R
+import com.ble1st.connectias.feature.security.R
 import com.ble1st.connectias.feature.security.privacy.timeline.models.AnomalyReport
 import com.ble1st.connectias.feature.security.privacy.timeline.models.AnomalySeverity
 import com.ble1st.connectias.feature.security.privacy.timeline.models.PermissionUsageEvent

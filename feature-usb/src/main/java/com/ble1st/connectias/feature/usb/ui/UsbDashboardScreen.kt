@@ -34,13 +34,14 @@ import timber.log.Timber
 
 @Composable
 fun UsbDashboardScreen(
-    usbProvider: UsbProvider,
-    permissionManager: UsbPermissionManager,
-    deviceDetector: UsbDeviceDetector,
+    usbDevices: List<UsbDevice>,
+    selectedDevice: UsbDevice?,
     onDeviceClick: (UsbDevice) -> Unit,
-    onOpenDvdDrive: (UsbDevice) -> Unit = onDeviceClick,
-    modifier: Modifier = Modifier,
-    activity: android.app.Activity? = null
+    onDismissDialog: () -> Unit,
+    onOpenStorage: (UsbDevice) -> Unit,
+    onViewDetails: (UsbDevice) -> Unit,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var devices by remember { mutableStateOf<List<UsbDevice>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
@@ -197,19 +198,10 @@ fun UsbDashboardScreen(
     // Aktionsmenü nach Berechtigungserteilung
     actionDialogDevice?.let { device ->
         UsbDeviceActionDialog(
-            device = device,
-            onDismiss = {
-                actionDialogDevice = null
-            },
-            onViewDetails = {
-                Timber.d("User selected: View Device Details")
-                onDeviceClick(device)
-            },
-            onOpenDvdCd = {
-                Timber.d("User selected: Open DVD/CD Drive")
-                // Navigate to DVD/CD detail screen
-                onOpenDvdDrive(device)
-            }
+            device = selectedDevice,
+            onOpenStorage = { onOpenStorage(selectedDevice) },
+            onViewDetails = { onViewDetails(selectedDevice) },
+            onDismiss = onDismissDialog
         )
     }
     

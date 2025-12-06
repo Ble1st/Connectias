@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.ble1st.connectias.core.database.AppDatabase
 import com.ble1st.connectias.core.database.dao.SecurityLogDao
+import com.ble1st.connectias.core.database.dao.SystemLogDao
 import com.ble1st.connectias.core.security.KeyManager
 import dagger.Module
 import dagger.Provides
@@ -73,6 +74,12 @@ object DatabaseModule {
     @Singleton
     fun provideSecurityLogDao(database: AppDatabase): SecurityLogDao {
         return database.securityLogDao()
+    }
+    
+    @Provides
+    @Singleton
+    fun provideSystemLogDao(database: AppDatabase): SystemLogDao {
+        return database.systemLogDao()
     }
 }
 

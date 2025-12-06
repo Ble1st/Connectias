@@ -39,25 +39,14 @@ if (featureDeviceInfoEnabled) {
     include(":feature-device-info")
 }
 
+val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
+if (featureDvdEnabled) {
+    include(":feature-dvd")
+}
+
 val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
 if (featureNetworkEnabled) {
     include(":feature-network")
-}
-
-// Feature backup module not yet implemented
-// val featureBackupEnabled = providers.gradleProperty("feature.backup.enabled").orNull == "true"
-// if (featureBackupEnabled) {
-//     include(":feature-backup")
-// }
-
-val featureWasmEnabled = providers.gradleProperty("feature.wasm.enabled").orNull == "true"
-if (featureWasmEnabled) {
-    include(":feature-wasm")
-}
-
-val featureUsbEnabled = providers.gradleProperty("feature.usb.enabled").orNull == "true"
-if (featureUsbEnabled) {
-    include(":feature-usb")
 }
 
 val featureReportingEnabled = providers.gradleProperty("feature.reporting.enabled").orNull == "true"
@@ -70,4 +59,12 @@ if (featureSecureNotesEnabled) {
     include(":feature-secure-notes")
 }
 
-include(":feature-dvd")
+val featureUsbEnabled = providers.gradleProperty("feature.usb.enabled").orNull == "true"
+if (featureUsbEnabled) {
+    include(":feature-usb")
+}
+
+val featureWasmEnabled = providers.gradleProperty("feature.wasm.enabled").orNull == "true"
+if (featureWasmEnabled) {
+    include(":feature-wasm")
+}

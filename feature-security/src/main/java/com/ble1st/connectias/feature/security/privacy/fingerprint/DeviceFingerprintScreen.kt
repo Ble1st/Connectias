@@ -30,7 +30,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.ui.res.stringResource
 import com.ble1st.connectias.common.ui.strings.getThemedString
-import com.ble1st.connectias.feature.security.privacy.R
+import com.ble1st.connectias.feature.security.R
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults

@@ -11,6 +11,8 @@
     <string name="nav_backup_dashboard">Backup</string>
     <string name="nav_plugin_manager">Plugins</string>
     <string name="nav_usb_dashboard">USB &amp; DVD/CD</string>
+    <string name="nav_dvd_cd_detail">DVD Player</string>
+    <string name="nav_dvd_player">Video Player</string>
     
     <!-- Splash Screen -->
     <string name="loading">Loading</string>

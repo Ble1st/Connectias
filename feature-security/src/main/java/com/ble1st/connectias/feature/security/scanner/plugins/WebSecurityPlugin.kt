@@ -4,6 +4,7 @@ import com.ble1st.connectias.feature.security.scanner.models.ScanConfiguration
 import com.ble1st.connectias.feature.security.scanner.models.ScanType
 import com.ble1st.connectias.feature.security.scanner.models.SecurityRecommendation
 import com.ble1st.connectias.feature.security.scanner.models.Severity
+import com.ble1st.connectias.feature.security.scanner.models.SslTlsInfo
 import com.ble1st.connectias.feature.security.scanner.models.Vulnerability
 import com.ble1st.connectias.feature.security.scanner.models.VulnerabilityCategory
 import com.ble1st.connectias.feature.security.scanner.scanner.SslTlsAnalyzer
@@ -166,7 +167,7 @@ class WebSecurityPlugin @Inject constructor(
     /**
      * Checks SSL/TLS configuration.
      */
-    private fun checkSslTls(sslInfo: com.ble1st.connectias.feature.vulnerability.scanner.models.SslTlsInfo, url: String): List<Vulnerability> {
+    private fun checkSslTls(sslInfo: com.ble1st.connectias.feature.security.scanner.models.SslTlsInfo, url: String): List<Vulnerability> {
         val vulnerabilities = mutableListOf<Vulnerability>()
         
         if (!sslInfo.isSecure) {

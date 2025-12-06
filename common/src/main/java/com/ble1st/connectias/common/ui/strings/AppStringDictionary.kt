@@ -283,7 +283,3 @@ object AdeptusDictionary : AppStringDictionary {
 
 // CompositionLocal to provide strings to the UI tree
 val LocalAppStrings = compositionLocalOf<AppStringDictionary> { StandardDictionary }
-
-
-// CompositionLocal to provide strings to the UI tree
-val LocalAppStrings = compositionLocalOf<AppStringDictionary> { StandardDictionary }

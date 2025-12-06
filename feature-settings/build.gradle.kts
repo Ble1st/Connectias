@@ -40,10 +40,6 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":common"))
 
-    // TEMPORARY: Direct dependency to app module to resolve R.id.nav_log_viewer
-    // This creates a tight coupling and should be refactored with proper navigation contracts
-    implementation(project(":app"))
-
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

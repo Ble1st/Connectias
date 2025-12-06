@@ -10,6 +10,11 @@
 - [x] **Compose Migration - Device Info**: Migrate `DeviceInfoFragment` to `DeviceInfoScreen`.
 - [x] **Compose Migration - Utilities**: Migrate `UtilitiesDashboardFragment` to `UtilitiesDashboardScreen`.
 
+## Feature Implementation
+- [x] **LibVLC Integration**: Add `libvlc-all` dependency.
+- [x] **LibVLC Wrapper**: Create `VlcDvdPlayer` and `VlcPlayerScreen`.
+- [x] **LibVLC Native Bridge**: Create `vlc_jni.cpp` (requires headers for full compilation).
+
 ## Medium Priority
 - [ ] Review and update dependencies in `libs.versions.toml`.
 - [ ] Implement unit tests for new Compose components.

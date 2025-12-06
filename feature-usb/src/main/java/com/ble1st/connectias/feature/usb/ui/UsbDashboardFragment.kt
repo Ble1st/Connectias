@@ -4,11 +4,11 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.common.ui.theme.ObserveThemeSettings
@@ -17,7 +17,9 @@ import com.ble1st.connectias.feature.usb.detection.UsbDeviceDetector
 import com.ble1st.connectias.feature.usb.models.UsbDevice
 import com.ble1st.connectias.feature.usb.permission.UsbPermissionManager
 import com.ble1st.connectias.feature.usb.provider.UsbProvider
+import com.ble1st.connectias.feature.usb.provider.UsbResult
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -74,31 +76,62 @@ class UsbDashboardFragment : Fragment() {
                         themeStyle = themeStyle,
                         dynamicColor = dynamicColor
                     ) {
-                        UsbDashboardScreen(
-                        usbProvider = usbProvider,
-                        permissionManager = permissionManager,
-                        deviceDetector = deviceDetector,
-                        onDeviceClick = { device ->
-                            Timber.d("Device clicked: ${device.product}")
-                            try {
-                                if (device.isMassStorage) {
-                                    Timber.d("Navigating to DVD/CD detail screen for mass storage device")
-                                    val navId = resources.getIdentifier("nav_dvd_cd_detail", "id", requireContext().packageName)
-                                    if (navId != 0) {
-                                        findNavController().navigate(navId)
-                                    } else {
-                                        Timber.e("Navigation ID nav_dvd_cd_detail not found")
+                        // Local state for devices
+                        var usbDevices by remember { mutableStateOf<List<UsbDevice>>(emptyList()) }
+                        var selectedDevice by remember { mutableStateOf<UsbDevice?>(null) }
+                        var isRefreshing by remember { mutableStateOf(false) }
+                        
+                        // Function to refresh devices
+                        fun refreshDevices() {
+                            isRefreshing = true
+                            lifecycleScope.launch {
+                                when (val result = usbProvider.enumerateDevices()) {
+                                    is UsbResult.Success -> {
+                                        usbDevices = result.data
+                                        Timber.d("Refreshed: ${usbDevices.size} devices")
                                     }
-                                    Timber.d("Navigated to DVD/CD detail screen")
-                                } else {
-                                    Timber.w("Device is not mass storage: ${device.product}")
+                                    is UsbResult.Failure -> {
+                                        Timber.e(result.error, "Failed to refresh devices")
+                                        usbDevices = emptyList()
+                                    }
                                 }
-                            } catch (e: Exception) {
-                                Timber.e(e, "Error navigating to DVD/CD details")
+                                isRefreshing = false
                             }
-                        },
-                        activity = requireActivity()
-                    )
+                        }
+                        
+                        // Initial load
+                        LaunchedEffect(Unit) {
+                            refreshDevices()
+                        }
+                        
+                        UsbDashboardScreen(
+                            usbDevices = usbDevices,
+                            selectedDevice = selectedDevice,
+                            onDeviceClick = { device ->
+                                Timber.d("Device clicked: ${device.product}")
+                                selectedDevice = device
+                            },
+                            onDismissDialog = {
+                                selectedDevice = null
+                            },
+                            onOpenStorage = { device ->
+                                Timber.d("Opening storage for: ${device.product}")
+                                val navId = resources.getIdentifier("nav_usb_browser", "id", requireContext().packageName)
+                                if (navId != 0) {
+                                    // TODO: Pass device info
+                                    findNavController().navigate(navId)
+                                } else {
+                                    Timber.w("nav_usb_browser not found")
+                                }
+                            },
+                            onViewDetails = { device ->
+                                Timber.d("View details for: ${device.product}")
+                                // Show details (not implemented yet)
+                            },
+                            onRefresh = {
+                                refreshDevices()
+                            }
+                        )
                     }
                 }
             }

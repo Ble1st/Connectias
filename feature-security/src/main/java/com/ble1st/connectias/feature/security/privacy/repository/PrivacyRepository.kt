@@ -215,8 +215,8 @@ class PrivacyRepository @Inject constructor(
             !info.isConnected -> PrivacyLevel.WARNING
             info.vpnActive && info.privateDnsEnabled -> PrivacyLevel.SECURE
             info.privateDnsEnabled -> PrivacyLevel.SECURE
-            info.dnsStatus == com.ble1st.connectias.feature.privacy.models.DNSStatus.STANDARD -> PrivacyLevel.WARNING
-            info.dnsStatus == com.ble1st.connectias.feature.privacy.models.DNSStatus.UNKNOWN -> PrivacyLevel.UNKNOWN
+            info.dnsStatus == com.ble1st.connectias.feature.security.privacy.models.DNSStatus.STANDARD -> PrivacyLevel.WARNING
+            info.dnsStatus == com.ble1st.connectias.feature.security.privacy.models.DNSStatus.UNKNOWN -> PrivacyLevel.UNKNOWN
             else -> PrivacyLevel.SECURE
         }
     }
@@ -239,7 +239,7 @@ class PrivacyRepository @Inject constructor(
     }
 
     private fun calculatePermissionsPrivacyLevel(info: List<AppPermissionInfo>): PrivacyLevel {
-        val highRiskApps = info.count { it.riskLevel == com.ble1st.connectias.feature.privacy.models.PermissionRiskLevel.HIGH }
+        val highRiskApps = info.count { it.riskLevel == com.ble1st.connectias.feature.security.privacy.models.PermissionRiskLevel.HIGH }
         return when {
             highRiskApps == 0 -> PrivacyLevel.SECURE
             highRiskApps <= 2 -> PrivacyLevel.WARNING

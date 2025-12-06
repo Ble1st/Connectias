@@ -88,7 +88,7 @@ sealed class DataLeakageState {
     object Idle : DataLeakageState()
     object Loading : DataLeakageState()
     data class Monitoring(val isMonitoring: Boolean) : DataLeakageState()
-    data class ClipboardEntryState(val entry: com.ble1st.connectias.feature.privacy.leakage.ClipboardEntry) : DataLeakageState()
+    data class ClipboardEntryState(val entry: ClipboardEntry) : DataLeakageState()
     data class AppsWithAccess(val apps: List<AppClipboardAccess>) : DataLeakageState()
     data class SensitivityAnalysis(val sensitivity: SensitivityLevel) : DataLeakageState()
     data class Error(val message: String) : DataLeakageState()

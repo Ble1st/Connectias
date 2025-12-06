@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.common.ui.strings.getThemedString
-import com.ble1st.connectias.feature.security.privacy.R
+import com.ble1st.connectias.feature.security.R
 import com.ble1st.connectias.feature.security.privacy.models.*
 
 @Composable

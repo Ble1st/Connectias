@@ -105,5 +105,83 @@
     
     <!-- Firewall Analyzer -->
     <string name="risky_apps">Risky Apps</string>
+    
+    <!-- Tracker Detection -->
+    <string name="tracker_detection_title">Tracker Detection</string>
+    <string name="scan_for_trackers">Scan for Trackers</string>
+    <string name="summary">Summary</string>
+    <string name="apps_with_trackers">Apps with Trackers: %1$d</string>
+    <string name="known_tracker_domains">Known Tracker Domains: %1$d</string>
+    <string name="detected_trackers">Detected Trackers</string>
+    <string name="tap_scan_trackers">Tap \'Scan for Trackers\' to detect tracking libraries in installed apps.</string>
+    <string name="system_app">System App</string>
+    
+    <!-- Privacy Dashboard -->
+    <string name="privacy_dashboard_title">Privacy Dashboard</string>
+    <string name="refresh_privacy_status">Refresh Privacy Status</string>
+    <string name="overall_status">Overall Status</string>
+    <string name="privacy_overview">Privacy Overview</string>
+    
+    <!-- Vulnerability Scanner -->
+    <string name="port_scan">Port Scan</string>
+    <string name="web_security">Web Security</string>
+    <string name="ip_address_or_domain">IP Address or Domain</string>
+    <string name="url">URL</string>
+    <string name="ip_address_or_domain_hint">192.168.1.1 or example.com</string>
+    <string name="configure">Configure</string>
+    <string name="scanning">Scanning...</string>
+    <string name="start_scan">Start Scan</string>
+    
+    <!-- Scan Configuration -->
+    <string name="scan_configuration">Scan Configuration</string>
+    <string name="scan_intensity">Scan Intensity</string>
+    <string name="fast">Fast</string>
+    <string name="balanced">Balanced</string>
+    <string name="deep">Deep</string>
+    <string name="port_range">Port Range</string>
+    <string name="common">Common</string>
+    <string name="standard">Standard</string>
+    <string name="full">Full</string>
+    <string name="custom_range_hint">Custom Range (e.g., 80-443)</string>
+    <string name="custom_range_supporting">Enter port range in format: start-end</string>
+    <string name="service_detection">Service Detection</string>
+    <string name="service_detection_description">Detect services running on open ports</string>
+    <string name="security_assessment">Security Assessment</string>
+    <string name="security_assessment_description">Perform security analysis of detected services</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Private DNS -->
+    <string name="private_dns">Private DNS</string>
+    <string name="domain">Domain</string>
+    <string name="domain_hint">dns.example.com</string>
+    <string name="query">Query</string>
+    
+    <!-- Device Fingerprint -->
+    <string name="device_fingerprint">Device Fingerprint</string>
+    <string name="generate_fingerprint">Generate Fingerprint</string>
+    <string name="all">All</string>
+    
+    <!-- Permissions Analyzer -->
+    <string name="permissions_analyzer_title">Permissions Analyzer</string>
+    <string name="analyze_permissions">Analyze Permissions</string>
+    <string name="total_apps_scanned">Total Apps Scanned: %1$d</string>
+    <string name="apps_with_risky_permissions">Apps with Risky Permissions: %1$d</string>
+    <string name="recommendations">Recommendations</string>
+    <string name="back_to_list">Back to List</string>
+    <string name="tap_analyze_permissions">Tap \'Analyze Permissions\' to scan installed apps for permission risks.</string>
+    <string name="risky">Risky</string>
+    
+    <!-- Permission Timeline -->
+    <string name="permission_timeline_title">Permission Timeline</string>
+    <string name="timeline">Timeline</string>
+    <string name="anomalies">Anomalies</string>
+    <string name="time_range_1h">1 Hour</string>
+    <string name="time_range_24h">24 Hours</string>
+    <string name="time_range_7d">7 Days</string>
+    <string name="suspicious">Suspicious</string>
+    <string name="no_permission_events">No Permission Events</string>
+    <string name="background_access">Background Access</string>
+    <string name="no_anomalies_detected">No Anomalies Detected</string>
+    <string name="apps_behaving_normally">Apps behaving normally</string>
 </resources>
 

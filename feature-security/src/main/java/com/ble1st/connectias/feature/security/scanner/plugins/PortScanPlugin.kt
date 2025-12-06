@@ -75,7 +75,7 @@ class PortScanPlugin @Inject constructor(
                             assessment.recommendations.forEach { recommendation ->
                                 vulnerabilities.add(
                                     Vulnerability(
-                                        category = com.ble1st.connectias.feature.vulnerability.scanner.models.VulnerabilityCategory.CONFIGURATION,
+                                        category = com.ble1st.connectias.feature.security.scanner.models.VulnerabilityCategory.CONFIGURATION,
                                         severity = recommendation.priority,
                                         name = "Recommendation: ${recommendation.title}",
                                         description = recommendation.description,
@@ -95,8 +95,8 @@ class PortScanPlugin @Inject constructor(
                 openPorts.forEach { portResult ->
                     vulnerabilities.add(
                         Vulnerability(
-                            category = com.ble1st.connectias.feature.vulnerability.scanner.models.VulnerabilityCategory.NETWORK,
-                            severity = com.ble1st.connectias.feature.vulnerability.scanner.models.Severity.INFO,
+                            category = com.ble1st.connectias.feature.security.scanner.models.VulnerabilityCategory.NETWORK,
+                            severity = com.ble1st.connectias.feature.security.scanner.models.Severity.INFO,
                             name = "Open Port: ${portResult.port}",
                             description = "Port ${portResult.port} is open on ${config.target}",
                             impact = "Open ports may expose services that need to be secured. Enable service detection for detailed analysis.",
@@ -112,8 +112,8 @@ class PortScanPlugin @Inject constructor(
             Timber.e(e, "Error during port scan")
             vulnerabilities.add(
                 Vulnerability(
-                    category = com.ble1st.connectias.feature.vulnerability.scanner.models.VulnerabilityCategory.NETWORK,
-                    severity = com.ble1st.connectias.feature.vulnerability.scanner.models.Severity.HIGH,
+                    category = com.ble1st.connectias.feature.security.scanner.models.VulnerabilityCategory.NETWORK,
+                    severity = com.ble1st.connectias.feature.security.scanner.models.Severity.HIGH,
                     name = "Port Scan Error",
                     description = "Failed to complete port scan: ${e.message}",
                     impact = "Unable to assess port security",
