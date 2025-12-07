@@ -11,6 +11,8 @@ import timber.log.Timber
  * allowing graceful degradation.
  */
 object DvdNative {
+    private const val LOG_VERBOSE = false
+    private inline fun vLog(msg: () -> String) { if (LOG_VERBOSE) Timber.d(msg()) }
     
     @Volatile
     private var libraryLoaded = false
@@ -31,40 +33,52 @@ object DvdNative {
      * @return true if library is available, false otherwise
      */
     internal fun ensureLibraryLoaded(): Boolean {
+        vLog { "DvdNative: ensureLibraryLoaded() called" }
         if (libraryLoaded) {
+            vLog { "DvdNative: ensureLibraryLoaded() - Library already loaded, available: $libraryAvailable" }
             return libraryAvailable
         }
         
+        vLog { "DvdNative: ensureLibraryLoaded() - Acquiring lock for thread-safe loading" }
         synchronized(libraryLoadLock) {
+            vLog { "DvdNative: ensureLibraryLoaded() - Lock acquired" }
             if (libraryLoaded) {
+                vLog { "DvdNative: ensureLibraryLoaded() - Library loaded by another thread, available: $libraryAvailable" }
                 return libraryAvailable
             }
             
             try {
-                Timber.d("Loading DVD JNI native library...")
+                vLog { "DvdNative: ensureLibraryLoaded() - Loading DVD JNI native library..." }
+                vLog { "DvdNative: ensureLibraryLoaded() - Calling System.loadLibrary(\"dvd_jni\")" }
                 System.loadLibrary("dvd_jni")
+                vLog { "DvdNative: ensureLibraryLoaded() - System.loadLibrary() completed" }
                 libraryAvailable = true
                 // dvdread/dvdnav are statically linked into dvd_jni
                 dvdReadAvailable = true 
-                Timber.d("DVD JNI native library loaded successfully")
+                vLog { "DvdNative: ensureLibraryLoaded() - DVD JNI native library loaded successfully" }
+                vLog { "DvdNative: ensureLibraryLoaded() - libraryAvailable: $libraryAvailable, dvdReadAvailable: $dvdReadAvailable" }
             } catch (e: UnsatisfiedLinkError) {
+                Timber.e(e, "DvdNative: ensureLibraryLoaded() - Failed to load DVD JNI native library - DVD functionality will be unavailable")
                 libraryAvailable = false
                 dvdReadAvailable = false
-                Timber.e(e, "Failed to load DVD JNI native library - DVD functionality will be unavailable")
+                Timber.e("DvdNative: ensureLibraryLoaded() - libraryAvailable: $libraryAvailable, dvdReadAvailable: $dvdReadAvailable")
                 libraryLoaded = true
                 return false
             }
             
             // CSS decryption is now statically linked into libdvdread/libdvd_jni
             // No need to load libdvdcss separately - it's embedded in the native library
+            vLog { "DvdNative: ensureLibraryLoaded() - Checking CSS decryption build config" }
             cssDecryptionEnabled = BuildConfig.ENABLE_DVD_CSS
+            vLog { "DvdNative: ensureLibraryLoaded() - BuildConfig.ENABLE_DVD_CSS: ${BuildConfig.ENABLE_DVD_CSS}" }
             if (cssDecryptionEnabled) {
-                Timber.i("CSS decryption enabled (statically linked via libdvdcss)")
+                Timber.i("DvdNative: ensureLibraryLoaded() - CSS decryption enabled (statically linked via libdvdcss)")
             } else {
-                Timber.d("CSS decryption disabled via build config")
+                vLog { "DvdNative: ensureLibraryLoaded() - CSS decryption disabled via build config" }
             }
             
             libraryLoaded = true
+            vLog { "DvdNative: ensureLibraryLoaded() - Library loading complete, returning true" }
             return true
         }
     }
@@ -115,11 +129,15 @@ object DvdNative {
      * ```
      */
     fun dvdOpen(path: String): Long {
+        vLog { "DvdNative: dvdOpen() called - path: $path" }
         if (!ensureLibraryLoaded()) {
-            Timber.e("DVD JNI library not available - cannot open DVD")
+            Timber.e("DvdNative: dvdOpen() - DVD JNI library not available - cannot open DVD")
             return -1L
         }
-        return dvdOpenNative(path)
+        vLog { "DvdNative: dvdOpen() - Library loaded, calling native dvdOpenNative()" }
+        val handle = dvdOpenNative(path)
+        vLog { "DvdNative: dvdOpen() - Native dvdOpenNative() returned handle: $handle" }
+        return handle
     }
     
     private external fun dvdOpenNative(path: String): Long
@@ -134,11 +152,15 @@ object DvdNative {
      * @return A valid handle (!= -1L) on success, or -1L on failure
      */
     fun dvdOpenFd(fd: Int): Long {
+        vLog { "DvdNative: dvdOpenFd() called - fd: $fd" }
         if (!ensureLibraryLoaded()) {
-            Timber.e("DVD JNI library not available - cannot open DVD via FD")
+            Timber.e("DvdNative: dvdOpenFd() - DVD JNI library not available - cannot open DVD via FD")
             return -1L
         }
-        return dvdOpenFdNative(fd)
+        vLog { "DvdNative: dvdOpenFd() - Library loaded, calling native dvdOpenFdNative()" }
+        val handle = dvdOpenFdNative(fd)
+        vLog { "DvdNative: dvdOpenFd() - Native dvdOpenFdNative() returned handle: $handle" }
+        return handle
     }
 
     private external fun dvdOpenFdNative(fd: Int): Long
@@ -150,11 +172,16 @@ object DvdNative {
      * @return A valid handle (!= -1L) on success, or -1L on failure
      */
     fun dvdOpenStream(driver: UsbBlockDevice): Long {
+        vLog { "DvdNative: dvdOpenStream() called - driver: $driver" }
+        vLog { "DvdNative: dvdOpenStream() - driver.blockSize: ${driver.blockSize}" }
         if (!ensureLibraryLoaded()) {
-            Timber.e("DVD JNI library not available - cannot open DVD via Stream")
+            Timber.e("DvdNative: dvdOpenStream() - DVD JNI library not available - cannot open DVD via Stream")
             return -1L
         }
-        return dvdOpenStreamNative(driver)
+        vLog { "DvdNative: dvdOpenStream() - Library loaded, calling native dvdOpenStreamNative()" }
+        val handle = dvdOpenStreamNative(driver)
+        vLog { "DvdNative: dvdOpenStream() - Native dvdOpenStreamNative() returned handle: $handle" }
+        return handle
     }
 
     private external fun dvdOpenStreamNative(driver: UsbBlockDevice): Long
@@ -186,11 +213,18 @@ object DvdNative {
      * @param handle The handle to close (valid handle from [dvdOpen], or <= 0 for no-op)
      */
     fun dvdClose(handle: Long) {
-        if (!ensureLibraryLoaded()) {
-            Timber.w("DVD JNI library not available - cannot close DVD handle")
+        vLog { "DvdNative: dvdClose() called - handle: $handle" }
+        if (handle <= 0) {
+            vLog { "DvdNative: dvdClose() - Invalid handle (<= 0), skipping" }
             return
         }
+        if (!ensureLibraryLoaded()) {
+            Timber.w("DvdNative: dvdClose() - DVD JNI library not available - cannot close DVD handle")
+            return
+        }
+        vLog { "DvdNative: dvdClose() - Library loaded, calling native dvdCloseNative()" }
         dvdCloseNative(handle)
+        vLog { "DvdNative: dvdClose() - Native dvdCloseNative() completed" }
     }
     
     private external fun dvdCloseNative(handle: Long)
@@ -199,11 +233,15 @@ object DvdNative {
      * Gets the number of titles on the DVD.
      */
     fun dvdGetTitleCount(handle: Long): Int {
+        vLog { "DvdNative: dvdGetTitleCount() called - handle: $handle" }
         if (!ensureLibraryLoaded()) {
-            Timber.e("DVD JNI library not available - cannot get title count")
+            Timber.e("DvdNative: dvdGetTitleCount() - DVD JNI library not available - cannot get title count")
             return -1
         }
-        return dvdGetTitleCountNative(handle)
+        vLog { "DvdNative: dvdGetTitleCount() - Library loaded, calling native dvdGetTitleCountNative()" }
+        val count = dvdGetTitleCountNative(handle)
+        vLog { "DvdNative: dvdGetTitleCount() - Native dvdGetTitleCountNative() returned: $count" }
+        return count
     }
     
     private external fun dvdGetTitleCountNative(handle: Long): Int
@@ -212,11 +250,15 @@ object DvdNative {
      * Reads title information.
      */
     fun dvdReadTitle(handle: Long, titleNumber: Int): DvdTitleNative? {
+        vLog { "DvdNative: dvdReadTitle() called - handle: $handle, titleNumber: $titleNumber" }
         if (!ensureLibraryLoaded()) {
-            Timber.e("DVD JNI library not available - cannot read title")
+            Timber.e("DvdNative: dvdReadTitle() - DVD JNI library not available - cannot read title")
             return null
         }
-        return dvdReadTitleNative(handle, titleNumber)
+        vLog { "DvdNative: dvdReadTitle() - Library loaded, calling native dvdReadTitleNative()" }
+        val title = dvdReadTitleNative(handle, titleNumber)
+        vLog { "DvdNative: dvdReadTitle() - Native dvdReadTitleNative() returned: ${title != null}" }
+        return title
     }
     
     private external fun dvdReadTitleNative(handle: Long, titleNumber: Int): DvdTitleNative?
@@ -225,6 +267,7 @@ object DvdNative {
      * Reads chapter information.
      */
     fun dvdReadChapter(handle: Long, titleNumber: Int, chapterNumber: Int): DvdChapterNative? {
+        Timber.d("DvdNative: dvdReadChapter() called - handle: $handle, titleNumber: $titleNumber, chapterNumber: $chapterNumber")
         if (!ensureLibraryLoaded()) {
             Timber.e("DVD JNI library not available - cannot read chapter")
             return null
@@ -233,6 +276,148 @@ object DvdNative {
     }
     
     private external fun dvdReadChapterNative(handle: Long, titleNumber: Int, chapterNumber: Int): DvdChapterNative?
+    
+    /**
+     * Gets VOB offsets for a title.
+     * Returns a list of cell offsets (firstSector, lastSector pairs) and VTS number.
+     * 
+     * @param handle The DVD handle
+     * @param titleNumber Title number (1-based)
+     * @return Pair of (VTS number, List of VobOffsetInfo), or null on error
+     */
+    fun dvdGetVobOffsets(handle: Long, titleNumber: Int): Pair<Int, List<VobOffsetInfo>>? {
+        vLog { "DvdNative: dvdGetVobOffsets() called - handle: $handle, titleNumber: $titleNumber" }
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DvdNative: dvdGetVobOffsets() - DVD JNI library not available")
+            return null
+        }
+        
+        val offsetsArray = dvdGetVobOffsetsNative(handle, titleNumber)
+        if (offsetsArray == null || offsetsArray.isEmpty()) {
+            Timber.e("DvdNative: dvdGetVobOffsets() - Native function returned null or empty")
+            return null
+        }
+        
+        // Array format: [vtsN, firstSector, lastSector, firstSector, lastSector, ...]
+        // First element is VTS number, rest are offset pairs
+        if (offsetsArray.size < 3) {
+            Timber.e("DvdNative: dvdGetVobOffsets() - Array too small: ${offsetsArray.size}")
+            return null
+        }
+        
+        // Convert array to List<VobOffsetInfo> (skip first element which is VTS number)
+        val offsets = mutableListOf<VobOffsetInfo>()
+        for (i in 1 until offsetsArray.size step 2) {
+            if (i + 1 < offsetsArray.size) {
+                offsets.add(VobOffsetInfo(offsetsArray[i], offsetsArray[i + 1]))
+            }
+        }
+        
+        val vtsN = offsetsArray[0].toInt()
+        vLog { "DvdNative: dvdGetVobOffsets() - Parsed ${offsets.size} cell offsets, VTS: $vtsN" }
+        return Pair(vtsN, offsets)
+    }
+    
+    private external fun dvdGetVobOffsetsNative(handle: Long, titleNumber: Int): LongArray?
+    
+    /**
+     * Opens a VOB file for reading.
+     * 
+     * @param handle The DVD handle
+     * @param vtsN VTS number (Video Title Set number)
+     * @return VOB handle, or -1 on error
+     */
+    fun dvdOpenVobFile(handle: Long, vtsN: Int): Long {
+        vLog { "DvdNative: dvdOpenVobFile() called - handle: $handle, vtsN: $vtsN" }
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DvdNative: dvdOpenVobFile() - DVD JNI library not available")
+            return -1
+        }
+        
+        val vobHandle = dvdOpenVobFileNative(handle, vtsN)
+        vLog { "DvdNative: dvdOpenVobFile() - Native function returned: $vobHandle" }
+        return vobHandle
+    }
+    
+    private external fun dvdOpenVobFileNative(handle: Long, vtsN: Int): Long
+    
+    /**
+     * Reads VOB blocks.
+     * 
+     * @param vobHandle The VOB handle
+     * @param block Block number (relative to VOB start)
+     * @param count Number of blocks to read
+     * @param buffer Buffer to read into
+     * @return Number of bytes read, or -1 on error, 0 on EOF
+     */
+    fun dvdReadVobBlocks(vobHandle: Long, block: Int, count: Int, buffer: ByteArray): Int {
+        vLog { "DvdNative: dvdReadVobBlocks() called - vobHandle: $vobHandle, block: $block, count: $count" }
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DvdNative: dvdReadVobBlocks() - DVD JNI library not available")
+            return -1
+        }
+        
+        val bytesRead = dvdReadVobBlocksNative(vobHandle, block, count, buffer)
+        vLog { "DvdNative: dvdReadVobBlocks() - Native function returned: $bytesRead bytes" }
+        return bytesRead
+    }
+    
+    private external fun dvdReadVobBlocksNative(vobHandle: Long, block: Int, count: Int, buffer: ByteArray): Int
+    
+    /**
+     * Closes a VOB file.
+     * 
+     * @param vobHandle The VOB handle to close
+     */
+    fun dvdCloseVobFile(vobHandle: Long) {
+        vLog { "DvdNative: dvdCloseVobFile() called - vobHandle: $vobHandle" }
+        if (!ensureLibraryLoaded()) {
+            Timber.w("DvdNative: dvdCloseVobFile() - DVD JNI library not available")
+            return
+        }
+        
+        if (vobHandle <= 0) {
+            vLog { "DvdNative: dvdCloseVobFile() - Invalid handle (<= 0), skipping" }
+            return
+        }
+        
+        dvdCloseVobFileNative(vobHandle)
+        vLog { "DvdNative: dvdCloseVobFile() - Native function completed" }
+    }
+    
+    private external fun dvdCloseVobFileNative(vobHandle: Long)
+
+    /**
+     * Gets audio tracks for a given title.
+     */
+    fun dvdGetAudioTracks(handle: Long, titleNumber: Int): List<DvdAudioTrackNative> {
+        vLog { "DvdNative: dvdGetAudioTracks() called - handle: $handle, titleNumber: $titleNumber" }
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DvdNative: dvdGetAudioTracks() - DVD JNI library not available")
+            return emptyList()
+        }
+        val tracks = dvdGetAudioTracksNative(handle, titleNumber) ?: return emptyList()
+        vLog { "DvdNative: dvdGetAudioTracks() - Received ${tracks.size} audio tracks" }
+        return tracks.toList()
+    }
+
+    private external fun dvdGetAudioTracksNative(handle: Long, titleNumber: Int): Array<DvdAudioTrackNative>?
+
+    /**
+     * Gets subtitle tracks for a given title.
+     */
+    fun dvdGetSubtitleTracks(handle: Long, titleNumber: Int): List<DvdSubtitleTrackNative> {
+        vLog { "DvdNative: dvdGetSubtitleTracks() called - handle: $handle, titleNumber: $titleNumber" }
+        if (!ensureLibraryLoaded()) {
+            Timber.e("DvdNative: dvdGetSubtitleTracks() - DVD JNI library not available")
+            return emptyList()
+        }
+        val tracks = dvdGetSubtitleTracksNative(handle, titleNumber) ?: return emptyList()
+        vLog { "DvdNative: dvdGetSubtitleTracks() - Received ${tracks.size} subtitle tracks" }
+        return tracks.toList()
+    }
+
+    private external fun dvdGetSubtitleTracksNative(handle: Long, titleNumber: Int): Array<DvdSubtitleTrackNative>?
     
     /**
      * Decrypts CSS-protected sector (only available if libdvdcss is loaded).
@@ -447,6 +632,20 @@ data class DvdTitleNative(
     val duration: Long // milliseconds
 )
 
+data class DvdAudioTrackNative(
+    val streamId: Int,
+    val language: String?,
+    val codec: String,
+    val channels: Int,
+    val sampleRate: Int
+)
+
+data class DvdSubtitleTrackNative(
+    val streamId: Int,
+    val language: String?,
+    val type: String
+)
+
 /**
  * Native DVD chapter information structure.
  */
@@ -465,4 +664,15 @@ data class VideoStreamNative(
     val height: Int,
     val bitrate: Int,
     val frameRate: Double
+)
+
+/**
+ * VOB offset information for a single cell.
+ * 
+ * @property firstSector First sector number (relative to VOB start)
+ * @property lastSector Last sector number (relative to VOB start)
+ */
+data class VobOffsetInfo(
+    val firstSector: Long,
+    val lastSector: Long
 )

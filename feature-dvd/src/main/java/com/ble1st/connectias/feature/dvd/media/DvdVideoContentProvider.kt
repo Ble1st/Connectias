@@ -100,92 +100,113 @@ class DvdVideoContentProvider : ContentProvider() {
     }
     
     private fun streamDvdToPipe(writeSide: ParcelFileDescriptor, targetDeviceId: Int, titleNumber: Int) {
-        Timber.d("=== streamDvdToPipe: STARTED ===")
-        Timber.d("streamDvdToPipe: targetDeviceId=$targetDeviceId, titleNumber=$titleNumber")
+        Timber.d("DvdVideoContentProvider: streamDvdToPipe() called")
+        Timber.d("DvdVideoContentProvider: streamDvdToPipe() - targetDeviceId: $targetDeviceId, titleNumber: $titleNumber")
+        Timber.d("DvdVideoContentProvider: streamDvdToPipe() - writeSide FD: ${writeSide.fd}")
         
         var connection: android.hardware.usb.UsbDeviceConnection? = null
         var scsiDriver: ScsiDriver? = null
         var dvdHandle: Long = -1
         
         try {
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Getting context")
             val context = context
             if (context == null) {
-                Timber.e("streamDvdToPipe: Context is null!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Context is null!")
                 return
             }
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Context obtained")
             
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Getting USB service")
             val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
-            Timber.d("streamDvdToPipe: UsbManager obtained")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - UsbManager obtained")
             
             // Find device by ID
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Getting device list")
             val deviceList = usbManager.deviceList
-            Timber.d("streamDvdToPipe: Found ${deviceList.size} USB devices")
-            deviceList.values.forEach { d ->
-                Timber.d("  - Device: ${d.deviceName}, ID=${d.deviceId}, Vendor=0x${d.vendorId.toString(16)}")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Found ${deviceList.size} USB devices")
+            deviceList.values.forEachIndexed { index, d ->
+                Timber.d("DvdVideoContentProvider: streamDvdToPipe() -   Device[$index]: ${d.deviceName}, ID=${d.deviceId}, Vendor=0x${d.vendorId.toString(16)}, Product=0x${d.productId.toString(16)}")
             }
             
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Searching for device with ID: $targetDeviceId")
             val device = deviceList.values.find { it.deviceId == targetDeviceId }
             
             if (device == null) {
-                Timber.e("streamDvdToPipe: USB Device with ID $targetDeviceId NOT FOUND!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - USB Device with ID $targetDeviceId NOT FOUND!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Available device IDs: ${deviceList.values.map { it.deviceId }}")
                 return
             }
-            Timber.d("streamDvdToPipe: Found device: ${device.deviceName}")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Found device: ${device.deviceName}, ID=${device.deviceId}")
             
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Checking USB permission")
             if (!usbManager.hasPermission(device)) {
-                Timber.e("streamDvdToPipe: No permission for device ${device.deviceName}!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - No permission for device ${device.deviceName}!")
                 return
             }
-            Timber.d("streamDvdToPipe: USB permission verified")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - USB permission verified")
             
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Opening USB device connection")
             connection = usbManager.openDevice(device)
             if (connection == null) {
-                Timber.e("streamDvdToPipe: Failed to open USB connection!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Failed to open USB connection!")
                 return
             }
-            Timber.d("streamDvdToPipe: USB connection opened")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - USB connection opened: $connection")
             
             // Claim Mass Storage interface
-            val iface = (0 until device.interfaceCount).map { device.getInterface(it) }
-                .find { it.interfaceClass == 8 }
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Searching for Mass Storage interface (class 8)")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Device has ${device.interfaceCount} interfaces")
+            val iface = (0 until device.interfaceCount).map { 
+                val i = device.getInterface(it)
+                Timber.d("DvdVideoContentProvider: streamDvdToPipe() -   Interface[$it]: class=${i.interfaceClass}, subclass=${i.interfaceSubclass}, protocol=${i.interfaceProtocol}")
+                i
+            }.find { it.interfaceClass == 8 }
             if (iface == null) {
-                Timber.e("streamDvdToPipe: No Mass Storage interface found!")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - No Mass Storage interface found!")
                 return
             }
-            Timber.d("streamDvdToPipe: Mass Storage interface found")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Mass Storage interface found: class=${iface.interfaceClass}, endpoints=${iface.endpointCount}")
                 
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Creating ScsiDriver")
             scsiDriver = ScsiDriver(connection, iface)
-            Timber.d("streamDvdToPipe: SCSI driver created")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - SCSI driver created: $scsiDriver")
             
             // Wait for drive to be ready
-            Timber.d("streamDvdToPipe: Waiting for drive to be ready...")
-            if (!scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)) {
-                Timber.e("streamDvdToPipe: Drive not ready or no medium present!")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Waiting for drive to be ready (max 15 attempts, 500ms delay)")
+            val ready = scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - waitForReady() returned: $ready")
+            if (!ready) {
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Drive not ready or no medium present!")
                 return
             }
-            Timber.d("streamDvdToPipe: Drive is ready")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Drive is ready")
             
             // NOTE: CSS authentication is now handled automatically by libdvdcss
             // via the pf_ioctl callback in dvdcss_stream_cb. No manual authentication needed.
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - CSS authentication will be handled automatically by libdvdcss")
             
             // Initialize Native Layer if needed
-            Timber.d("streamDvdToPipe: Loading native library...")
-            if (!DvdNative.ensureLibraryLoaded()) {
-                Timber.e("streamDvdToPipe: Native library not loaded!")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Loading native library")
+            val libLoaded = DvdNative.ensureLibraryLoaded()
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - ensureLibraryLoaded() returned: $libLoaded")
+            if (!libLoaded) {
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Native library not loaded!")
                 return
             }
-            Timber.d("streamDvdToPipe: Native library loaded")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Native library loaded")
             
             // Open Stream via ScsiDriver
-            Timber.d("streamDvdToPipe: Opening DVD stream via SCSI...")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - Opening DVD stream via SCSI")
             dvdHandle = DvdNative.dvdOpenStream(scsiDriver)
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - dvdOpenStream() returned handle: $dvdHandle")
             if (dvdHandle <= 0) {
-                Timber.e("streamDvdToPipe: Failed to open DVD stream handle! (handle=$dvdHandle)")
+                Timber.e("DvdVideoContentProvider: streamDvdToPipe() - Failed to open DVD stream handle! (handle=$dvdHandle)")
                 return
             }
-            Timber.d("streamDvdToPipe: DVD stream opened, handle=$dvdHandle")
+            Timber.d("DvdVideoContentProvider: streamDvdToPipe() - DVD stream opened, handle: $dvdHandle")
             
-            Timber.i("=== streamDvdToPipe: Starting native stream for Title $titleNumber to FD ${writeSide.fd} ===")
+            Timber.i("DvdVideoContentProvider: streamDvdToPipe() - Starting native stream for Title $titleNumber to FD ${writeSide.fd}")
             
             // Blocking call - pumps data from USB to Pipe
             val startTime = System.currentTimeMillis()

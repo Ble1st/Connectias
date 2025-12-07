@@ -21,6 +21,9 @@ typedef int (*libvlc_media_seek_cb)(void *opaque, uint64_t offset);
 typedef void (*libvlc_media_close_cb)(void *opaque);
 
 // Function signatures for dlsym
+typedef libvlc_instance_t* (*libvlc_new_t)(int argc, const char * const *argv);
+typedef void (*libvlc_release_t)(libvlc_instance_t *p_instance);
+
 typedef libvlc_media_t* (*libvlc_media_new_callbacks_t)(
     libvlc_instance_t *instance,
     libvlc_media_open_cb open_cb,
@@ -31,6 +34,9 @@ typedef libvlc_media_t* (*libvlc_media_new_callbacks_t)(
 );
 
 typedef void (*libvlc_media_release_t)(libvlc_media_t *p_md);
+
+typedef struct libvlc_media_player_t libvlc_media_player_t;
+typedef void (*libvlc_media_player_set_media_t)(libvlc_media_player_t *p_mi, libvlc_media_t *p_md);
 
 #ifdef __cplusplus
 }

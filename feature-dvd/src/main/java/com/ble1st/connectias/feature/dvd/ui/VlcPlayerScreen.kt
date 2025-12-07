@@ -5,7 +5,11 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.FastRewind
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +22,8 @@ import com.ble1st.connectias.feature.dvd.R
 import com.ble1st.connectias.feature.dvd.media.VlcDvdPlayer
 import com.ble1st.connectias.feature.dvd.models.UsbDevice
 import com.ble1st.connectias.feature.dvd.driver.UsbBlockDevice
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 @Composable
@@ -25,11 +31,20 @@ fun VlcPlayerScreen(
     usbDevice: UsbDevice,
     devicePath: String,
     driver: UsbBlockDevice?,
+    audioStreamId: Int? = null,
+    subtitleStreamId: Int? = null,
+    audioLanguage: String? = null,
+    subtitleLanguage: String? = null,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val vlcPlayer = remember { VlcDvdPlayer(context) }
+    var isPlaying by remember { mutableStateOf(false) }
+    var positionMs by remember { mutableStateOf(0L) }
+    var durationMs by remember { mutableStateOf(0L) }
+    var sliderPosition by remember { mutableStateOf(0f) }
+    var isSeeking by remember { mutableStateOf(false) }
     
     // Manage lifecycle
     DisposableEffect(Unit) {
@@ -38,9 +53,52 @@ fun VlcPlayerScreen(
         }
     }
 
-    // Auto-start
+    // Auto-start on background thread to avoid blocking UI
     LaunchedEffect(Unit) {
-        vlcPlayer.playDvd(usbDevice, devicePath, driver)
+        withContext(Dispatchers.IO) {
+            try {
+                vlcPlayer.playDvd(
+                    usbDevice = usbDevice,
+                    devicePath = devicePath,
+                    driver = driver,
+                    titleNumber = null,
+                    audioStreamId = audioStreamId,
+                    subtitleStreamId = subtitleStreamId,
+                    audioLanguage = audioLanguage,
+                    subtitleLanguage = subtitleLanguage
+                )
+                isPlaying = true
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to start DVD playback")
+            }
+        }
+    }
+
+    // Poll playback position and duration
+    LaunchedEffect(isSeeking) {
+        while (true) {
+            val length = vlcPlayer.getLengthMs()
+            val time = vlcPlayer.getTimeMs()
+            durationMs = length
+            if (!isSeeking && length > 0) {
+                sliderPosition = (time.toFloat() / length.toFloat()).coerceIn(0f, 1f)
+            }
+            positionMs = time
+            kotlinx.coroutines.delay(500)
+        }
+    }
+
+    fun formatTime(ms: Long): String {
+        if (ms <= 0) return "00:00"
+        val totalSeconds = ms / 1000
+        val hours = totalSeconds / 3600
+        val minutes = (totalSeconds % 3600) / 60
+        val seconds = totalSeconds % 60
+        return if (hours > 0) {
+            String.format("%d:%02d:%02d", hours, minutes, seconds)
+        } else {
+            String.format("%02d:%02d", minutes, seconds)
+        }
     }
 
     Column(modifier = modifier.fillMaxSize()) {
@@ -81,65 +139,79 @@ fun VlcPlayerScreen(
                 modifier = Modifier.padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // D-Pad for Menu Navigation
-                Text(
-                    text = "DVD Menu Control",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Box(
-                    modifier = Modifier.size(120.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Up
-                    IconButton(
-                        onClick = { vlcPlayer.navigateUp() },
-                        modifier = Modifier.align(Alignment.TopCenter)
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowUp, "Up")
-                    }
-                    // Down
-                    IconButton(
-                        onClick = { vlcPlayer.navigateDown() },
-                        modifier = Modifier.align(Alignment.BottomCenter)
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowDown, "Down")
-                    }
-                    // Left
-                    IconButton(
-                        onClick = { vlcPlayer.navigateLeft() },
-                        modifier = Modifier.align(Alignment.CenterStart)
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowLeft, "Left")
-                    }
-                    // Right
-                    IconButton(
-                        onClick = { vlcPlayer.navigateRight() },
-                        modifier = Modifier.align(Alignment.CenterEnd)
-                    ) {
-                        Icon(Icons.Default.KeyboardArrowRight, "Right")
-                    }
-                    // Enter (Center)
-                    FilledIconButton(
-                        onClick = { vlcPlayer.navigateEnter() },
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(Icons.Default.Circle, "Enter", modifier = Modifier.size(12.dp))
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(16.dp))
-                
                 // Transport Controls
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
+                    IconButton(onClick = {
+                        vlcPlayer.seekBy(-10_000)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.FastRewind,
+                            contentDescription = "Rewind 10s"
+                        )
+                    }
+                    IconButton(onClick = {
+                        if (isPlaying) {
+                            vlcPlayer.pause()
+                        } else {
+                            vlcPlayer.resume()
+                        }
+                        isPlaying = vlcPlayer.isPlaying()
+                    }) {
+                        Icon(
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play"
+                        )
+                    }
+                    IconButton(onClick = {
+                        vlcPlayer.seekBy(10_000)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.FastForward,
+                            contentDescription = "Forward 10s"
+                        )
+                    }
                     IconButton(onClick = { vlcPlayer.stop(); onBack() }) {
-                        Icon(Icons.Default.Stop, contentDescription = "Stop", tint = MaterialTheme.colorScheme.error)
+                        Icon(
+                            imageVector = Icons.Default.Stop,
+                            contentDescription = "Stop",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Progress + time
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Slider(
+                        value = sliderPosition,
+                        onValueChange = { value ->
+                            sliderPosition = value
+                            isSeeking = true
+                        },
+                        onValueChangeFinished = {
+                            val target = (durationMs * sliderPosition).toLong()
+                            vlcPlayer.seekTo(target)
+                            isSeeking = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = formatTime(positionMs),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            text = formatTime(durationMs),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

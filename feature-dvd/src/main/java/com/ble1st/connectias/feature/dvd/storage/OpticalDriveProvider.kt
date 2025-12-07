@@ -1,7 +1,21 @@
 package com.ble1st.connectias.feature.dvd.storage
 
+import android.content.Context
+import android.hardware.usb.UsbManager
+import com.ble1st.connectias.feature.dvd.driver.scsi.ScsiDriver
+import com.ble1st.connectias.feature.dvd.models.DiscType
+import com.ble1st.connectias.feature.dvd.models.FileInfo
+import com.ble1st.connectias.feature.dvd.models.FileSystem
+import com.ble1st.connectias.feature.dvd.models.OpticalDrive
+import com.ble1st.connectias.feature.dvd.models.UsbDevice
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import timber.log.Timber
+import javax.inject.Inject
+import javax.inject.Singleton
 
 /**
  * Provider for optical drive (DVD/CD) detection and access.

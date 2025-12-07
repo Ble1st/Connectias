@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.dvd.storage
 
+import com.ble1st.connectias.feature.dvd.models.FileInfo
 import com.ble1st.connectias.feature.dvd.models.FileSystem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -170,14 +171,3 @@ class FileSystemReader @Inject constructor() {
         }
     }
 }
-
-/**
- * File information.
- */
-data class FileInfo(
-    val name: String,
-    val path: String,
-    val isDirectory: Boolean,
-    val size: Long,
-    val lastModified: Long
-)

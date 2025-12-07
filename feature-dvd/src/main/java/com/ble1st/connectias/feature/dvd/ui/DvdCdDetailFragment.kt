@@ -38,6 +38,7 @@ import com.ble1st.connectias.feature.dvd.storage.OpticalDriveProvider
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
@@ -83,6 +84,7 @@ class DvdCdDetailFragment : Fragment() {
                     var hasPermission by remember { mutableStateOf(false) }
                     var isLoading by remember { mutableStateOf(true) }
                     var errorMessage by remember { mutableStateOf<String?>(null) }
+                    var autoRetryAttempts by remember { mutableStateOf(0) }
                     
                     // Load Data
                     LaunchedEffect(trigger) {
@@ -124,11 +126,24 @@ class DvdCdDetailFragment : Fragment() {
                                 hasPermission = false
                                 drive = null
                             }
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            Timber.d("DvdCdDetailFragment: Initialization cancelled (composition disposed)")
+                            throw e
                         } catch (e: Exception) {
                             Timber.e(e, "Error during initialization")
                             errorMessage = "Error: ${e.message}"
                         } finally {
                             isLoading = false
+                        }
+                    }
+                    
+                    // Auto-retry once on initialization errors to avoid manual "Retry"
+                    LaunchedEffect(errorMessage, isLoading) {
+                        if (!isLoading && errorMessage != null && autoRetryAttempts < 1) {
+                            Timber.w("DvdCdDetailFragment: Auto-retrying after error: $errorMessage")
+                            autoRetryAttempts++
+                            delay(800)
+                            refreshTrigger.value++
                         }
                     }
                     
@@ -157,7 +172,7 @@ class DvdCdDetailFragment : Fragment() {
                                 dvdVideoProvider = dvdVideoProvider,
                                 audioCdProvider = audioCdProvider,
                                 onDvdInfoLoaded = { /* Managed internally by screen */ },
-                                onPlayTitle = { dvdInfo, titleNum -> playTitle(drive!!, dvdInfo, titleNum) },
+                                onPlayTitle = { dvdInfo, titleNum, audioId, subId -> playTitle(drive!!, dvdInfo, titleNum, audioId, subId) },
                                 onPlayTrack = { track -> playTrack(drive!!, track) },
                                 onEject = { 
                                     // Refresh after eject
@@ -202,7 +217,7 @@ class DvdCdDetailFragment : Fragment() {
                                     intent.getParcelableExtra(UsbManager.EXTRA_DEVICE, android.hardware.usb.UsbDevice::class.java)
                                 } else {
                                     @Suppress("DEPRECATION")
-                                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE)
+                                    intent.getParcelableExtra(UsbManager.EXTRA_DEVICE) as? android.hardware.usb.UsbDevice
                                 }
 
                             if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
@@ -238,11 +253,11 @@ class DvdCdDetailFragment : Fragment() {
         usbPermissionReceiver = null
     }
 
-    private fun playTitle(drive: OpticalDrive, dvdInfo: DvdInfo, titleNumber: Int) {
+    private fun playTitle(drive: OpticalDrive, dvdInfo: DvdInfo, titleNumber: Int, audioStreamId: Int?, subtitleStreamId: Int?) {
         viewLifecycleOwner.lifecycleScope.launch {
             try {
                 // Create VideoStream
-                val videoStream = dvdVideoProvider.playTitle(dvdInfo, titleNumber)
+                val videoStream = dvdVideoProvider.playTitle(dvdInfo, titleNumber, audioStreamId, subtitleStreamId)
                 
                 // Open persistent session
                 withContext(Dispatchers.IO) {

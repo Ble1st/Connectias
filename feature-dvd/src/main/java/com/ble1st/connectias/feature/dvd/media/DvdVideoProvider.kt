@@ -5,6 +5,8 @@ import android.hardware.usb.UsbManager
 import com.ble1st.connectias.feature.dvd.driver.scsi.ScsiDriver
 import com.ble1st.connectias.feature.dvd.models.DvdInfo
 import com.ble1st.connectias.feature.dvd.models.DvdTitle
+import com.ble1st.connectias.feature.dvd.models.DvdAudioTrack
+import com.ble1st.connectias.feature.dvd.models.DvdSubtitleTrack
 import com.ble1st.connectias.feature.dvd.models.OpticalDrive
 import com.ble1st.connectias.feature.dvd.models.VideoStream
 import com.ble1st.connectias.feature.dvd.native.DvdNative
@@ -25,93 +27,173 @@ class DvdVideoProvider @Inject constructor(
     @ApplicationContext private val context: Context,
     private val opticalDriveProvider: OpticalDriveProvider
 ) {
+    private companion object {
+        private const val LOG_VERBOSE = false
+    }
+    private inline fun vLog(msg: () -> String) { if (LOG_VERBOSE) Timber.d(msg()) }
     
     /**
      * Opens a Video DVD, reads its structure (Titles/Chapters), and closes it.
      * Returns DvdInfo containing the metadata.
      */
     suspend fun openDvd(drive: OpticalDrive): DvdInfo = withContext(Dispatchers.IO) {
+        Timber.d("DvdVideoProvider: openDvd() called")
+        Timber.d("DvdVideoProvider: openDvd() - drive: ${drive.device.product}, vendorId: ${drive.device.vendorId}, productId: ${drive.device.productId}")
         var handle: Long = -1
         
+        vLog { "DvdVideoProvider: openDvd() - Acquiring exclusive session via provider" }
         // Acquire exclusive session via provider (locks mutex)
-        val scsiDriver = opticalDriveProvider.openSession(drive) 
-            ?: throw IllegalStateException("Failed to open driver session or device busy")
+        val scsiDriver = opticalDriveProvider.openSession(drive)
+        if (scsiDriver == null) {
+            Timber.e("DvdVideoProvider: openDvd() - Failed to open driver session or device busy")
+            throw IllegalStateException("Failed to open driver session or device busy")
+        }
+        vLog { "DvdVideoProvider: openDvd() - Session acquired, scsiDriver: $scsiDriver" }
         
         try {
-            Timber.d("Opening DVD: ${drive.device.product}")
+            vLog { "DvdVideoProvider: openDvd() - Opening DVD: ${drive.device.product}" }
             
+            vLog { "DvdVideoProvider: openDvd() - Waiting for drive to be ready (max 15 attempts, 500ms delay)" }
             // Wait for drive to be ready before attempting DVD operations
-            if (!scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)) {
-                Timber.w("Drive not ready or no medium present")
+            val ready = scsiDriver.waitForReady(maxAttempts = 15, delayMs = 500)
+            vLog { "DvdVideoProvider: openDvd() - waitForReady() returned: $ready" }
+            if (!ready) {
+                Timber.w("DvdVideoProvider: openDvd() - Drive not ready or no medium present")
                 throw IllegalStateException("Drive not ready or no medium present")
             }
+            vLog { "DvdVideoProvider: openDvd() - Drive is ready" }
             
+            vLog { "DvdVideoProvider: openDvd() - Ensuring native library is loaded" }
             // Ensure Native Lib
-            if (!DvdNative.ensureLibraryLoaded()) throw IllegalStateException("Native library not loaded")
+            val libLoaded = DvdNative.ensureLibraryLoaded()
+            vLog { "DvdVideoProvider: openDvd() - ensureLibraryLoaded() returned: $libLoaded" }
+            if (!libLoaded) {
+                Timber.e("DvdVideoProvider: openDvd() - Native library not loaded")
+                throw IllegalStateException("Native library not loaded")
+            }
+            vLog { "DvdVideoProvider: openDvd() - Native library loaded" }
             
+            vLog { "DvdVideoProvider: openDvd() - Opening DVD stream via DvdNative" }
             // Open Stream
             handle = DvdNative.dvdOpenStream(scsiDriver)
-            if (handle <= 0) throw IllegalStateException("Failed to open DVD stream")
+            vLog { "DvdVideoProvider: openDvd() - dvdOpenStream() returned handle: $handle" }
+            if (handle <= 0) {
+                Timber.e("DvdVideoProvider: openDvd() - Failed to open DVD stream, handle: $handle")
+                throw IllegalStateException("Failed to open DVD stream")
+            }
             
-            Timber.i("DVD opened successfully via SCSI, handle: $handle")
+            Timber.i("DvdVideoProvider: openDvd() - DVD opened successfully via SCSI, handle: $handle")
             
+            vLog { "DvdVideoProvider: openDvd() - Reading DVD structure (titles only, chapters deferred)" }
             // Read Structure - Only load title metadata (no chapters for performance)
             val titleCount = DvdNative.dvdGetTitleCount(handle)
-            Timber.i("DVD contains $titleCount titles")
+            Timber.i("DvdVideoProvider: openDvd() - DVD contains $titleCount titles")
             
             val titles = mutableListOf<DvdTitle>()
+            vLog { "DvdVideoProvider: openDvd() - Iterating through titles (1 to $titleCount)" }
             for (titleNumber in 1..titleCount) {
+                vLog { "DvdVideoProvider: openDvd() - Reading title $titleNumber" }
                 val titleNative = DvdNative.dvdReadTitle(handle, titleNumber)
                 if (titleNative != null) {
+                    vLog { "DvdVideoProvider: openDvd() - Title $titleNumber: chapters=${titleNative.chapterCount}, duration=${titleNative.duration}ms" }
+                    val audioTracks = DvdNative.dvdGetAudioTracks(handle, titleNumber).map { it.toModel() }
+                    val subtitleTracks = DvdNative.dvdGetSubtitleTracks(handle, titleNumber).map { it.toModel() }
                     // Only store basic title info - chapters are loaded lazily when needed
                     titles.add(DvdTitle(
                         number = titleNative.number,
                         duration = titleNative.duration,
-                        chapterCount = titleNative.chapterCount
+                        chapterCount = titleNative.chapterCount,
+                        audioTracks = audioTracks,
+                        subtitleTracks = subtitleTracks
                         // chapters will be empty (default) - loaded on demand
                     ))
+                    vLog { "DvdVideoProvider: openDvd() - Title $titleNumber added to list" }
+                } else {
+                    Timber.w("DvdVideoProvider: openDvd() - Title $titleNumber returned null, skipping")
                 }
             }
             
-            Timber.i("Loaded ${titles.size} title metadata entries (chapters deferred)")
+            Timber.i("DvdVideoProvider: openDvd() - Loaded ${titles.size} title metadata entries (chapters deferred)")
             
+            vLog { "DvdVideoProvider: openDvd() - Attempting to read DVD name" }
             // Try to read DVD name
             val dvdName = try {
-                DvdNative.dvdGetName(handle)?.takeIf { it.isNotBlank() }
+                val name = DvdNative.dvdGetName(handle)
+                vLog { "DvdVideoProvider: openDvd() - dvdGetName() returned: $name" }
+                name?.takeIf { it.isNotBlank() }
             } catch (e: Exception) {
-                Timber.w(e, "Failed to read DVD name")
+                Timber.w(e, "DvdVideoProvider: openDvd() - Failed to read DVD name")
                 null
             }
             
             if (dvdName != null) {
-                Timber.i("DVD name: $dvdName")
+                Timber.i("DvdVideoProvider: openDvd() - DVD name: $dvdName")
             } else {
-                Timber.d("DVD name not available")
+                vLog { "DvdVideoProvider: openDvd() - DVD name not available" }
             }
             
-            return@withContext DvdInfo(
+            vLog { "DvdVideoProvider: openDvd() - Getting deviceId from Android UsbDevice" }
+            // Get deviceId from Android UsbDevice
+            val usbManager = context.getSystemService(Context.USB_SERVICE) as UsbManager
+            vLog { "DvdVideoProvider: openDvd() - UsbManager obtained" }
+            val androidDevice = usbManager.deviceList.values.find { 
+                it.vendorId == drive.device.vendorId && it.productId == drive.device.productId 
+            }
+            vLog { "DvdVideoProvider: openDvd() - Android device found: ${androidDevice != null}" }
+            val deviceId = androidDevice?.deviceId ?: -1
+            vLog { "DvdVideoProvider: openDvd() - Device ID: $deviceId" }
+            
+            vLog { "DvdVideoProvider: openDvd() - Creating DvdInfo object" }
+            val dvdInfo = DvdInfo(
                 handle = -1, // Handle is invalid after return
                 mountPoint = "", // Not used
-                deviceId = drive.device.deviceId, // Use device ID from drive object
+                deviceId = deviceId,
                 titles = titles,
                 name = dvdName
             )
+            vLog { "DvdVideoProvider: openDvd() - DvdInfo created with ${titles.size} titles" }
+            Timber.i("DvdVideoProvider: openDvd() - Successfully opened DVD")
+            return@withContext dvdInfo
             
         } finally {
+            vLog { "DvdVideoProvider: openDvd() - Finally block: cleaning up" }
             // Always close native handle and release session
-            if (handle > 0) DvdNative.dvdClose(handle)
+            if (handle > 0) {
+                vLog { "DvdVideoProvider: openDvd() - Closing DVD handle: $handle" }
+                DvdNative.dvdClose(handle)
+                vLog { "DvdVideoProvider: openDvd() - DVD handle closed" }
+            } else {
+                vLog { "DvdVideoProvider: openDvd() - No handle to close (handle: $handle)" }
+            }
+            vLog { "DvdVideoProvider: openDvd() - Closing session" }
             opticalDriveProvider.closeSession()
+            vLog { "DvdVideoProvider: openDvd() - Session closed" }
         }
     }
     
     /**
      * Generates a Playback URI for a DVD title.
      */
-    suspend fun playTitle(dvdInfo: DvdInfo, titleNumber: Int): VideoStream = withContext(Dispatchers.IO) {
-        Timber.d("Preparing playback for Title $titleNumber (Device ID: ${dvdInfo.deviceId})")
+    suspend fun playTitle(
+        dvdInfo: DvdInfo,
+        titleNumber: Int,
+        audioStreamId: Int? = null,
+        subtitleStreamId: Int? = null
+    ): VideoStream = withContext(Dispatchers.IO) {
+        Timber.d("DvdVideoProvider: playTitle() called")
+        Timber.d("DvdVideoProvider: playTitle() - titleNumber: $titleNumber, deviceId: ${dvdInfo.deviceId}")
+        Timber.d("DvdVideoProvider: playTitle() - Available titles: ${dvdInfo.titles.size}")
+        dvdInfo.titles.forEachIndexed { index, title ->
+            Timber.d("DvdVideoProvider: playTitle() -   Title[$index]: number=${title.number}, chapters=${title.chapterCount}, duration=${title.duration}ms")
+        }
         
+        Timber.d("DvdVideoProvider: playTitle() - Searching for title $titleNumber")
         val title = dvdInfo.titles.find { it.number == titleNumber }
-            ?: throw IllegalArgumentException("Title not found")
+        if (title == null) {
+            Timber.e("DvdVideoProvider: playTitle() - Title $titleNumber not found in ${dvdInfo.titles.size} available titles")
+            throw IllegalArgumentException("Title not found")
+        }
+        Timber.d("DvdVideoProvider: playTitle() - Title found: number=${title.number}, chapters=${title.chapterCount}, duration=${title.duration}ms")
             
         // Note: We cannot easily probe codec/resolution without opening the DVD again.
         // But creating VideoStream requires these fields?
@@ -123,18 +205,48 @@ class DvdVideoProvider @Inject constructor(
         // or update DvdTitle to include video attributes in a future refactor.
         
         val uri = "content://com.ble1st.connectias.provider/dvd/${dvdInfo.deviceId}/$titleNumber"
+        Timber.d("DvdVideoProvider: playTitle() - Generated URI: $uri")
         
-        VideoStream(
+        Timber.d("DvdVideoProvider: playTitle() - Creating VideoStream object")
+        val selectedAudio = title.audioTracks.firstOrNull { it.streamId == audioStreamId }
+        val selectedSubtitle = title.subtitleTracks.firstOrNull { it.streamId == subtitleStreamId }
+
+        val videoStream = VideoStream(
             codec = "mpeg2", // Standard DVD
             width = 720, // PAL/NTSC typical
             height = 480, 
             bitrate = 5000000L,
             frameRate = 30.0,
-            uri = uri
+            uri = uri,
+            audioStreamId = audioStreamId,
+            subtitleStreamId = subtitleStreamId,
+            audioLanguage = selectedAudio?.language,
+            subtitleLanguage = selectedSubtitle?.language
         )
+        Timber.d("DvdVideoProvider: playTitle() - VideoStream created: codec=${videoStream.codec}, resolution=${videoStream.width}x${videoStream.height}, uri=${videoStream.uri}")
+        Timber.d("DvdVideoProvider: playTitle() - Returning VideoStream")
+        return@withContext videoStream
     }
     
     suspend fun closeDvd(dvdInfo: DvdInfo) {
         // No-op since we close in openDvd
     }
+}
+
+private fun com.ble1st.connectias.feature.dvd.native.DvdAudioTrackNative.toModel(): DvdAudioTrack {
+    return DvdAudioTrack(
+        streamId = streamId,
+        language = language,
+        codec = codec,
+        channels = channels,
+        sampleRate = sampleRate
+    )
+}
+
+private fun com.ble1st.connectias.feature.dvd.native.DvdSubtitleTrackNative.toModel(): DvdSubtitleTrack {
+    return DvdSubtitleTrack(
+        streamId = streamId,
+        language = language,
+        type = type
+    )
 }

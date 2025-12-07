@@ -186,6 +186,10 @@
 # Third-Party Libraries
 # ------------------------------------------------------------------------------
 
+# LibVLC Android
+-keep class org.videolan.libvlc.** { *; }
+-dontwarn org.videolan.libvlc.**
+
 # RootBeer
 -keep class com.scottyab.rootbeer.** { *; }
 -dontwarn com.scottyab.rootbeer.**

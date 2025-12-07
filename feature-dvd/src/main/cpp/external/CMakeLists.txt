@@ -18,6 +18,12 @@ set(DVDCSS_SOURCES
 
 add_library(dvdcss STATIC ${DVDCSS_SOURCES})
 
+# 16 KB page size alignment for Android 15+ compatibility
+target_link_options(dvdcss PRIVATE
+    -Wl,-z,max-page-size=16384
+    -Wl,-z,common-page-size=16384
+)
+
 target_include_directories(dvdcss PUBLIC
     libdvdcss
     libdvdcss/src
@@ -60,6 +66,12 @@ set(DVDREAD_SOURCES
 )
 
 add_library(dvdread STATIC ${DVDREAD_SOURCES})
+
+# 16 KB page size alignment for Android 15+ compatibility
+target_link_options(dvdread PRIVATE
+    -Wl,-z,max-page-size=16384
+    -Wl,-z,common-page-size=16384
+)
 
 # Link libdvdread with libdvdcss for CSS decryption
 target_link_libraries(dvdread PUBLIC dvdcss)
@@ -107,6 +119,12 @@ set(DVDNAV_SOURCES
 )
 
 add_library(dvdnav STATIC ${DVDNAV_SOURCES})
+
+# 16 KB page size alignment for Android 15+ compatibility
+target_link_options(dvdnav PRIVATE
+    -Wl,-z,max-page-size=16384
+    -Wl,-z,common-page-size=16384
+)
 
 target_link_libraries(dvdnav PUBLIC dvdread)
 

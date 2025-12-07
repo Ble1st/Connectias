@@ -12,17 +12,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.feature.dvd.models.AudioTrack
 import com.ble1st.connectias.feature.dvd.models.DiscType
+import com.ble1st.connectias.feature.dvd.models.DvdAudioTrack
 import com.ble1st.connectias.feature.dvd.models.DvdInfo
+import com.ble1st.connectias.feature.dvd.models.DvdSubtitleTrack
+import com.ble1st.connectias.feature.dvd.models.FileInfo
 import com.ble1st.connectias.feature.dvd.models.OpticalDrive
 import com.ble1st.connectias.feature.dvd.media.AudioCdProvider
 import com.ble1st.connectias.feature.dvd.media.AudioCdResult
 import com.ble1st.connectias.feature.dvd.media.DvdVideoProvider
 import com.ble1st.connectias.feature.dvd.storage.OpticalDriveProvider
+
 import com.ble1st.connectias.feature.dvd.ui.components.AudioTrackList
 import com.ble1st.connectias.feature.dvd.ui.components.DiscInfoCard
 import com.ble1st.connectias.feature.dvd.ui.components.DvdTitleList
 import com.ble1st.connectias.feature.dvd.ui.components.FileBrowser
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import timber.log.Timber
 
 @Composable
@@ -31,36 +36,48 @@ fun DvdCdDetailScreen(
     opticalDriveProvider: OpticalDriveProvider,
     dvdVideoProvider: DvdVideoProvider,
     audioCdProvider: AudioCdProvider,
-    onPlayTitle: (DvdInfo, Int) -> Unit = { _, _ -> },
+    onPlayTitle: (DvdInfo, Int, Int?, Int?) -> Unit = { _, _, _, _ -> },
     onPlayTrack: (AudioTrack) -> Unit = {},
     onEject: () -> Unit = {},
     onDvdInfoLoaded: (DvdInfo) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    Timber.d("=== DvdCdDetailScreen: COMPOSABLE CREATED ===")
-    Timber.d("DvdCdDetailScreen: drive.type=${drive.type}, drive.device=${drive.device.product}")
+    val LOG_VERBOSE = false
+    fun vLog(msg: () -> String) { if (LOG_VERBOSE) Timber.d(msg()) }
+    vLog { "=== DvdCdDetailScreen: COMPOSABLE CREATED ===" }
+    vLog { "DvdCdDetailScreen: drive.type=${drive.type}, drive.device=${drive.device.product}" }
     
     var dvdInfo by remember { mutableStateOf<DvdInfo?>(null) }
     var audioTracks by remember { mutableStateOf<List<AudioTrack>>(emptyList()) }
-    var files by remember { mutableStateOf<List<com.ble1st.connectias.feature.dvd.storage.FileInfo>>(emptyList()) }
+    var files by remember { mutableStateOf<List<FileInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }  // Start with loading=true
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isEjecting by remember { mutableStateOf(false) }
     var detectedDiscType by remember { mutableStateOf(drive.type) }
+    var selectedAudioByTitle by remember { mutableStateOf<Map<Int, Int?>>(emptyMap()) }
+    var selectedSubtitleByTitle by remember { mutableStateOf<Map<Int, Int?>>(emptyMap()) }
     val coroutineScope = rememberCoroutineScope()
+
+    fun selectedAudioId(title: com.ble1st.connectias.feature.dvd.models.DvdTitle): Int? =
+        selectedAudioByTitle[title.number] ?: title.audioTracks.firstOrNull()?.streamId
+
+    fun selectedSubtitleId(title: com.ble1st.connectias.feature.dvd.models.DvdTitle): Int? =
+        selectedSubtitleByTitle[title.number] ?: title.subtitleTracks.firstOrNull()?.streamId
     
     LaunchedEffect(drive) {
-        Timber.d("=== DvdCdDetailScreen: LaunchedEffect STARTED ===")
+        vLog { "=== DvdCdDetailScreen: LaunchedEffect STARTED ===" }
         
         // Optimization: If we already have content for this drive instance, don't reload
         if ((dvdInfo != null || audioTracks.isNotEmpty() || files.isNotEmpty()) && !isLoading) {
-            Timber.d("DvdCdDetailScreen: Content already loaded, skipping detection.")
+            vLog { "DvdCdDetailScreen: Content already loaded, skipping detection." }
             return@LaunchedEffect
         }
 
-        Timber.d("DvdCdDetailScreen: Starting disc detection for type: ${drive.type}")
+        vLog { "DvdCdDetailScreen: Starting disc detection for type: ${drive.type}" }
         isLoading = true
         errorMessage = null
+        selectedAudioByTitle = emptyMap()
+        selectedSubtitleByTitle = emptyMap()
         // Don't clear data yet to avoid flickering if we just refresh
         // dvdInfo = null 
         // audioTracks = emptyList()
@@ -69,35 +86,37 @@ fun DvdCdDetailScreen(
         try {
             when (drive.type) {
                 DiscType.VIDEO_DVD -> {
-                    Timber.d("DvdCdDetailScreen: Opening Video DVD...")
+                    vLog { "DvdCdDetailScreen: Opening Video DVD..." }
                     dvdInfo = dvdVideoProvider.openDvd(drive)
                     detectedDiscType = DiscType.VIDEO_DVD
                     Timber.i("DvdCdDetailScreen: Video DVD opened: ${dvdInfo?.titles?.size} titles")
                     dvdInfo?.let { info ->
                         onDvdInfoLoaded(info)
-                        info.titles.forEachIndexed { index, title ->
-                            Timber.d("  Title ${title.number}: duration=${title.duration}ms, chapters=${title.chapterCount}")
+                        if (LOG_VERBOSE) {
+                        info.titles.forEach { title ->
+                            vLog { "  Title ${title.number}: duration=${title.duration}ms, chapters=${title.chapterCount}" }
+                        }
                         }
                     }
                 }
                 DiscType.UNKNOWN -> {
                     // Try to detect disc type by attempting to open as Video DVD first
-                    Timber.d("DvdCdDetailScreen: Disc type UNKNOWN, attempting auto-detection...")
+                    vLog { "DvdCdDetailScreen: Disc type UNKNOWN, attempting auto-detection..." }
                     try {
-                        Timber.d("DvdCdDetailScreen: Trying to open as Video DVD...")
+                        vLog { "DvdCdDetailScreen: Trying to open as Video DVD..." }
                         val detectedDvdInfo = dvdVideoProvider.openDvd(drive)
-                        Timber.d("DvdCdDetailScreen: openDvd returned: ${detectedDvdInfo?.titles?.size} titles")
+                        vLog { "DvdCdDetailScreen: openDvd returned: ${detectedDvdInfo?.titles?.size} titles" }
                         
                         if (detectedDvdInfo != null && detectedDvdInfo.titles.isNotEmpty()) {
                             dvdInfo = detectedDvdInfo
                             detectedDiscType = DiscType.VIDEO_DVD
                             onDvdInfoLoaded(detectedDvdInfo)
                             Timber.i("=== DvdCdDetailScreen: Successfully detected Video DVD: ${detectedDvdInfo.titles.size} titles ===")
-                            detectedDvdInfo.titles.forEachIndexed { index, title ->
-                                Timber.d("  Title ${title.number}: duration=${title.duration}ms, chapters=${title.chapterCount}")
+                            detectedDvdInfo.titles.forEach { title ->
+                                vLog { "  Title ${title.number}: duration=${title.duration}ms, chapters=${title.chapterCount}" }
                             }
                         } else {
-                            Timber.d("DvdCdDetailScreen: Not a Video DVD (no titles), trying Audio CD...")
+                            vLog { "DvdCdDetailScreen: Not a Video DVD (no titles), trying Audio CD..." }
                             when (val result = audioCdProvider.getTracks(drive)) {
                                 is AudioCdResult.Success -> {
                                     audioTracks = result.tracks
@@ -105,7 +124,7 @@ fun DvdCdDetailScreen(
                                     Timber.i("DvdCdDetailScreen: Successfully detected Audio CD: ${audioTracks.size} tracks")
                                 }
                                 is AudioCdResult.Error -> {
-                                    Timber.d("DvdCdDetailScreen: Not an Audio CD, trying data disc...")
+                                    vLog { "DvdCdDetailScreen: Not an Audio CD, trying data disc..." }
                                     files = opticalDriveProvider.listFiles(drive)
                                     if (files.isNotEmpty()) {
                                         detectedDiscType = DiscType.DATA_DVD
@@ -121,6 +140,7 @@ fun DvdCdDetailScreen(
                             }
                         }
                     } catch (e: Exception) {
+                        if (e is CancellationException) throw e
                         Timber.e(e, "DvdCdDetailScreen: Error detecting disc type")
                         // Try Audio CD as fallback
                         try {
@@ -131,7 +151,7 @@ fun DvdCdDetailScreen(
                                     Timber.i("DvdCdDetailScreen: Detected Audio CD after Video DVD failed: ${audioTracks.size} tracks")
                                 }
                                 is AudioCdResult.Error -> {
-                                    Timber.d("DvdCdDetailScreen: Trying data disc as last resort...")
+                    vLog { "DvdCdDetailScreen: Trying data disc as last resort..." }
                                     files = opticalDriveProvider.listFiles(drive)
                                     if (files.isEmpty()) {
                                         errorMessage = "Could not read disc: ${e.message ?: "Unknown error"}"
@@ -139,13 +159,14 @@ fun DvdCdDetailScreen(
                                 }
                             }
                         } catch (e2: Exception) {
+                            if (e2 is CancellationException) throw e2
                             Timber.e(e2, "DvdCdDetailScreen: All disc detection methods failed")
                             errorMessage = "Failed to detect disc type: ${e.message ?: "Unknown error"}"
                         }
                     }
                 }
                 DiscType.AUDIO_CD -> {
-                    Timber.d("DvdCdDetailScreen: Reading Audio CD tracks...")
+                    vLog { "DvdCdDetailScreen: Reading Audio CD tracks..." }
                     when (val result = audioCdProvider.getTracks(drive)) {
                         is AudioCdResult.Success -> {
                             audioTracks = result.tracks
@@ -160,7 +181,7 @@ fun DvdCdDetailScreen(
                     }
                 }
                 DiscType.DATA_DVD, DiscType.DATA_CD -> {
-                    Timber.d("DvdCdDetailScreen: Listing files on data disc...")
+                    vLog { "DvdCdDetailScreen: Listing files on data disc..." }
                     files = opticalDriveProvider.listFiles(drive)
                     detectedDiscType = drive.type
                     Timber.i("DvdCdDetailScreen: Data disc read: ${files.size} files")
@@ -170,18 +191,21 @@ fun DvdCdDetailScreen(
                     errorMessage = "Unsupported disc type: ${drive.type}"
                 }
             }
+        } catch (e: CancellationException) {
+            vLog { "DvdCdDetailScreen: LaunchedEffect cancelled" }
+            throw e
         } catch (e: Exception) {
             Timber.e(e, "DvdCdDetailScreen: Error during disc detection")
             errorMessage = "Failed to read disc: ${e.message ?: "Unknown error"}"
         } finally {
             isLoading = false
-            Timber.d("=== DvdCdDetailScreen: Disc detection COMPLETE ===")
-            Timber.d("DvdCdDetailScreen: Final state - detectedDiscType=$detectedDiscType, dvdInfo=${dvdInfo != null}, titles=${dvdInfo?.titles?.size ?: 0}")
+            vLog { "=== DvdCdDetailScreen: Disc detection COMPLETE ===" }
+            vLog { "DvdCdDetailScreen: Final state - detectedDiscType=$detectedDiscType, dvdInfo=${dvdInfo != null}, titles=${dvdInfo?.titles?.size ?: 0}" }
         }
     }
     
     // Log UI state on every recomposition
-    Timber.d("DvdCdDetailScreen: UI recomposition - isLoading=$isLoading, detectedDiscType=$detectedDiscType, dvdInfo=${dvdInfo != null}, titles=${dvdInfo?.titles?.size ?: 0}")
+    vLog { "DvdCdDetailScreen: UI recomposition - isLoading=$isLoading, detectedDiscType=$detectedDiscType, dvdInfo=${dvdInfo != null}, titles=${dvdInfo?.titles?.size ?: 0}" }
     
     LazyColumn(
         modifier = modifier
@@ -251,7 +275,7 @@ fun DvdCdDetailScreen(
                     }
                     Button(
                         onClick = {
-                            Timber.d("DvdCdDetailScreen: Eject button clicked")
+                            vLog { "DvdCdDetailScreen: Eject button clicked" }
                             coroutineScope.launch {
                                 isEjecting = true
                                 try {
@@ -338,7 +362,7 @@ fun DvdCdDetailScreen(
             // This fixes the issue where disc was UNKNOWN but video DVD was detected
             if (dvdInfo != null && dvdInfo!!.titles.isNotEmpty()) {
                 // Video DVD detected - show title list
-                Timber.d("DvdCdDetailScreen: Rendering ${dvdInfo!!.titles.size} titles")
+                vLog { "DvdCdDetailScreen: Rendering ${dvdInfo!!.titles.size} titles" }
                 
                 item {
                     Text(
@@ -370,11 +394,36 @@ fun DvdCdDetailScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                                 )
+                                if (mainTitle.audioTracks.isNotEmpty() || mainTitle.subtitleTracks.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    AudioSubtitleSelector(
+                                        title = mainTitle,
+                                        selectedAudioId = selectedAudioId(mainTitle),
+                                        selectedSubtitleId = selectedSubtitleId(mainTitle),
+                                        onAudioSelected = { trackId ->
+                                            selectedAudioByTitle = selectedAudioByTitle + (mainTitle.number to trackId)
+                                        },
+                                        onSubtitleSelected = { trackId ->
+                                            selectedSubtitleByTitle = selectedSubtitleByTitle + (mainTitle.number to trackId)
+                                        },
+                                        colors = CardDefaults.cardColors(
+                                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    )
+                                }
                                 Spacer(modifier = Modifier.height(12.dp))
                                 Button(
                                     onClick = {
-                                        Timber.d("=== DvdCdDetailScreen: PLAY MAIN TITLE ${mainTitle.number} CLICKED ===")
-                                        dvdInfo?.let { info -> onPlayTitle(info, mainTitle.number) }
+                                        vLog { "=== DvdCdDetailScreen: PLAY MAIN TITLE ${mainTitle.number} CLICKED ===" }
+                                        dvdInfo?.let { info ->
+                                            onPlayTitle(
+                                                info,
+                                                mainTitle.number,
+                                                selectedAudioId(mainTitle),
+                                                selectedSubtitleId(mainTitle)
+                                            )
+                                        }
                                     },
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
@@ -403,8 +452,13 @@ fun DvdCdDetailScreen(
                     DvdTitleList(
                         titles = dvdInfo!!.titles,
                         onTitleSelected = { titleNumber ->
-                            Timber.d("=== DvdCdDetailScreen: TITLE $titleNumber SELECTED ===")
-                            dvdInfo?.let { info -> onPlayTitle(info, titleNumber) }
+                            vLog { "=== DvdCdDetailScreen: TITLE $titleNumber SELECTED ===" }
+                            dvdInfo?.let { info ->
+                                val title = info.titles.find { it.number == titleNumber }
+                                val audioId = title?.let { selectedAudioId(it) }
+                                val subId = title?.let { selectedSubtitleId(it) }
+                                onPlayTitle(info, titleNumber, audioId, subId)
+                            }
                         }
                     )
                 }
@@ -420,7 +474,7 @@ fun DvdCdDetailScreen(
                     AudioTrackList(
                         tracks = audioTracks,
                         onTrackSelected = { track ->
-                            Timber.d("DvdCdDetailScreen: Track ${track.number} selected")
+                            vLog { "DvdCdDetailScreen: Track ${track.number} selected" }
                             onPlayTrack(track)
                         }
                     )
@@ -454,6 +508,106 @@ fun DvdCdDetailScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AudioSubtitleSelector(
+    title: com.ble1st.connectias.feature.dvd.models.DvdTitle,
+    selectedAudioId: Int?,
+    selectedSubtitleId: Int?,
+    onAudioSelected: (Int?) -> Unit,
+    onSubtitleSelected: (Int?) -> Unit,
+    colors: CardColors = CardDefaults.cardColors()
+) {
+    var audioExpanded by remember { mutableStateOf(false) }
+    var subExpanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (title.audioTracks.isNotEmpty()) {
+            Box {
+                Button(
+                    onClick = { audioExpanded = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.containerColor,
+                        contentColor = colors.contentColor
+                    )
+                ) {
+                    Text(text = audioLabel(title.audioTracks, selectedAudioId))
+                }
+                DropdownMenu(
+                    expanded = audioExpanded,
+                    onDismissRequest = { audioExpanded = false }
+                ) {
+                    title.audioTracks.forEach { track ->
+                        DropdownMenuItem(
+                            text = { Text(audioLabel(listOf(track), track.streamId)) },
+                            onClick = {
+                                onAudioSelected(track.streamId)
+                                audioExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        if (title.subtitleTracks.isNotEmpty()) {
+            Box {
+                Button(
+                    onClick = { subExpanded = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.containerColor,
+                        contentColor = colors.contentColor
+                    )
+                ) {
+                    Text(text = subtitleLabel(title.subtitleTracks, selectedSubtitleId))
+                }
+                DropdownMenu(
+                    expanded = subExpanded,
+                    onDismissRequest = { subExpanded = false }
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Subtitles: Off") },
+                        onClick = {
+                            onSubtitleSelected(null)
+                            subExpanded = false
+                        }
+                    )
+                    title.subtitleTracks.forEach { track ->
+                        DropdownMenuItem(
+                            text = { Text(subtitleLabel(listOf(track), track.streamId)) },
+                            onClick = {
+                                onSubtitleSelected(track.streamId)
+                                subExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun audioLabel(tracks: List<DvdAudioTrack>, selectedId: Int?): String {
+    val track = tracks.find { it.streamId == selectedId } ?: tracks.firstOrNull()
+    return if (track != null) {
+        val lang = track.language?.uppercase() ?: "UND"
+        "Audio: $lang • ${track.codec} • ${track.channels}ch"
+    } else {
+        "Audio"
+    }
+}
+
+private fun subtitleLabel(tracks: List<DvdSubtitleTrack>, selectedId: Int?): String {
+    val track = tracks.find { it.streamId == selectedId } ?: tracks.firstOrNull()
+    return when {
+        selectedId == null -> "Subtitles: Off"
+        track != null -> {
+            val lang = track.language?.uppercase() ?: "UND"
+            "Subtitles: $lang"
+        }
+        else -> "Subtitles"
     }
 }
 

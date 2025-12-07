@@ -20,7 +20,9 @@ data class DvdTitle(
     val number: Int,
     val duration: Long, // milliseconds
     val chapterCount: Int,
-    val chapters: List<DvdChapter> = emptyList()
+    val chapters: List<DvdChapter> = emptyList(),
+    val audioTracks: List<DvdAudioTrack> = emptyList(),
+    val subtitleTracks: List<DvdSubtitleTrack> = emptyList()
 ) : Parcelable {
     init {
         require(number > 0) { "Title number must be positive, got: $number" }

@@ -89,12 +89,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.common.ui.theme.ThemeStyle
@@ -245,7 +247,13 @@ class MainActivity : AppCompatActivity() {
                     themeStyle = themeStyle,
                     dynamicColor = dynamicColor
                 ) {
+                    val navController = try {
+                        findNavController(R.id.nav_host_fragment_content_main)
+                    } catch (e: Exception) {
+                        null
+                    }
                     FabWithBottomSheet(
+                        navController = navController,
                         onFeatureSelected = { navId ->
                             navigateToFeature(navId)
                         }
@@ -345,10 +353,24 @@ class MainActivity : AppCompatActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FabWithBottomSheet(onFeatureSelected: (Int) -> Unit) {
+fun FabWithBottomSheet(
+    navController: NavController?,
+    onFeatureSelected: (Int) -> Unit
+) {
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
+    
+    // Observe current navigation destination to hide FAB during DVD playback
+    val currentDestinationId = navController?.currentBackStackEntry?.destination?.id
+    val context = LocalContext.current
+    val dvdPlayerNavId = remember {
+        context.resources.getIdentifier("nav_dvd_player", "id", context.packageName)
+    }
+    val dvdCdDetailNavId = remember {
+        context.resources.getIdentifier("nav_dvd_cd_detail", "id", context.packageName)
+    }
+    val shouldShowFab = currentDestinationId != dvdPlayerNavId && currentDestinationId != dvdCdDetailNavId
 
     Box(
         modifier = Modifier
@@ -356,18 +378,20 @@ fun FabWithBottomSheet(onFeatureSelected: (Int) -> Unit) {
             .windowInsetsPadding(WindowInsets.navigationBars),
         contentAlignment = Alignment.BottomCenter
     ) {
-        // FAB at bottom center with proper inset handling
-        LargeFloatingActionButton(
-            onClick = { showBottomSheet = true },
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-            modifier = Modifier.padding(bottom = 24.dp)
-        ) {
-            Icon(
-                Icons.Rounded.Apps,
-                contentDescription = "All Features",
-                modifier = Modifier.size(32.dp)
-            )
+        // FAB at bottom center with proper inset handling - hide during DVD playback
+        if (shouldShowFab) {
+            LargeFloatingActionButton(
+                onClick = { showBottomSheet = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.padding(bottom = 24.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Apps,
+                    contentDescription = "All Features",
+                    modifier = Modifier.size(32.dp)
+                )
+            }
         }
     }
 

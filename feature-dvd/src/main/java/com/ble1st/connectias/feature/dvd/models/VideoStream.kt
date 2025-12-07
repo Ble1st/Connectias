@@ -61,5 +61,9 @@ data class VideoStream(
     val height: Int,
     val bitrate: Long,
     val frameRate: Double,
-    val uri: String? // URI to video stream
+    val uri: String?, // URI to video stream
+    val audioStreamId: Int? = null,
+    val subtitleStreamId: Int? = null,
+    val audioLanguage: String? = null,
+    val subtitleLanguage: String? = null
 ) : Parcelable

@@ -81,7 +81,10 @@ accompanist = "0.34.0"
 libaums = "0.10.0"
 
 # LibVLC
-libvlc = "3.6.0"
+# Updated to 3.6.4 (latest stable as of 2025)
+# Note: 16 KB page size support may still be incomplete in pre-built libraries.
+# If 16 KB warnings persist, consider building LibVLC from source with alignment flags.
+libvlc = "3.6.4"
 
 # DataStore
 datastore = "1.1.1"

@@ -17,7 +17,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.launch
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.dvd.R
 import com.ble1st.connectias.feature.dvd.models.UsbDevice
@@ -99,6 +101,10 @@ class DvdPlayerFragment : Fragment() {
                         usbDevice = usbDevice,
                         devicePath = path,
                         driver = driver,
+                        audioStreamId = videoStream.audioStreamId,
+                        subtitleStreamId = videoStream.subtitleStreamId,
+                        audioLanguage = videoStream.audioLanguage,
+                        subtitleLanguage = videoStream.subtitleLanguage,
                         onBack = {
                             Timber.d("Back button clicked")
                             findNavController().popBackStack()
@@ -119,7 +125,9 @@ class DvdPlayerFragment : Fragment() {
     
     override fun onDestroy() {
         super.onDestroy()
-        opticalDriveProvider.closeSession()
+        lifecycleScope.launch {
+            opticalDriveProvider.closeSession()
+        }
     }
 
     private fun createErrorComposeView(message: String): ComposeView {

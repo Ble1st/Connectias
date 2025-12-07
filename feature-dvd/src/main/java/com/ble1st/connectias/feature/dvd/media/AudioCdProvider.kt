@@ -133,7 +133,11 @@ class AudioCdProvider @Inject constructor(
         }
         
         // Create AudioTrack objects
+        // Skip track 0 (Lead-In) - only process actual audio tracks (1-99)
         for (i in firstTrack..lastTrack) {
+            // Skip track 0 (Lead-In area, not a real audio track)
+            if (i == 0) continue
+            
             val startLba = trackDescriptors[i] ?: continue
             
             // Determine end LBA: Start of next track, or Lead-Out if last track
