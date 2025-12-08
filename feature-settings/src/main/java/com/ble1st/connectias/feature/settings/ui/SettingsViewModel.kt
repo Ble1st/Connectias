@@ -42,10 +42,8 @@ class SettingsViewModel @Inject constructor(
                         dynamicColor = settingsRepository.getDynamicColor(),
                         autoLockEnabled = settingsRepository.getAutoLockEnabled(),
                         raspLoggingEnabled = settingsRepository.getRaspLoggingEnabled(),
-                        dnsServer = settingsRepository.getDnsServer(),
                         loggingLevel = settingsRepository.getLoggingLevel(),
-                        clipboardAutoClear = settingsRepository.getClipboardAutoClear(),
-                        scanTimeout = settingsRepository.getScanTimeout()
+                        clipboardAutoClear = settingsRepository.getClipboardAutoClear()
                     )
                 }
             } catch (e: Exception) {
@@ -131,21 +129,6 @@ class SettingsViewModel @Inject constructor(
     }
 
     /**
-     * Updates DNS server preference.
-     */
-    fun setDnsServer(server: String) {
-        viewModelScope.launch {
-            try {
-                settingsRepository.setDnsServer(server)
-                _uiState.update { it.copy(dnsServer = server) }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to set DNS server")
-                _uiState.update { it.copy(errorMessage = "Failed to set DNS server: ${e.message}") }
-            }
-        }
-    }
-
-    /**
      * Updates logging level preference.
      */
     fun setLoggingLevel(level: String) {
@@ -171,21 +154,6 @@ class SettingsViewModel @Inject constructor(
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set clipboard auto-clear")
                 _uiState.update { it.copy(errorMessage = "Failed to set clipboard auto-clear: ${e.message}") }
-            }
-        }
-    }
-
-    /**
-     * Updates scan timeout preference.
-     */
-    fun setScanTimeout(timeout: Int) {
-        viewModelScope.launch {
-            try {
-                settingsRepository.setScanTimeout(timeout)
-                _uiState.update { it.copy(scanTimeout = timeout) }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to set scan timeout")
-                _uiState.update { it.copy(errorMessage = "Failed to set scan timeout: ${e.message}") }
             }
         }
     }
@@ -230,10 +198,8 @@ data class SettingsUiState(
     val dynamicColor: Boolean = true,
     val autoLockEnabled: Boolean = false,
     val raspLoggingEnabled: Boolean = true,
-    val dnsServer: String = "",
     val loggingLevel: String = "INFO",
     val clipboardAutoClear: Boolean = false,
-    val scanTimeout: Int = 5000,
     val errorMessage: String? = null,
     val successMessage: String? = null
 )

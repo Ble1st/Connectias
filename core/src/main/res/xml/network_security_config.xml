@@ -31,7 +31,6 @@
         Domain-specific configurations with certificate pinning.
         Uncomment and configure with actual pins for production use.
     -->
-    
     <!--
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">api.example.com</domain>
@@ -44,13 +43,4 @@
         </trust-anchors>
     </domain-config>
     -->
-
-    <!-- Allow local network for development and network scanning features -->
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">10.0.0.0</domain>
-        <domain includeSubdomains="true">172.16.0.0</domain>
-        <domain includeSubdomains="true">192.168.0.0</domain>
-        <domain includeSubdomains="true">localhost</domain>
-        <domain includeSubdomains="true">127.0.0.1</domain>
-    </domain-config>
 </network-security-config>

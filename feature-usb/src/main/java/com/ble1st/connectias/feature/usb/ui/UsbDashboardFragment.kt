@@ -114,16 +114,6 @@ class UsbDashboardFragment : Fragment() {
                             onDismissDialog = {
                                 selectedDevice = null
                             },
-                            onOpenStorage = { device ->
-                                Timber.d("Opening storage for: ${device.product}")
-                                val navId = resources.getIdentifier("nav_usb_browser", "id", requireContext().packageName)
-                                if (navId != 0) {
-                                    // TODO: Pass device info
-                                    findNavController().navigate(navId)
-                                } else {
-                                    Timber.w("nav_usb_browser not found")
-                                }
-                            },
                             onViewDetails = { device ->
                                 Timber.d("View details for: ${device.product}")
                                 // Show details (not implemented yet)

@@ -48,6 +48,9 @@ android {
         kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
     }
     packaging {
+        jniLibs {
+            pickFirsts += listOf("**/libc++_shared.so")
+        }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/NOTICE.md"
@@ -68,28 +71,13 @@ dependencies {
     // Core Modules (always included)
     implementation(project(":core"))
     implementation(project(":common"))
-    implementation(project(":feature-security"))
     implementation(project(":feature-settings"))
-
+    
     // Optional Modules (included based on gradle.properties)
-    val featureDeviceInfoEnabled = project.findProperty("feature.device.info.enabled") == "true"
-    if (featureDeviceInfoEnabled) {
-        implementation(project(":feature-device-info"))
-    }
-
-    val featureNetworkEnabled = project.findProperty("feature.network.enabled") == "true"
-    if (featureNetworkEnabled) {
-        implementation(project(":feature-network"))
-    }
 
     val featureBackupEnabled = project.findProperty("feature.backup.enabled") == "true"
     if (featureBackupEnabled) {
         
-    }
-
-    val featureWasmEnabled = project.findProperty("feature.wasm.enabled") == "true"
-    if (featureWasmEnabled) {
-        implementation(project(":feature-wasm"))
     }
 
     val featureUsbEnabled = project.findProperty("feature.usb.enabled") == "true"
@@ -102,14 +90,14 @@ dependencies {
         implementation(project(":feature-dvd"))
     }
 
-    val featureReportingEnabled = project.findProperty("feature.reporting.enabled") == "true"
-    if (featureReportingEnabled) {
-        implementation(project(":feature-reporting"))
-    }
-
     val featureSecureNotesEnabled = project.findProperty("feature.secure.notes.enabled") == "true"
     if (featureSecureNotesEnabled) {
         implementation(project(":feature-secure-notes"))
+    }
+
+    val featureDocumentEnabled = project.findProperty("feature.document.enabled") == "true"
+    if (featureDocumentEnabled) {
+        implementation(project(":feature-document"))
     }
 
     // Android Core

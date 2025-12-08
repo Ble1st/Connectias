@@ -339,7 +339,7 @@ class UsbDeviceDetector @Inject constructor(
         // set deviceClass to Mass Storage so that isMassStorage computed property works correctly
         val effectiveDeviceClass = if (isMassStorage && !isDeviceClassMassStorage) {
             Timber.d("Device detected as Mass Storage via interface or name indicators: Vendor=0x%04X, Product=0x%04X, " +
-                    "DeviceClass=${device.deviceClass} -> 8, HasInterface=$hasMassStorageInterface, HasIndicators=$hasDvdCdIndicators",
+                    "DeviceClass=${device.deviceClass} -> 8, HasInterface=$hasMassStorageInterface",
                 device.vendorId, device.productId)
             UsbDeviceModel.USB_CLASS_MASS_STORAGE
         } else {

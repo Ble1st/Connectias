@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.PrintWriter
@@ -23,8 +24,13 @@ class ConnectiasLoggingTree @Inject constructor(
     private val logDao: SystemLogDao
 ) : Timber.DebugTree() {
 
-    private val logChannel = Channel<LogEntryEntity>(capacity = Channel.UNLIMITED)
+    private val logChannel = Channel<LogEntryEntity>(
+        capacity = 1000,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @Volatile
+    private var minPriority: Int = Log.INFO
 
     init {
         scope.launch {
@@ -40,8 +46,7 @@ class ConnectiasLoggingTree @Inject constructor(
     }
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
-        // Optional: Filter out verbose logs from DB to save space
-        if (priority < Log.INFO) return 
+        if (priority < minPriority) return
 
         val threadName = Thread.currentThread().name
         val exceptionTrace = t?.let {
@@ -64,5 +69,31 @@ class ConnectiasLoggingTree @Inject constructor(
         
         // Still log to Logcat for debugging
         super.log(priority, tag, message, t)
+    }
+
+    /**
+     * Updates the minimum priority that will be written to the DB.
+     */
+    fun setMinPriority(priority: Int) {
+        minPriority = priority
+    }
+
+    /**
+     * Updates minimum priority from a human-readable level string.
+     */
+    fun setMinPriority(levelName: String?) {
+        minPriority = mapLevelToPriority(levelName)
+    }
+
+    private fun mapLevelToPriority(levelName: String?): Int {
+        return when (levelName?.uppercase()) {
+            "VERBOSE" -> Log.VERBOSE
+            "DEBUG" -> Log.DEBUG
+            "INFO" -> Log.INFO
+            "WARN", "WARNING" -> Log.WARN
+            "ERROR" -> Log.ERROR
+            "ASSERT" -> Log.ASSERT
+            else -> Log.INFO
+        }
     }
 }

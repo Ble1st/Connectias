@@ -232,6 +232,24 @@ class SettingsRepository constructor(
             plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
         }
     }
+
+    /**
+     * Observes logging level preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the logging level changes.
+     */
+    fun observeLoggingLevel(): Flow<String> = callbackFlow {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "logging_level") {
+                trySend(getLoggingLevel())
+            }
+        }
+        encryptedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value immediately
+        trySend(getLoggingLevel())
+        awaitClose {
+            encryptedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
     
     /**
      * Audits which keys are currently stored in encrypted preferences.

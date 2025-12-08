@@ -3,178 +3,25 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/nav_security_dashboard">
+    app:startDestination="@id/nav_settings">
 
-    <!-- Security Dashboard (Core - always available) -->
-    <fragment
-        android:id="@+id/nav_security_dashboard"
-        android:name="com.ble1st.connectias.feature.security.ui.SecurityDashboardFragment"
-        android:label="@string/nav_security_dashboard"
-        tools:layout="@layout/fragment_security_dashboard" />
-
-    <!-- Settings (Core - always available) -->
+    <!-- Settings -->
     <fragment
         android:id="@+id/nav_settings"
         android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
         android:label="@string/nav_settings" />
 
-    <!-- Security Tools -->
-    <fragment
-        android:id="@+id/nav_certificate_analyzer"
-        android:name="com.ble1st.connectias.feature.security.certificate.CertificateAnalyzerFragment"
-        android:label="Certificate Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_password_strength"
-        android:name="com.ble1st.connectias.feature.security.password.PasswordStrengthFragment"
-        android:label="Password Strength" />
-
-    <fragment
-        android:id="@+id/nav_encryption_tools"
-        android:name="com.ble1st.connectias.feature.security.encryption.EncryptionFragment"
-        android:label="Encryption Tools" />
-
-    <fragment
-        android:id="@+id/nav_firewall_analyzer"
-        android:name="com.ble1st.connectias.feature.security.firewall.FirewallAnalyzerFragment"
-        android:label="Firewall Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_wifi_security_auditor"
-        android:name="com.ble1st.connectias.feature.security.wifi.WifiSecurityAuditorFragment"
-        android:label="WiFi Security Auditor" />
-
-    <fragment
-        android:id="@+id/nav_vulnerability_scanner"
-        android:name="com.ble1st.connectias.feature.security.scanner.ui.VulnerabilityScannerFragment"
-        android:label="Vulnerability Scanner" />
-
-    <fragment
-        android:id="@+id/nav_hash_tool"
-        android:name="com.ble1st.connectias.feature.security.crypto.hash.HashFragment"
-        android:label="Hash Calculator" />
-
-    <!-- Device Info (Optional - MVP Proof of Concept) -->
-    <fragment
-        android:id="@+id/nav_device_info"
-        android:name="com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
-        android:label="@string/nav_device_info"
-        tools:layout="@layout/fragment_device_info" />
-
-    <!-- Device Info Tools -->
-    <fragment
-        android:id="@+id/nav_battery_analyzer"
-        android:name="com.ble1st.connectias.feature.deviceinfo.battery.BatteryAnalyzerFragment"
-        android:label="Battery Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_storage_analyzer"
-        android:name="com.ble1st.connectias.feature.deviceinfo.storage.StorageAnalyzerFragment"
-        android:label="Storage Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_process_monitor"
-        android:name="com.ble1st.connectias.feature.deviceinfo.process.ProcessMonitorFragment"
-        android:label="Process Monitor" />
-
-    <fragment
-        android:id="@+id/nav_sensor_monitor"
-        android:name="com.ble1st.connectias.feature.deviceinfo.sensor.SensorMonitorFragment"
-        android:label="Sensor Monitor" />
-
-    <!-- Network Dashboard (Optional) -->
-    <fragment
-        android:id="@+id/nav_network_dashboard"
-        android:name="com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment"
-        android:label="@string/nav_network_dashboard"
-        tools:layout="@layout/fragment_network_dashboard" />
-
-    <!-- Network Tools -->
-    <fragment
-        android:id="@+id/nav_port_scanner"
-        android:name="com.ble1st.connectias.feature.network.ui.PortScannerFragment"
-        android:label="Port Scanner" />
-
-    <fragment
-        android:id="@+id/nav_dns_lookup"
-        android:name="com.ble1st.connectias.feature.network.ui.DnsLookupFragment"
-        android:label="DNS Lookup" />
-
-    <fragment
-        android:id="@+id/nav_network_monitor"
-        android:name="com.ble1st.connectias.feature.network.ui.NetworkMonitorFragment"
-        android:label="Network Monitor" />
-
-    <fragment
-        android:id="@+id/nav_wifi_analyzer"
-        android:name="com.ble1st.connectias.feature.network.ui.WifiAnalyzerFragment"
-        android:label="WiFi Analyzer" />
-
-    <!-- Network Analysis Features -->
-    <fragment
-        android:id="@+id/nav_mac_analyzer"
-        android:name="com.ble1st.connectias.feature.network.analysis.ui.MacAnalyzerFragment"
-        android:label="MAC Address Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_subnet_analyzer"
-        android:name="com.ble1st.connectias.feature.network.analysis.ui.SubnetAnalyzerFragment"
-        android:label="Subnet Analyzer" />
-
-    <fragment
-        android:id="@+id/nav_vlan_analyzer"
-        android:name="com.ble1st.connectias.feature.network.analysis.ui.VlanAnalyzerFragment"
-        android:label="VLAN Analyzer" />
-
-    <!-- Network Topology -->
-    <fragment
-        android:id="@+id/nav_topology"
-        android:name="com.ble1st.connectias.feature.network.topology.ui.TopologyFragment"
-        android:label="Network Topology" />
-
-    <!-- Network Monitoring Features -->
-    <fragment
-        android:id="@+id/nav_bandwidth_monitor"
-        android:name="com.ble1st.connectias.feature.network.ui.BandwidthMonitorFragment"
-        android:label="Bandwidth Monitor" />
-
-    <fragment
-        android:id="@+id/nav_speed_test"
-        android:name="com.ble1st.connectias.feature.network.speedtest.SpeedTestFragment"
-        android:label="Speed Test" />
-
-    <fragment
-        android:id="@+id/nav_wake_on_lan"
-        android:name="com.ble1st.connectias.feature.network.wol.WolFragment"
-        android:label="Wake-on-LAN" />
-
-    <fragment
-        android:id="@+id/nav_flow_analyzer"
-        android:name="com.ble1st.connectias.feature.network.ui.FlowAnalyzerFragment"
-        android:label="Flow Analyzer" />
-
-    <!-- Network Detection Features -->
-    <fragment
-        android:id="@+id/nav_dhcp_lease"
-        android:name="com.ble1st.connectias.feature.network.ui.DhcpLeaseFragment"
-        android:label="DHCP Lease Viewer" />
-
-    <fragment
-        android:id="@+id/nav_hypervisor_detector"
-        android:name="com.ble1st.connectias.feature.network.ui.HypervisorDetectorFragment"
-        android:label="Hypervisor Detector" />
-
     <!-- System Tools -->
     <fragment
         android:id="@+id/nav_log_viewer"
         android:name="com.ble1st.connectias.core.logging.ui.LogViewerFragment"
-        android:label="Log Viewer" />
+        android:label="@string/nav_log_viewer" />
 
-    <!-- WASM Plugin Manager (Optional) -->
+    <!-- Secure Notes -->
     <fragment
-        android:id="@+id/nav_plugin_manager"
-        android:name="com.ble1st.connectias.feature.wasm.ui.PluginManagerFragment"
-        android:label="@string/nav_plugin_manager" />
+        android:id="@+id/nav_secure_notes"
+        android:name="com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment"
+        android:label="@string/nav_secure_notes" />
 
     <!-- USB Dashboard (Optional) -->
     <fragment
@@ -197,5 +44,11 @@
         android:id="@+id/nav_dvd_player"
         android:name="com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
         android:label="@string/nav_dvd_player" />
+
+    <!-- Document Scanner -->
+    <fragment
+        android:id="@+id/nav_document_scanner"
+        android:name="com.ble1st.connectias.feature.document.ui.DocumentScannerFragment"
+        android:label="@string/nav_document_scanner" />
 
 </navigation>

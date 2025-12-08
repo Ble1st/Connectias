@@ -36,30 +36,12 @@ object ModuleCatalog {
     /**
      * Core modules that are always active.
      */
-    val CORE_MODULES = listOf(
-        ModuleMetadata(
-            id = "security",
-            name = "Security Dashboard",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.security.ui.SecurityDashboardFragment",
-            category = ModuleCategory.SECURITY,
-            isCore = true,
-            description = "Security status and RASP protection monitoring"
-        ),
-    )
+    val CORE_MODULES = emptyList<ModuleMetadata>()
     
     /**
      * Optional modules that may be compiled into the app.
      */
     val OPTIONAL_MODULES = listOf(
-        ModuleMetadata(
-            id = "device-info",
-            name = "Device Info",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment",
-            category = ModuleCategory.SYSTEM,
-            description = "System and device information"
-        ),
         ModuleMetadata(
             id = "privacy",
             name = "Privacy Dashboard",
@@ -67,14 +49,6 @@ object ModuleCatalog {
             fragmentClassName = "com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment",
             category = ModuleCategory.PRIVACY,
             description = "Privacy settings and data protection"
-        ),
-        ModuleMetadata(
-            id = "network",
-            name = "Network Dashboard",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment",
-            category = ModuleCategory.NETWORK,
-            description = "Network scanning and analysis"
         ),
         ModuleMetadata(
             id = "utilities",
@@ -99,6 +73,22 @@ object ModuleCatalog {
             fragmentClassName = "com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment",
             category = ModuleCategory.UTILITY,
             description = "USB device management and monitoring"
+        ),
+        ModuleMetadata(
+            id = "secure_notes",
+            name = "Secure Notes",
+            version = "1.0.0",
+            fragmentClassName = "com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment",
+            category = ModuleCategory.SECURITY,
+            description = "Encrypted note storage"
+        ),
+        ModuleMetadata(
+            id = "document_scanner",
+            name = "Document Scanner",
+            version = "1.0.0",
+            fragmentClassName = "com.ble1st.connectias.feature.document.ui.DocumentScannerFragment",
+            category = ModuleCategory.UTILITY,
+            description = "Document scanning with OCR and PDF export"
         )
     )
     

@@ -47,6 +47,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Note
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.PermDeviceInformation
 import androidx.compose.material.icons.filled.QrCode
@@ -504,57 +505,24 @@ data class ResolvedFeature(val name: String, val icon: ImageVector, val resolved
  */
 private fun getFragmentClassNameForNavId(navIdName: String): String? {
     return when (navIdName) {
-        // Core modules (always available)
-        "nav_security_dashboard" -> "com.ble1st.connectias.feature.security.ui.SecurityDashboardFragment"
+        // Settings
         "nav_settings" -> "com.ble1st.connectias.feature.settings.ui.SettingsFragment"
-        
-        // Security features
-        "nav_certificate_analyzer" -> "com.ble1st.connectias.feature.security.certificate.CertificateAnalyzerFragment"
-        "nav_password_strength" -> "com.ble1st.connectias.feature.security.password.PasswordStrengthFragment"
-        "nav_encryption_tools" -> "com.ble1st.connectias.feature.security.encryption.EncryptionFragment"
-        "nav_firewall_analyzer" -> "com.ble1st.connectias.feature.security.firewall.FirewallAnalyzerFragment"
-        "nav_wifi_security_auditor" -> "com.ble1st.connectias.feature.security.wifi.WifiSecurityAuditorFragment"
-        "nav_vulnerability_scanner" -> "com.ble1st.connectias.feature.security.scanner.ui.VulnerabilityScannerFragment"
-        "nav_hash_tool" -> "com.ble1st.connectias.feature.security.crypto.hash.HashFragment"
-        
-        // Device Info features
-        "nav_device_info" -> "com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
-        "nav_battery_analyzer" -> "com.ble1st.connectias.feature.deviceinfo.battery.BatteryAnalyzerFragment"
-        "nav_storage_analyzer" -> "com.ble1st.connectias.feature.deviceinfo.storage.StorageAnalyzerFragment"
-        "nav_process_monitor" -> "com.ble1st.connectias.feature.deviceinfo.process.ProcessMonitorFragment"
-        "nav_sensor_monitor" -> "com.ble1st.connectias.feature.deviceinfo.sensor.SensorMonitorFragment"
-        
-        // Network features
-        "nav_network_dashboard" -> "com.ble1st.connectias.feature.network.ui.NetworkDashboardFragment"
-        "nav_port_scanner" -> "com.ble1st.connectias.feature.network.ui.PortScannerFragment"
-        "nav_dns_lookup" -> "com.ble1st.connectias.feature.network.ui.DnsLookupFragment"
-        "nav_network_monitor" -> "com.ble1st.connectias.feature.network.ui.NetworkMonitorFragment"
-        "nav_wifi_analyzer" -> "com.ble1st.connectias.feature.network.ui.WifiAnalyzerFragment"
-        "nav_mac_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.MacAnalyzerFragment"
-        "nav_subnet_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.SubnetAnalyzerFragment"
-        "nav_vlan_analyzer" -> "com.ble1st.connectias.feature.network.analysis.ui.VlanAnalyzerFragment"
-        "nav_topology" -> "com.ble1st.connectias.feature.network.topology.ui.TopologyFragment"
-        "nav_bandwidth_monitor" -> "com.ble1st.connectias.feature.network.ui.BandwidthMonitorFragment"
-        "nav_speed_test" -> "com.ble1st.connectias.feature.network.speedtest.SpeedTestFragment"
-        "nav_wake_on_lan" -> "com.ble1st.connectias.feature.network.wol.WolFragment"
-        "nav_flow_analyzer" -> "com.ble1st.connectias.feature.network.ui.FlowAnalyzerFragment"
-        "nav_dhcp_lease" -> "com.ble1st.connectias.feature.network.ui.DhcpLeaseFragment"
-        "nav_hypervisor_detector" -> "com.ble1st.connectias.feature.network.ui.HypervisorDetectorFragment"
-        
+
         // System tools
         "nav_log_viewer" -> "com.ble1st.connectias.core.logging.ui.LogViewerFragment"
-        
-        // WASM features
-        "nav_plugin_manager" -> "com.ble1st.connectias.feature.wasm.ui.PluginManagerFragment"
-        
+
+        // Secure notes
+        "nav_secure_notes" -> "com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment"
+
         // USB features
         "nav_usb_dashboard" -> "com.ble1st.connectias.feature.usb.ui.UsbDashboardFragment"
         "nav_usb_storage_browser" -> "com.ble1st.connectias.feature.usb.browser.UsbStorageBrowserFragment"
-        
+
         // DVD features
         "nav_dvd_player" -> "com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
         "nav_dvd_cd_detail" -> "com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
-        
+        "nav_document_scanner" -> "com.ble1st.connectias.feature.document.ui.DocumentScannerFragment"
+
         else -> null
     }
 }
@@ -605,51 +573,22 @@ fun resolveFeatureCategories(context: android.content.Context): List<ResolvedFea
 
 fun getFeatureDefinitions(): List<FeatureCategoryDef> {
     return listOf(
-        FeatureCategoryDef("Dashboards", listOf(
-            FeatureDef("Security Dashboard", Icons.Default.Security, "nav_security_dashboard"),
-            FeatureDef("Network Dashboard", Icons.Default.Wifi, "nav_network_dashboard"),
-            FeatureDef("Device Info", Icons.Default.PermDeviceInformation, "nav_device_info"),
-            FeatureDef("USB Devices", Icons.Default.Usb, "nav_usb_dashboard"),
-            FeatureDef("USB Storage Browser", Icons.Default.FolderOpen, "nav_usb_storage_browser"),
-            FeatureDef("WASM Plugins", Icons.Default.Extension, "nav_plugin_manager"),
-            FeatureDef("Settings", Icons.Default.Settings, "nav_settings")
-        )),
-        FeatureCategoryDef("Security Suite", listOf(
-            FeatureDef("Certificate Analyzer", Icons.Default.VerifiedUser, "nav_certificate_analyzer"),
-            FeatureDef("Password Strength", Icons.Default.Password, "nav_password_strength"),
-            FeatureDef("Encryption Tools", Icons.Default.EnhancedEncryption, "nav_encryption_tools"),
-            FeatureDef("Firewall Analyzer", Icons.Default.Security, "nav_firewall_analyzer"),
-            FeatureDef("WiFi Security Auditor", Icons.Default.WifiTethering, "nav_wifi_security_auditor"),
-            FeatureDef("Vulnerability Scanner", Icons.Default.BugReport, "nav_vulnerability_scanner"),
-            FeatureDef("Hash Calculator", Icons.Default.Tag, "nav_hash_tool")
-        )),
-        FeatureCategoryDef("Network Command", listOf(
-            FeatureDef("Port Scanner", Icons.Default.Search, "nav_port_scanner"),
-            FeatureDef("DNS Lookup", Icons.Default.Dns, "nav_dns_lookup"),
-            FeatureDef("Network Monitor", Icons.Default.Speed, "nav_network_monitor"),
-            FeatureDef("WiFi Analyzer", Icons.Default.SignalWifi4Bar, "nav_wifi_analyzer"),
-            FeatureDef("Bandwidth Monitor", Icons.Default.DataUsage, "nav_bandwidth_monitor"),
-            FeatureDef("Flow Analyzer", Icons.Default.Timeline, "nav_flow_analyzer"),
-            FeatureDef("DHCP Lease Viewer", Icons.Default.List, "nav_dhcp_lease"),
-            FeatureDef("Hypervisor Detector", Icons.Default.Computer, "nav_hypervisor_detector"),
-            FeatureDef("Speed Test", Icons.Default.Router, "nav_speed_test"),
-            FeatureDef("Wake-on-LAN", Icons.Default.Power, "nav_wake_on_lan"),
-            FeatureDef("Network Topology", Icons.Default.Share, "nav_topology"),
-            FeatureDef("MAC Analyzer", Icons.Default.Fingerprint, "nav_mac_analyzer"),
-            FeatureDef("Subnet Analyzer", Icons.Default.Grid4x4, "nav_subnet_analyzer"),
-            FeatureDef("VLAN Analyzer", Icons.Default.Layers, "nav_vlan_analyzer")
-        )),
-        FeatureCategoryDef("Machine Spirit (Hardware)", listOf(
-            FeatureDef("Battery Analyzer", Icons.Default.BatteryStd, "nav_battery_analyzer"),
-            FeatureDef("Storage Analyzer", Icons.Default.Storage, "nav_storage_analyzer"),
-            FeatureDef("Process Monitor", Icons.Default.Memory, "nav_process_monitor"),
-            FeatureDef("Sensor Monitor", Icons.Default.Sensors, "nav_sensor_monitor")
-        )),
-        FeatureCategoryDef("System Tools", listOf(
+        FeatureCategoryDef("System & Security", listOf(
+            FeatureDef("Settings", Icons.Default.Settings, "nav_settings"),
             FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer")
+        )),
+        FeatureCategoryDef("Notes", listOf(
+            FeatureDef("Secure Notes", Icons.Default.Note, "nav_secure_notes")
+        )),
+        FeatureCategoryDef("USB & Storage", listOf(
+            FeatureDef("USB Devices", Icons.Default.Usb, "nav_usb_dashboard"),
+            FeatureDef("USB Storage Browser", Icons.Default.FolderOpen, "nav_usb_storage_browser")
         )),
         FeatureCategoryDef("Media", listOf(
             FeatureDef("DVD Player", Icons.Default.Album, "nav_dvd_cd_detail")
+        )),
+        FeatureCategoryDef("Documents", listOf(
+            FeatureDef("Document Scanner", Icons.Default.Description, "nav_document_scanner")
         ))
     )
 }

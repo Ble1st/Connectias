@@ -44,20 +44,21 @@ class PinningInterceptor(
                             is PinValidationResult.Valid -> {
                                 Timber.d("Certificate pinning validated for $hostname")
                             }
-                            is PinValidationResult.Invalid -> {
-                                Timber.w("Certificate pinning failed for $hostname: ${validationResult.reason}")
-                                // In strict mode, we could throw an exception here
-                                // For now, we log and continue (OkHttp's CertificatePinner handles enforcement)
-                            }
                             is PinValidationResult.NoPinsConfigured -> {
                                 // No pins configured, continue normally
                                 Timber.v("No certificate pins configured for $hostname")
                             }
+                            is PinValidationResult.Invalid -> {
+                                Timber.w("Certificate pinning failed for $hostname: ${validationResult.reason}")
+                                throw SSLPeerUnverifiedException("Pinning failed for $hostname: ${validationResult.reason}")
+                            }
                             is PinValidationResult.PinExpired -> {
                                 Timber.w("Certificate pin has expired for $hostname")
+                                throw SSLPeerUnverifiedException("Pin expired for $hostname")
                             }
                             is PinValidationResult.Error -> {
                                 Timber.e(validationResult.exception, "Error validating certificate for $hostname")
+                                throw SSLPeerUnverifiedException("Pin validation error for $hostname: ${validationResult.exception.message}")
                             }
                         }
 

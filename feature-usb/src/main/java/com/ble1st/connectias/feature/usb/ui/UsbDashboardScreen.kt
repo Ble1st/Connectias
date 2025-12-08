@@ -38,173 +38,15 @@ fun UsbDashboardScreen(
     selectedDevice: UsbDevice?,
     onDeviceClick: (UsbDevice) -> Unit,
     onDismissDialog: () -> Unit,
-    onOpenStorage: (UsbDevice) -> Unit,
     onViewDetails: (UsbDevice) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var devices by remember { mutableStateOf<List<UsbDevice>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(false) }
-    var permissionRequest by remember { mutableStateOf<UsbDevice?>(null) }
-    var actionDialogDevice by remember { mutableStateOf<UsbDevice?>(null) }
-    var previouslyGrantedDevices by remember { mutableStateOf<Set<Pair<Int, Int>>>(emptySet()) }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    // Try to get activity from context if not provided
-    val activityInstance = remember(activity) {
-        activity ?: (context as? android.app.Activity)
+    var devices by remember { mutableStateOf(usbDevices) }
+    LaunchedEffect(usbDevices) {
+        devices = usbDevices
     }
-    
-    // Handle permission request flow - declare before use
-    var permissionFlow by remember { mutableStateOf<kotlinx.coroutines.flow.Flow<Boolean>?>(null) }
-    var currentPermissionDevice by remember { mutableStateOf<UsbDevice?>(null) }
-    
-    // Automatische Erkennung via StateFlow
-    val detectedDevices by deviceDetector.detectedDevices.collectAsState()
-    LaunchedEffect(detectedDevices) {
-        Timber.d("Detected devices changed: ${detectedDevices.size} devices")
-        // Merge detected devices with enumerated devices
-        val allDevices = (devices + detectedDevices).distinctBy { "${it.vendorId}-${it.productId}" }
-        // Compare using the same dedupe key to avoid mismatches from UsbDevice.equals() differences
-        val allKeys = allDevices.map { "${it.vendorId}-${it.productId}" }.toSet()
-        val currentKeys = devices.map { "${it.vendorId}-${it.productId}" }.toSet()
-        if (allKeys != currentKeys) {
-            Timber.d("Updating device list with ${allDevices.size} devices")
-            devices = allDevices
-        }
-        
-        // Check if permission was granted and refresh device info
-        // Also automatically request permission for new devices without permission
-        detectedDevices.forEach { device ->
-            val deviceKey = Pair(device.vendorId, device.productId)
-            if (permissionManager.hasPermission(device)) {
-                // Permission granted, refresh device info to get serial number etc.
-                deviceDetector.refreshDeviceInfo(device.vendorId, device.productId)
-                
-                // Show action dialog if permission was just granted (not previously shown)
-                if (!previouslyGrantedDevices.contains(deviceKey)) {
-                    Timber.d("Permission granted for new device, showing action dialog")
-                    previouslyGrantedDevices = previouslyGrantedDevices + deviceKey
-                    actionDialogDevice = device
-                }
-            } else {
-                // No permission yet - automatically request permission for new devices
-                // Only request if not already requested and activity is available
-                if (!previouslyGrantedDevices.contains(deviceKey) && 
-                    permissionRequest == null && 
-                    activityInstance != null &&
-                    currentPermissionDevice == null) {
-                    Timber.d("New device detected without permission, automatically requesting permission")
-                    permissionRequest = device
-                    scope.launch {
-                        try {
-                            permissionFlow = permissionManager.requestPermission(device, activityInstance)
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to request USB permission automatically")
-                            permissionRequest = null
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    // Initiale Enumeration
-    LaunchedEffect(Unit) {
-        Timber.d("Starting initial USB device enumeration...")
-        isLoading = true
-        try {
-            when (val result = usbProvider.enumerateDevices()) {
-                is UsbResult.Success -> {
-                    devices = result.data
-                    Timber.i("Initial enumeration complete: ${devices.size} devices")
-                    
-                    // Check if any devices already have permission and show action dialog
-                    // Only show dialog for the first permitted device to avoid multiple dialogs
-                    devices.forEach { device ->
-                        val deviceKey = Pair(device.vendorId, device.productId)
-                        if (actionDialogDevice == null && permissionManager.hasPermission(device) && !previouslyGrantedDevices.contains(deviceKey)) {
-                            Timber.d("Device already has permission, showing action dialog")
-                            previouslyGrantedDevices = previouslyGrantedDevices + deviceKey
-                            actionDialogDevice = device
-                        }
-                    }
-                }
-                is UsbResult.Failure -> {
-                    Timber.e(result.error, "Failed to enumerate USB devices")
-                    devices = emptyList()
-                }
-            }
-        } catch (e: Exception) {
-            Timber.e(e, "Error during initial enumeration")
-            devices = emptyList()
-        } finally {
-            isLoading = false
-        }
-    }
-    
-    // Collect permission result from flow
-    LaunchedEffect(permissionFlow) {
-        permissionFlow?.let { flow ->
-            currentPermissionDevice = permissionRequest
-            flow.collect { granted ->
-                currentPermissionDevice?.let { device ->
-                    if (granted) {
-                        Timber.i("USB permission granted for device via system dialog")
-                        // Refresh device info to get full details (serial number, etc.)
-                        deviceDetector.refreshDeviceInfo(device.vendorId, device.productId)
-                        // Show action dialog after permission is granted
-                        actionDialogDevice = device
-                        // Device will be updated via detectedDevices StateFlow
-                    } else {
-                        Timber.d("USB permission denied by user")
-                    }
-                    currentPermissionDevice = null
-                    permissionFlow = null
-                    permissionRequest = null
-                }
-            }
-        }
-    }
-    
-    // Berechtigungsdialog nach Erkennung
-    permissionRequest?.let { device ->
-        UsbPermissionDialog(
-            device = device,
-            onGranted = {
-                Timber.d("User clicked Grant, requesting system permission...")
-                // Request actual Android system permission
-                if (activityInstance != null) {
-                    scope.launch {
-                        try {
-                            permissionFlow = permissionManager.requestPermission(device, activityInstance)
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to request USB permission")
-                            permissionRequest = null
-                        }
-                    }
-                } else {
-                    Timber.e("Cannot request permission: Activity not available")
-                    permissionRequest = null
-                }
-            },
-            onDenied = {
-                Timber.d("USB permission request cancelled by user")
-                permissionRequest = null
-            }
-        )
-    }
-    
-    // Aktionsmenü nach Berechtigungserteilung
-    actionDialogDevice?.let { device ->
-        UsbDeviceActionDialog(
-            device = selectedDevice,
-            onOpenStorage = { onOpenStorage(selectedDevice) },
-            onViewDetails = { onViewDetails(selectedDevice) },
-            onDismiss = onDismissDialog
-        )
-    }
-    
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -215,8 +57,8 @@ fun UsbDashboardScreen(
             text = "USB Devices",
             style = MaterialTheme.typography.headlineMedium
         )
-        
-        if (isLoading) {
+
+        if (devices.isEmpty()) {
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
@@ -228,13 +70,17 @@ fun UsbDashboardScreen(
                 devices = devices,
                 onDeviceClick = { device ->
                     Timber.d("Device clicked: ${device.product}")
-                    if (!permissionManager.hasPermission(device)) {
-                        permissionRequest = device
-                    } else {
-                        onDeviceClick(device)
-                    }
+                    onDeviceClick(device)
                 }
             )
         }
+    }
+
+    selectedDevice?.let { device ->
+        UsbDeviceActionDialog(
+            device = device,
+            onViewDetails = { onViewDetails(device) },
+            onDismiss = onDismissDialog
+        )
     }
 }

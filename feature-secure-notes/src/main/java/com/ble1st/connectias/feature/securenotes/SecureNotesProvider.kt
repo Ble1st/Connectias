@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.securenotes
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyInfo
 import android.security.keystore.KeyProperties
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricPrompt
@@ -24,6 +25,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.security.KeyStore
+import javax.crypto.SecretKeyFactory
 import java.util.Base64
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
@@ -73,7 +75,31 @@ class SecureNotesProvider @Inject constructor(
     private fun ensureKeyExists() {
         if (!keyStore.containsAlias(keyAlias)) {
             generateKey()
+            return
         }
+
+        // If the existing key enforces per-operation auth (duration = 0), regenerate
+        // with a grace window to avoid repeated failures.
+        val requiresPerUseAuth = runCatching { keyRequiresPerUseAuth() }.getOrDefault(false)
+        if (requiresPerUseAuth) {
+            keyStore.deleteEntry(keyAlias)
+            generateKey()
+        }
+    }
+
+    private fun keyRequiresPerUseAuth(): Boolean {
+        val secretKey = getSecretKey()
+        val factory = SecretKeyFactory.getInstance(secretKey.algorithm, "AndroidKeyStore")
+        val keyInfo = factory.getKeySpec(secretKey, KeyInfo::class.java)
+        val method = runCatching {
+            KeyInfo::class.java.getMethod("getUserAuthenticationValidityDurationSeconds")
+        }.getOrNull()
+
+        val duration = method?.let { m ->
+            (runCatching { m.invoke(keyInfo) as? Int }.getOrNull()) ?: -1
+        } ?: -1
+
+        return duration == 0
     }
 
     /**
@@ -92,7 +118,12 @@ class SecureNotesProvider @Inject constructor(
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setKeySize(256)
-            .setUserAuthenticationRequired(false) // Changed to false for simplicity
+            // Require device authentication; allow reuse for a limited time window after auth
+            .setUserAuthenticationRequired(true)
+            .setUserAuthenticationParameters(
+                300, // seconds validity after successful auth
+                KeyProperties.AUTH_BIOMETRIC_STRONG or KeyProperties.AUTH_DEVICE_CREDENTIAL
+            )
             .build()
 
         keyGenerator.init(spec)
@@ -125,7 +156,7 @@ class SecureNotesProvider @Inject constructor(
             Base64.getEncoder().encodeToString(combined)
         } catch (e: Exception) {
             Timber.e(e, "Encryption failed")
-            throw e
+            throw mapKeyStoreAuthError(e)
         }
     }
 
@@ -147,7 +178,23 @@ class SecureNotesProvider @Inject constructor(
             String(decryptedBytes, Charsets.UTF_8)
         } catch (e: Exception) {
             Timber.e(e, "Decryption failed")
-            throw e
+            throw mapKeyStoreAuthError(e)
+        }
+    }
+
+    /**
+     * Maps keystore auth errors to a clearer exception so the UI can request re-auth.
+     */
+    private fun mapKeyStoreAuthError(original: Exception): Exception {
+        val message = original.message.orEmpty()
+        val causeMessage = original.cause?.message.orEmpty()
+        val isAuthIssue = message.contains("KEY_USER_NOT_AUTHENTICATED", ignoreCase = true) ||
+            causeMessage.contains("KEY_USER_NOT_AUTHENTICATED", ignoreCase = true)
+
+        return if (isAuthIssue) {
+            IllegalStateException("Device authentication required. Please unlock again.", original)
+        } else {
+            original
         }
     }
 
@@ -320,6 +367,11 @@ class SecureNotesProvider @Inject constructor(
     ): String = withContext(Dispatchers.IO) {
         val notesToExport = _notes.value.filter { it.id in noteIds }
 
+        if (format == ExportFormat.PLAIN_TEXT || format == ExportFormat.MARKDOWN) {
+            // Require the vault to be unlocked before exporting decrypted content
+            check(_isUnlocked.value) { "Vault must be unlocked to export decrypted notes." }
+        }
+
         when (format) {
             ExportFormat.ENCRYPTED_JSON -> {
                 json.encodeToString(notesToExport)
@@ -363,9 +415,10 @@ class SecureNotesProvider @Inject constructor(
      */
     fun isBiometricAvailable(): Boolean {
         val biometricManager = BiometricManager.from(context)
-        return biometricManager.canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG
-        ) == BiometricManager.BIOMETRIC_SUCCESS
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+
+        return biometricManager.canAuthenticate(authenticators) == BiometricManager.BIOMETRIC_SUCCESS
     }
 
     /**

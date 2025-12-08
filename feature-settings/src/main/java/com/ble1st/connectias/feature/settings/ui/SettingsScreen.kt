@@ -113,21 +113,6 @@ fun SettingsScreen(
                 }
             }
 
-            // Network Section
-            item {
-                SettingsSection(title = LocalAppStrings.current.networkTitle) { // Changed to themed string
-                    DnsServerInput(
-                        value = uiState.dnsServer,
-                        onValueChange = { viewModel.setDnsServer(it) }
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    ScanTimeoutSlider(
-                        value = uiState.scanTimeout,
-                        onValueChange = { viewModel.setScanTimeout(it) }
-                    )
-                }
-            }
-
             // Privacy Section (Now consolidated into Security) - if any settings remain.
             // For now, removing this section as Privacy is integrated into Security logic.
             /*

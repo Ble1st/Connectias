@@ -98,7 +98,8 @@ import java.util.Locale
 @Composable
 fun SecureNotesScreen(
     viewModel: SecureNotesViewModel = hiltViewModel(),
-    onNavigateBack: () -> Unit = {}
+    onNavigateBack: () -> Unit = {},
+    onRequestUnlock: () -> Unit = { viewModel.unlock() }
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val notes by viewModel.notes.collectAsState()
@@ -160,7 +161,7 @@ fun SecureNotesScreen(
             if (!isUnlocked) {
                 LockedState(
                     isBiometricAvailable = uiState.isBiometricAvailable,
-                    onUnlock = { viewModel.unlock() }
+                    onUnlock = onRequestUnlock
                 )
             } else {
                 NotesContent(

@@ -70,6 +70,8 @@ media3 = "1.2.0"
 
 # CameraX
 camerax = "1.4.1"
+tesseract = "9.1.0"
+opencv = "4.9.0"
 
 # ML Kit
 mlkitBarcode = "17.3.0"
@@ -237,6 +239,8 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 
 # Material Theme Adapter for Compose
 compose-theme-adapter = { group = "com.google.android.material", name = "compose-theme-adapter-3", version = "1.1.1" }
+tesseract-android = { group = "com.rmtheis", name = "tess-two", version.ref = "tesseract" }
+opencv-android = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

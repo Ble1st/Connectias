@@ -18,33 +18,22 @@ class NavigationTest {
         val allModules = ModuleCatalog.ALL_MODULES
         
         assertTrue("Should have at least core modules", allModules.isNotEmpty())
-        
-        val coreModules = ModuleCatalog.CORE_MODULES
-        assertTrue("Should have at least one core module", coreModules.isNotEmpty())
-        
-        val securityModule = ModuleCatalog.findById("security")
-        assertNotNull("Security module should exist", securityModule)
-        assertTrue("Security module should be core", securityModule?.isCore == true)
     }
 
     @Test
     fun testModuleCatalogFindById() {
         val utilitiesModule = ModuleCatalog.findById("utilities")
         val backupModule = ModuleCatalog.findById("backup")
-        val networkModule = ModuleCatalog.findById("network")
         
         assertNotNull("Utilities module should exist", utilitiesModule)
         assertNotNull("Backup module should exist", backupModule)
-        assertNotNull("Network module should exist", networkModule)
     }
 
     @Test
     fun testModuleCatalogGetByCategory() {
         val utilityModules = ModuleCatalog.getByCategory(ModuleCatalog.ModuleCategory.UTILITY)
-        val securityModules = ModuleCatalog.getByCategory(ModuleCatalog.ModuleCategory.SECURITY)
         
         assertTrue("Should have utility modules", utilityModules.isNotEmpty())
-        assertTrue("Should have security modules", securityModules.isNotEmpty())
     }
 
     @Test

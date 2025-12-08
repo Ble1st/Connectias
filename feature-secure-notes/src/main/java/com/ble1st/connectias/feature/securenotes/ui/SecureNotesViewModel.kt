@@ -52,6 +52,21 @@ class SecureNotesViewModel @Inject constructor(
     }
 
     /**
+     * Handles successful biometric/device credential authentication.
+     */
+    fun onAuthenticationSucceeded() {
+        secureNotesProvider.unlock()
+        _uiState.update { it.copy(snackbarMessage = "Vault unlocked") }
+    }
+
+    /**
+     * Handles authentication errors.
+     */
+    fun onAuthenticationError(message: String) {
+        _uiState.update { it.copy(snackbarMessage = message) }
+    }
+
+    /**
      * Locks the vault.
      */
     fun lock() {

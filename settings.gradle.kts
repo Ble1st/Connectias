@@ -28,30 +28,14 @@ rootProject.name = "Connectias"
 include(":app")
 include(":common")
 include(":core")
-include(":feature-security")
 include(":feature-settings")
 
 // ============================================================================ 
 // Optional Modules (included based on gradle.properties)
 // ============================================================================ 
-val featureDeviceInfoEnabled = providers.gradleProperty("feature.device.info.enabled").orNull == "true"
-if (featureDeviceInfoEnabled) {
-    include(":feature-device-info")
-}
-
 val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
 if (featureDvdEnabled) {
     include(":feature-dvd")
-}
-
-val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
-if (featureNetworkEnabled) {
-    include(":feature-network")
-}
-
-val featureReportingEnabled = providers.gradleProperty("feature.reporting.enabled").orNull == "true"
-if (featureReportingEnabled) {
-    include(":feature-reporting")
 }
 
 val featureSecureNotesEnabled = providers.gradleProperty("feature.secure.notes.enabled").orNull == "true"
@@ -64,7 +48,8 @@ if (featureUsbEnabled) {
     include(":feature-usb")
 }
 
-val featureWasmEnabled = providers.gradleProperty("feature.wasm.enabled").orNull == "true"
-if (featureWasmEnabled) {
-    include(":feature-wasm")
+val featureDocumentEnabled = providers.gradleProperty("feature.document.enabled").orNull == "true"
+if (featureDocumentEnabled) {
+    include(":feature-document")
 }
+

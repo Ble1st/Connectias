@@ -1,223 +1,55 @@
 # Connectias
 
-Eine umfassende FOSS (Free and Open Source Software) Android-App für Netzwerk-Analyse, Sicherheit, Privacy und System-Utilities - ohne Google-Abhängigkeiten.
+FOSS-Android-App für Netzwerk-Analyse, Sicherheit, Privacy und System-Utilities ohne Google-Abhängigkeiten. Fokus: lokale Verarbeitung, modulare Architektur und optionale DVD-Wiedergabe (LibVLC) inkl. USB-Blockdevice-Unterstützung.
 
-## Features
+## Überblick
+- Security: RASP-Monitoring, Zertifikats- und Passwort-Checks, Verschlüsselungstools, Firewall-/Risiko-Analysen.
+- Network: Port-Scanner, DNS-Tools, Traffic-/WiFi-Analyse.
+- Privacy: Tracker-Erkennung, Berechtigungs- und Clipboard-Analyse.
+- Device/Utilities: Geräteinfos, Batterie-/Storage-/Sensor-Monitor, Hash/Encoding-Tools, QR-Codes, API-Tester, Log Viewer.
+- DVD: LibVLC-basierte DVD-Wiedergabe mit nativen libdvd*-Bibliotheken.
 
-### 🔒 Security Features
-- **Security Dashboard** - RASP (Runtime Application Self-Protection) Monitoring
-- **Certificate Analyzer** - SSL/TLS Zertifikatsanalyse
-- **Password Strength Checker** - Passwort-Analyse und Generator
-- **Encryption Tools** - AES-256-GCM Verschlüsselung/Entschlüsselung
-- **Firewall Analyzer** - App-Netzwerkberechtigungen Analyse
+## Module
+- Kern: `:core`, `:common`, `:feature-security`.
+- Optional (per `gradle.properties` aktivierbar): `:feature-network`, `:feature-privacy`, `:feature-device-info`, `:feature-utilities`, `:feature-dvd`, `:feature-reporting`, `:feature-secure-notes`, `:feature-settings`, `:feature-usb`.
 
-### 🌐 Network Features
-- **Network Dashboard** - Übersicht über Netzwerk-Status
-- **Port Scanner** - Port-Scanning für lokale Geräte
-- **DNS Lookup & Diagnostics** - DNS-Auflösung und Server-Tests
-- **Network Monitor** - Traffic-Monitoring (Rx/Tx Bytes)
-- **WiFi Analyzer** - WiFi-Kanal-Analyse und Signal-Stärke
+## Build (Kurz)
+- Voraussetzungen: Android Studio Hedgehog+, JDK 17, Android SDK 33+ (minSdk 33, targetSdk 36).
+- Debug-Build: `./gradlew assembleDebug`
+- Tests: `./gradlew test` bzw. `./gradlew connectedAndroidTest`
+- Module toggeln: `gradle.properties` (`feature.<name>.enabled=true/false`).
 
-### 🔐 Privacy Features
-- **Privacy Dashboard** - Privacy-Status Übersicht
-- **Tracker Detection** - Erkennung bekannter Tracker-Domains
-- **Permissions Analyzer** - Erweiterte Berechtigungsanalyse mit Risiko-Bewertung
-- **Data Leakage Scanner** - Clipboard-Monitoring und Sensitivitäts-Analyse
+## Lizenzübersicht (Third-Party)
+| Komponente | Version | Lizenz | Quelle/Link | Lizenzdatei/Hinweis |
+| --- | --- | --- | --- | --- |
+| LibVLC | 3.6.4 | LGPL-2.1+ (einige Module GPL) | https://www.videolan.org/vlc/libvlc.html | AAR-META-INF (Videolan); dynamisch geladen |
+| libdvdcss | Quelle im Repo | GPL-2.0+ | https://code.videolan.org/videolan/libdvdcss | `feature-dvd/src/main/cpp/external/libdvdcss/COPYING` |
+| libdvdnav | Quelle im Repo | GPL-2.0+ | https://code.videolan.org/videolan/libdvdnav | `feature-dvd/src/main/cpp/external/libdvdnav/COPYING` |
+| libdvdread | Quelle im Repo | GPL-2.0+ | https://code.videolan.org/videolan/libdvdread | `feature-dvd/src/main/cpp/external/libdvdread/COPYING` |
+| ZXing | 3.5.4 | Apache-2.0 | https://github.com/zxing/zxing | AAR-META-INF/NOTICE |
+| BouncyCastle | 1.78.1 | MIT-like (Bouncy Castle License) | https://www.bouncycastle.org/latest_releases.html | AAR-META-INF/LICENSE |
+| dnsjava | 3.6.3 | BSD-2-Clause | https://github.com/dnsjava/dnsjava | AAR-META-INF/LICENSE |
+| OkHttp | 4.12.0 | Apache-2.0 | https://square.github.io/okhttp | AAR-META-INF/NOTICE |
+| iText 7 Core | 9.4.0 | AGPL-3.0 | https://itextpdf.com/ | AAR-META-INF/LICENSE |
+| MPAndroidChart | 3.1.0 | Apache-2.0 | https://github.com/PhilJay/MPAndroidChart | AAR-META-INF/NOTICE |
+| SQLCipher | (per Dependency) | BSD-ähnlich | https://www.zetetic.net/sqlcipher/ | AAR-META-INF/LICENSE |
+| Timber | 5.0.1 | Apache-2.0 | https://github.com/JakeWharton/timber | AAR-META-INF/NOTICE |
+| libaums | 0.10.0 | Apache-2.0 | https://github.com/magnusja/libaums | AAR-META-INF/NOTICE |
+| RootBeer | 0.1.1 | Apache-2.0 | https://github.com/scottyab/rootbeer | AAR-META-INF/LICENSE |
+| AndroidX/Jetpack (Material, Compose, Navigation, Room, WorkManager, Coroutines, Hilt, etc.) | siehe `gradle/libs.versions.toml` | Apache-2.0 | https://developer.android.com/jetpack | AAR-META-INF/NOTICE |
 
-### 📱 Device Info Features
-- **Device Info** - System- und Geräteinformationen
-- **Battery Analyzer** - Batterie-Analyse und Monitoring
-- **Storage Analyzer** - Speicher-Analyse und große Dateien Finder
-- **Process Monitor** - Laufende Prozesse mit Speicherverbrauch
-- **Sensor Monitor** - Real-time Sensor-Daten
+Hinweis zu GPL-Komponenten (libdvd*):
+- Quellcode liegt im Repo unter `feature-dvd/src/main/cpp/external/`.
+- Statisches oder gemeinsames Linking mit GPL-Bibliotheken kann Copyleft-Anforderungen für das Gesamt-Binary auslösen. Bitte Lizenz-Compliance sicherstellen (Quelloffenlegung, Hinweistext, ggf. dynamisches Laden).
 
-### 🛠️ Utilities Features
-- **Hash & Checksum Tools** - MD5, SHA-1, SHA-256, SHA-512 Hash Generator
-- **Encoding/Decoding Tools** - Base64, URL, Hex Encoding/Decoding
-- **QR Code Generator/Scanner** - QR Code Erstellung und Scanner
-- **Text Tools** - Case Converter, Word Counter, JSON Formatter
-- **API Tester** - REST API Client mit Request History
-- **Log Viewer** - System- und App-Log Viewer
-- **Color Tools** - Color Converter und Contrast Checker
-
-### 💾 Backup Features
-- **Backup & Restore** - App-Daten Backup und Restore
-- **Export Tools** - JSON, CSV, PDF Export
-- **Import Tools** - Backup-Import mit Validierung
-
-## Architektur
-
-### Modulare Struktur
-
-Die App verwendet eine modulare Architektur mit dynamischer Module-Discovery:
-
-- **Core Modules** (immer aktiv):
-  - `:core` - Kern-Funktionalität
-  - `:common` - Gemeinsame Utilities
-  - `:feature-security` - Security Features
-
-- **Optional Modules** (konfigurierbar):
-  - `:feature-network` - Network Features
-  - `:feature-privacy` - Privacy Features
-  - `:feature-device-info` - Device Info Features
-  - `:feature-utilities` - Utility Tools
-  
-
-### Module-Konfiguration
-
-Module können über `gradle.properties` aktiviert/deaktiviert werden:
-
-```properties
-feature.network.enabled=true
-feature.privacy.enabled=true
-feature.device.info.enabled=true
-feature.utilities.enabled=true
-feature.backup.enabled=true
-```
-
-### Dependency Injection
-
-Die App verwendet **Hilt** für Dependency Injection. Alle Module haben ihre eigenen Hilt-Module für Dependency-Management.
-
-### Navigation
-
-Dynamische Navigation basierend auf verfügbaren Modulen. Navigation-Routes werden automatisch aus dem `ModuleCatalog` generiert.
-
-## Technologie-Stack
-
-### FOSS-Bibliotheken
-
-- **ZXing** 4.1.0 - QR Code Generation/Scanning
-- **BouncyCastle** 1.78 - Security/Cryptography
-- **dnsjava** 3.6.2 - DNS Operations
-- **OkHttp** 4.12.0 - HTTP Client
-- **iText** 8.0.2 - PDF Export
-- **MPAndroidChart** 3.1.0 - Chart Visualization
-
-### Android Libraries
-
-- **Material 3 Expressive** - Modern UI Design
-- **Hilt** - Dependency Injection
-- **Navigation Component** - In-App Navigation
-- **Room** - Local Database
-- **SQLCipher** - Encrypted Database
-- **Coroutines** - Asynchronous Operations
-- **Timber** - Logging
-
-## Build & Installation
-
-### Voraussetzungen
-
-- Android Studio Hedgehog oder neuer
-- JDK 17
-- Android SDK 33+ (minSdk: 33, targetSdk: 36)
-
-### Build
-
-```bash
-# Alle Module aktivieren
-./gradlew assembleDebug
-
-# Spezifisches Modul bauen
-./gradlew :feature-utilities:assembleDebug
-
-# Tests ausführen
-./gradlew test
-./gradlew connectedAndroidTest
-```
-
-### Module aktivieren/deaktivieren
-
-Bearbeite `gradle.properties`:
-
-```properties
-feature.utilities.enabled=true
-feature.backup.enabled=true
-```
-
-## UI Design
-
-Die App verwendet **Material 3 Expressive** Design:
-
-- **Expressive Color Scheme** - Mutige Farben mit Dynamic Color Support
-- **Expressive Typography** - Größere, boldere Headlines
-- **Expressive Shapes** - Größere Corner Radii (bis 28dp für heroische Cards)
-- **Dynamic Color** - Material You Support (Android 12+)
-
-Siehe [MATERIAL3_EXPRESSIVE_IMPLEMENTATION.md](docs/MATERIAL3_EXPRESSIVE_IMPLEMENTATION.md) für Details.
-
-## Privacy & Security
-
-- ✅ **Keine Google-Dienste** - Vollständig FOSS, keine Google Play Services
-- ✅ **Lokale Datenverarbeitung** - Alle Daten bleiben lokal
-- ✅ **Verschlüsselung** - SQLCipher für lokale Datenbank
-- ✅ **Keine Telemetrie** - Keine Tracking oder Analytics
-- ✅ **RASP Protection** - Runtime Application Self-Protection
-
-## Entwicklung
-
-### Neues Feature hinzufügen
-
-1. **Modul erstellen** (falls neues Modul):
-   ```bash
-   mkdir -p feature-new-module/src/main/java/com/ble1st/connectias/feature/newmodule
-   ```
-
-2. **build.gradle.kts** erstellen mit Dependencies
-
-3. **Hilt Module** erstellen:
-   ```kotlin
-   @Module
-   @InstallIn(SingletonComponent::class)
-   object NewModuleModule
-   ```
-
-4. **Module Catalog** erweitern:
-   ```kotlin
-   ModuleMetadata(
-       id = "new-module",
-       name = "New Module",
-       fragmentClassName = "...",
-       category = ModuleCategory.UTILITY
-   )
-   ```
-
-5. **Navigation** hinzufügen in `nav_graph.xml`
-
-### Testing
-
-```bash
-# Unit Tests
-./gradlew test
-
-# Instrumented Tests
-./gradlew connectedAndroidTest
-
-# Alle Tests
-./gradlew check
-```
-
-## Dokumentation
-
-- [Architektur Plan](docs/ARCHITECTURE_PLAN.md)
-- [MVP Plan](docs/MVP_PLAN.md)
-- [Material 3 Expressive Design](docs/MODERN_UI_DESIGN_M3.md)
-- [Material 3 Expressive Implementation](docs/MATERIAL3_EXPRESSIVE_IMPLEMENTATION.md)
-- [FOSS Features Implementation Plan](foss-features-implementation-plan.plan.md)
-
-## Lizenz
-
-[Lizenz-Informationen hier einfügen]
+## Ressourcen
+- LibVLC-Integration: `docs/VLC_INTEGRATION.md`
+- Lizenzdateien: siehe Tabelle / Unterordner `feature-dvd/src/main/cpp/external/`
+- Modul- und Build-Hinweise: `gradle.properties`, `build.gradle.kts` (Projekt & Module)
 
 ## Contributing
-
-[Contributing Guidelines hier einfügen]
+- Pull Requests willkommen. Bitte Coding-Guidelines und Sicherheitsanforderungen beachten; sensible Daten niemals in Logs oder Repos ablegen.
 
 ## Changelog
-
-### Version 1.0.0
-- Initial Release
-- Alle FOSS Features implementiert
-- Material 3 Expressive UI
-- Modulare Architektur mit dynamischer Module-Discovery
+- Siehe Projekt-History (Git); eigenständige Changelog-Datei kann ergänzt werden.
 
