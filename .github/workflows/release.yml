@@ -35,8 +35,38 @@ jobs:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
           first_line="$(printf '%s' "${COMMIT_MESSAGE:-}" | head -n1)"
-          if ! printf '%s' "$first_line" | grep -Eq '^v[0-9]'; then
-            echo "Commit message must start with v<version>"; exit 1
+          if ! printf '%s' "$first_line" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+
+          fi
+          version_name="$first_line"
+          # Convert vX.Y.Z to numeric code XXYYZZ (padded) for Play Store friendly code
+          version_code="$(printf '%s' "$first_line" | sed -E 's/^v//' | awk -F. '{printf("%d%02d%02d\n",$1,$2,$3)}')"
+          echo "version_name=$version_name" >> "$GITHUB_OUTPUT"
+          echo "version_code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build signed release APK
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew :app:assembleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/app/keystore.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD \
+            -Papp.versionName='${{ steps.version.outputs.version_name }}' \
+            -Papp.versionCode='${{ steps.version.outputs.version_code }}'
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: app/build/outputs/apk/release/app-release.apk
+; then
+            echo "Commit message must start with vX.Y.Z (semantic version)"; exit 1
           fi
           version_name="$first_line"
           # Convert vX.Y.Z to numeric code XXYYZZ (padded) for Play Store friendly code

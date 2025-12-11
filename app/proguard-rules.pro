@@ -307,3 +307,20 @@
 -dontwarn javax.annotation.**
 -dontwarn org.conscrypt.**
 -dontwarn org.openjsse.**
+
+# Google Tink / Google HTTP client (pulled via security-crypto)
+-dontwarn com.google.crypto.tink.util.KeysDownloader
+-dontwarn com.google.api.client.**
+-dontwarn org.joda.time.**
+
+# JavaPoet tooling classes (not present on Android at runtime)
+-dontwarn com.squareup.javapoet.**
+-dontwarn javax.lang.model.**
+-dontwarn javax.tools.**
+
+# SSHJ optional GSSAPI / JAAS
+-dontwarn org.ietf.jgss.**
+-dontwarn javax.security.auth.login.**
+
+# JDK-internal X509 classes referenced by EdDSA
+-dontwarn sun.security.x509.**
