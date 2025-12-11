@@ -1,10 +1,12 @@
 package com.ble1st.connectias.core.services
 
+import android.Manifest
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
+import androidx.annotation.RequiresPermission
 import com.ble1st.connectias.core.models.ConnectionType
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
@@ -37,6 +39,7 @@ class NetworkService @Inject constructor(
      * Gets the active network.
      * Low-level API for direct ConnectivityManager access.
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getActiveNetwork(): Network? {
         return try {
             connectivityManager?.activeNetwork
@@ -50,6 +53,7 @@ class NetworkService @Inject constructor(
      * Gets network capabilities for the active network.
      * Low-level API for direct ConnectivityManager access.
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getNetworkCapabilities(): NetworkCapabilities? {
         return try {
             val manager = connectivityManager
@@ -66,6 +70,7 @@ class NetworkService @Inject constructor(
      * Gets link properties for the active network.
      * Low-level API for direct ConnectivityManager access.
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getLinkProperties(): LinkProperties? {
         return try {
             val manager = connectivityManager
@@ -82,6 +87,7 @@ class NetworkService @Inject constructor(
      * Checks if device is connected to a network.
      * High-level convenience API.
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun isConnected(): Boolean {
         return try {
             getNetworkCapabilities() != null
@@ -96,6 +102,7 @@ class NetworkService @Inject constructor(
      * High-level convenience API.
      * @return Connection type enum
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getConnectionType(): ConnectionType {
         return try {
             val capabilities = getNetworkCapabilities() ?: return ConnectionType.NONE
@@ -117,6 +124,7 @@ class NetworkService @Inject constructor(
      * High-level convenience API.
      * @return List of DNS server IP addresses
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getDnsServers(): List<String> {
         return try {
             getLinkProperties()?.dnsServers?.mapNotNull { it.hostAddress } ?: emptyList()
@@ -131,6 +139,7 @@ class NetworkService @Inject constructor(
      * High-level convenience API.
      * @return Gateway IP address or null if not available
      */
+    @RequiresPermission(Manifest.permission.ACCESS_NETWORK_STATE)
     suspend fun getGateway(): String? {
         return try {
             getLinkProperties()?.routes?.firstOrNull()?.gateway?.hostAddress

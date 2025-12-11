@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- CSS Decryption -->
+    <string name="css_decryption_title">CSS Decryption</string>
+    <string name="css_decryption_description">Enables playback of copy-protected DVDs. Legally sensitive – see disclaimer.</string>
+    <string name="css_decryption_enabled">Enabled</string>
+    <string name="css_decryption_warning">CSS decryption is enabled. You are responsible for lawful use.</string>
+    <string name="css_decryption_disclaimer_title">Important legal notice - disclaimer</string>
+    <string name="css_decryption_disclaimer">IMPORTANT LEGAL NOTICE - DISCLAIMER\n\nThe CSS decryption feature (libdvdcss) enables circumventing copy-protection mechanisms on DVDs.\n\nILLEGALITY:\nUsing this feature may be illegal in various jurisdictions, including under the DMCA in the US and similar laws elsewhere.\n\nGEOGRAPHIC SCOPE:\nThis disclaimer applies globally; specific laws vary by country. Notable jurisdictions include:\n- USA: Digital Millennium Copyright Act (DMCA)\n- EU member states: EU Copyright Directive and national implementations\n- United Kingdom: Copyright, Designs and Patents Act\n- Canada: Copyright Act\n- Australia: Copyright Act\n\nThis disclaimer is not exhaustive and laws can change.\n\nDISCLAIMER:\n- The developer assumes NO liability for use of this feature\n- You are fully responsible for lawful use\n- You are liable for all legal consequences of use\n- No guarantee of functionality or legality is provided\n\nBy enabling this feature you confirm that you:\n1. Understand the legal risks\n2. Accept full responsibility for use\n3. Hold the developer harmless from any liability</string>
+    <string name="css_decryption_disclaimer_checkbox">I understand and accept responsibility</string>
+    <string name="accept">Accept</string>
+    <string name="cancel">Cancel</string>
+    <string name="css_decryption_disclaimer_cancel">Cancel</string>
+    <string name="dvd_player_css_decryption_enabled">CSS decryption enabled</string>
+
     <!-- DVD/CD -->
     <string name="dvd_cd_detail_title">Disc Information</string>
     <string name="dvd_cd_no_titles">No titles found on DVD</string>

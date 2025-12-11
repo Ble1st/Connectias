@@ -22,6 +22,21 @@
     <string name="nav_ssh">SSH / SCP</string>
     <string name="nav_password">Passwort-Tools</string>
 
+    <!-- Allgemeine Aktionen -->
+    <string name="accept">Akzeptieren</string>
+    <string name="cancel">Abbrechen</string>
+
+    <!-- CSS-Entschlüsselung (DVD) -->
+    <string name="css_decryption_description">CSS-Entschlüsselung für DVD-Wiedergabe aktivieren.</string>
+    <string name="css_decryption_disclaimer">CSS-Entschlüsselung kann rechtlichen Beschränkungen in deiner Region unterliegen.</string>
+    <string name="css_decryption_disclaimer_cancel">Abbrechen</string>
+    <string name="css_decryption_disclaimer_checkbox">Ich verstehe die rechtlichen Implikationen.</string>
+    <string name="css_decryption_disclaimer_title">CSS-Entschlüsselung – Hinweis</string>
+    <string name="css_decryption_enabled">CSS-Entschlüsselung aktiviert</string>
+    <string name="css_decryption_title">CSS-Entschlüsselung</string>
+    <string name="css_decryption_warning">Nur verwenden, wo es rechtlich zulässig ist.</string>
+    <string name="dvd_player_css_decryption_enabled">CSS-Entschlüsselung ist für die DVD-Wiedergabe aktiviert.</string>
+
     <!-- Splash Screen -->
     <string name="loading">Lädt...</string>
     <string name="checking_security">Sicherheit wird geprüft...</string>

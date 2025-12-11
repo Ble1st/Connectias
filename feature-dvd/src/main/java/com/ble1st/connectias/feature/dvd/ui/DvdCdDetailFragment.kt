@@ -27,6 +27,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import androidx.media3.common.util.UnstableApi
 import com.ble1st.connectias.feature.dvd.media.AudioCdPlayer
 import com.ble1st.connectias.feature.dvd.media.AudioCdProvider
 import com.ble1st.connectias.feature.dvd.media.DvdVideoProvider
@@ -49,6 +50,7 @@ import javax.inject.Inject
  * Handles device detection, permission requests, and displays disc content.
  */
 @AndroidEntryPoint
+@UnstableApi
 class DvdCdDetailFragment : Fragment() {
     
     companion object {
