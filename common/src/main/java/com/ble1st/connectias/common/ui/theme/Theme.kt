@@ -112,31 +112,6 @@ fun ConnectiasTheme(
     
     val actualDynamicColor = dynamicColor && themeStyle is ThemeStyle.Standard
     
-    val colorScheme: ColorScheme = when {
-        actualDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && themeStyle is ThemeStyle.Standard -> {
-            val context = LocalContext.current
-            if (actualDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        themeStyle is ThemeStyle.AdeptusMechanicus -> {
-            // Force dark-ish scheme for Adeptus Mechanicus regardless of system setting, 
-            // but respect high-contrast/light mode slightly if implemented in AdeptusMechanicusLightColorScheme
-            if (actualDarkTheme) AdeptusMechanicusDarkColorScheme else AdeptusMechanicusLightColorScheme
-        }
-        actualDarkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-    
-    val typography: Typography = when (themeStyle) {
-        is ThemeStyle.AdeptusMechanicus -> AdeptusMechanicusTypography
-        is ThemeStyle.Standard -> Typography
-    }
-
-    // Select the correct String Dictionary
-    val stringDictionary = when (themeStyle) {
-        is ThemeStyle.AdeptusMechanicus -> AdeptusDictionary
-        is ThemeStyle.Standard -> StandardDictionary
-    }
-    
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
@@ -156,20 +131,44 @@ fun ConnectiasTheme(
         }
     }
 
-    CompositionLocalProvider(
-        LocalThemeStyle provides themeStyle,
-        LocalAppStrings provides stringDictionary
-    ) {
-        AnimatedContent(
-            targetState = themeStyle,
-            transitionSpec = {
-                fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
-            },
-            label = "ThemeTransition"
-        ) { currentThemeStyle ->
+    AnimatedContent(
+        targetState = themeStyle,
+        transitionSpec = {
+            fadeIn(animationSpec = tween(300)) togetherWith fadeOut(animationSpec = tween(300))
+        },
+        label = "ThemeTransition"
+    ) { currentThemeStyle ->
+        val animatedColorScheme: ColorScheme = when {
+            actualDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && currentThemeStyle is ThemeStyle.Standard -> {
+                val context = LocalContext.current
+                if (actualDarkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+            currentThemeStyle is ThemeStyle.AdeptusMechanicus -> {
+                // Force dark-ish scheme for Adeptus Mechanicus regardless of system setting,
+                // but respect high-contrast/light mode slightly if implemented in AdeptusMechanicusLightColorScheme
+                if (actualDarkTheme) AdeptusMechanicusDarkColorScheme else AdeptusMechanicusLightColorScheme
+            }
+            actualDarkTheme -> DarkColorScheme
+            else -> LightColorScheme
+        }
+
+        val animatedTypography: Typography = when (currentThemeStyle) {
+            is ThemeStyle.AdeptusMechanicus -> AdeptusMechanicusTypography
+            is ThemeStyle.Standard -> Typography
+        }
+
+        val animatedDictionary = when (currentThemeStyle) {
+            is ThemeStyle.AdeptusMechanicus -> AdeptusDictionary
+            is ThemeStyle.Standard -> StandardDictionary
+        }
+
+        CompositionLocalProvider(
+            LocalThemeStyle provides currentThemeStyle,
+            LocalAppStrings provides animatedDictionary
+        ) {
             MaterialTheme(
-                colorScheme = colorScheme,
-                typography = typography,
+                colorScheme = animatedColorScheme,
+                typography = animatedTypography,
                 shapes = Shapes,
                 content = content
             )
