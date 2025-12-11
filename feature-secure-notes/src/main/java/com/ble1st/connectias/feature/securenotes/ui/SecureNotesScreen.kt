@@ -433,7 +433,7 @@ private fun SearchBar(
             }
         },
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = MaterialTheme.shapes.large, // Expressive 'Large' is 28dp, fitting for search bars
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -453,7 +453,7 @@ private fun NoteCard(
     val backgroundColor = try {
         Color(android.graphics.Color.parseColor(note.color.hex))
     } catch (e: Exception) {
-        MaterialTheme.colorScheme.surface
+        MaterialTheme.colorScheme.surfaceContainer
     }
 
     Card(
@@ -464,7 +464,7 @@ private fun NoteCard(
             containerColor = backgroundColor
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        shape = MaterialTheme.shapes.medium // Expressive 'Medium' is 16dp
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

@@ -44,15 +44,55 @@ private fun Context.findActivity(): Activity? {
 }
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = DarkBoldBlue,
+    onPrimary = OnDarkBoldBlue,
+    primaryContainer = DarkBoldBlueContainer,
+    onPrimaryContainer = OnDarkBoldBlueContainer,
+    secondary = DarkExpressiveAccent,
+    onSecondary = OnDarkExpressiveAccent,
+    secondaryContainer = DarkExpressiveAccentContainer,
+    onSecondaryContainer = OnDarkExpressiveAccentContainer,
+    tertiary = DarkBoldTertiary,
+    onTertiary = OnDarkBoldTertiary,
+    tertiaryContainer = DarkBoldTertiaryContainer,
+    onTertiaryContainer = OnDarkBoldTertiaryContainer,
+    error = DarkExpressiveError,
+    errorContainer = DarkExpressiveErrorContainer,
+    onError = OnDarkExpressiveError,
+    onErrorContainer = OnDarkExpressiveErrorContainer,
+    background = DarkExpressiveBackground,
+    onBackground = OnDarkExpressiveBackground,
+    surface = DarkExpressiveSurface,
+    onSurface = OnDarkExpressiveSurface,
+    surfaceVariant = DarkSurfaceContainerHigh, // M3 Mapping approximation
+    onSurfaceVariant = OnDarkExpressiveSurface, // Approximation
+    outline = DarkSurfaceContainerHighest
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = BoldBlue,
+    onPrimary = OnBoldBlue,
+    primaryContainer = BoldBlueContainer,
+    onPrimaryContainer = OnBoldBlueContainer,
+    secondary = ExpressiveAccent,
+    onSecondary = OnExpressiveAccent,
+    secondaryContainer = ExpressiveAccentContainer,
+    onSecondaryContainer = OnExpressiveAccentContainer,
+    tertiary = BoldTertiary,
+    onTertiary = OnBoldTertiary,
+    tertiaryContainer = BoldTertiaryContainer,
+    onTertiaryContainer = OnBoldTertiaryContainer,
+    error = ExpressiveError,
+    errorContainer = ExpressiveErrorContainer,
+    onError = OnExpressiveError,
+    onErrorContainer = OnExpressiveErrorContainer,
+    background = ExpressiveBackground,
+    onBackground = OnExpressiveBackground,
+    surface = ExpressiveSurface,
+    onSurface = OnExpressiveSurface,
+    surfaceVariant = SurfaceContainerHigh, // M3 Mapping approximation
+    onSurfaceVariant = OnExpressiveSurface, // Approximation
+    outline = SurfaceContainerHighest
 )
 
 @Composable
@@ -130,6 +170,7 @@ fun ConnectiasTheme(
             MaterialTheme(
                 colorScheme = colorScheme,
                 typography = typography,
+                shapes = Shapes,
                 content = content
             )
         }

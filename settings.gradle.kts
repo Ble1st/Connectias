@@ -48,8 +48,42 @@ if (featureUsbEnabled) {
     include(":feature-usb")
 }
 
-val featureDocumentEnabled = providers.gradleProperty("feature.document.enabled").orNull == "true"
-if (featureDocumentEnabled) {
-    include(":feature-document")
+val featureBluetoothEnabled = providers.gradleProperty("feature.bluetooth.enabled").orNull == "true"
+if (featureBluetoothEnabled) {
+    include(":feature-bluetooth")
 }
 
+val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
+if (featureNetworkEnabled) {
+    include(":feature-network")
+}
+
+val featureDnsToolsEnabled = providers.gradleProperty("feature.dnstools.enabled").orNull == "true"
+if (featureDnsToolsEnabled) {
+    include(":feature-dnstools")
+}
+
+val featureBarcodeEnabled = providers.gradleProperty("feature.barcode.enabled").orNull == "true"
+if (featureBarcodeEnabled) {
+    include(":feature-barcode")
+}
+
+val featureCalendarEnabled = providers.gradleProperty("feature.calendar.enabled").orNull == "true"
+if (featureCalendarEnabled) {
+    include(":feature-calendar")
+}
+
+val featureNtpEnabled = providers.gradleProperty("feature.ntp.enabled").orNull == "true"
+if (featureNtpEnabled) {
+    include(":feature-ntp")
+}
+
+val featureSshEnabled = providers.gradleProperty("feature.ssh.enabled").orNull == "true"
+if (featureSshEnabled) {
+    include(":feature-ssh")
+}
+
+val featurePasswordEnabled = providers.gradleProperty("feature.password.enabled").orNull == "true"
+if (featurePasswordEnabled) {
+    include(":feature-password")
+}

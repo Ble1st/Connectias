@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dns_tools_title">DNS Tools</string>
+    <string name="dns_section_title">DNS / DMARC / WHOIS</string>
+    <string name="dns_domain_label">Domain</string>
+    <string name="dns_lookup">DNS Lookup</string>
+    <string name="dns_dmarc">DMARC</string>
+    <string name="dns_whois">WHOIS</string>
+    <string name="dns_result_title">DNS %1$s</string>
+    <string name="dmarc_result_title">DMARC Result</string>
+    <string name="whois_result_title">WHOIS Result</string>
+
+    <string name="net_section_title">Subnet &amp; Ping</string>
+    <string name="subnet_label">Subnet (CIDR)</string>
+    <string name="subnet_calculate">Calculate</string>
+    <string name="subnet_result_title">Subnet Result</string>
+    <string name="ping_label">Ping Host</string>
+    <string name="ping_action">Ping</string>
+    <string name="ping_result_title">Ping Result</string>
+
+    <string name="captive_title">Captive Portal Detection</string>
+    <string name="captive_check">Check Captive Portal</string>
+    <string name="captive_status_open">Open internet</string>
+    <string name="captive_status_captive">Captive portal (HTTP %1$d)</string>
+    <string name="captive_status_unknown">Status unknown</string>
+    <string name="captive_result_title">Captive Portal Result</string>
+
+    <string name="markdown_title">Markdown / Text Editor</string>
+    <string name="markdown_name">File name</string>
+    <string name="markdown_content">Content</string>
+    <string name="markdown_hint">Supports plain text, markdown, log and config snippets.</string>
+
+</resources>

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.BatteryStd
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.Router
 import androidx.compose.material.icons.filled.WifiTethering
@@ -521,7 +522,14 @@ private fun getFragmentClassNameForNavId(navIdName: String): String? {
         // DVD features
         "nav_dvd_player" -> "com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
         "nav_dvd_cd_detail" -> "com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
-        "nav_document_scanner" -> "com.ble1st.connectias.feature.document.ui.DocumentScannerFragment"
+        "nav_bluetooth_scanner" -> "com.ble1st.connectias.feature.bluetooth.ui.BluetoothScannerFragment"
+        "nav_network_tools" -> "com.ble1st.connectias.feature.network.ui.NetworkToolsFragment"
+        "nav_dns_tools" -> "com.ble1st.connectias.feature.dnstools.ui.DnsToolsFragment"
+        "nav_barcode_tools" -> "com.ble1st.connectias.feature.barcode.ui.BarcodeFragment"
+        "nav_calendar" -> "com.ble1st.connectias.feature.calendar.ui.CalendarFragment"
+        "nav_ntp" -> "com.ble1st.connectias.feature.ntp.ui.NtpFragment"
+        "nav_ssh" -> "com.ble1st.connectias.feature.ssh.ui.SshFragment"
+        "nav_password" -> "com.ble1st.connectias.feature.password.ui.PasswordFragment"
 
         else -> null
     }
@@ -584,11 +592,22 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
             FeatureDef("USB Devices", Icons.Default.Usb, "nav_usb_dashboard"),
             FeatureDef("USB Storage Browser", Icons.Default.FolderOpen, "nav_usb_storage_browser")
         )),
+        FeatureCategoryDef("Connectivity", listOf(
+            FeatureDef("Bluetooth Scanner", Icons.Default.Bluetooth, "nav_bluetooth_scanner"),
+            FeatureDef("Network Tools", Icons.Default.Router, "nav_network_tools"),
+            FeatureDef("DNS Tools", Icons.Default.Dns, "nav_dns_tools"),
+            FeatureDef("NTP Checker", Icons.Default.History, "nav_ntp"),
+            FeatureDef("SSH / SCP", Icons.Default.Lock, "nav_ssh")
+        )),
         FeatureCategoryDef("Media", listOf(
             FeatureDef("DVD Player", Icons.Default.Album, "nav_dvd_cd_detail")
         )),
-        FeatureCategoryDef("Documents", listOf(
-            FeatureDef("Document Scanner", Icons.Default.Description, "nav_document_scanner")
+        FeatureCategoryDef("Utilities", listOf(
+            FeatureDef("Barcode & QR", Icons.Default.QrCode, "nav_barcode_tools"),
+            FeatureDef("Password Tools", Icons.Default.Password, "nav_password")
+        )),
+        FeatureCategoryDef("Productivity", listOf(
+            FeatureDef("Kalender", Icons.Default.Timeline, "nav_calendar")
         ))
     )
 }

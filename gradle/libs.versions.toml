@@ -71,7 +71,9 @@ media3 = "1.2.0"
 # CameraX
 camerax = "1.4.1"
 tesseract = "9.1.0"
-opencv = "4.9.0"
+opencv = "4.12.0"
+litert = "1.4.1"
+tflite = "2.16.1"
 
 # ML Kit
 mlkitBarcode = "17.3.0"
@@ -109,6 +111,9 @@ okhttp = "4.12.0"
 itext = "9.4.0"
 mpandroidchart = "3.1.0"
 chicory = "1.0.0-M1"
+sshj = "0.37.0"
+commonsNet = "3.11.1"
+commonmark = "0.24.0"
 
 # Jetpack Compose
 composeBom = "2025.11.01"
@@ -196,6 +201,9 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 itext = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
 mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
 chicory-runtime = { group = "com.dylibso.chicory", name = "runtime", version.ref = "chicory" }
+sshj = { group = "com.hierynomus", name = "sshj", version.ref = "sshj" }
+commons-net = { group = "commons-net", name = "commons-net", version.ref = "commonsNet" }
+commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
 
 # Jetpack Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -241,6 +249,10 @@ androidx-biometric = { group = "androidx.biometric", name = "biometric", version
 compose-theme-adapter = { group = "com.google.android.material", name = "compose-theme-adapter-3", version = "1.1.1" }
 tesseract-android = { group = "com.rmtheis", name = "tess-two", version.ref = "tesseract" }
 opencv-android = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
+litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+litert-support = { group = "com.google.ai.edge.litert", name = "litert-support", version.ref = "litert" }
+litert-metadata = { group = "com.google.ai.edge.litert", name = "litert-metadata", version.ref = "litert" }
+tflite-runtime = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

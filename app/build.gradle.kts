@@ -95,9 +95,44 @@ dependencies {
         implementation(project(":feature-secure-notes"))
     }
 
-    val featureDocumentEnabled = project.findProperty("feature.document.enabled") == "true"
-    if (featureDocumentEnabled) {
-        implementation(project(":feature-document"))
+    val featureBluetoothEnabled = project.findProperty("feature.bluetooth.enabled") == "true"
+    if (featureBluetoothEnabled) {
+        implementation(project(":feature-bluetooth"))
+    }
+
+    val featureNetworkEnabled = project.findProperty("feature.network.enabled") == "true"
+    if (featureNetworkEnabled) {
+        implementation(project(":feature-network"))
+    }
+
+    val featureDnsToolsEnabled = project.findProperty("feature.dnstools.enabled") == "true"
+    if (featureDnsToolsEnabled) {
+        implementation(project(":feature-dnstools"))
+    }
+
+    val featureBarcodeEnabled = project.findProperty("feature.barcode.enabled") == "true"
+    if (featureBarcodeEnabled) {
+        implementation(project(":feature-barcode"))
+    }
+
+    val featureCalendarEnabled = project.findProperty("feature.calendar.enabled") == "true"
+    if (featureCalendarEnabled) {
+        implementation(project(":feature-calendar"))
+    }
+
+    val featureNtpEnabled = project.findProperty("feature.ntp.enabled") == "true"
+    if (featureNtpEnabled) {
+        implementation(project(":feature-ntp"))
+    }
+
+    val featureSshEnabled = project.findProperty("feature.ssh.enabled") == "true"
+    if (featureSshEnabled) {
+        implementation(project(":feature-ssh"))
+    }
+
+    val featurePasswordEnabled = project.findProperty("feature.password.enabled") == "true"
+    if (featurePasswordEnabled) {
+        implementation(project(":feature-password"))
     }
 
     // Android Core

@@ -26,7 +26,8 @@ fun UsbDeviceCard(
     
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium
     ) {
         Row(
             modifier = Modifier

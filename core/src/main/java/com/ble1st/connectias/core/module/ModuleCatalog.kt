@@ -83,12 +83,20 @@ object ModuleCatalog {
             description = "Encrypted note storage"
         ),
         ModuleMetadata(
-            id = "document_scanner",
-            name = "Document Scanner",
+            id = "bluetooth_scanner",
+            name = "Bluetooth Scanner",
             version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.document.ui.DocumentScannerFragment",
-            category = ModuleCategory.UTILITY,
-            description = "Document scanning with OCR and PDF export"
+            fragmentClassName = "com.ble1st.connectias.feature.bluetooth.ui.BluetoothScannerFragment",
+            category = ModuleCategory.NETWORK,
+            description = "Scan nearby Bluetooth devices with signal proximity"
+        ),
+        ModuleMetadata(
+            id = "network_tools",
+            name = "Network Tools",
+            version = "1.0.0",
+            fragmentClassName = "com.ble1st.connectias.feature.network.ui.NetworkToolsFragment",
+            category = ModuleCategory.NETWORK,
+            description = "WLAN, Netz, Port, Traceroute und SSL Scanner"
         )
     )
     
