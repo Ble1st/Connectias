@@ -12,15 +12,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        val suppliedVersionName = project.findProperty("app.versionName") as String?
-        val suppliedVersionCode = (project.findProperty("app.versionCode") as String?)?.toIntOrNull()
-
         applicationId = "com.ble1st.connectias"
         minSdk = 33
         targetSdk = 36
-        versionCode = suppliedVersionCode ?: 1
-        versionName = suppliedVersionName?.takeIf { it.isNotBlank() } ?: "1.0"
-        versionName = suppliedVersionName ?: "1.0"
+        versionCode = 1
+        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
