@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="password_title">Passwort-Checker</string>
+    <string name="password_input_label">Passwort</string>
+    <string name="password_strength_title">Stärke: %1$s</string>
+    <string name="generator_title">Passwort-Generator</string>
+    <string name="generator_length">Länge: %1$d</string>
+    <string name="generator_lower">Kleinbuchstaben</string>
+    <string name="generator_upper">Großbuchstaben</string>
+    <string name="generator_digits">Ziffern</string>
+    <string name="generator_symbols">Sonderzeichen</string>
+    <string name="generator_action">Generieren</string>
+    <string name="generator_result_title">Generiertes Passwort</string>
+</resources>

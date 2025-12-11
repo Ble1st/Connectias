@@ -1,11 +1,21 @@
 package com.ble1st.connectias.feature.password.data
 
+import kotlinx.coroutines.flow.Flow
 import java.security.SecureRandom
 import javax.inject.Inject
+import javax.inject.Singleton
 import kotlin.math.log2
 
-class PasswordRepository @Inject constructor() {
+@Singleton
+class PasswordRepository @Inject constructor(
+    private val passwordDao: PasswordDao
+) {
     private val secureRandom = SecureRandom()
+    
+    val history: Flow<List<PasswordHistoryEntity>> = passwordDao.getAllHistory()
+
+    suspend fun clearHistory() = passwordDao.clearAll()
+    suspend fun deleteHistoryItem(item: PasswordHistoryEntity) = passwordDao.delete(item)
 
     fun checkPassword(password: String): PasswordCheckResult {
         val length = password.length
@@ -37,7 +47,7 @@ class PasswordRepository @Inject constructor() {
         )
     }
 
-    fun generatePassword(config: PasswordGeneratorConfig): String {
+    suspend fun generatePassword(config: PasswordGeneratorConfig): String {
         val length = config.length.coerceIn(8, 256)
         val pool = buildString {
             if (config.includeLowercase) append(LOWER)
@@ -45,11 +55,46 @@ class PasswordRepository @Inject constructor() {
             if (config.includeDigits) append(DIGITS)
             if (config.includeSymbols) append(SYMBOLS)
         }
-        if (pool.isEmpty()) return ""
+        val finalPool = if (pool.isEmpty()) LOWER else pool
+        
         val chars = CharArray(length) {
-            pool[secureRandom.nextInt(pool.length)]
+            finalPool[secureRandom.nextInt(finalPool.length)]
         }
-        return String(chars)
+        val password = String(chars)
+        
+        val check = checkPassword(password)
+        passwordDao.insert(
+            PasswordHistoryEntity(
+                password = password,
+                type = "CHARACTER",
+                strength = check.strength.name,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+        
+        return password
+    }
+    
+    suspend fun generatePassphrase(wordCount: Int = 4, separator: String = "-"): String {
+        val words = List(wordCount) {
+            WORD_LIST[secureRandom.nextInt(WORD_LIST.size)]
+        }
+        val passphrase = words.joinToString(separator)
+        
+        val check = checkPassword(passphrase)
+        // Passphrases usually have high entropy if length is high, but checkPassword might underestimate them if no symbols/digits.
+        // Let's rely on checkPassword logic for consistency or override strength for long passphrases.
+        
+        passwordDao.insert(
+            PasswordHistoryEntity(
+                password = passphrase,
+                type = "PASSPHRASE",
+                strength = check.strength.name,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+        
+        return passphrase
     }
 
     companion object {
@@ -57,5 +102,17 @@ class PasswordRepository @Inject constructor() {
         private const val UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         private const val DIGITS = "0123456789"
         private const val SYMBOLS = "!@#\$%^&*()-_=+[{]}|;:'\",<.>/?`~"
+        
+        private val WORD_LIST = listOf(
+            "apple", "bridge", "cloud", "dance", "eagle", "forest", "grape", "house", "island", "jungle",
+            "kite", "lemon", "mountain", "night", "ocean", "piano", "queen", "river", "stone", "tiger",
+            "umbrella", "violet", "water", "xylophone", "yellow", "zebra", "amber", "brave", "crisp", "dawn",
+            "elite", "flame", "glow", "honor", "image", "jump", "knack", "light", "mirth", "noble",
+            "orbit", "pride", "quest", "royal", "shine", "truth", "unity", "value", "wisdom", "youth",
+            "alpha", "beta", "gamma", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet",
+            "kilo", "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra", "tango",
+            "uniform", "victor", "whiskey", "xray", "yankee", "zulu", "north", "south", "east", "west"
+        )
     }
 }
+

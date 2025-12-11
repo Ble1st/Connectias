@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.calendar.data
 
+import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
 import android.provider.CalendarContract
@@ -23,6 +24,7 @@ class CalendarRepository @Inject constructor(
         val projection = arrayOf(
             CalendarContract.Events._ID,
             CalendarContract.Events.TITLE,
+            CalendarContract.Events.DESCRIPTION,
             CalendarContract.Events.DTSTART,
             CalendarContract.Events.DTEND,
             CalendarContract.Events.CALENDAR_DISPLAY_NAME
@@ -36,6 +38,7 @@ class CalendarRepository @Inject constructor(
                 cursor?.use {
                     val idIdx = it.getColumnIndex(CalendarContract.Events._ID)
                     val titleIdx = it.getColumnIndex(CalendarContract.Events.TITLE)
+                    val descIdx = it.getColumnIndex(CalendarContract.Events.DESCRIPTION)
                     val startIdx = it.getColumnIndex(CalendarContract.Events.DTSTART)
                     val endIdx = it.getColumnIndex(CalendarContract.Events.DTEND)
                     val calIdx = it.getColumnIndex(CalendarContract.Events.CALENDAR_DISPLAY_NAME)
@@ -44,6 +47,7 @@ class CalendarRepository @Inject constructor(
                             CalendarEvent(
                                 id = it.getLong(idIdx),
                                 title = it.getString(titleIdx) ?: "Event",
+                                description = it.getString(descIdx) ?: "",
                                 start = it.getLong(startIdx),
                                 end = it.getLong(endIdx),
                                 calendar = it.getString(calIdx) ?: ""
@@ -61,16 +65,66 @@ class CalendarRepository @Inject constructor(
         }
     }
 
+    suspend fun loadEventsForRange(start: Long, end: Long): CalendarResult<List<CalendarEvent>> = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        val uri = CalendarContract.Events.CONTENT_URI
+        val projection = arrayOf(
+            CalendarContract.Events._ID,
+            CalendarContract.Events.TITLE,
+            CalendarContract.Events.DESCRIPTION,
+            CalendarContract.Events.DTSTART,
+            CalendarContract.Events.DTEND,
+            CalendarContract.Events.CALENDAR_DISPLAY_NAME
+        )
+        // Events that overlap with the range: Start < RangeEnd AND End > RangeStart
+        val selection = "(${CalendarContract.Events.DTSTART} < ?) AND (${CalendarContract.Events.DTEND} > ?)"
+        val selectionArgs = arrayOf(end.toString(), start.toString())
+        val sortOrder = "${CalendarContract.Events.DTSTART} ASC"
+        
+        return@withContext try {
+            val cursor = resolver.query(uri, projection, selection, selectionArgs, sortOrder)
+            val items = buildList {
+                cursor?.use {
+                    val idIdx = it.getColumnIndex(CalendarContract.Events._ID)
+                    val titleIdx = it.getColumnIndex(CalendarContract.Events.TITLE)
+                    val descIdx = it.getColumnIndex(CalendarContract.Events.DESCRIPTION)
+                    val startIdx = it.getColumnIndex(CalendarContract.Events.DTSTART)
+                    val endIdx = it.getColumnIndex(CalendarContract.Events.DTEND)
+                    val calIdx = it.getColumnIndex(CalendarContract.Events.CALENDAR_DISPLAY_NAME)
+                    
+                    while (it.moveToNext()) {
+                        add(
+                            CalendarEvent(
+                                id = it.getLong(idIdx),
+                                title = it.getString(titleIdx) ?: "Event",
+                                description = it.getString(descIdx) ?: "",
+                                start = it.getLong(startIdx),
+                                end = it.getLong(endIdx),
+                                calendar = it.getString(calIdx) ?: ""
+                            )
+                        )
+                    }
+                }
+            }
+            CalendarResult.Success(items)
+        } catch (se: SecurityException) {
+            CalendarResult.Error("Calendar permission missing")
+        } catch (t: Throwable) {
+            Timber.e(t, "Failed to read calendar events for range")
+            CalendarResult.Error(t.message ?: "Unknown error")
+        }
+    }
+
     suspend fun addEvent(event: CalendarEventDraft): CalendarResult<Long> = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val calId = getPrimaryCalendarId() ?: return@withContext CalendarResult.Error("No calendar found")
         val values = ContentValues().apply {
             put(CalendarContract.Events.CALENDAR_ID, calId)
             put(CalendarContract.Events.TITLE, event.title)
+            put(CalendarContract.Events.DESCRIPTION, event.description)
             put(CalendarContract.Events.DTSTART, event.start)
             put(CalendarContract.Events.DTEND, event.end)
             put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().id)
-            put(CalendarContract.Events.DESCRIPTION, event.description)
         }
         return@withContext try {
             val uri = resolver.insert(CalendarContract.Events.CONTENT_URI, values)
@@ -80,6 +134,21 @@ class CalendarRepository @Inject constructor(
             CalendarResult.Error("Calendar permission missing")
         } catch (t: Throwable) {
             Timber.e(t, "Failed to insert event")
+            CalendarResult.Error(t.message ?: "Unknown error")
+        }
+    }
+
+    suspend fun deleteEvent(eventId: Long): CalendarResult<Unit> = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        val uri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId)
+        
+        return@withContext try {
+            val rows = resolver.delete(uri, null, null)
+            if (rows > 0) CalendarResult.Success(Unit) else CalendarResult.Error("Event not found or delete failed")
+        } catch (se: SecurityException) {
+            CalendarResult.Error("Calendar permission missing")
+        } catch (t: Throwable) {
+            Timber.e(t, "Failed to delete event")
             CalendarResult.Error(t.message ?: "Unknown error")
         }
     }

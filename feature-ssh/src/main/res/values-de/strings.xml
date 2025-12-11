@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_title">SSH / SCP</string>
+    <string name="ssh_profile_name">Profilname</string>
+    <string name="ssh_host_label">Host</string>
+    <string name="ssh_port_label">Port</string>
+    <string name="ssh_user_label">Benutzer</string>
+    <string name="ssh_password_label">Passwort</string>
+    <string name="ssh_save_profile">Profil speichern</string>
+    <string name="ssh_test_connection">Verbindung testen</string>
+    <string name="ssh_profiles_title">Profile</string>
+    <string name="ssh_profiles_empty">Keine Profile gespeichert</string>
+</resources>

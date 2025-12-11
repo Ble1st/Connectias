@@ -11,6 +11,7 @@ import com.ble1st.connectias.feature.bluetooth.ui.model.PermissionStatus
 import com.ble1st.connectias.feature.bluetooth.ui.model.UiDevice
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,11 +29,19 @@ class BluetoothScannerViewModel @Inject constructor(
     private val bluetoothAdapter: BluetoothAdapter?
 ) : ViewModel() {
 
+    private var dispatcher: CoroutineDispatcher = Dispatchers.IO
+    internal constructor(
+        scanner: BluetoothScanner,
+        bluetoothAdapter: BluetoothAdapter?,
+        dispatcher: CoroutineDispatcher
+    ) : this(scanner, bluetoothAdapter) {
+        this.dispatcher = dispatcher
+    }
+
     private val _state = MutableStateFlow(BluetoothUiState())
     val state: StateFlow<BluetoothUiState> = _state.asStateFlow()
 
     private var scanJob: Job? = null
-    private val dispatcher = Dispatchers.IO
 
     fun onPermissionStatus(status: PermissionStatus) {
         _state.update { it.copy(permissionStatus = status) }

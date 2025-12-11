@@ -30,6 +30,7 @@ static void *g_libvlc_handle = nullptr;
 static libvlc_media_new_callbacks_t g_libvlc_media_new_callbacks = nullptr;
 static libvlc_media_release_t g_libvlc_media_release = nullptr;
 static libvlc_media_player_set_media_t g_libvlc_media_player_set_media = nullptr;
+static libvlc_media_add_option_t g_libvlc_media_add_option = nullptr;
 
 // Function pointer for getting native instance from Java LibVLC object
 // This is defined in libvlcjni.so
@@ -61,7 +62,7 @@ static int media_open_cb(void *opaque, void **datap, uint64_t *sizep) {
     fflush(stdout);
     fflush(stderr);
     
-    JavaCallbackData *data = static_cast<JavaCallbackData*>(opaque);
+    auto *data = static_cast<JavaCallbackData*>(opaque);
     if (!data) {
         LOGE("VlcJni: media_open_cb() - data is null");
         fflush(stdout);
@@ -125,7 +126,7 @@ static int media_open_cb(void *opaque, void **datap, uint64_t *sizep) {
 
 static ssize_t media_read_cb(void *opaque, unsigned char *buf, size_t len) {
     LOGD("VlcJni: media_read_cb() called - requested size: %zu bytes", len);
-    JavaCallbackData *data = static_cast<JavaCallbackData*>(opaque);
+    auto *data = static_cast<JavaCallbackData*>(opaque);
     if (!data) {
         LOGE("VlcJni: media_read_cb() - data is null");
         return -1;
@@ -189,7 +190,7 @@ static ssize_t media_read_cb(void *opaque, unsigned char *buf, size_t len) {
 
 static int media_seek_cb(void *opaque, uint64_t offset) {
     LOGD("VlcJni: media_seek_cb() called - seeking to offset: %llu", (unsigned long long)offset);
-    JavaCallbackData *data = static_cast<JavaCallbackData*>(opaque);
+    auto *data = static_cast<JavaCallbackData*>(opaque);
     if (!data) {
         LOGE("VlcJni: media_seek_cb() - data is null");
         return -1;
@@ -227,7 +228,7 @@ static int media_seek_cb(void *opaque, uint64_t offset) {
 
 static void media_close_cb(void *opaque) {
     LOGD("VlcJni: media_close_cb() called");
-    JavaCallbackData *data = static_cast<JavaCallbackData*>(opaque);
+    auto *data = static_cast<JavaCallbackData*>(opaque);
     if (!data) {
         LOGE("VlcJni: media_close_cb() - data is null");
         return;
@@ -335,6 +336,14 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeInit(JNIEnv *env
         LOGW("VlcJni: nativeInit() - libvlc_media_player_set_media not found: %s", dlerror());
     }
 
+    LOGD("VlcJni: nativeInit() - Looking up libvlc_media_add_option symbol");
+    g_libvlc_media_add_option = (libvlc_media_add_option_t)dlsym(g_libvlc_handle, "libvlc_media_add_option");
+    if (g_libvlc_media_add_option) {
+        LOGD("VlcJni: nativeInit() - libvlc_media_add_option found: %p", (void*)g_libvlc_media_add_option);
+    } else {
+        LOGW("VlcJni: nativeInit() - libvlc_media_add_option not found: %s", dlerror());
+    }
+
     // Check required symbols
     if (!g_libvlc_media_new_callbacks || !g_libvlc_media_release) {
         LOGE("VlcJni: nativeInit() - Failed to load required LibVLC symbols");
@@ -352,6 +361,7 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeInit(JNIEnv *env
     LOGD("VlcJni: nativeInit() - Successfully loaded LibVLC symbols");
     LOGD("VlcJni: nativeInit() -   - libvlc_media_new_callbacks: %p", (void*)g_libvlc_media_new_callbacks);
     LOGD("VlcJni: nativeInit() -   - libvlc_media_release: %p", (void*)g_libvlc_media_release);
+    LOGD("VlcJni: nativeInit() -   - libvlc_media_add_option: %p", (void*)g_libvlc_media_add_option);
     LOGD("VlcJni: nativeInit() - Initialization complete, returning true");
     
     __android_log_print(ANDROID_LOG_ERROR, "VlcJni", 
@@ -394,7 +404,7 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeCreateMedia(
     LOGD("Creating media with callbacks, instance handle: 0x%llx", (unsigned long long)libVlcInstance);
 
     // 1. Prepare Callback Data
-    JavaCallbackData *data = new JavaCallbackData();
+    auto *data = new JavaCallbackData();
     data->callbackObject = env->NewGlobalRef(thiz);
     
     jclass clazz = env->GetObjectClass(thiz);
@@ -425,7 +435,7 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeCreateMedia(
     // VLCJniObject layout (from libvlcjni source):
     // struct VLCJniObject { jobject thiz; libvlc_instance_t *p_libvlc; ... }
     
-    libvlc_instance_t *inst = reinterpret_cast<libvlc_instance_t*>(libVlcInstance);
+    auto *inst = reinterpret_cast<libvlc_instance_t*>(libVlcInstance);
     
     // Heuristic probe:
     // If libVlcInstance is a pointer to a heap structure (VLCJniObject), 
@@ -517,11 +527,22 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeCreateMedia(
         return 0;
     }
 
+    // Add demux hint so PS is used for VOB data
+    if (g_libvlc_media_add_option) {
+        g_libvlc_media_add_option(media, ":demux=ps");
+        g_libvlc_media_add_option(media, ":ps-trust-timestamps");
+        __android_log_print(ANDROID_LOG_ERROR, "VlcJni", 
+            "=== media_add_option applied: :demux=ps, :ps-trust-timestamps ===");
+    } else {
+        __android_log_print(ANDROID_LOG_WARN, "VlcJni", 
+            "=== libvlc_media_add_option not available; cannot force demux ===");
+    }
+
     LOGD("VlcJni: nativeCreateMedia() - Successfully created libvlc_media_t via callbacks");
     LOGD("VlcJni: nativeCreateMedia() - Media handle: %p", (void*)media);
     LOGD("VlcJni: nativeCreateMedia() - Callback data: %p", (void*)data);
     LOGD("VlcJni: nativeCreateMedia() - Converting media pointer to jlong");
-    jlong result = reinterpret_cast<jlong>(media);
+    auto result = reinterpret_cast<jlong>(media);
     LOGD("VlcJni: nativeCreateMedia() - Returning media handle: %ld", (long)result);
     return result;
 }
@@ -533,7 +554,7 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeReleaseMedia(JNI
         LOGD("VlcJni: nativeReleaseMedia() - Media handle is valid");
         if (g_libvlc_media_release) {
             LOGD("VlcJni: nativeReleaseMedia() - Calling libvlc_media_release()");
-            libvlc_media_t *media = reinterpret_cast<libvlc_media_t*>(mediaHandle);
+            auto *media = reinterpret_cast<libvlc_media_t*>(mediaHandle);
             LOGD("VlcJni: nativeReleaseMedia() - Media pointer: %p", (void*)media);
             g_libvlc_media_release(media);
             LOGD("VlcJni: nativeReleaseMedia() - Media released successfully");
@@ -596,7 +617,7 @@ Java_com_ble1st_connectias_feature_dvd_media_VlcDvdPlayer_nativeSetMediaOnPlayer
         }
     }
     
-    libvlc_media_t *media = reinterpret_cast<libvlc_media_t*>(mediaHandle);
+    auto *media = reinterpret_cast<libvlc_media_t*>(mediaHandle);
     
     __android_log_print(ANDROID_LOG_ERROR, "VlcJni", 
         "=== Setting media on player: player=%p, media=%p ===", 

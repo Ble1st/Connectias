@@ -10,7 +10,8 @@ data class SshProfile(
     val username: String,
     val authMode: AuthMode,
     val password: String? = null,
-    val privateKey: String? = null
+    val privateKeyPath: String? = null,
+    val keyPassword: String? = null
 )
 
 data class SshConnectionResult(

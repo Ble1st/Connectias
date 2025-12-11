@@ -5,14 +5,18 @@ import com.ble1st.connectias.feature.ssh.data.SshConnectionResult
 import com.ble1st.connectias.feature.ssh.data.SshProfile
 
 data class SshUiState(
-    val profiles: List<SshProfile> = emptyList(),
-    val name: String = "Server",
-    val host: String = "example.com",
+    val name: String = "",
+    val host: String = "",
     val port: Int = 22,
-    val username: String = "user",
+    val username: String = "",
     val password: String = "",
     val authMode: AuthMode = AuthMode.PASSWORD,
+    
+    val privateKeyPath: String = "",
+    val keyPassword: String = "",
+    
+    val profiles: List<SshProfile> = emptyList(),
     val connectionResult: SshConnectionResult? = null,
-    val errorMessage: String? = null,
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
 )

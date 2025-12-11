@@ -65,6 +65,11 @@ dependencies {
     implementation(libs.security.crypto)
     implementation(libs.timber)
 
+    // Room (persistence)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)

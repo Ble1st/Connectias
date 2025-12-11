@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="calendar_title">Kalender</string>
+    <string name="calendar_request_permission">Kalender-Berechtigungen erteilen</string>
+    <string name="calendar_create_title">Neuen Termin anlegen</string>
+    <string name="calendar_title_label">Titel</string>
+    <string name="calendar_description_label">Beschreibung</string>
+    <string name="calendar_start_offset">Start in %1$d Minuten</string>
+    <string name="calendar_duration">Dauer %1$d Minuten</string>
+    <string name="calendar_add_event">Speichern</string>
+    <string name="calendar_refresh">Aktualisieren</string>
+    <string name="calendar_events_title">Termine</string>
+    <string name="calendar_empty">Keine Termine gefunden</string>
+</resources>

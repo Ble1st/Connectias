@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dns_tools_title">DNS-Tools</string>
+    <string name="dns_section_title">DNS / DMARC / WHOIS</string>
+    <string name="dns_domain_label">Domain</string>
+    <string name="dns_lookup">DNS-Abfrage</string>
+    <string name="dns_dmarc">DMARC</string>
+    <string name="dns_whois">WHOIS</string>
+    <string name="dns_result_title">DNS %1$s</string>
+    <string name="dmarc_result_title">DMARC-Ergebnis</string>
+    <string name="whois_result_title">WHOIS-Ergebnis</string>
+
+    <string name="net_section_title">Subnetz &amp; Ping</string>
+    <string name="subnet_label">Subnetz (CIDR)</string>
+    <string name="subnet_calculate">Berechnen</string>
+    <string name="subnet_result_title">Subnetz-Ergebnis</string>
+    <string name="ping_label">Host anpingen</string>
+    <string name="ping_action">Ping</string>
+    <string name="ping_result_title">Ping-Ergebnis</string>
+
+    <string name="captive_title">Captive-Portal-Erkennung</string>
+    <string name="captive_check">Captive Portal prüfen</string>
+    <string name="captive_status_open">Offenes Internet</string>
+    <string name="captive_status_captive">Captive Portal (HTTP %1$d)</string>
+    <string name="captive_status_unknown">Status unbekannt</string>
+    <string name="captive_result_title">Captive-Portal-Ergebnis</string>
+
+    <string name="markdown_title">Markdown / Text-Editor</string>
+    <string name="markdown_name">Dateiname</string>
+    <string name="markdown_content">Inhalt</string>
+    <string name="markdown_hint">Unterstützt Klartext, Markdown, Log- und Config-Snippets.</string>
+</resources>

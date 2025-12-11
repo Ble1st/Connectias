@@ -37,6 +37,7 @@ typedef void (*libvlc_media_release_t)(libvlc_media_t *p_md);
 
 typedef struct libvlc_media_player_t libvlc_media_player_t;
 typedef void (*libvlc_media_player_set_media_t)(libvlc_media_player_t *p_mi, libvlc_media_t *p_md);
+typedef void (*libvlc_media_add_option_t)(libvlc_media_t *p_md, const char *psz_options);
 
 #ifdef __cplusplus
 }

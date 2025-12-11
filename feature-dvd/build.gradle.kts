@@ -22,6 +22,12 @@ android {
         
         // CSS-Decryption ist jetzt immer aktiviert (libdvdcss ist statisch in libdvdread eingebettet)
         buildConfigField("boolean", "ENABLE_DVD_CSS", "true")
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+            }
+        }
     }
     
     compileOptions {

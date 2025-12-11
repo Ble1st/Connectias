@@ -87,3 +87,8 @@ val featurePasswordEnabled = providers.gradleProperty("feature.password.enabled"
 if (featurePasswordEnabled) {
     include(":feature-password")
 }
+
+val featureDeviceInfoEnabled = providers.gradleProperty("feature.device.info.enabled").orNull == "true"
+if (featureDeviceInfoEnabled) {
+    include(":feature-deviceinfo")
+}

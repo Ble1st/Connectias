@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- USB Dashboard -->
+    <string name="usb_dashboard_title">USB-Geräte</string>
+    <string name="usb_no_devices">Keine USB-Geräte gefunden</string>
+    <string name="usb_connect_device">Schließe ein USB-Gerät an, um es hier zu sehen</string>
+    <string name="nav_usb_dashboard">USB-Dashboard</string>
+
+    <!-- USB Permission -->
+    <string name="usb_permission_title">USB-Berechtigung benötigt</string>
+    <string name="usb_permission_message">Die App braucht die Berechtigung für dieses USB-Gerät:</string>
+    <string name="usb_permission_grant">Erlauben</string>
+    <string name="usb_permission_deny">Ablehnen</string>
+
+    <!-- USB Device Card -->
+    <string name="usb_unknown_device">Unbekanntes Gerät</string>
+    <string name="usb_unknown_manufacturer">Unbekannter Hersteller</string>
+    <string name="usb_vendor_product_format">Vendor: 0x%1$04X, Product: 0x%2$04X</string>
+    <string name="usb_mass_storage_device">Massenspeichergerät</string>
+    <string name="usb_view_details">Details ansehen</string>
+
+    <!-- USB Device Action Dialog -->
+    <string name="usb_device_connected">USB-Gerät verbunden</string>
+    <string name="available_actions">Verfügbare Aktionen:</string>
+    <string name="view_device_details">Gerätedetails ansehen</string>
+    <string name="open_dvd_drive">DVD/CD-Laufwerk auswerfen</string>
+    <string name="close">Schließen</string>
+    <string name="usb_storage">USB-Speicher</string>
+    <string name="search_files">Dateien durchsuchen...</string>
+    <string name="scan_for_devices">Nach Geräten suchen</string>
+</resources>

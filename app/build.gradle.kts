@@ -135,6 +135,11 @@ dependencies {
         implementation(project(":feature-password"))
     }
 
+    val featureDeviceInfoEnabled = project.findProperty("feature.device.info.enabled") == "true"
+    if (featureDeviceInfoEnabled) {
+        implementation(project(":feature-deviceinfo"))
+    }
+
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

@@ -112,10 +112,6 @@ class VlcDvdPlayer(private val context: Context) {
             options.add("--rtsp-tcp")
             Timber.d("VlcDvdPlayer: Added option: --rtsp-tcp")
             
-            // DVD Specific options
-            options.add("--dvdnav-menu") // Enable DVD menus
-            Timber.d("VlcDvdPlayer: Added option: --dvdnav-menu")
-            
             // Verbosity for debugging
             options.add("-vvv")
             Timber.d("VlcDvdPlayer: Added option: -vvv (verbose logging)")
@@ -247,6 +243,7 @@ class VlcDvdPlayer(private val context: Context) {
     ) {
         Timber.d("VlcDvdPlayer: playDvd() called")
         Timber.d("VlcDvdPlayer: usbDevice: ${usbDevice.product}, devicePath: $devicePath, driver: ${driver != null}")
+        Timber.d("VlcDvdPlayer: titleNumber param: $titleNumber, audioStreamId: $audioStreamId, subtitleStreamId: $subtitleStreamId")
         
         trackHandler.removeCallbacksAndMessages(null)
         tracksApplied = false
@@ -1111,8 +1108,8 @@ class VlcDvdPlayer(private val context: Context) {
                 }, retryDelayMs)
                 return
             } else if (!hasTracks && attempt >= maxAttempts) {
-                Timber.w("VlcDvdPlayer: Tracks still unavailable after $maxAttempts attempts; giving up applying selection")
-                tracksApplied = true
+                Timber.w("VlcDvdPlayer: Tracks still unavailable after $maxAttempts attempts; will wait for future ES events")
+                // Do not mark tracksApplied so ESAdded/LengthChanged can retrigger later
                 return
             }
 
@@ -1135,7 +1132,7 @@ class VlcDvdPlayer(private val context: Context) {
             }
 
             // Resolve subtitles
-            val subId = resolveTrackId(subtitleStreamId, subtitleLanguage, spuTracks)
+            val subId = resolveTrackId(subtitleStreamId, subtitleLanguage, spuTracks, isSubtitle = true)
             val subtitleResolved = if (subId != null) {
                 Timber.i("VlcDvdPlayer: Setting subtitle track to $subId (requested id=$subtitleStreamId, lang=$subtitleLanguage)")
                 player.setSpuTrack(subId)
@@ -1158,8 +1155,8 @@ class VlcDvdPlayer(private val context: Context) {
                     applyTracks(player, audioStreamId, subtitleStreamId, audioLanguage, subtitleLanguage, attempt + 1)
                 }, retryDelayMs)
             } else {
-                Timber.w("VlcDvdPlayer: Giving up after $maxAttempts attempts (audio=$audioResolved, sub=$subtitleResolved)")
-                tracksApplied = true
+                Timber.w("VlcDvdPlayer: Giving up after $maxAttempts attempts (audio=$audioResolved, sub=$subtitleResolved) but will keep waiting for ES events")
+                // Keep tracksApplied=false so a later ESAdded can retry
             }
         } catch (e: Exception) {
             Timber.e(e, "VlcDvdPlayer: Failed to apply tracks")
@@ -1185,7 +1182,8 @@ class VlcDvdPlayer(private val context: Context) {
     private fun resolveTrackId(
         requestedId: Int?,
         requestedLang: String?,
-        tracks: Array<TrackDescription>?
+        tracks: Array<TrackDescription>?,
+        isSubtitle: Boolean = false
     ): Int? {
         if (tracks == null || tracks.isEmpty()) return null
         // 1) Try direct id match
@@ -1195,6 +1193,15 @@ class VlcDvdPlayer(private val context: Context) {
         // 2) Try id+1 (IFO index vs VLC id offset)
         if (requestedId != null && tracks.any { it.id == requestedId + 1 }) {
             return requestedId + 1
+        }
+        // 3) Subtitle-specific offsets: DVD SPU ids are often 0x20-based
+        if (isSubtitle && requestedId != null) {
+            val candidates = listOf(requestedId + 0x20, requestedId + 0x21)
+            val matched = candidates.firstOrNull { cand -> tracks.any { it.id == cand } }
+            if (matched != null) {
+                Timber.d("VlcDvdPlayer: Subtitle id remapped via DVD offset: requested=$requestedId -> matched=$matched")
+                return matched
+            }
         }
         // 3) Try language match
         if (!requestedLang.isNullOrBlank()) {

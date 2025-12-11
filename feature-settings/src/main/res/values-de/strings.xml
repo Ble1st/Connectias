@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Screen -->
+    <string name="settings_title">Einstellungen</string>
+
+    <!-- Appearance Section -->
+    <string name="settings_appearance">Darstellung</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_theme_system">Systemstandard</string>
+    <string name="settings_theme_style">Theme-Stil</string>
+    <string name="settings_theme_style_standard">Standard</string>
+    <string name="settings_theme_style_adeptus_mechanicus">Adeptus Mechanicus</string>
+    <string name="settings_dynamic_color">Dynamische Farben</string>
+    <string name="settings_dynamic_color_description">Nutze Material-You-Farben (Android 12+)</string>
+
+    <!-- Security Section -->
+    <string name="settings_security">Sicherheit</string>
+    <string name="settings_auto_lock">Automatische Sperre</string>
+    <string name="settings_auto_lock_description">Sperrt die App nach Inaktivität automatisch</string>
+    <string name="settings_rasp_logging">RASP-Logging</string>
+    <string name="settings_rasp_logging_description">Aktiviere Logging für Runtime Application Self-Protection</string>
+
+    <!-- Network Section -->
+    <string name="settings_network">Netzwerk</string>
+    <string name="settings_dns_server">DNS-Server</string>
+    <string name="settings_dns_server_hint">z. B. 8.8.8.8</string>
+    <string name="settings_scan_timeout">Scan-Timeout</string>
+    <string name="settings_scan_timeout_seconds">%1$d ms</string>
+    <string name="settings_scan_timeout_min">1 s</string>
+    <string name="settings_scan_timeout_max">30 s</string>
+
+    <!-- Privacy Section -->
+    <string name="settings_privacy">Privatsphäre</string>
+    <string name="settings_clipboard_auto_clear">Zwischenablage automatisch löschen</string>
+    <string name="settings_clipboard_auto_clear_description">Löscht die Zwischenablage nach kurzer Zeit automatisch</string>
+
+    <!-- Advanced Section -->
+    <string name="settings_advanced">Erweitert</string>
+    <string name="settings_logging_level">Logging-Level</string>
+
+    <!-- Reset Section -->
+    <string name="settings_reset">Zurücksetzen</string>
+    <string name="settings_reset_all">Alle Einstellungen zurücksetzen</string>
+    <string name="settings_reset_confirm_title">Einstellungen zurücksetzen?</string>
+    <string name="settings_reset_confirm_message">Dadurch setzt du alle Einstellungen auf Standard zurück. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_reset_confirm_button">Zurücksetzen</string>
+    <string name="settings_reset_cancel_button">Abbrechen</string>
+
+    <!-- Messages -->
+    <string name="settings_reset_success">Einstellungen wurden zurückgesetzt</string>
+    <string name="settings_error_loading">Einstellungen konnten nicht geladen werden</string>
+    <string name="settings_error_saving">Einstellungen konnten nicht gespeichert werden</string>
+</resources>

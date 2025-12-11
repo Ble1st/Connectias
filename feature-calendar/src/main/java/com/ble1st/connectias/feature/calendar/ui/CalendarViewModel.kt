@@ -10,6 +10,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 
 @HiltViewModel
@@ -23,8 +28,30 @@ class CalendarViewModel @Inject constructor(
     fun setPermission(granted: Boolean) {
         _state.update { it.copy(hasPermission = granted) }
         if (granted) {
-            refresh()
+            loadEvents()
         }
+    }
+
+    fun onNextMonth() {
+        _state.update { it.copy(currentYearMonth = it.currentYearMonth.plusMonths(1)) }
+        loadEvents()
+    }
+
+    fun onPrevMonth() {
+        _state.update { it.copy(currentYearMonth = it.currentYearMonth.minusMonths(1)) }
+        loadEvents()
+    }
+
+    fun onDateSelected(date: LocalDate) {
+        _state.update { it.copy(selectedDate = date) }
+    }
+
+    fun showAddEventDialog() {
+        _state.update { it.copy(isAddEventDialogVisible = true, titleInput = "", descriptionInput = "") }
+    }
+
+    fun hideAddEventDialog() {
+        _state.update { it.copy(isAddEventDialogVisible = false) }
     }
 
     fun updateTitle(value: String) {
@@ -35,18 +62,18 @@ class CalendarViewModel @Inject constructor(
         _state.update { it.copy(descriptionInput = value) }
     }
 
-    fun updateStartOffset(value: Int) {
-        _state.update { it.copy(startOffsetMinutes = value) }
-    }
+    private fun loadEvents() {
+        if (!_state.value.hasPermission) return
 
-    fun updateDuration(value: Int) {
-        _state.update { it.copy(durationMinutes = value) }
-    }
-
-    fun refresh() {
         viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
-            when (val result = repository.loadUpcomingEvents()) {
+            _state.update { it.copy(isLoading = true, errorMessage = null) }
+            
+            val month = _state.value.currentYearMonth
+            // Fetch from start of month to end of month
+            val start = month.atDay(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val end = month.atEndOfMonth().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+            when (val result = repository.loadEventsForRange(start, end)) {
                 is CalendarResult.Success -> _state.update { it.copy(events = result.data, isLoading = false) }
                 is CalendarResult.Error -> _state.update { it.copy(errorMessage = result.message, isLoading = false) }
             }
@@ -56,19 +83,47 @@ class CalendarViewModel @Inject constructor(
     fun addEvent() {
         viewModelScope.launch {
             _state.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
-            val now = System.currentTimeMillis()
-            val start = now + state.value.startOffsetMinutes * 60 * 1000L
-            val end = start + state.value.durationMinutes * 60 * 1000L
+            
+            val selectedDate = state.value.selectedDate
+            val nowTime = LocalTime.now()
+            
+            // Default to selected date at current time (or 9 AM if you prefer)
+            val startDateTime = LocalDateTime.of(selectedDate, nowTime)
+            val endDateTime = startDateTime.plusHours(1)
+            
+            val startMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val endMillis = endDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
             val draft = CalendarEventDraft(
-                title = state.value.titleInput,
+                title = state.value.titleInput.ifBlank { "New Event" },
                 description = state.value.descriptionInput,
-                start = start,
-                end = end
+                start = startMillis,
+                end = endMillis
             )
+            
             when (val result = repository.addEvent(draft)) {
                 is CalendarResult.Success -> {
-                    _state.update { it.copy(successMessage = "Event added", isLoading = false) }
-                    refresh()
+                    _state.update { 
+                        it.copy(
+                            successMessage = "Event added", 
+                            isLoading = false,
+                            isAddEventDialogVisible = false
+                        ) 
+                    }
+                    loadEvents()
+                }
+                is CalendarResult.Error -> _state.update { it.copy(errorMessage = result.message, isLoading = false) }
+            }
+        }
+    }
+
+    fun deleteEvent(eventId: Long) {
+        viewModelScope.launch {
+            _state.update { it.copy(isLoading = true, errorMessage = null, successMessage = null) }
+            when (val result = repository.deleteEvent(eventId)) {
+                is CalendarResult.Success -> {
+                    _state.update { it.copy(successMessage = "Event deleted", isLoading = false) }
+                    loadEvents()
                 }
                 is CalendarResult.Error -> _state.update { it.copy(errorMessage = result.message, isLoading = false) }
             }

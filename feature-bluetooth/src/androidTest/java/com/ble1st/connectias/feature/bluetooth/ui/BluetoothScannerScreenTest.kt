@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalPermissionsApi::class)
+
 package com.ble1st.connectias.feature.bluetooth.ui
 
 import androidx.compose.ui.test.assertIsDisplayed
@@ -11,6 +13,7 @@ import androidx.compose.runtime.setValue
 import com.ble1st.connectias.feature.bluetooth.ui.model.BluetoothUiState
 import com.ble1st.connectias.feature.bluetooth.ui.model.PermissionStatus
 import com.ble1st.connectias.feature.bluetooth.ui.model.UiDevice
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.MultiplePermissionsState
 import com.google.accompanist.permissions.PermissionState
 import org.junit.Rule

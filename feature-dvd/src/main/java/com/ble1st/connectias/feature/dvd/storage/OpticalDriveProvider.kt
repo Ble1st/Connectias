@@ -254,53 +254,54 @@ class OpticalDriveProvider @Inject constructor(
         }
 
         return@withLock withContext(Dispatchers.IO) {
-            try {
-                Timber.d("Ejecting optical drive: ${drive.device.product}")
-                
-                val androidDevice = usbManager.deviceList.values.find { 
-                    it.vendorId == drive.device.vendorId && it.productId == drive.device.productId 
-                } ?: return@withContext false
+            Timber.d("Ejecting optical drive: ${drive.device.product}")
 
-                if (!usbManager.hasPermission(androidDevice)) return@withContext false
+            val androidDevice = usbManager.deviceList.values.find {
+                it.vendorId == drive.device.vendorId && it.productId == drive.device.productId
+            } ?: return@withContext false
 
-                val connection = usbManager.openDevice(androidDevice) ?: return@withContext false
-                
+            if (!usbManager.hasPermission(androidDevice)) return@withContext false
+
+            suspend fun tryEject(): Boolean {
+                val connection = usbManager.openDevice(androidDevice) ?: return false
                 try {
-                    // Find Mass Storage Interface
-                    var interfaceIndex = 0
-                    for (i in 0 until androidDevice.interfaceCount) {
-                        if (androidDevice.getInterface(i).interfaceClass == 8) {
-                            interfaceIndex = i
-                            break
-                        }
-                    }
-                    val usbInterface = androidDevice.getInterface(interfaceIndex)
+                    // Find Mass Storage Interface (class 8)
+                    val usbInterface = (0 until androidDevice.interfaceCount)
+                        .map { androidDevice.getInterface(it) }
+                        .firstOrNull { it.interfaceClass == 8 }
+                        ?: androidDevice.getInterface(0)
+
                     val driver = ScsiDriver(connection, usbInterface)
-                    
                     try {
-                        // Wait for drive to be ready before eject
-                        if (!driver.waitForReady(maxAttempts = 5, delayMs = 300)) {
+                        // Wait for drive readiness; be tolerant but limited
+                        if (!driver.waitForReady(maxAttempts = 8, delayMs = 300)) {
                             Timber.w("Drive not ready for eject, attempting anyway...")
                         }
-                        
                         driver.eject()
                         Timber.i("Eject command sent successfully via SCSI")
-                        return@withContext true
+                        return true
                     } catch (e: Exception) {
                         Timber.e(e, "SCSI Eject failed: ${e.message}")
-                        false
+                        return false
                     } finally {
                         driver.close()
                     }
                 } catch (e: Exception) {
                     Timber.e(e, "Error setting up SCSI driver for eject")
+                    return false
+                } finally {
                     try { connection.close() } catch (_: Exception) {}
-                    false
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "Error ejecting optical drive")
-                false
             }
+
+            // First attempt
+            val first = tryEject()
+            if (first) return@withContext true
+
+            Timber.w("Eject failed, retrying with fresh USB connection")
+            // Short pause before retry to let USB stack settle
+            kotlinx.coroutines.delay(250)
+            return@withContext tryEject()
         }
     }
 

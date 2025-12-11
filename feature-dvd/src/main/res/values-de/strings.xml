@@ -49,8 +49,29 @@ Durch Aktivierung dieser Funktion bestätigen Sie, dass Sie:
     <string name="dvd_player_stop">Stop</string>
     <string name="dvd_player_no_next_chapter">Kein nächster Kapitel verfügbar</string>
     <string name="dvd_player_no_previous_chapter">Kein vorheriger Kapitel verfügbar</string>
+    <string name="dvd_player_orientation_auto">Auto-Rotation (Sensor)</string>
+    <string name="dvd_player_orientation_lock">Querformat sperren</string>
+    <string name="dvd_player_orientation_toggle">Ausrichtung umschalten</string>
+    <string name="dvd_player_fullscreen_on">Vollbild aktiviert</string>
+    <string name="dvd_player_fullscreen_off">Vollbild deaktiviert</string>
+    <string name="dvd_player_fullscreen_toggle">Vollbild umschalten</string>
+    <string name="dvd_player_error_no_stream">Videostream-Informationen fehlen. Abspielen nicht möglich.</string>
+    <string name="dvd_player_error_no_uri">Videostream-URI fehlt. Abspielen nicht möglich.</string>
+    <string name="dvd_player_error_back">Zurück</string>
     
     <!-- DVD Title List (German) -->
+    <string name="dvd_cd_detail_title">Datenträger-Infos</string>
+    <string name="dvd_cd_no_titles">Keine Titel auf der DVD gefunden</string>
+    <string name="dvd_cd_no_tracks">Keine Tracks auf der Audio-CD gefunden</string>
+    <string name="dvd_cd_no_files">Keine Dateien gefunden</string>
+    <string name="nav_dvd_cd_detail">DVD/CD-Details</string>
+    <string name="nav_dvd_player">DVD-Player</string>
     <string name="dvd_title_details">%1$d Kapitel • %2$s</string>
     <string name="dvd_title_content_description">Titel %1$d, %2$d Kapitel, Dauer %3$s</string>
+    <string name="disc_information_title">Datenträger-Infos</string>
+    <string name="disc_info_type">Typ</string>
+    <string name="disc_info_file_system">Dateisystem</string>
+    <string name="disc_info_mount_point">Mount-Punkt</string>
+    <string name="disc_info_vendor_id">Vendor-ID</string>
+    <string name="disc_info_product_id">Product-ID</string>
 </resources>

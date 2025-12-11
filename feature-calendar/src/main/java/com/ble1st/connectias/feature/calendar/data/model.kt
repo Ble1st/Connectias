@@ -8,6 +8,7 @@ sealed interface CalendarResult<out T> {
 data class CalendarEvent(
     val id: Long,
     val title: String,
+    val description: String,
     val start: Long,
     val end: Long,
     val calendar: String

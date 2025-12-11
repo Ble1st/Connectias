@@ -3,6 +3,7 @@
 #include <android/log.h>
 #include <vector>
 #include <cstring>
+#include <inttypes.h>
 
 #define LOG_TAG "UsbNative"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -59,13 +60,13 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_openDevice(JNIEnv *env, 
     // TODO: Implement actual libusb device opening
     // For now, return placeholder handle
     jlong handle = 1;
-    LOGD("USB device opened, handle: %ld", handle);
+    LOGD("USB device opened, handle: %" PRId64, static_cast<int64_t>(handle));
     return handle;
 }
 
 JNIEXPORT jint JNICALL
 Java_com_ble1st_connectias_feature_usb_native_UsbNative_closeDevice(JNIEnv *env, jobject clazz, jlong handle) {
-    LOGD("Closing USB device, handle: %ld", handle);
+    LOGD("Closing USB device, handle: %" PRId64, static_cast<int64_t>(handle));
     
     // TODO: Implement actual libusb device closing
     // For now, return success (0)
@@ -76,7 +77,8 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_closeDevice(JNIEnv *env,
 
 JNIEXPORT jint JNICALL
 Java_com_ble1st_connectias_feature_usb_native_UsbNative_bulkTransfer(JNIEnv *env, jobject clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
-    LOGD("Bulk transfer: handle=%ld, endpoint=0x%02X, length=%d, timeout=%d", handle, endpoint, length, timeout);
+    LOGD("Bulk transfer: handle=%" PRId64 ", endpoint=0x%02X, length=%d, timeout=%d",
+         static_cast<int64_t>(handle), endpoint, length, timeout);
     
     // Null check for data parameter
     if (data == nullptr) {
@@ -107,7 +109,8 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_bulkTransfer(JNIEnv *env
 
 JNIEXPORT jint JNICALL
 Java_com_ble1st_connectias_feature_usb_native_UsbNative_interruptTransfer(JNIEnv *env, jobject clazz, jlong handle, jint endpoint, jbyteArray data, jint length, jint timeout) {
-    LOGD("Interrupt transfer: handle=%ld, endpoint=0x%02X, length=%d, timeout=%d", handle, endpoint, length, timeout);
+    LOGD("Interrupt transfer: handle=%" PRId64 ", endpoint=0x%02X, length=%d, timeout=%d",
+         static_cast<int64_t>(handle), endpoint, length, timeout);
     
     // Null check for data parameter
     if (data == nullptr) {
@@ -138,7 +141,8 @@ Java_com_ble1st_connectias_feature_usb_native_UsbNative_interruptTransfer(JNIEnv
 
 JNIEXPORT jint JNICALL
 Java_com_ble1st_connectias_feature_usb_native_UsbNative_controlTransfer(JNIEnv *env, jobject clazz, jlong handle, jint requestType, jint request, jint value, jint index, jbyteArray data, jint length, jint timeout) {
-    LOGD("Control transfer: handle=%ld, requestType=0x%02X, request=0x%02X, length=%d, timeout=%d", handle, requestType, request, length, timeout);
+    LOGD("Control transfer: handle=%" PRId64 ", requestType=0x%02X, request=0x%02X, length=%d, timeout=%d",
+         static_cast<int64_t>(handle), requestType, request, length, timeout);
     
     // TODO: Implement actual libusb control transfer
     if (data != nullptr) {

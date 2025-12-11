@@ -18,9 +18,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
-import me.jahnen.libaums.core.UsbMassStorageDevice
-import me.jahnen.libaums.core.fs.FileSystem
-import me.jahnen.libaums.core.fs.UsbFile
+import com.ble1st.connectias.feature.usb.msc.api.UsbMassStorageDevice
+import com.ble1st.connectias.feature.usb.msc.api.FileSystem
+import com.ble1st.connectias.feature.usb.msc.api.UsbFile
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
@@ -184,7 +184,7 @@ class UsbStorageBrowserProvider @Inject constructor(
                     name = file.name,
                     path = if (path == "/") "/${file.name}" else "$path/${file.name}",
                     size = if (file.isDirectory) 0L else file.length,
-                    lastModified = file.lastModified(),
+                    lastModified = file.lastModified,
                     isDirectory = file.isDirectory,
                     isHidden = file.name.startsWith("."),
                     extension = if (!file.isDirectory) file.name.substringAfterLast(".", "") else null,
@@ -327,7 +327,7 @@ class UsbStorageBrowserProvider @Inject constructor(
                 name = file.name,
                 path = path,
                 size = if (file.isDirectory) calculateDirSize(file) else file.length,
-                lastModified = file.lastModified(),
+                lastModified = file.lastModified,
                 isDirectory = file.isDirectory,
                 isHidden = file.name.startsWith("."),
                 extension = if (!file.isDirectory) file.name.substringAfterLast(".", "") else null,
@@ -401,7 +401,7 @@ class UsbStorageBrowserProvider @Inject constructor(
                             name = file.name,
                             path = filePath,
                             size = if (file.isDirectory) 0L else file.length,
-                            lastModified = file.lastModified(),
+                            lastModified = file.lastModified,
                             isDirectory = file.isDirectory,
                             isHidden = file.name.startsWith("."),
                             extension = if (!file.isDirectory) file.name.substringAfterLast(".", "") else null,

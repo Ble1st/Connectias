@@ -39,7 +39,7 @@ class ConnectiasLoggingTree @Inject constructor(
                     logDao.insertLog(entry)
                 } catch (e: Exception) {
                     // Fallback to standard Android log if DB write fails
-                    Log.e("ConnectiasLoggingTree", "Failed to write log to DB", e)
+                    Timber.e(e, "Failed to write log to DB")
                 }
             }
         }

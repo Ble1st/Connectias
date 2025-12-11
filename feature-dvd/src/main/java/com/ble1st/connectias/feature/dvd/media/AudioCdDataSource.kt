@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.dvd.media
 
 import android.net.Uri
 import androidx.media3.common.C
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSpec
 import com.ble1st.connectias.feature.dvd.driver.scsi.ScsiDriver
@@ -15,6 +16,7 @@ import java.nio.ByteOrder
  * ExoPlayer DataSource that reads raw CD-DA audio from an Optical Drive via ScsiDriver.
  * It simulates a WAV file by prepending a valid WAV header to the raw PCM stream.
  */
+@UnstableApi
 class AudioCdDataSource(
     private val scsiDriver: ScsiDriver,
     private val track: AudioTrack

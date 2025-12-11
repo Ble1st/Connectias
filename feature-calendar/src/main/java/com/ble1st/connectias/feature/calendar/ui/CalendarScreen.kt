@@ -1,31 +1,65 @@
 package com.ble1st.connectias.feature.calendar.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Divider
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.calendar.R
+import com.ble1st.connectias.feature.calendar.data.CalendarEvent
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberMultiplePermissionsState
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -44,135 +78,327 @@ fun CalendarScreen(
         viewModel.setPermission(permissions.allPermissionsGranted)
     }
 
-    ConnectiasTheme {
-        Scaffold { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(text = stringResource(R.string.calendar_title), style = MaterialTheme.typography.headlineSmall)
-
-                if (!uiState.hasPermission) {
+    Scaffold(
+        floatingActionButton = {
+            if (uiState.hasPermission) {
+                FloatingActionButton(onClick = viewModel::showAddEventDialog) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Event")
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            if (!uiState.hasPermission) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("Calendar permission is required to view and add events.")
                     Button(onClick = { permissions.launchMultiplePermissionRequest() }) {
-                        Text(text = stringResource(R.string.calendar_request_permission))
+                        Text("Grant Permission")
                     }
-                } else {
-                    CreateEventSection(
-                        uiState = uiState,
-                        onTitleChange = viewModel::updateTitle,
-                        onDescriptionChange = viewModel::updateDescription,
-                        onStartOffsetChange = viewModel::updateStartOffset,
-                        onDurationChange = viewModel::updateDuration,
-                        onAddEvent = viewModel::addEvent,
-                        onRefresh = viewModel::refresh
-                    )
-                    EventsList(uiState = uiState)
                 }
-
-                uiState.errorMessage?.let {
-                    Text(text = it, color = MaterialTheme.colorScheme.error)
-                }
-                uiState.successMessage?.let {
-                    Text(text = it, color = MaterialTheme.colorScheme.primary)
-                }
+            } else {
+                CalendarContent(
+                    uiState = uiState,
+                    onPrevMonth = viewModel::onPrevMonth,
+                    onNextMonth = viewModel::onNextMonth,
+                    onDateSelected = viewModel::onDateSelected,
+                    onTitleChange = viewModel::updateTitle,
+                    onDescriptionChange = viewModel::updateDescription,
+                    onAddEvent = viewModel::addEvent,
+                    onDismissAddEvent = viewModel::hideAddEventDialog,
+                    onDeleteEvent = viewModel::deleteEvent
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CreateEventSection(
+fun CalendarContent(
     uiState: CalendarUiState,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onDateSelected: (LocalDate) -> Unit,
     onTitleChange: (String) -> Unit,
     onDescriptionChange: (String) -> Unit,
-    onStartOffsetChange: (Int) -> Unit,
-    onDurationChange: (Int) -> Unit,
     onAddEvent: () -> Unit,
-    onRefresh: () -> Unit
+    onDismissAddEvent: () -> Unit,
+    onDeleteEvent: (Long) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    Column(modifier = Modifier.fillMaxSize()) {
+        MonthHeader(
+            yearMonth = uiState.currentYearMonth,
+            onPrevMonth = onPrevMonth,
+            onNextMonth = onNextMonth
+        )
+
+        DaysOfWeekHeader()
+
+        val eventsByDate = remember(uiState.events) {
+            uiState.events.groupBy {
+                Instant.ofEpochMilli(it.start)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+            }
+        }
+
+        MonthGrid(
+            yearMonth = uiState.currentYearMonth,
+            selectedDate = uiState.selectedDate,
+            eventsByDate = eventsByDate,
+            onDateSelected = onDateSelected
+        )
+
+        Divider(modifier = Modifier.padding(vertical = 8.dp))
+
+        SelectedDayEvents(
+            selectedDate = uiState.selectedDate,
+            events = eventsByDate[uiState.selectedDate] ?: emptyList(),
+            onDeleteEvent = onDeleteEvent
+        )
+    }
+
+    if (uiState.isAddEventDialogVisible) {
+        AddEventDialog(
+            title = uiState.titleInput,
+            description = uiState.descriptionInput,
+            onTitleChange = onTitleChange,
+            onDescriptionChange = onDescriptionChange,
+            onConfirm = onAddEvent,
+            onDismiss = onDismissAddEvent
+        )
+    }
+}
+
+@Composable
+fun MonthHeader(
+    yearMonth: YearMonth,
+    onPrevMonth: () -> Unit,
+    onNextMonth: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(text = stringResource(R.string.calendar_create_title), style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = uiState.titleInput,
-                onValueChange = onTitleChange,
-                label = { Text(stringResource(R.string.calendar_title_label)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = uiState.descriptionInput,
-                onValueChange = onDescriptionChange,
-                label = { Text(stringResource(R.string.calendar_description_label)) },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Text(text = stringResource(R.string.calendar_start_offset, uiState.startOffsetMinutes))
-            Slider(
-                value = uiState.startOffsetMinutes.toFloat(),
-                onValueChange = { onStartOffsetChange(it.toInt()) },
-                valueRange = 0f..1440f,
-                steps = 23
-            )
-            Text(text = stringResource(R.string.calendar_duration, uiState.durationMinutes))
-            Slider(
-                value = uiState.durationMinutes.toFloat(),
-                onValueChange = { onDurationChange(it.toInt()) },
-                valueRange = 15f..360f,
-                steps = 23
-            )
-            RowButtons(onAddEvent = onAddEvent, onRefresh = onRefresh, enabled = !uiState.isLoading)
+        IconButton(onClick = onPrevMonth) {
+            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous month")
+        }
+        Text(
+            text = "${yearMonth.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${yearMonth.year}",
+            style = MaterialTheme.typography.titleMedium
+        )
+        IconButton(onClick = onNextMonth) {
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = "Next month")
         }
     }
 }
 
 @Composable
-private fun RowButtons(
-    onAddEvent: () -> Unit,
-    onRefresh: () -> Unit,
-    enabled: Boolean
-) {
-    androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Button(onClick = onAddEvent, enabled = enabled) {
-            Text(text = stringResource(R.string.calendar_add_event))
-        }
-        Button(onClick = onRefresh, enabled = enabled) {
-            Text(text = stringResource(R.string.calendar_refresh))
+fun DaysOfWeekHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        DayOfWeek.values().forEach { day ->
+            Text(
+                text = day.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                style = MaterialTheme.typography.labelMedium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
 
 @Composable
-private fun EventsList(
-    uiState: CalendarUiState
+fun MonthGrid(
+    yearMonth: YearMonth,
+    selectedDate: LocalDate?,
+    eventsByDate: Map<LocalDate, List<CalendarEvent>>,
+    onDateSelected: (LocalDate) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    val daysInMonth = yearMonth.lengthOfMonth()
+    val firstDay = LocalDate.of(yearMonth.year, yearMonth.month, 1)
+    val startOffset = firstDay.dayOfWeek.ordinal
+
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(7),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp),
+        userScrollEnabled = false
     ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(text = stringResource(R.string.calendar_events_title), style = MaterialTheme.typography.titleMedium)
-            if (uiState.events.isEmpty()) {
-                Text(text = stringResource(R.string.calendar_empty))
-            } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.events) { event ->
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text(text = event.title, style = MaterialTheme.typography.bodyLarge)
-                            Text(text = event.calendar, style = MaterialTheme.typography.bodySmall)
-                            Text(text = "Start: ${event.start}")
-                            Text(text = "End: ${event.end}")
+        items(startOffset) {
+            Spacer(modifier = Modifier.size(0.dp))
+        }
+        items(daysInMonth) { index ->
+            val day = index + 1
+            val date = LocalDate.of(yearMonth.year, yearMonth.month, day)
+            val isSelected = selectedDate == date
+            val hasEvent = eventsByDate[date]?.isNotEmpty() == true
+
+            Box(
+                modifier = Modifier
+                    .aspectRatio(1f)
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(
+                        when {
+                            isSelected -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            else -> Color.Transparent
                         }
+                    )
+                    .clickable { onDateSelected(date) },
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = day.toString(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                    )
+                    if (hasEvent) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.secondary)
+                        )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun SelectedDayEvents(
+    selectedDate: LocalDate,
+    events: List<CalendarEvent>,
+    onDeleteEvent: (Long) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = selectedDate.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy")),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        if (events.isEmpty()) {
+            Text(
+                text = "No events",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 80.dp)
+            ) {
+                items(events.size) { index ->
+                    val event = events[index]
+                    EventItem(event = event) { onDeleteEvent(event.id) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun EventItem(event: CalendarEvent, onDelete: () -> Unit) {
+    val formatter = DateTimeFormatter.ofPattern("HH:mm")
+    val start = Instant.ofEpochMilli(event.start).atZone(ZoneId.systemDefault())
+    val end = Instant.ofEpochMilli(event.end).atZone(ZoneId.systemDefault())
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = event.title, style = MaterialTheme.typography.titleMedium)
+                Text(text = event.calendar, style = MaterialTheme.typography.bodySmall)
+                if (event.description.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = event.description,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(text = start.format(formatter), style = MaterialTheme.typography.bodyMedium)
+                Text(text = end.format(formatter), style = MaterialTheme.typography.bodySmall)
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete Event",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AddEventDialog(
+    title: String,
+    description: String,
+    onTitleChange: (String) -> Unit,
+    onDescriptionChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Event") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = onTitleChange,
+                    label = { Text("Title") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = onDescriptionChange,
+                    label = { Text("Description") }
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm) {
+                Text("Add")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

@@ -1,5 +1,6 @@
 package com.ble1st.connectias.feature.ssh.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,10 +22,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.feature.ssh.R
 import com.ble1st.connectias.feature.ssh.data.AuthMode
@@ -32,31 +37,49 @@ import com.ble1st.connectias.feature.ssh.data.SshProfile
 
 @Composable
 fun SshScreen(
-    viewModel: SshViewModel
+    viewModel: SshViewModel,
+    terminalViewModel: SshTerminalViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.state.collectAsState()
+    var activeProfile by remember { mutableStateOf<SshProfile?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProfiles()
     }
 
     ConnectiasTheme {
-        Scaffold { paddingValues ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(text = stringResource(R.string.ssh_title), style = MaterialTheme.typography.headlineSmall)
-                ProfileForm(uiState = uiState, viewModel = viewModel)
-                ProfilesList(uiState = uiState, onTest = { viewModel.testConnection(it) })
-                uiState.connectionResult?.let {
-                    Text(text = it.message, color = if (it.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
-                }
-                uiState.errorMessage?.let {
-                    Text(text = it, color = MaterialTheme.colorScheme.error)
+        if (activeProfile != null) {
+            BackHandler {
+                activeProfile = null
+            }
+            SshTerminalScreen(
+                viewModel = terminalViewModel,
+                profile = activeProfile!!,
+                onBack = { activeProfile = null }
+            )
+        } else {
+            Scaffold { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(text = stringResource(R.string.ssh_title), style = MaterialTheme.typography.headlineSmall)
+                    ProfileForm(uiState = uiState, viewModel = viewModel)
+                    ProfilesList(
+                        uiState = uiState, 
+                        onTest = { viewModel.testConnection(it) },
+                        onConnect = { activeProfile = it },
+                        onDelete = { viewModel.deleteProfile(it) }
+                    )
+                    uiState.connectionResult?.let {
+                        Text(text = it.message, color = if (it.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    }
+                    uiState.errorMessage?.let {
+                        Text(text = it, color = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -98,12 +121,7 @@ private fun ProfileForm(
                 label = { Text(stringResource(R.string.ssh_user_label)) },
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = uiState.password,
-                onValueChange = viewModel::updatePassword,
-                label = { Text(stringResource(R.string.ssh_password_label)) },
-                modifier = Modifier.fillMaxWidth()
-            )
+            
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 AuthMode.values().forEach { mode ->
                     FilterChip(
@@ -113,6 +131,29 @@ private fun ProfileForm(
                     )
                 }
             }
+
+            if (uiState.authMode == AuthMode.PASSWORD) {
+                OutlinedTextField(
+                    value = uiState.password,
+                    onValueChange = viewModel::updatePassword,
+                    label = { Text(stringResource(R.string.ssh_password_label)) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                OutlinedTextField(
+                    value = uiState.privateKeyPath,
+                    onValueChange = viewModel::updatePrivateKeyPath,
+                    label = { Text("Private Key Path") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = uiState.keyPassword,
+                    onValueChange = viewModel::updateKeyPassword,
+                    label = { Text("Key Password (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = viewModel::saveProfile, enabled = !uiState.isLoading) {
                     Text(text = stringResource(R.string.ssh_save_profile))
@@ -128,7 +169,9 @@ private fun ProfileForm(
 @Composable
 private fun ProfilesList(
     uiState: SshUiState,
-    onTest: (SshProfile) -> Unit
+    onTest: (SshProfile) -> Unit,
+    onConnect: (SshProfile) -> Unit,
+    onDelete: (SshProfile) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -144,8 +187,16 @@ private fun ProfilesList(
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(text = profile.name, style = MaterialTheme.typography.bodyLarge)
                             Text(text = "${profile.username}@${profile.host}:${profile.port}", style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = { onTest(profile) }) {
-                                Text(text = stringResource(R.string.ssh_test_connection))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(onClick = { onConnect(profile) }) {
+                                    Text("Connect")
+                                }
+                                Button(onClick = { onTest(profile) }) {
+                                    Text("Test")
+                                }
+                                Button(onClick = { onDelete(profile) }, colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
+                                    Text("Delete")
+                                }
                             }
                         }
                     }
@@ -154,3 +205,4 @@ private fun ProfilesList(
         }
     }
 }
+

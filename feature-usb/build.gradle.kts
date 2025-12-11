@@ -16,6 +16,12 @@ android {
         minSdk = 33
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON")
+            }
+        }
     }
     
     compileOptions {
@@ -106,10 +112,7 @@ dependencies {
     // Security Crypto (for EncryptedSharedPreferences)
     implementation(libs.security.crypto)
 
-    // USB Mass Storage (libaums)
-    // Note: libusbcommunication not available on jitpack, using core only
-    implementation(libs.libaums.core)
-    // implementation(libs.libaums.libusbcommunication)
+    // USB Mass Storage (custom impl replaces libaums)
     
     // Kotlin Serialization
     implementation(libs.kotlinx.serialization.json)

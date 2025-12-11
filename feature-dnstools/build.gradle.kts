@@ -85,6 +85,11 @@ dependencies {
     implementation(libs.commons.net)
     implementation(libs.commonmark)
 
+    // Room (persistence)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
     // Testing
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

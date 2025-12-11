@@ -2,13 +2,14 @@ package com.ble1st.connectias.feature.dnstools.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ble1st.connectias.feature.dnstools.data.DnsHistoryEntity
 import com.ble1st.connectias.feature.dnstools.data.DnsToolsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.xbill.DNS.Type
 import javax.inject.Inject
 
 @HiltViewModel
@@ -19,87 +20,97 @@ class DnsToolsViewModel @Inject constructor(
     private val _state = MutableStateFlow(DnsToolsUiState())
     val state: StateFlow<DnsToolsUiState> = _state
 
-    private var currentJob: Job? = null
-
-    fun onDomainChanged(value: String) {
-        _state.update { it.copy(domainInput = value) }
-    }
-
-    fun onRecordTypeChanged(type: DnsRecordType) {
-        _state.update { it.copy(recordType = type) }
-    }
-
-    fun onSubnetInputChanged(value: String) {
-        _state.update { it.copy(subnetInput = value) }
-    }
-
-    fun onPingHostChanged(value: String) {
-        _state.update { it.copy(pingHost = value) }
-    }
-
-    fun onMarkdownChanged(value: String) {
-        _state.update { state ->
-            state.copy(markdownDocument = state.markdownDocument.copy(content = value))
+    init {
+        viewModelScope.launch {
+            repository.history.collect { history ->
+                _state.update { it.copy(history = history) }
+            }
         }
     }
 
-    fun onMarkdownNameChanged(value: String) {
-        _state.update { state ->
-            state.copy(markdownDocument = state.markdownDocument.copy(name = value))
-        }
+    fun onDnsQueryChanged(query: String) {
+        _state.update { it.copy(dnsQuery = query) }
+    }
+    
+    fun onRecordTypeSelected(type: DnsRecordType) {
+        _state.update { it.copy(selectedRecordType = type) }
     }
 
     fun resolveDns() {
-        launchAsync {
-            val result = repository.resolveDns(state.value.domainInput, state.value.recordType.dnsType)
-            _state.update { it.copy(dnsResult = result) }
+        val query = state.value.dnsQuery
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(dnsLoading = true, dnsResult = null) }
+            val result = repository.resolveDns(query, state.value.selectedRecordType.dnsType)
+            _state.update { it.copy(dnsResult = result, dnsLoading = false) }
         }
     }
 
     fun fetchDmarc() {
-        launchAsync {
-            val result = repository.fetchDmarc(state.value.domainInput)
-            _state.update { it.copy(dmarcResult = result) }
+        val query = state.value.dnsQuery
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(dnsLoading = true, dnsResult = null) }
+            val result = repository.fetchDmarc(query)
+            _state.update { it.copy(dnsResult = result, dnsLoading = false) }
+        }
+    }
+    
+    fun fetchWhois() {
+        val query = state.value.dnsQuery
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(dnsLoading = true) } 
+            repository.fetchWhois(query) // This saves to history
+            _state.update { it.copy(dnsLoading = false) }
         }
     }
 
-    fun fetchWhois() {
-        launchAsync {
-            val result = repository.fetchWhois(state.value.domainInput)
-            _state.update { it.copy(whoisResult = result) }
-        }
+    fun onSubnetCidrChanged(cidr: String) {
+        _state.update { it.copy(subnetCidr = cidr) }
     }
 
     fun calculateSubnet() {
-        val result = repository.calculateSubnet(state.value.subnetInput)
-        _state.update { it.copy(subnetResult = result) }
+        val cidr = state.value.subnetCidr
+        if (cidr.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(subnetLoading = true, subnetResult = null) }
+            val result = repository.calculateSubnet(cidr)
+            _state.update { it.copy(subnetResult = result, subnetLoading = false) }
+        }
+    }
+
+    fun onPingHostChanged(host: String) {
+        _state.update { it.copy(pingHost = host) }
     }
 
     fun pingHost() {
-        launchAsync {
-            val result = repository.pingHost(state.value.pingHost)
-            _state.update { it.copy(pingResult = result) }
+        val host = state.value.pingHost
+        if (host.isBlank()) return
+        viewModelScope.launch {
+            _state.update { it.copy(pingLoading = true, pingResult = null) }
+            val result = repository.pingHost(host)
+            _state.update { it.copy(pingResult = result, pingLoading = false) }
         }
     }
 
-    fun detectCaptivePortal() {
-        launchAsync {
+    fun checkCaptivePortal() {
+        viewModelScope.launch {
+            _state.update { it.copy(captivePortalLoading = true, captivePortalResult = null) }
             val result = repository.detectCaptivePortal()
-            _state.update { it.copy(captivePortalResult = result) }
+            _state.update { it.copy(captivePortalResult = result, captivePortalLoading = false) }
         }
     }
-
-    private fun launchAsync(block: suspend () -> Unit) {
-        currentJob?.cancel()
-        currentJob = viewModelScope.launch {
-            _state.update { it.copy(isLoading = true, errorMessage = null) }
-            try {
-                block()
-            } catch (t: Throwable) {
-                _state.update { it.copy(errorMessage = t.message) }
-            } finally {
-                _state.update { it.copy(isLoading = false) }
-            }
+    
+    fun clearHistory() {
+        viewModelScope.launch {
+            repository.clearHistory()
+        }
+    }
+    
+    fun deleteHistoryItem(item: DnsHistoryEntity) {
+        viewModelScope.launch {
+            repository.deleteHistoryItem(item)
         }
     }
 }

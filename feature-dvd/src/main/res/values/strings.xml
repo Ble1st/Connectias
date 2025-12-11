@@ -16,6 +16,12 @@
     <string name="dvd_player_stop">Stop</string>
     <string name="dvd_player_no_next_chapter">No next chapter available</string>
     <string name="dvd_player_no_previous_chapter">No previous chapter available</string>
+    <string name="dvd_player_orientation_auto">Auto rotate (sensor)</string>
+    <string name="dvd_player_orientation_lock">Lock landscape</string>
+    <string name="dvd_player_orientation_toggle">Toggle orientation</string>
+    <string name="dvd_player_fullscreen_on">Fullscreen enabled</string>
+    <string name="dvd_player_fullscreen_off">Fullscreen disabled</string>
+    <string name="dvd_player_fullscreen_toggle">Toggle fullscreen</string>
     <string name="dvd_player_error_no_stream">Video stream information is missing. Cannot play video.</string>
     <string name="dvd_player_error_no_uri">Video stream URI is missing. Cannot play video.</string>
     <string name="dvd_player_error_back">Back</string>

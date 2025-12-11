@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.ble1st.connectias.feature.usb.models.UsbDevice as UsbDeviceModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
@@ -125,7 +126,12 @@ class UsbPermissionManager @Inject constructor(
             activity.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         } else {
             @Suppress("DEPRECATION")
-            activity.registerReceiver(receiver, filter)
+            ContextCompat.registerReceiver(
+                activity,
+                receiver,
+                filter,
+                ContextCompat.RECEIVER_NOT_EXPORTED
+            )
         }
         
         // Re-check permission immediately after registering receiver to handle race condition

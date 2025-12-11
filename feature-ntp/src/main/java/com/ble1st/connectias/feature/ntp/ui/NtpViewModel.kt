@@ -2,6 +2,7 @@ package com.ble1st.connectias.feature.ntp.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ble1st.connectias.feature.ntp.data.NtpHistoryEntity
 import com.ble1st.connectias.feature.ntp.data.NtpRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,14 @@ class NtpViewModel @Inject constructor(
 
     private val _state = MutableStateFlow(NtpUiState())
     val state: StateFlow<NtpUiState> = _state
+
+    init {
+        viewModelScope.launch {
+            repository.history.collect { history ->
+                _state.update { it.copy(history = history) }
+            }
+        }
+    }
 
     fun updateServer(value: String) {
         _state.update { it.copy(server = value) }
@@ -35,4 +44,17 @@ class NtpViewModel @Inject constructor(
             }
         }
     }
+    
+    fun clearHistory() {
+        viewModelScope.launch {
+            repository.clearHistory()
+        }
+    }
+    
+    fun deleteHistoryItem(item: NtpHistoryEntity) {
+        viewModelScope.launch {
+            repository.deleteHistoryItem(item)
+        }
+    }
 }
+

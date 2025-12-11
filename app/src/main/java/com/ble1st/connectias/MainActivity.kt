@@ -98,6 +98,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
@@ -364,7 +365,10 @@ fun FabWithBottomSheet(
     val scope = rememberCoroutineScope()
     
     // Observe current navigation destination to hide FAB during DVD playback
-    val currentDestinationId = navController?.currentBackStackEntry?.destination?.id
+    val currentBackStackEntry by navController?.currentBackStackEntryFlow?.collectAsState(
+        initial = navController.currentBackStackEntry
+    ) ?: remember { mutableStateOf<NavBackStackEntry?>(null) }
+    val currentDestinationId = currentBackStackEntry?.destination?.id
     val context = LocalContext.current
     val dvdPlayerNavId = remember {
         context.resources.getIdentifier("nav_dvd_player", "id", context.packageName)
