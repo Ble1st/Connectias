@@ -32,9 +32,13 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Calculate version
+      - name: Calculate version and APK name
         id: version
         run: |
+          # Extract repository name (owner/repo-name -> repo-name)
+          REPO_NAME=$(echo "${{ github.repository }}" | awk -F'/' '{print $NF}')
+          echo "repo_name=${REPO_NAME}" >> "$GITHUB_OUTPUT"
+          
           # P1: Extract version from commit message or use semantic versioning
           COMMIT_MSG="${{ github.event.head_commit.message }}"
           
@@ -48,11 +52,17 @@ jobs:
             VERSION="1.0.${{ github.run_number }}"
           fi
           
+          # Generate APK filename: RepoName-v1.2.3.apk
+          APK_FILENAME="${REPO_NAME}-v${VERSION}.apk"
+          
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
           echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "apk_filename=${APK_FILENAME}" >> "$GITHUB_OUTPUT"
           
+          echo "Repository: ${REPO_NAME}"
           echo "Calculated version: ${VERSION} (code: ${VERSION_CODE})"
+          echo "APK filename: ${APK_FILENAME}"
 
       - name: Recreate keystore
         id: keystore
@@ -112,25 +122,38 @@ jobs:
             -PversionCode="$VERSION_CODE"
           
           # P0: Validate APK was created successfully
-          APK_PATH="app/build/outputs/apk/release/app-release.apk"
-          if [ ! -f "$APK_PATH" ]; then
-            echo "Error: APK file was not created at $APK_PATH"
+          ORIGINAL_APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$ORIGINAL_APK_PATH" ]; then
+            echo "Error: APK file was not created at $ORIGINAL_APK_PATH"
             exit 1
           fi
           
           # P2: Validate APK file is not empty
-          APK_SIZE=$(stat -f%z "$APK_PATH" 2>/dev/null || stat -c%s "$APK_PATH" 2>/dev/null)
+          APK_SIZE=$(stat -f%z "$ORIGINAL_APK_PATH" 2>/dev/null || stat -c%s "$ORIGINAL_APK_PATH" 2>/dev/null)
           if [ "$APK_SIZE" -eq 0 ]; then
             echo "Error: APK file is empty"
+            exit 1
+          fi
+          
+          # Rename APK to use repository name
+          APK_FILENAME="${{ steps.version.outputs.apk_filename }}"
+          APK_PATH="app/build/outputs/apk/release/${APK_FILENAME}"
+          mv "$ORIGINAL_APK_PATH" "$APK_PATH"
+          
+          # Verify rename was successful
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Error: Failed to rename APK file"
             exit 1
           fi
           
           # P2: Log APK size for monitoring
           APK_SIZE_MB=$((APK_SIZE / 1024 / 1024))
           APK_SIZE_KB=$((APK_SIZE / 1024))
+          echo "APK renamed to: ${APK_FILENAME}"
           echo "APK size: ${APK_SIZE_MB} MB (${APK_SIZE_KB} KB, ${APK_SIZE} bytes)"
           echo "apk_size=${APK_SIZE}" >> "$GITHUB_OUTPUT"
           echo "apk_path=${APK_PATH}" >> "$GITHUB_OUTPUT"
+          echo "apk_filename=${APK_FILENAME}" >> "$GITHUB_OUTPUT"
 
       - name: Validate APK integrity
         id: validate
@@ -154,7 +177,7 @@ jobs:
       - name: Upload release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: app-release-${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.repo_name }}-${{ steps.version.outputs.version }}
           path: ${{ steps.build.outputs.apk_path }}
           retention-days: 90
 
