@@ -43,8 +43,14 @@ class NetworkService @Inject constructor(
     suspend fun getActiveNetwork(): Network? {
         return try {
             connectivityManager?.activeNetwork
+        } catch (e: SecurityException) {
+            Timber.e(e, "Permission denied: ACCESS_NETWORK_STATE required")
+            null
+        } catch (e: IllegalStateException) {
+            Timber.e(e, "ConnectivityManager not available")
+            null
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get active network")
+            Timber.e(e, "Unexpected error getting active network")
             null
         }
     }
@@ -60,8 +66,14 @@ class NetworkService @Inject constructor(
             manager?.activeNetwork?.let { network ->
                 manager.getNetworkCapabilities(network)
             }
+        } catch (e: SecurityException) {
+            Timber.e(e, "Permission denied: ACCESS_NETWORK_STATE required")
+            null
+        } catch (e: IllegalStateException) {
+            Timber.e(e, "ConnectivityManager or Network not available")
+            null
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get network capabilities")
+            Timber.e(e, "Unexpected error getting network capabilities")
             null
         }
     }
@@ -77,8 +89,14 @@ class NetworkService @Inject constructor(
             manager?.activeNetwork?.let { network ->
                 manager.getLinkProperties(network)
             }
+        } catch (e: SecurityException) {
+            Timber.e(e, "Permission denied: ACCESS_NETWORK_STATE required")
+            null
+        } catch (e: IllegalStateException) {
+            Timber.e(e, "ConnectivityManager or Network not available")
+            null
         } catch (e: Exception) {
-            Timber.e(e, "Failed to get link properties")
+            Timber.e(e, "Unexpected error getting link properties")
             null
         }
     }
@@ -91,8 +109,11 @@ class NetworkService @Inject constructor(
     suspend fun isConnected(): Boolean {
         return try {
             getNetworkCapabilities() != null
+        } catch (e: SecurityException) {
+            Timber.e(e, "Permission denied: ACCESS_NETWORK_STATE required")
+            false
         } catch (e: Exception) {
-            Timber.e(e, "Failed to check connection status")
+            Timber.e(e, "Unexpected error checking connection status")
             false
         }
     }

@@ -1,40 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:translateX="6"
-        android:translateY="6">
-        <!-- Stylized C -->
+        android:translateX="54"
+        android:translateY="54">
+        <!-- Five-pointed star outline (only outer lines) -->
+        <!-- Outer points at radius 38, inner points at radius 15 -->
+        <!-- Star drawn by alternating: outer point -> inner point -> outer point -->
+        <path
+            android:name="star_outline"
+            android:fillColor="@android:color/transparent"
+            android:strokeColor="#00FF00"
+            android:strokeWidth="3.5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M 0,-38 L -12.1,8.8 L -11.7,36.1 L 4.6,14.3 L 30.7,22.3 L 15,0 L 30.7,-22.3 L 4.6,-14.3 L -11.7,-36.1 L -12.1,-8.8 Z" />
+        
+        <!-- Large C letter inside the star -->
+        <!-- C shape: large arc from top-right to bottom-right, open on left side -->
         <path
             android:name="letter_c"
             android:fillColor="@android:color/transparent"
-            android:strokeColor="#00FF6A"
-            android:strokeWidth="8"
+            android:strokeColor="#00FF00"
+            android:strokeWidth="7"
             android:strokeLineCap="round"
             android:strokeLineJoin="round"
-            android:pathData="M76,24 a32,32 0 1,0 0,60" />
-
-        <!-- Star cluster -->
-        <path
-            android:name="star_core"
-            android:fillColor="#00FF6A"
-            android:fillAlpha="0.9"
-            android:pathData="M70,36 L74,48 L86,48 L76,56 L80,68 L70,60 L60,68 L64,56 L54,48 L66,48 Z" />
-
-        <!-- Accent nodes -->
-        <path
-            android:name="node_top_left"
-            android:fillColor="#00FF6A"
-            android:pathData="M32,36 a4,4 0 1,0 8,0 a4,4 0 1,0 -8,0" />
-        <path
-            android:name="node_bottom_left"
-            android:fillColor="#00FF6A"
-            android:pathData="M28,70 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
-        <path
-            android:name="node_center"
-            android:fillColor="#00FF6A"
-            android:pathData="M48,52 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+            android:pathData="M 14,-14 a 18,18 0 1,1 0,28" />
     </group>
 </vector>

@@ -189,8 +189,12 @@ class VlcDvdPlayer(private val context: Context) {
                 }
             }
             Timber.d("VlcDvdPlayer: Event listener setup complete")
+        } catch (e: UnsatisfiedLinkError) {
+            Timber.e(e, "Failed to load LibVLC native library")
+        } catch (e: IllegalStateException) {
+            Timber.e(e, "LibVLC initialization failed - invalid state")
         } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize LibVLC")
+            Timber.e(e, "Unexpected error initializing LibVLC")
         }
     }
 
@@ -214,8 +218,14 @@ class VlcDvdPlayer(private val context: Context) {
             }
             Timber.w("VlcDvdPlayer: extractTitleNumberFromUri() - Could not extract title number from URI: $uri")
             return null
+        } catch (e: IllegalArgumentException) {
+            Timber.e(e, "VlcDvdPlayer: extractTitleNumberFromUri() - Invalid URI format: $uri")
+            return null
+        } catch (e: NumberFormatException) {
+            Timber.e(e, "VlcDvdPlayer: extractTitleNumberFromUri() - Invalid title number in URI: $uri")
+            return null
         } catch (e: Exception) {
-            Timber.e(e, "VlcDvdPlayer: extractTitleNumberFromUri() - Error parsing URI: $uri")
+            Timber.e(e, "VlcDvdPlayer: extractTitleNumberFromUri() - Unexpected error parsing URI: $uri")
             return null
         }
     }

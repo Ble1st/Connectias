@@ -97,6 +97,46 @@ jobs:
         continue-on-error: false  # P0: Fail fast on test failures
         run: ./gradlew lint test
 
+      - name: Generate Jacoco coverage report
+        continue-on-error: true  # Don't fail release if coverage report generation fails
+        run: |
+          echo "Generating Jacoco code coverage report..."
+          ./gradlew jacocoTestReport || {
+            echo "⚠️ Warning: jacocoTestReport failed"
+            echo "This may indicate missing test coverage data"
+            echo "Continuing with release build..."
+          }
+      
+      - name: Upload Jacoco coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage-${{ steps.version.outputs.version }}
+          path: |
+            **/build/reports/jacoco/
+            **/build/jacoco/
+          retention-days: 90
+      
+      - name: Check for dependency vulnerabilities
+        continue-on-error: true  # Don't fail release if dependency check fails (but log warnings)
+        run: |
+          echo "Running CVE scan for dependencies..."
+          ./gradlew dependencyCheckAnalyze || {
+            echo "⚠️ Warning: dependencyCheckAnalyze failed or plugin not configured"
+            echo "This may indicate missing OWASP Dependency Check plugin configuration"
+            echo "Continuing with release build..."
+          }
+      
+      - name: Upload dependency check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: |
+            **/build/reports/dependency-check-report.*
+            **/build/reports/dependency-check/
+          retention-days: 30
+
       - name: Build signed release APK
         id: build
         env:
@@ -155,6 +195,47 @@ jobs:
           echo "apk_path=${APK_PATH}" >> "$GITHUB_OUTPUT"
           echo "apk_filename=${APK_FILENAME}" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare ProGuard mapping file
+        id: proguard
+        run: |
+          MAPPING_FILE="app/build/outputs/mapping/release/mapping.txt"
+          
+          if [ -f "$MAPPING_FILE" ]; then
+            echo "✅ ProGuard mapping file found"
+            
+            # Get mapping file size
+            MAPPING_SIZE=$(stat -f%z "$MAPPING_FILE" 2>/dev/null || stat -c%s "$MAPPING_FILE" 2>/dev/null)
+            MAPPING_SIZE_KB=$((MAPPING_SIZE / 1024))
+            
+            echo "Mapping file size: ${MAPPING_SIZE_KB} KB (${MAPPING_SIZE} bytes)"
+            
+            # Create versioned mapping filename
+            MAPPING_FILENAME="${{ steps.version.outputs.repo_name }}-v${{ steps.version.outputs.version }}-mapping.txt"
+            MAPPING_OUTPUT="app/build/outputs/mapping/release/${MAPPING_FILENAME}"
+            
+            # Copy mapping file with versioned name
+            cp "$MAPPING_FILE" "$MAPPING_OUTPUT"
+            
+            echo "mapping_path=${MAPPING_FILE}" >> "$GITHUB_OUTPUT"
+            echo "mapping_output=${MAPPING_OUTPUT}" >> "$GITHUB_OUTPUT"
+            echo "mapping_filename=${MAPPING_FILENAME}" >> "$GITHUB_OUTPUT"
+            echo "mapping_exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "⚠️ Warning: ProGuard mapping file not found at $MAPPING_FILE"
+            echo "This may indicate that ProGuard/R8 is not generating mapping files"
+            echo "mapping_exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload ProGuard mapping file
+        if: steps.proguard.outputs.mapping_exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: proguard-mapping-${{ steps.version.outputs.version }}
+          path: |
+            ${{ steps.proguard.outputs.mapping_path }}
+            ${{ steps.proguard.outputs.mapping_output }}
+          retention-days: 365  # Keep mapping files longer for crash analysis
+
       - name: Validate APK integrity
         id: validate
         run: |
@@ -205,6 +286,53 @@ jobs:
           echo "Release name: ${RELEASE_NAME}"
           echo "Release tag: ${{ steps.version.outputs.tag }}"
 
+      - name: Extract coverage summary
+        id: coverage
+        if: always()
+        run: |
+          COVERAGE_XML="app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+          
+          if [ -f "$COVERAGE_XML" ]; then
+            echo "✅ Coverage report found"
+            
+            # Extract coverage percentages from XML (if available)
+            # This is a simple extraction - can be improved with proper XML parsing
+            if command -v xmllint > /dev/null 2>&1; then
+              LINE_COVERAGE=$(xmllint --xpath "string(//report/counter[@type='LINE']/@missed)" "$COVERAGE_XML" 2>/dev/null || echo "")
+              BRANCH_COVERAGE=$(xmllint --xpath "string(//report/counter[@type='BRANCH']/@missed)" "$COVERAGE_XML" 2>/dev/null || echo "")
+              
+              if [ -n "$LINE_COVERAGE" ]; then
+                echo "coverage_available=true" >> "$GITHUB_OUTPUT"
+                echo "Coverage report available in artifacts"
+              else
+                echo "coverage_available=false" >> "$GITHUB_OUTPUT"
+              fi
+            else
+              echo "coverage_available=true" >> "$GITHUB_OUTPUT"
+              echo "Coverage report available (xmllint not available for parsing)"
+            fi
+          else
+            echo "coverage_available=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ Coverage report not found"
+          fi
+
+      - name: Prepare release files
+        id: release_files
+        run: |
+          RELEASE_FILES="${{ steps.build.outputs.apk_path }}"
+          
+          # Add ProGuard mapping file if it exists
+          if [ "${{ steps.proguard.outputs.mapping_exists }}" == "true" ] && [ -n "${{ steps.proguard.outputs.mapping_output }}" ]; then
+            RELEASE_FILES="${RELEASE_FILES}\n${{ steps.proguard.outputs.mapping_output }}"
+            echo "✅ ProGuard mapping file will be included in release"
+          else
+            echo "ℹ️ ProGuard mapping file not available for this release"
+          fi
+          
+          echo "files<<EOF" >> "$GITHUB_OUTPUT"
+          echo -e "${RELEASE_FILES}" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub release with APK
         uses: softprops/action-gh-release@v2
         with:
@@ -221,10 +349,16 @@ jobs:
             ${{ steps.relmeta.outputs.release_notes }}
             
             ---
+            ### Build Artifacts
+            - 📦 APK: `${{ steps.build.outputs.apk_filename }}`
+            ${{ steps.proguard.outputs.mapping_exists == 'true' && format('- 📄 ProGuard Mapping: `{0}`', steps.proguard.outputs.mapping_filename) || '' }}
+            ${{ steps.coverage.outputs.coverage_available == 'true' && '- 📊 Code Coverage: Available in workflow artifacts' || '' }}
+            
+            ---
             *Automated release build*
           draft: false
           prerelease: false
-          files: ${{ steps.build.outputs.apk_path }}
+          files: ${{ steps.release_files.outputs.files }}
 
       - name: Cleanup keystore
         if: always()  # P0: Always cleanup, even on failure

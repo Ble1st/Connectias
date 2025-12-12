@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.navigation.safe.args)
     alias(libs.plugins.kotlin.compose)
+    id("jacoco")
 }
 
 android {
@@ -66,7 +67,110 @@ kotlin {
     }
 }
 
+// Jacoco configuration for code coverage
+jacoco {
+    toolVersion = "0.8.11"
+}
 
+tasks.withType<Test> {
+    configure<JacocoTaskExtension> {
+        isIncludeNoLocationClasses = true
+        excludes = listOf("jdk.internal.*")
+    }
+}
+
+tasks.register<JacocoReport>("jacocoTestReport") {
+    dependsOn("test")
+    
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+    
+    val fileFilter = listOf(
+        "**/R.class",
+        "**/R$*.class",
+        "**/BuildConfig.*",
+        "**/Manifest*.*",
+        "**/*Test*.*",
+        "android/**/*.*",
+        "**/*\$ViewInjector*.*",
+        "**/*Dagger*.*",
+        "**/*MembersInjector*.*",
+        "**/*_Factory*.*",
+        "**/*_Provide*Factory*.*",
+        "**/*Extensions*.*",
+        "**/com/google/**/*.*",
+        "**/com/ble1st/connectias/databinding/**/*.*",
+        "**/com/ble1st/connectias/generated/**/*.*",
+        "**/dagger/**/*.*",
+        "**/hilt/**/*.*"
+    )
+    
+    // Support both debug and release build types for coverage
+    // Try release first (for CI/CD), fallback to debug (for local development)
+    val releaseTree = fileTree("${project.buildDir}/intermediates/javac/release") {
+        exclude(fileFilter)
+    }
+    val debugTree = fileTree("${project.buildDir}/intermediates/javac/debug") {
+        exclude(fileFilter)
+    }
+    
+    // Use release if available, otherwise fallback to debug
+    val classDirectoriesTree = if (releaseTree.files.isNotEmpty()) {
+        releaseTree
+    } else {
+        debugTree
+    }
+    
+    val mainSrc = "${project.projectDir}/src/main/java"
+    
+    sourceDirectories.setFrom(files(mainSrc))
+    classDirectories.setFrom(files(classDirectoriesTree))
+    executionData.setFrom(fileTree(project.buildDir) {
+        include("**/*.exec", "**/*.ec")
+    })
+}
+
+tasks.register<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    dependsOn("jacocoTestReport")
+    
+    violationRules {
+        rule {
+            limit {
+                minimum = "0.50".toBigDecimal() // Minimum 50% coverage
+            }
+        }
+        
+        rule {
+            element = "CLASS"
+            excludes = listOf(
+                "*.BuildConfig",
+                "*.R",
+                "*.R\$*",
+                "*.Manifest*",
+                "*.BR",
+                "*.BR\$*",
+                "*.DataBinder*",
+                "*.DataBinding*",
+                "*.ViewInjector*",
+                "*.Dagger*",
+                "*.MembersInjector*",
+                "*.Factory*",
+                "*.Extensions*",
+                "*.Companion*",
+                "*.Kt*"
+            )
+            
+            limit {
+                counter = "BRANCH"
+                value = "COVEREDRATIO"
+                minimum = "0.30".toBigDecimal() // Minimum 30% branch coverage
+            }
+        }
+    }
+}
 
 dependencies {
     // Core Modules (always included)
@@ -75,11 +179,7 @@ dependencies {
     implementation(project(":feature-settings"))
     
     // Optional Modules (included based on gradle.properties)
-
-    val featureBackupEnabled = project.findProperty("feature.backup.enabled") == "true"
-    if (featureBackupEnabled) {
-        
-    }
+    // Note: feature.backup was removed as it was not implemented
 
     val featureUsbEnabled = project.findProperty("feature.usb.enabled") == "true"
     if (featureUsbEnabled) {

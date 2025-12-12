@@ -13,6 +13,7 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.android.library) apply false
     alias(libs.plugins.kotlin.android) apply false
+    // Note: Jacoco is a core Gradle plugin, no need to declare it here
 }
 
 // ============================================================================

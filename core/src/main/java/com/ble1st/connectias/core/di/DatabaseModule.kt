@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.ble1st.connectias.core.database.AppDatabase
 import com.ble1st.connectias.core.database.dao.SecurityLogDao
 import com.ble1st.connectias.core.database.dao.SystemLogDao
+import com.ble1st.connectias.core.database.migrations.MIGRATION_1_2
 import com.ble1st.connectias.core.security.KeyManager
 import dagger.Module
 import dagger.Provides
@@ -55,17 +56,12 @@ object DatabaseModule {
             .openHelperFactory(factory)
         
         // Add migrations here when schema changes
-        // Example: .addMigrations(Migrations.MIGRATION_1_2, Migrations.MIGRATION_2_3)
+        builder.addMigrations(MIGRATION_1_2)
         
         // Migration strategy:
-        // - Debug builds: fallbackToDestructiveMigration for development convenience
-        // - Production builds: No fallback - app will fail safely if schema changes without migrations
-        // TODO: Implement explicit Room migrations before any schema change to prevent data loss
-        if (com.ble1st.connectias.core.BuildConfig.DEBUG) {
-            // Use new overloaded version that explicitly indicates all tables should be dropped
-            builder.fallbackToDestructiveMigration(true)
-        }
-        // Production builds do not use fallbackToDestructiveMigration to prevent data loss
+        // - All builds use explicit migrations to prevent data loss
+        // - fallbackToDestructiveMigration is NOT used to ensure data safety
+        // - If migration fails, app will crash rather than silently lose data
         
         return builder.build()
     }
