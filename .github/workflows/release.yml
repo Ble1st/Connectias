@@ -6,6 +6,9 @@ on:
 
 jobs:
   build:
+    if: startsWith(github.event.head_commit.message, 'releasebuild')
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -51,3 +54,22 @@ jobs:
         with:
           name: app-release
           path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Prepare release metadata
+        id: relmeta
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          first_line="$(printf '%s' "${COMMIT_MSG}" | head -n1)"
+          echo "first_line=${first_line}" >> "$GITHUB_OUTPUT"
+          echo "tag=releasebuild-${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.relmeta.outputs.tag }}
+          name: ${{ steps.relmeta.outputs.first_line }}
+          draft: false
+          prerelease: false
+          files: app/build/outputs/apk/release/app-release.apk
