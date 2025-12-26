@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Screen -->
+
+    <!-- Appearance Section -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_theme_system">System Default</string>
+    <string name="settings_theme_style">Theme Style</string>
+    <string name="settings_theme_style_standard">Standard</string>
+    <string name="settings_theme_style_adeptus_mechanicus">Adeptus Mechanicus</string>
+    <string name="settings_dynamic_color">Dynamic Color</string>
+    <string name="settings_dynamic_color_description">Use Material You dynamic colors (Android 12+)</string>
+    
+    <!-- Security Section -->
+    <string name="settings_auto_lock">Auto Lock</string>
+    <string name="settings_auto_lock_description">Automatically lock the app after inactivity</string>
+    <string name="settings_rasp_logging">RASP Logging</string>
+    <string name="settings_rasp_logging_description">Enable logging for Runtime Application Self-Protection</string>
+    
+    <!-- Network Section -->
+
+    <!-- Privacy Section -->
+
+    <!-- Advanced Section -->
+    <string name="settings_advanced">Advanced</string>
+    <string name="settings_logging_level">Logging Level</string>
+    
+    <!-- Reset Section -->
+    <string name="settings_reset">Reset</string>
+    <string name="settings_reset_all">Reset All Settings</string>
+    <string name="settings_reset_confirm_title">Reset Settings?</string>
+    <string name="settings_reset_confirm_message">This will reset all settings to their default values. This action cannot be undone.</string>
+    <string name="settings_reset_confirm_button">Reset</string>
+    <string name="settings_reset_cancel_button">Cancel</string>
+    
+    <!-- Messages -->
+</resources>
+

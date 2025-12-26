@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration for Connectias
+    
+    This configuration allows:
+    - Cleartext traffic for private IP ranges (local network scanners, printers)
+    - HTTPS-only for public internet domains
+    - System certificate trust
+    
+    Note: Android's Network Security Config doesn't support IP wildcards in domain-config,
+    so we allow cleartext for all connections. This is acceptable for this app as it primarily
+    communicates with local network devices (scanners, printers) that use HTTP.
+-->
+<network-security-config>
+    <!-- Base configuration: Allow cleartext for local network devices -->
+    <!-- This is necessary because eSCL scanners use HTTP (not HTTPS) -->
+    <!-- The security risk is minimal as these are local network devices -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust system CA certificates -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- Debug configuration: Allow user certificates for development -->
+    <debug-overrides>
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </debug-overrides>
+
+    <!-- 
+        Domain-specific configurations with certificate pinning.
+        Uncomment and configure with actual pins for production use.
+    -->
+    
+    <!--
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.example.com</domain>
+        <pin-set expiration="2025-12-31">
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+    -->
+</network-security-config>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Network Security Configuration for Connectias
+    
+    This configuration enforces:
+    - No cleartext traffic by default
+    - System certificate trust
+    - Certificate pinning for configured domains
+    
+    Note: Certificate pins should be updated with actual certificate hashes
+    before production deployment.
+-->
+<network-security-config>
+    <!-- Base configuration: No cleartext traffic allowed -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <!-- Trust system CA certificates -->
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+
+    <!-- 
+        Domain-specific configurations with certificate pinning.
+        Uncomment and configure with actual pins for production use.
+    -->
+    <!--
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.example.com</domain>
+        <pin-set expiration="2025-12-31">
+            <pin digest="SHA-256">AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=</pin>
+            <pin digest="SHA-256">BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=</pin>
+        </pin-set>
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </domain-config>
+    -->
+</network-security-config>

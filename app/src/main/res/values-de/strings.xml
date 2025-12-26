@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Connectias</string>
+
+    <!-- Navigation -->
+    <string name="nav_settings">Einstellungen</string>
+    <string name="nav_dvd_cd_detail">DVD-/CD-Details</string>
+    <string name="nav_dvd_player">Video-Player</string>
+    <string name="nav_log_viewer">Log-Viewer</string>
+    <string name="nav_secure_notes">Sichere Notizen</string>
+    <string name="nav_bluetooth_scanner">Bluetooth-Scanner</string>
+    <string name="nav_network_tools">Netzwerk-Tools</string>
+    <string name="nav_dns_tools">DNS-Tools</string>
+    <string name="nav_barcode_tools">Barcode &amp; QR</string>
+    <string name="nav_calendar">Kalender</string>
+    <string name="nav_ntp">NTP-Checker</string>
+    <string name="nav_ssh">SSH / SCP</string>
+    <string name="nav_password">Passwort-Tools</string>
+    <string name="nav_gps">GPS-Satelliten</string>
+    <string name="nav_device_info">Geräteinformationen</string>
+
+    <!-- Allgemeine Aktionen -->
+
+    <!-- CSS-Entschlüsselung (DVD) -->
+
+    <!-- Splash Screen -->
+
+    <!-- Network Tools -->
+</resources>

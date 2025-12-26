@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connectias Logo Preview</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+            padding: 20px;
+        }
+        .logo {
+            background: #000000;
+            border-radius: 20px;
+            padding: 40px;
+            display: inline-block;
+            box-shadow: 0 10px 40px rgba(0, 255, 0, 0.3);
+        }
+        h1 {
+            color: #00FF00;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg width="400" height="400" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+                <!-- Black background -->
+                <rect width="108" height="108" fill="#000000"/>
+                
+                <!-- Transform group to center the star -->
+                <g transform="translate(54, 54)">
+                    <!-- Five-pointed star outline (only outer lines) -->
+                    <path
+                        fill="none"
+                        stroke="#00FF00"
+                        stroke-width="3.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M 0,-38 L -12.1,8.8 L -11.7,36.1 L 4.6,14.3 L 30.7,22.3 L 15,0 L 30.7,-22.3 L 4.6,-14.3 L -11.7,-36.1 L -12.1,-8.8 Z" />
+                    
+                    <!-- Large C letter inside the star -->
+                    <path
+                        fill="none"
+                        stroke="#00FF00"
+                        stroke-width="7"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        d="M 14,-14 a 18,18 0 1,1 0,28" />
+                </g>
+            </svg>
+        </div>
+        <h1>Connectias Logo</h1>
+    </div>
+</body>
+</html>
+

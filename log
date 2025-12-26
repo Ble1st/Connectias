@@ -1,0 +1,559 @@
+---------------------------- PROCESS STARTED (19715) for package com.ble1st.connectias ----------------------------
+2025-12-22 21:09:01.074 19715-19715 zygote64                com.ble1st.connectias                W  Activation of cgroup controller +memory failed in path /sys/fs/cgroup/apps/uid_10243: Invalid argument
+2025-12-22 21:09:01.081 19715-19715 Zygote                  com.ble1st.connectias                I  Process 19715 created for com.ble1st.connectias
+2025-12-22 21:09:01.081 19715-19715 e1st.connectias         com.ble1st.connectias                I  Late-enabling -Xcheck:jni
+2025-12-22 21:09:01.101 19715-19715 e1st.connectias         com.ble1st.connectias                I  Using CollectorTypeCMC GC.
+2025-12-22 21:09:01.109 19715-19715 nativeloader            com.ble1st.connectias                D  Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+2025-12-22 21:09:01.119 19715-19715 nativeloader            com.ble1st.connectias                D  Load /data/user/0/com.ble1st.connectias/code_cache/startup_agents/69b40b6c-agent.so using system ns (caller=<unknown>): ok
+2025-12-22 21:09:01.123 19715-19715 e1st.connectias         com.ble1st.connectias                W  hiddenapi: DexFile /data/data/com.ble1st.connectias/code_cache/.studio/instruments-cbb5ff5f.jar is in boot class path but is not in a known location
+2025-12-22 21:09:01.127 19715-19715 e1st.connectias         com.ble1st.connectias                W  Redefining intrinsic method java.lang.Thread java.lang.Thread.currentThread(). This may cause the unexpected use of the original definition of java.lang.Thread java.lang.Thread.currentThread()in methods that have already been compiled.
+2025-12-22 21:09:01.127 19715-19715 e1st.connectias         com.ble1st.connectias                W  Redefining intrinsic method boolean java.lang.Thread.interrupted(). This may cause the unexpected use of the original definition of boolean java.lang.Thread.interrupted()in methods that have already been compiled.
+2025-12-22 21:09:01.137 19715-19715 ApplicationLoaders      com.ble1st.connectias                D  Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+2025-12-22 21:09:01.137 19715-19715 ApplicationLoaders      com.ble1st.connectias                D  Returning zygote-cached class loader: /system_ext/framework/androidx.window.sidecar.jar
+2025-12-22 21:09:01.305 19715-19715 nativeloader            com.ble1st.connectias                D  Configuring clns-9 for other apk /data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk. target_sdk_version=36, uses_libraries=, library_path=/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/lib/arm64:/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!/lib/arm64-v8a, permitted_path=/data:/mnt/expand:/data/user/0/com.ble1st.connectias
+2025-12-22 21:09:01.313 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V  Currently set values for:
+2025-12-22 21:09:01.313 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V    angle_gl_driver_selection_pkgs=[com.android.angle, com.google.android.apps.tachyon]
+2025-12-22 21:09:01.313 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V    angle_gl_driver_selection_values=[angle, native]
+2025-12-22 21:09:01.313 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V  com.ble1st.connectias is not listed in per-application setting
+2025-12-22 21:09:01.314 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V  ANGLE allowlist from config: 
+2025-12-22 21:09:01.314 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V  No special selections for ANGLE, returning default driver choice
+2025-12-22 21:09:01.314 19715-19715 GraphicsEnvironment     com.ble1st.connectias                V  Neither updatable production driver nor prerelease driver is supported.
+2025-12-22 21:09:01.331 19715-19715 WM-WrkMgrInitializer    com.ble1st.connectias                D  Initializing WorkManager with default configuration.
+2025-12-22 21:09:01.356 19715-19715 WM-PackageManagerHelper com.ble1st.connectias                D  Skipping component enablement for androidx.work.impl.background.systemjob.SystemJobService
+2025-12-22 21:09:01.356 19715-19715 WM-Schedulers           com.ble1st.connectias                D  Created SystemJobScheduler and enabled SystemJobService
+2025-12-22 21:09:01.361 19715-19732 WM-ForceStopRunnable    com.ble1st.connectias                D  The default process name was not specified.
+2025-12-22 21:09:01.363 19715-19732 WM-ForceStopRunnable    com.ble1st.connectias                D  Performing cleanup operations.
+2025-12-22 21:09:01.373 19715-19732 ashmem                  com.ble1st.connectias                E  Pinning is deprecated since Android Q. Please use trim or other methods.
+2025-12-22 21:09:01.393 19715-19732 WM-ForceStopRunnable    com.ble1st.connectias                D  Application was force-stopped, rescheduling.
+2025-12-22 21:09:01.412 19715-19715 nativeloader            com.ble1st.connectias                D  Load /data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!/lib/arm64-v8a/libsqlcipher.so using class loader ns clns-9 (caller=/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!classes13.dex): ok
+2025-12-22 21:09:01.421 19715-19735 WM-PackageManagerHelper com.ble1st.connectias                D  Skipping component enablement for androidx.work.impl.background.systemalarm.RescheduleReceiver
+2025-12-22 21:09:01.499 19715-19746 SQLiteConnection        com.ble1st.connectias                I  Database keying operation returned:0
+2025-12-22 21:09:01.522 19715-19715 ConnectiasApplication   com.ble1st.connectias                D  ConnectiasApplication initialized
+2025-12-22 21:09:01.528 19715-19753 DisplayManager          com.ble1st.connectias                I  Choreographer implicitly registered for the refresh rate.
+2025-12-22 21:09:01.529 19715-19753 vulkan                  com.ble1st.connectias                D  searching for layers in '/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/lib/arm64'
+2025-12-22 21:09:01.530 19715-19753 vulkan                  com.ble1st.connectias                D  searching for layers in '/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!/lib/arm64-v8a'
+2025-12-22 21:09:01.541 19715-19715 DesktopExperienceFlags  com.ble1st.connectias                D  Toggle override initialized to: true
+2025-12-22 21:09:01.547 19715-19715 AppCompatDelegate       com.ble1st.connectias                D  Checking for metadata for AppLocalesMetadataHolderService : Service not found
+2025-12-22 21:09:01.580 19715-19715 CompatChangeReporter    com.ble1st.connectias                D  Compat change id reported: 377864165; UID 10243; state: ENABLED
+2025-12-22 21:09:01.580 19715-19715 DesktopModeFlags        com.ble1st.connectias                D  Toggle override initialized to: OVERRIDE_ON
+2025-12-22 21:09:01.588 19715-19715 e1st.connectias         com.ble1st.connectias                I  hiddenapi: Accessing hidden method Landroid/view/ViewGroup;->makeOptionalFitsSystemWindows()V (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/appcompat/widget/ViewUtils; (domain=app, TargetSdkVersion=36) using reflection: allowed
+2025-12-22 21:09:01.592 19715-19748 RaspManager             com.ble1st.connectias                D  Performing comprehensive security checks
+2025-12-22 21:09:01.596 19715-19746 e1st.connectias         com.ble1st.connectias                W  JNI critical lock held for 95.395ms on Thread[23,tid=19746,Runnable,Thread*=0x300c287afe77400,peer=0x27b4220,"arch_disk_io_0"]
+2025-12-22 21:09:01.594 19715-19715 DefaultDispatch         com.ble1st.connectias                W  type=1400 audit(0.0:44103): avc:  denied  { read } for  name="cache" dev="dm-12" ino=17 scontext=u:r:untrusted_app:s0:c243,c256,c512,c768 tcontext=u:object_r:cache_file:s0 tclass=lnk_file permissive=0 app=com.ble1st.connectias
+2025-12-22 21:09:01.628 19715-19715 WindowOnBackDispatcher  com.ble1st.connectias                D  setTopOnBackInvokedCallback (unwrapped): android.app.Activity$$ExternalSyntheticLambda0@4b947fc
+2025-12-22 21:09:01.629 19715-19715 VRI[MainActivity]       com.ble1st.connectias                D  WindowInsets changed: 1080x2400 statusBars:[0,121,0,0] navigationBars:[0,0,0,63] mandatorySystemGestures:[0,153,0,84] 
+2025-12-22 21:09:01.684 19715-19748 nativeloader            com.ble1st.connectias                D  Load /data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!/lib/arm64-v8a/libtoolChecker.so using class loader ns clns-9 (caller=/data/app/~~2F5IM6IKfBLZlGtjv1eJpw==/com.ble1st.connectias-Rkfk4iU3-Hw-lQid4s2j_w==/base.apk!classes24.dex): ok
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /data/local/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /data/local/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /data/local/xbin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /sbin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /su/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/bin/.ext/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/bin/failsafe/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/sd/xbin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/usr/we-need-root/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system/xbin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /cache/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /data/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /dev/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /product/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /apex/com.android.runtime/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /apex/com.android.art/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /apex/com.android.virt/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /system_ext/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /odm/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /vendor/bin/su Absent :(
+2025-12-22 21:09:01.685 19715-19748 RootBeer                com.ble1st.connectias                I  LOOKING FOR BINARY: /vendor/xbin/su Absent :(
+2025-12-22 21:09:01.725 19715-19748 RaspManager             com.ble1st.connectias                I  Security check completed. Secure: true, Threats: 0, Failed: 0
+2025-12-22 21:09:01.725 19715-19748 RaspManager             com.ble1st.connectias                I  Security check completed. Secure: true, Threats: 0, Failed: 0
+2025-12-22 21:09:01.731 19715-19740 LoggingSer...urityCheck com.ble1st.connectias                D  Logged successful security check
+2025-12-22 21:09:01.845 19715-19715 WindowOnBackDispatcher  com.ble1st.connectias                D  setTopOnBackInvokedCallback (unwrapped): androidx.navigationevent.OnBackInvokedInput$createOnBackAnimationCallback$1@9370971
+2025-12-22 21:09:01.946 19715-19715 e1st.connectias         com.ble1st.connectias                I  hiddenapi: Accessing hidden method Landroid/os/SystemProperties;->addChangeCallback(Ljava/lang/Runnable;)V (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/compose/ui/platform/AndroidComposeView$Companion; (domain=app, TargetSdkVersion=36) using reflection: allowed
+2025-12-22 21:09:01.954 19715-19715 VibratorInfo            com.ble1st.connectias                E  Invalid frequency profile received from HAL. resonantFrequencyHz=NaN, frequenciesHz=null, outputAccelerationsGs=null
+2025-12-22 21:09:02.019 19715-19715 MainActivity            com.ble1st.connectias                D  Starting module discovery from ModuleCatalog
+2025-12-22 21:09:02.021 19715-19715 MainActivity            com.ble1st.connectias                D  Optional module registered: USB Devices (usb)
+2025-12-22 21:09:02.021 19715-19715 MainActivity            com.ble1st.connectias                D  Module discovery completed: 1 active modules
+2025-12-22 21:09:02.024 19715-19740 LoggingSer...rotateLogs com.ble1st.connectias                D  Log rotation completed: deleted logs older than 30 days
+2025-12-22 21:09:02.045 19715-19715 HWUI                    com.ble1st.connectias                I  Using FreeType backend (prop=Auto)
+2025-12-22 21:09:02.151 19715-19715 WindowOnBackDispatcher  com.ble1st.connectias                D  setTopOnBackInvokedCallback (unwrapped): android.app.Activity$$ExternalSyntheticLambda0@4b947fc
+2025-12-22 21:09:02.153 19715-19715 MainActivity            com.ble1st.connectias                D  Navigation setup completed
+2025-12-22 21:09:02.217 19715-19715 InsetsController        com.ble1st.connectias                D  hide(ime())
+2025-12-22 21:09:02.217 19715-19715 ImeTracker              com.ble1st.connectias                I  com.ble1st.connectias:82ccd259: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2025-12-22 21:09:03.813 19715-19715 WindowOnBackDispatcher  com.ble1st.connectias                D  setTopOnBackInvokedCallback (unwrapped): androidx.navigationevent.OnBackInvokedInput$createOnBackAnimationCallback$1@9370971
+2025-12-22 21:09:03.849 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Registering USB BroadcastReceiver...
+2025-12-22 21:09:03.850 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  USB BroadcastReceiver registered successfully
+2025-12-22 21:09:03.851 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Enumerating currently connected USB devices...
+2025-12-22 21:09:03.855 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Device Vendor=0x0BDA, Product=0x8153 has 4 interfaces, DeviceClass=0
+2025-12-22 21:09:03.855 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0
+2025-12-22 21:09:03.855 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0
+2025-12-22 21:09:03.856 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0
+2025-12-22 21:09:03.856 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0
+2025-12-22 21:09:03.856 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  USB Detection Detail for /dev/bus/usb/002/004: Class=0, Subclass=0, Protocol=0, Interfaces=4, IsMassStorageClass=false, HasMassStorageInterface=false => null
+2025-12-22 21:09:03.857 19715-19715 UsbDeviceDetector       com.ble1st.connectias                I  Found 1 currently connected USB devices
+2025-12-22 21:09:03.857 19715-19715 UsbDeviceDetector       com.ble1st.connectias                I  Found 1 currently connected USB devices
+2025-12-22 21:09:03.857 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Device: USB 10/100/1000 LAN (Vendor=0x0BDA, Product=0x8153, MassStorage=false)
+2025-12-22 21:09:03.867 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:03.868 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 1 devices
+2025-12-22 21:09:03.870 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:03.871 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:03.872 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:03.872 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:03.873 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:03.873 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:03.873 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:03.874 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Found 0 Mass Storage device(s)
+2025-12-22 21:09:03.896 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:03.903 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 1 devices
+2025-12-22 21:09:03.906 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:03.907 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:06.837 19715-19785 ProfileInstaller        com.ble1st.connectias                D  Installing profile for com.ble1st.connectias
+2025-12-22 21:09:06.875 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:06.882 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 1 devices
+2025-12-22 21:09:06.886 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:06.887 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:06.887 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:06.887 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 1 devices found
+2025-12-22 21:09:06.888 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:06.889 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:06.889 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:06.890 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 0 Mass Storage device(s)
+2025-12-22 21:09:07.944 19715-19715 UsbDeviceD...stReceiver com.ble1st.connectias                I  USB device attached: Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:07.946 19715-19715 UsbDeviceD...stReceiver com.ble1st.connectias                I  USB device attached: Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:07.949 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  No permission to access serial number for device Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:07.951 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Device Vendor=0x152D, Product=0x0578 has 2 interfaces, DeviceClass=0
+2025-12-22 21:09:07.952 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80
+2025-12-22 21:09:07.953 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Found Mass Storage interface at index 0 for device Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:07.954 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D    Interface 1: Class=8, Subclass=6, Protocol=98
+2025-12-22 21:09:07.955 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Found Mass Storage interface at index 1 for device Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:07.956 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  USB Detection Detail for /dev/bus/usb/002/021: Class=0, Subclass=0, Protocol=0, Interfaces=2, IsMassStorageClass=false, HasMassStorageInterface=true => null
+2025-12-22 21:09:07.957 19715-19715 UsbDeviceDetector       com.ble1st.connectias                D  Device detected as Mass Storage via interface or name indicators: Vendor=0x152D, Product=0x0578, DeviceClass=0 -> 8, HasInterface=true
+2025-12-22 21:09:07.962 19715-19715 UsbDeviceD...stReceiver com.ble1st.connectias                D  USB device added to detected list: null
+2025-12-22 21:09:09.885 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:09.892 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:09.894 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:09.895 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:09.896 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:09.896 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:09.897 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:09.898 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:09.898 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:09.899 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:09.899 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:09.900 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:09.901 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:09.902 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:09.904 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:09.906 19715-19748 UsbStorage...canDevices com.ble1st.connectias                D  No permission to access serial number for device Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:09.959 19715-19715 UsbDashboa...CreateView com.ble1st.connectias                D  Auto-requesting USB permission for device: /dev/bus/usb/002/021
+2025-12-22 21:09:11.242 19715-19748 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:11.245 19715-19748 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:11.248 19715-19748 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:11.248 19715-19748 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:11.303 19715-19715 InsetsController        com.ble1st.connectias                D  hide(ime())
+2025-12-22 21:09:11.303 19715-19715 ImeTracker              com.ble1st.connectias                I  com.ble1st.connectias:40a3be9: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+2025-12-22 21:09:11.307 19715-19723 e1st.connectias         com.ble1st.connectias                W  userfaultfd: MOVE ioctl seems unsupported: Connection timed out
+2025-12-22 21:09:12.322 19715-19715 UsbDashboardScreenKt    com.ble1st.connectias                D  Browse files clicked: USB3.0 Device
+2025-12-22 21:09:12.322 19715-19715 UsbDashboardViewModel   com.ble1st.connectias                D  Opening browser for device: USB3.0 Device
+2025-12-22 21:09:12.886 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:12.906 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:12.908 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:12.910 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:12.912 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:12.913 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:12.914 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:12.914 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:12.915 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:12.915 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:12.916 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:12.916 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:12.917 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:12.917 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:12.918 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:13.608 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:13.609 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:13.610 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:13.610 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:13.610 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:13.611 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:13.612 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:13.612 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:13.613 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:13.613 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:13.614 19715-19748 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:13.616 19715-19748 UsbStorage...ountDevice com.ble1st.connectias                D  Checking if device might be system-mounted...
+2025-12-22 21:09:13.616 19715-19748 UsbStorage...ountDevice com.ble1st.connectias                W  Note: If the device is already mounted by Android, USB Host API access will fail with timeouts
+2025-12-22 21:09:13.617 19715-19748 UsbStorage...ountDevice com.ble1st.connectias                W  Note: If the device is already mounted by Android, USB Host API access will fail with timeouts
+2025-12-22 21:09:13.617 19715-19748 UsbStorage...ountDevice com.ble1st.connectias                D  Attempting to mount device with interface /dev/bus/usb/002/021
+2025-12-22 21:09:13.618 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Opening device Vendor=0x152D, Product=0x0578
+2025-12-22 21:09:13.619 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Interface ID=0, Class=8
+2025-12-22 21:09:13.619 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: IN endpoint=129, type=2, maxPacketSize=1024
+2025-12-22 21:09:13.619 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: OUT endpoint=2, type=2, maxPacketSize=1024
+2025-12-22 21:09:13.957 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Interface claimed successfully
+2025-12-22 21:09:13.958 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Sending Bulk-Only Mass Storage Reset
+2025-12-22 21:09:13.960 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Reset successful
+2025-12-22 21:09:14.063 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Sending Get Max LUN
+2025-12-22 21:09:14.067 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Get Max LUN successful, MaxLUN=0
+2025-12-22 21:09:14.071 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Clearing halt on IN endpoint 129
+2025-12-22 21:09:14.123 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Clearing halt on OUT endpoint 2
+2025-12-22 21:09:14.178 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Sending INQUIRY to wake up device...
+2025-12-22 21:09:15.886 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:15.906 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:15.907 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:15.908 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:15.909 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:15.910 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:15.910 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:15.910 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:15.911 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:15.912 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:15.912 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:15.912 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:15.912 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:15.913 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:15.913 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:18.890 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:18.900 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:18.901 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:18.902 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:18.903 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:18.904 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:18.905 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:18.909 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:18.910 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:18.910 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:18.911 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:18.913 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:18.913 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:18.914 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:18.914 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:21.891 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:21.894 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:21.899 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:21.900 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:21.916 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:21.917 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:21.919 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:21.920 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:21.921 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:21.923 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:21.923 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:21.924 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:21.924 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:21.924 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:21.925 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:24.307 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=36)
+2025-12-22 21:09:24.308 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=36)
+2025-12-22 21:09:24.311 19715-19748 UsbTransport            com.ble1st.connectias                W  INQUIRY timeout - device may not respond
+2025-12-22 21:09:24.311 19715-19748 UsbTransport            com.ble1st.connectias                W  INQUIRY timeout - device may not respond
+2025-12-22 21:09:24.312 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: INQUIRY failed or timed out
+2025-12-22 21:09:24.312 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: INQUIRY failed or timed out
+2025-12-22 21:09:24.614 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Testing unit ready...
+2025-12-22 21:09:24.894 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:24.897 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:24.905 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:24.906 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:24.915 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:24.918 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:24.919 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:24.920 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:24.920 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:24.921 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:24.922 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:24.922 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:24.922 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:24.923 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:24.923 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:27.895 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:27.899 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:27.902 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:27.903 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:27.904 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:27.904 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:27.905 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:27.905 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:27.906 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:27.907 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:27.907 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:27.908 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:27.908 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:27.909 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:27.909 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:30.902 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:30.919 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:30.921 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:30.921 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:30.922 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:30.923 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:30.924 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:30.925 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:30.926 19715-19742 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:30.926 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:30.927 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:30.928 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:30.928 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:30.929 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:30.930 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:33.903 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:33.908 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:33.912 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:33.913 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:33.927 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:33.928 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:33.930 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:33.931 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:33.932 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:33.935 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:33.935 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:33.936 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:33.936 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:33.936 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:33.936 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:34.799 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:34.799 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:34.800 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:34.800 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:34.801 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Unit not ready, retrying... (2 attempts left)
+2025-12-22 21:09:36.909 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:36.922 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:36.929 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:36.930 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:36.930 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:36.931 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:36.931 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:36.932 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:36.932 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:36.934 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:36.936 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:36.937 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:36.938 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:36.939 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:36.940 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:39.914 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:39.918 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:39.922 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:39.923 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:39.931 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:39.932 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:39.932 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:39.933 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:39.934 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:39.935 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:39.935 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:39.936 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:39.936 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:39.936 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:39.937 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:42.923 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:42.928 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:42.933 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:42.934 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:42.948 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:42.949 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:42.950 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:42.951 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:42.951 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:42.953 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:42.953 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:42.954 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:42.955 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:42.955 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:42.956 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:45.931 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:45.937 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:45.940 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:45.940 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:45.948 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:45.948 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:45.950 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:45.950 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:45.951 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:45.954 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:45.955 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:45.956 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:45.957 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:45.957 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:45.958 19715-19744 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:46.060 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:46.060 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:46.061 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:46.062 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:46.062 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Unit not ready, retrying... (1 attempts left)
+2025-12-22 21:09:48.936 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:48.942 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:48.948 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:48.949 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:48.957 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:48.958 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:48.959 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:48.959 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:48.959 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:48.961 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:48.961 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:48.962 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:48.962 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:48.963 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:48.963 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:51.938 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:51.943 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:51.952 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:51.952 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:51.963 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:51.963 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:51.964 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:51.964 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:51.964 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:51.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:54.939 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:54.945 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:54.949 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:54.949 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:54.959 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:54.960 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:54.960 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:54.961 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:54.962 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:54.963 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:54.964 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:54.964 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:54.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:54.965 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:54.966 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:09:57.068 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:57.069 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:09:57.069 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:57.069 19715-19748 UsbTransport            com.ble1st.connectias                W  TEST UNIT READY timeout - device may not support this command or is not ready
+2025-12-22 21:09:57.070 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Sending START STOP UNIT (spin up)...
+2025-12-22 21:09:57.948 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:09:57.954 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:09:57.958 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:57.958 19715-19744 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:09:57.971 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:09:57.972 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:09:57.973 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:09:57.974 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:09:57.974 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:09:57.976 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:09:57.977 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:09:57.977 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:57.978 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:09:57.978 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:09:57.979 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:10:00.948 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:10:00.952 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:10:00.956 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:00.956 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:00.982 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:10:00.983 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:10:00.984 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:10:00.984 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:10:00.985 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:10:00.986 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:10:00.987 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:10:00.987 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:00.988 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:00.988 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:10:00.989 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:10:03.949 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:10:03.953 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:10:03.956 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:03.957 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:03.987 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:10:03.988 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:10:03.988 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:10:03.989 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:10:03.990 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:10:03.991 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:10:03.991 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:10:03.992 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:03.993 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:03.993 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:10:03.994 19715-19740 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:10:06.950 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:10:06.955 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:10:06.963 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:06.963 19715-19740 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:06.992 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:10:06.994 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:10:06.995 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:10:06.996 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:10:06.997 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:10:06.998 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:10:06.999 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:10:06.999 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:07.000 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:07.000 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:10:07.001 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:10:07.315 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:10:07.315 19715-19748 UsbTransport            com.ble1st.connectias                E  Bulk in transfer failed: USB transfer timeout (endpoint=129, offset=0, length=13)
+2025-12-22 21:10:07.324 19715-19748 UsbTransport            com.ble1st.connectias                E  START STOP UNIT command failed
+                                                                                                    java.lang.IllegalArgumentException: bulk in failed: USB transfer timeout
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.transferIn(UsbTransport.kt:266)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.readCsw(UsbTransport.kt:278)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.startStopUnit(UsbTransport.kt:100)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.api.UsbMassStorageDevice.init(UsbMassStorageDevice.kt:178)
+                                                                                                    	at com.ble1st.connectias.feature.usb.browser.UsbStorageBrowserProvider$mountDevice$2.invokeSuspend(UsbStorageBrowserProvider.kt:203)
+                                                                                                    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+                                                                                                    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+                                                                                                    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+                                                                                                    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+2025-12-22 21:10:07.327 19715-19748 UsbTransport            com.ble1st.connectias                E  START STOP UNIT command failed
+                                                                                                    java.lang.IllegalArgumentException: bulk in failed: USB transfer timeout
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.transferIn(UsbTransport.kt:266)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.readCsw(UsbTransport.kt:278)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.transport.UsbTransport.startStopUnit(UsbTransport.kt:100)
+                                                                                                    	at com.ble1st.connectias.feature.usb.msc.api.UsbMassStorageDevice.init(UsbMassStorageDevice.kt:178)
+                                                                                                    	at com.ble1st.connectias.feature.usb.browser.UsbStorageBrowserProvider$mountDevice$2.invokeSuspend(UsbStorageBrowserProvider.kt:203)
+                                                                                                    	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
+                                                                                                    	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:100)
+                                                                                                    	at kotlinx.coroutines.internal.LimitedDispatcher$Worker.run(LimitedDispatcher.kt:124)
+                                                                                                    	at kotlinx.coroutines.scheduling.TaskImpl.run(Tasks.kt:89)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler.runSafely(CoroutineScheduler.kt:586)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.executeTask(CoroutineScheduler.kt:820)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:717)
+                                                                                                    	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:704)
+2025-12-22 21:10:07.327 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: START STOP UNIT command failed or not supported
+2025-12-22 21:10:07.329 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: START STOP UNIT command failed or not supported
+2025-12-22 21:10:07.331 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: Unit not ready and spin-up failed, continuing anyway
+2025-12-22 21:10:07.332 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                W  UsbMassStorageDevice.init: Unit not ready and spin-up failed, continuing anyway
+2025-12-22 21:10:07.536 19715-19748 UsbMassStorageDevice    com.ble1st.connectias                D  UsbMassStorageDevice.init: Reading capacity...
+2025-12-22 21:10:09.960 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:10:09.968 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:10:09.975 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:09.975 19715-19743 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:09.985 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:10:09.985 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:10:09.986 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:10:09.986 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:10:09.986 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:10:09.987 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:10:09.987 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:10:09.987 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:09.988 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:09.988 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:10:09.988 19715-19741 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+2025-12-22 21:10:12.963 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  Starting USB device enumeration via UsbManager...
+2025-12-22 21:10:12.969 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                D  UsbManager returned 2 devices
+2025-12-22 21:10:12.973 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:12.973 19715-19741 UsbProvide...ateDevices com.ble1st.connectias                I  USB device enumeration complete: 2 devices found
+2025-12-22 21:10:12.990 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x0BDA, Product=0x8153, Interfaces=4
+2025-12-22 21:10:12.991 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=255, Subclass=255, Protocol=0, Endpoints=3
+2025-12-22 21:10:12.992 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 1: Class=2, Subclass=6, Protocol=0, Endpoints=1
+2025-12-22 21:10:12.993 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 2: Class=10, Subclass=0, Protocol=0, Endpoints=0
+2025-12-22 21:10:12.994 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 3: Class=10, Subclass=0, Protocol=0, Endpoints=2
+2025-12-22 21:10:12.997 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Checking device Vendor=0x152D, Product=0x0578, Interfaces=2
+2025-12-22 21:10:12.998 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Interface 0: Class=8, Subclass=6, Protocol=80, Endpoints=2
+2025-12-22 21:10:12.999 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 129: Direction=128, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:12.999 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D      Endpoint 2: Direction=0, Type=2, MaxPacketSize=1024
+2025-12-22 21:10:13.000 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D    Found Mass Storage interface 0 with IN=129, OUT=2
+2025-12-22 21:10:13.000 19715-19743 UsbMassSto...$Companion com.ble1st.connectias                D  Found 1 Mass Storage device(s)
+

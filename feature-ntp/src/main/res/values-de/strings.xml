@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ntp_title">NTP-Checker</string>
+    <string name="ntp_server_label">NTP-Server</string>
+    <string name="ntp_check_action">Offset abfragen</string>
+</resources>
