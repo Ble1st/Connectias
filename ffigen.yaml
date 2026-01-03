@@ -1,0 +1,7 @@
+# Configuration for ffigen to generate Dart bindings for Rust FFI
+
+name: NativeLibrary
+description: Native bindings for Connectias Rust backend
+path: rust/src/api.rs
+output: lib/bridge_generated.dart
+
