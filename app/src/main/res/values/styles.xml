@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Expressive Typography Styles -->
+
+    <!-- Expressive Button Styles -->
+
+    <!-- Expressive Card Styles -->
+    <!-- Note: Widget.Material3.CardView is not available in Material 1.13.0 for Views -->
+    <!-- Using MaterialComponents.CardView as parent instead -->
+
+</resources>
+

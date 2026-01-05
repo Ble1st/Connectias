@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="barcode_title">Barcode &amp; QR</string>
+    <string name="barcode_request_permission">Kamera erlauben</string>
+    <string name="barcode_scan_title">Scanner</string>
+    <string name="barcode_scan_results">Erkannte Codes</string>
+    <string name="barcode_generate_title">Generator (Single/Batch)</string>
+    <string name="barcode_batch_label">Batch (eine Zeile pro Code)</string>
+    <string name="barcode_generate_batch">Batch generieren</string>
+    <string name="barcode_generated_codes">Generierte Codes</string>
+</resources>

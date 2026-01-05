@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:startDestination="@id/nav_dashboard">
+
+    <!-- Dashboard (Start) -->
+    <fragment
+        android:id="@+id/nav_dashboard"
+        android:name="com.ble1st.connectias.ui.dashboard.DashboardFragment"
+        android:label="Connectias" />
+
+    <!-- Settings -->
+    <fragment
+        android:id="@+id/nav_settings"
+        android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
+        android:label="@string/nav_settings" />
+
+    <!-- System Tools -->
+    <fragment
+        android:id="@+id/nav_log_viewer"
+        android:name="com.ble1st.connectias.core.logging.ui.LogViewerFragment"
+        android:label="@string/nav_log_viewer" />
+
+    <!-- Secure Notes -->
+    <fragment
+        android:id="@+id/nav_secure_notes"
+        android:name="com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment"
+        android:label="@string/nav_secure_notes" />
+
+    <!-- USB Tools -->
+    <fragment
+        android:id="@+id/nav_dvd_cd_detail"
+        android:name="com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
+        android:label="@string/nav_dvd_cd_detail" />
+
+    <fragment
+        android:id="@+id/nav_dvd_player"
+        android:name="com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
+        android:label="@string/nav_dvd_player" />
+
+    <!-- Bluetooth Scanner -->
+    <fragment
+        android:id="@+id/nav_bluetooth_scanner"
+        android:name="com.ble1st.connectias.feature.bluetooth.ui.BluetoothScannerFragment"
+        android:label="@string/nav_bluetooth_scanner" />
+
+    <!-- Network Tools -->
+    <fragment
+        android:id="@+id/nav_network_tools"
+        android:name="com.ble1st.connectias.feature.network.ui.NetworkToolsFragment"
+        android:label="@string/nav_network_tools" />
+
+    <fragment
+        android:id="@+id/nav_dns_tools"
+        android:name="com.ble1st.connectias.feature.dnstools.ui.DnsToolsFragment"
+        android:label="@string/nav_dns_tools" />
+
+    <fragment
+        android:id="@+id/nav_barcode_tools"
+        android:name="com.ble1st.connectias.feature.barcode.ui.BarcodeFragment"
+        android:label="@string/nav_barcode_tools" />
+
+    <fragment
+        android:id="@+id/nav_calendar"
+        android:name="com.ble1st.connectias.feature.calendar.ui.CalendarFragment"
+        android:label="@string/nav_calendar" />
+
+    <fragment
+        android:id="@+id/nav_ntp"
+        android:name="com.ble1st.connectias.feature.ntp.ui.NtpFragment"
+        android:label="@string/nav_ntp" />
+
+    <fragment
+        android:id="@+id/nav_ssh"
+        android:name="com.ble1st.connectias.feature.ssh.ui.SshFragment"
+        android:label="@string/nav_ssh" />
+
+    <fragment
+        android:id="@+id/nav_password"
+        android:name="com.ble1st.connectias.feature.password.ui.PasswordFragment"
+        android:label="@string/nav_password" />
+
+    <fragment
+        android:id="@+id/nav_scanner"
+        android:name="com.ble1st.connectias.feature.scanner.ui.ScannerFragment"
+        android:label="Document Scanner" />
+
+    <!-- GPS Satellites -->
+    <fragment
+        android:id="@+id/nav_gps"
+        android:name="com.ble1st.connectias.feature.satellite.ui.SatelliteFragment"
+        android:label="@string/nav_gps" />
+
+    <!-- Device Info (Optional - only included if feature.device.info.enabled=true) -->
+    <fragment
+        android:id="@+id/nav_device_info"
+        android:name="com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
+        android:label="@string/nav_device_info" />
+
+</navigation>

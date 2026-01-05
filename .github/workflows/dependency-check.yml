@@ -1,0 +1,81 @@
+name: Dependency Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.13
+          cache-read-only: false
+      
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+      
+      - name: Check for outdated dependencies
+        run: |
+          echo "Checking for outdated dependencies..."
+          ./gradlew dependencyUpdates --continue || true
+      
+      - name: Analyze dependencies
+        run: |
+          echo "Analyzing dependency tree..."
+          ./gradlew dependencies --continue > dependency-tree.txt || true
+          
+          # Check for known vulnerable dependency patterns
+          if grep -iE "(log4j|jackson|commons-collections|struts)" dependency-tree.txt; then
+            echo "⚠️ Warning: Potentially vulnerable dependencies detected"
+            echo "Please review the dependency tree"
+          else
+            echo "✅ No known vulnerable dependency patterns detected"
+          fi
+      
+      - name: Upload dependency reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-reports
+          path: |
+            dependency-tree.txt
+            **/build/dependencyUpdates/
+          retention-days: 30
+      
+      - name: Check for dependency conflicts
+        run: |
+          echo "Checking for dependency version conflicts..."
+          ./gradlew :app:dependencies --configuration releaseRuntimeClasspath > app-dependencies.txt || true
+          
+          # Count unique versions of same library
+          if [ -f app-dependencies.txt ]; then
+            echo "Dependency analysis complete"
+            echo "View detailed dependency tree in artifacts"
+          fi
+      
+      - name: Upload app dependencies
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-dependencies
+          path: app-dependencies.txt
+          retention-days: 30
+

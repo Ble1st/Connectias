@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base Colors - Note: These are unused but kept for potential future use -->
+    
+    <!-- Material 3 Expressive Color Palette -->
+    <!-- Primary Color: Bold Blue (#0041C4) -->
+    <color name="md_theme_light_primary">#0041C4</color>
+    <color name="md_theme_light_onPrimary">#FFFFFF</color>
+    <color name="md_theme_light_primaryContainer">#D6E3FF</color>
+    <color name="md_theme_light_onPrimaryContainer">#001A42</color>
+    
+    <!-- Secondary Color: Expressive Accent -->
+    <color name="md_theme_light_secondary">#006874</color>
+    <color name="md_theme_light_onSecondary">#FFFFFF</color>
+    <color name="md_theme_light_secondaryContainer">#97F0FF</color>
+    <color name="md_theme_light_onSecondaryContainer">#001F24</color>
+    
+    <!-- Tertiary Color: Bold Accent -->
+    <color name="md_theme_light_tertiary">#7D5260</color>
+    <color name="md_theme_light_onTertiary">#FFFFFF</color>
+    <color name="md_theme_light_tertiaryContainer">#FFD8E4</color>
+    <color name="md_theme_light_onTertiaryContainer">#31111D</color>
+    
+    <!-- Error Colors -->
+    <color name="md_theme_light_error">#BA1A1A</color>
+    <color name="md_theme_light_errorContainer">#FFDAD6</color>
+    <color name="md_theme_light_onError">#FFFFFF</color>
+    <color name="md_theme_light_onErrorContainer">#410002</color>
+    
+    <!-- Surface Colors (Expressive Layering) -->
+    <color name="md_theme_light_background">#FEFBFF</color>
+    <color name="md_theme_light_surface">#FEFBFF</color>
+    <color name="md_theme_light_onSurface">#1A1C1E</color>
+    <color name="md_theme_light_surfaceVariant">#DFE2EB</color>
+    <color name="md_theme_light_onSurfaceVariant">#43474E</color>
+    <color name="md_theme_light_outline">#73777F</color>
+    <color name="md_theme_light_outlineVariant">#C3C7CF</color>
+    
+    <!-- Surface Container (Expressive Layering) -->
+    <color name="md_theme_light_surfaceContainerHighest">#E3E6ED</color>
+    <color name="md_theme_light_surfaceContainerHigh">#E9ECF3</color>
+    <color name="md_theme_light_surfaceContainer">#EFF2F9</color>
+    <color name="md_theme_light_surfaceContainerLow">#F5F8FF</color>
+    <color name="md_theme_light_surfaceContainerLowest">#FFFFFF</color>
+    
+    <!-- Inverse Colors -->
+
+    <!-- Shadow -->
+
+    <!-- Dark Theme Colors -->
+    <color name="md_theme_dark_primary">#AEC7FF</color>
+    <color name="md_theme_dark_onPrimary">#002E6B</color>
+    <color name="md_theme_dark_primaryContainer">#004395</color>
+    <color name="md_theme_dark_onPrimaryContainer">#D6E3FF</color>
+    
+    <color name="md_theme_dark_secondary">#4FD8EB</color>
+    <color name="md_theme_dark_onSecondary">#00363D</color>
+    <color name="md_theme_dark_secondaryContainer">#004F58</color>
+    <color name="md_theme_dark_onSecondaryContainer">#97F0FF</color>
+    
+    <color name="md_theme_dark_tertiary">#EFB8C8</color>
+    <color name="md_theme_dark_onTertiary">#492532</color>
+    <color name="md_theme_dark_tertiaryContainer">#633B48</color>
+    <color name="md_theme_dark_onTertiaryContainer">#FFD8E4</color>
+    
+    <color name="md_theme_dark_error">#FFB4AB</color>
+    <color name="md_theme_dark_errorContainer">#93000A</color>
+    <color name="md_theme_dark_onError">#690005</color>
+    <color name="md_theme_dark_onErrorContainer">#FFDAD6</color>
+    
+    <color name="md_theme_dark_background">#1A1C1E</color>
+    <color name="md_theme_dark_surface">#1A1C1E</color>
+    <color name="md_theme_dark_onSurface">#E2E2E6</color>
+    <color name="md_theme_dark_surfaceVariant">#43474E</color>
+    <color name="md_theme_dark_onSurfaceVariant">#C3C7CF</color>
+    <color name="md_theme_dark_outline">#8D9199</color>
+    <color name="md_theme_dark_outlineVariant">#43474E</color>
+    
+    <color name="md_theme_dark_surfaceContainerHighest">#36393F</color>
+    <color name="md_theme_dark_surfaceContainerHigh">#2F3135</color>
+    <color name="md_theme_dark_surfaceContainer">#282A2E</color>
+    <color name="md_theme_dark_surfaceContainerLow">#222428</color>
+    <color name="md_theme_dark_surfaceContainerLowest">#14161A</color>
+
+    <!-- Semantic Colors (Expressive) -->
+</resources>

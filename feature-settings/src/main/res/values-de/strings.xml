@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Settings Screen -->
+
+    <!-- Appearance Section -->
+    <string name="settings_appearance">Darstellung</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_theme_light">Hell</string>
+    <string name="settings_theme_dark">Dunkel</string>
+    <string name="settings_theme_system">Systemstandard</string>
+    <string name="settings_theme_style">Theme-Stil</string>
+    <string name="settings_theme_style_standard">Standard</string>
+    <string name="settings_theme_style_adeptus_mechanicus">Adeptus Mechanicus</string>
+    <string name="settings_dynamic_color">Dynamische Farben</string>
+    <string name="settings_dynamic_color_description">Nutze Material-You-Farben (Android 12+)</string>
+
+    <!-- Security Section -->
+    <string name="settings_auto_lock">Automatische Sperre</string>
+    <string name="settings_auto_lock_description">Sperrt die App nach Inaktivität automatisch</string>
+    <string name="settings_rasp_logging">RASP-Logging</string>
+    <string name="settings_rasp_logging_description">Aktiviere Logging für Runtime Application Self-Protection</string>
+
+    <!-- Network Section -->
+
+    <!-- Privacy Section -->
+
+    <!-- Advanced Section -->
+    <string name="settings_advanced">Erweitert</string>
+    <string name="settings_logging_level">Logging-Level</string>
+
+    <!-- Reset Section -->
+    <string name="settings_reset">Zurücksetzen</string>
+    <string name="settings_reset_all">Alle Einstellungen zurücksetzen</string>
+    <string name="settings_reset_confirm_title">Einstellungen zurücksetzen?</string>
+    <string name="settings_reset_confirm_message">Dadurch setzt du alle Einstellungen auf Standard zurück. Das kann nicht rückgängig gemacht werden.</string>
+    <string name="settings_reset_confirm_button">Zurücksetzen</string>
+    <string name="settings_reset_cancel_button">Abbrechen</string>
+
+    <!-- Messages -->
+</resources>

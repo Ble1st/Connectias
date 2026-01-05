@@ -1,0 +1,102 @@
+---
+# Clang-Tidy Configuration for Connectias Project
+# Priority-based configuration following Universal Rules
+
+# Checks enabled by priority level
+# P0: Security, Error Handling, Data Safety
+# P1: Code Quality, Architecture, Performance
+# P2: Code Style, Documentation, Testing
+
+Checks: >
+  # P0: Security and Safety Checks (enabled)
+  bugprone-*,
+  cert-*,
+  clang-analyzer-security*,
+  cppcoreguidelines-avoid-goto,
+  cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  cppcoreguidelines-pro-bounds-constant-array-index,
+  cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  cppcoreguidelines-pro-type-const-cast,
+  cppcoreguidelines-pro-type-reinterpret-cast,
+  cppcoreguidelines-pro-type-union-access,
+  cppcoreguidelines-pro-type-vararg,
+  misc-non-private-member-variables-in-classes,
+  
+  # P1: Code Quality Checks (enabled)
+  cppcoreguidelines-*,
+  modernize-*,
+  performance-*,
+  readability-*,
+  
+  # Disable checks that conflict with JNI/Android patterns
+  -readability-uppercase-literal-suffix,
+  -cppcoreguidelines-pro-type-member-init,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -modernize-use-trailing-return-type,
+  -readability-avoid-const-params-in-decls,
+  -readability-convert-member-functions-to-static,
+  -readability-redundant-access-specifiers,
+  -readability-redundant-member-init,
+  -readability-simplify-boolean-expr,
+  -readability-use-anyofallof,
+  -modernize-use-nodiscard,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-special-member-functions
+
+# Warnings as errors for critical issues
+WarningsAsErrors: ''
+
+# Header filter - only check our code, not external libraries
+# Check our JNI files and headers, but skip external/ directory
+HeaderFilterRegex: '(feature-dvd/src/main/cpp/(dvd_jni|vlc_jni|dvd_wrapper|include).*|^((?!external/).)*$)'
+
+# Check options
+CheckOptions:
+  # Performance checks
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
+    value: true
+  - key: performance-unnecessary-copy-initialization.AllowedTypes
+    value: 'std::(basic_string|string_view);llvm::(StringRef|SmallString)'
+  
+  # Readability checks
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.FunctionCase
+    value: camelBack
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ParameterCase
+    value: camelBack
+  - key: readability-identifier-naming.MemberCase
+    value: camelBack
+  - key: readability-identifier-naming.PrivateMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.ProtectedMemberPrefix
+    value: m_
+  - key: readability-identifier-naming.GlobalConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.GlobalConstantPrefix
+    value: g_
+  - key: readability-identifier-naming.StaticConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  
+  # Magic numbers - allow common values
+  - key: readability-magic-numbers.IgnoredValues
+    value: '0;1;2;3;4;5;8;16;32;64;100;1000;1024;2048;4096;8192'
+  
+  # Function length
+  - key: readability-function-length.LineThreshold
+    value: 200
+  
+  # Parameter count
+  - key: readability-function-cognitive-complexity.Threshold
+    value: 25
+
+# System headers - don't check system headers
+SystemHeaders: false
+
+# Use color output
+UseColor: true
+
