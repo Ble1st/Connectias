@@ -48,6 +48,12 @@ class SecureNotesProvider @Inject constructor(
     
     private val keyAlias = "secure_notes_key"
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    
+    private val rustEncryption = try {
+        RustEncryption()
+    } catch (e: Exception) {
+        null // Fallback to Kotlin if Rust not available
+    }
 
     private val _notes = MutableStateFlow<List<SecureNote>>(emptyList())
     val notes: StateFlow<List<SecureNote>> = _notes.asStateFlow()
@@ -132,8 +138,39 @@ class SecureNotesProvider @Inject constructor(
 
     /**
      * Encrypts content using AES-256-GCM.
+     * Uses Rust implementation (primary) with fallback to Kotlin implementation.
      */
     suspend fun encrypt(plainText: String): String = withContext(Dispatchers.Default) {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustEncryption != null) {
+            try {
+                Timber.i("🔴 [SecureNotesProvider] Using RUST implementation for encryption")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val result = rustEncryption.encrypt(plainText, getSecretKey())
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [SecureNotesProvider] RUST encryption completed in ${rustDuration}ms")
+                Timber.d("📊 [SecureNotesProvider] Total time (including overhead): ${totalDuration}ms")
+                
+                return@withContext result
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [SecureNotesProvider] RUST encryption failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [SecureNotesProvider] Rust encryption not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [SecureNotesProvider] Using KOTLIN implementation for encryption")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         try {
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             cipher.init(Cipher.ENCRYPT_MODE, getSecretKey())
@@ -146,7 +183,15 @@ class SecureNotesProvider @Inject constructor(
             System.arraycopy(iv, 0, combined, 0, iv.size)
             System.arraycopy(encryptedBytes, 0, combined, iv.size, encryptedBytes.size)
 
-            Base64.getEncoder().encodeToString(combined)
+            val result = Base64.getEncoder().encodeToString(combined)
+            
+            val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+            val totalDuration = System.currentTimeMillis() - startTime
+            
+            Timber.i("✅ [SecureNotesProvider] KOTLIN encryption completed in ${kotlinDuration}ms")
+            Timber.d("📊 [SecureNotesProvider] Total time (including overhead): ${totalDuration}ms")
+            
+            return@withContext result
         } catch (e: Exception) {
             Timber.e(e, "Encryption failed")
             throw mapKeyStoreAuthError(e)
@@ -155,8 +200,39 @@ class SecureNotesProvider @Inject constructor(
 
     /**
      * Decrypts content using AES-256-GCM.
+     * Uses Rust implementation (primary) with fallback to Kotlin implementation.
      */
     suspend fun decrypt(encryptedText: String): String = withContext(Dispatchers.Default) {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustEncryption != null) {
+            try {
+                Timber.i("🔴 [SecureNotesProvider] Using RUST implementation for decryption")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val result = rustEncryption.decrypt(encryptedText, getSecretKey())
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [SecureNotesProvider] RUST decryption completed in ${rustDuration}ms")
+                Timber.d("📊 [SecureNotesProvider] Total time (including overhead): ${totalDuration}ms")
+                
+                return@withContext result
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [SecureNotesProvider] RUST decryption failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [SecureNotesProvider] Rust decryption not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [SecureNotesProvider] Using KOTLIN implementation for decryption")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         try {
             val combined = Base64.getDecoder().decode(encryptedText)
 
@@ -168,7 +244,15 @@ class SecureNotesProvider @Inject constructor(
             cipher.init(Cipher.DECRYPT_MODE, getSecretKey(), spec)
 
             val decryptedBytes = cipher.doFinal(encryptedBytes)
-            String(decryptedBytes, Charsets.UTF_8)
+            val result = String(decryptedBytes, Charsets.UTF_8)
+            
+            val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+            val totalDuration = System.currentTimeMillis() - startTime
+            
+            Timber.i("✅ [SecureNotesProvider] KOTLIN decryption completed in ${kotlinDuration}ms")
+            Timber.d("📊 [SecureNotesProvider] Total time (including overhead): ${totalDuration}ms")
+            
+            return@withContext result
         } catch (e: Exception) {
             Timber.e(e, "Decryption failed")
             throw mapKeyStoreAuthError(e)

@@ -34,7 +34,21 @@ class KeyManager @Inject constructor(
         private const val PREFS_NAME = "connectias_secure_prefs"
         private const val KEY_DB_PASSPHRASE = "db_passphrase"
         private const val PASSPHRASE_LENGTH = 32 // ~196 bits of entropy
+        
+        init {
+            try {
+                System.loadLibrary("connectias_root_detector")
+                Timber.d("Rust KeyManager library loaded successfully")
+            } catch (e: UnsatisfiedLinkError) {
+                Timber.w(e, "Failed to load Rust KeyManager library, using Kotlin fallback")
+            }
+        }
     }
+    
+    /**
+     * Native method to generate passphrase using Rust implementation.
+     */
+    private external fun nativeGeneratePassphrase(length: Int): String
     
     /**
      * Converts CharArray to ByteArray using CharsetEncoder to avoid creating intermediate String objects.
@@ -255,17 +269,55 @@ class KeyManager @Inject constructor(
 
     /**
      * Generates a cryptographically secure random passphrase.
-     * Uses SecureRandom for generation.
+     * Uses Rust implementation (primary) with fallback to Kotlin SecureRandom.
      * Returns CharArray to minimize memory exposure window.
      *
      * @return Secure random passphrase as CharArray
      */
     private fun generateSecurePassphrase(): CharArray {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        try {
+            Timber.i("🔴 [KeyManager] Using RUST implementation for passphrase generation")
+            val rustStartTime = System.currentTimeMillis()
+            
+            val passphrase = nativeGeneratePassphrase(PASSPHRASE_LENGTH)
+            
+            val rustDuration = System.currentTimeMillis() - rustStartTime
+            val totalDuration = System.currentTimeMillis() - startTime
+            
+            Timber.i("✅ [KeyManager] RUST passphrase generation completed in ${rustDuration}ms")
+            Timber.d("📊 [KeyManager] Total time (including overhead): ${totalDuration}ms")
+            
+            return passphrase.toCharArray()
+        } catch (e: UnsatisfiedLinkError) {
+            val rustDuration = System.currentTimeMillis() - startTime
+            Timber.w(e, "❌ [KeyManager] RUST passphrase generation failed (native library/link error) after ${rustDuration}ms, falling back to Kotlin")
+            // Fall through to Kotlin implementation
+        } catch (e: Throwable) {
+            val rustDuration = System.currentTimeMillis() - startTime
+            Timber.w(e, "❌ [KeyManager] RUST passphrase generation failed after ${rustDuration}ms, falling back to Kotlin")
+            // Fall through to Kotlin implementation
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [KeyManager] Using KOTLIN implementation for passphrase generation")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         val random = SecureRandom()
         val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*"
-        return CharArray(PASSPHRASE_LENGTH) {
+        val result = CharArray(PASSPHRASE_LENGTH) {
             chars[random.nextInt(chars.length)]
         }
+        
+        val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
+        Timber.i("✅ [KeyManager] KOTLIN passphrase generation completed in ${kotlinDuration}ms")
+        Timber.d("📊 [KeyManager] Total time (including overhead): ${totalDuration}ms")
+        
+        return result
     }
 }
 

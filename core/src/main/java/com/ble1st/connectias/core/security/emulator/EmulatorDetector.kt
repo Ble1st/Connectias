@@ -19,14 +19,52 @@ import java.io.File
  * consider integrating Google Play Integrity API or SafetyNet attestation
  * and performing server-side verification of attestation tokens combined
  * with these client-side signals.
+ * 
+ * Uses Rust implementation (primary) with fallback to Kotlin implementation.
  */
 class EmulatorDetector(private val context: Context? = null) {
     
+    private val rustDetector = try {
+        RustEmulatorDetector(context)
+    } catch (e: Exception) {
+        null // Fallback to Kotlin if Rust not available
+    }
+    
     /**
-     * Detects emulator using multiple heuristics.
+     * Detects emulator using Rust implementation (primary) with fallback to Kotlin.
      * This method performs blocking I/O and should be called from a background thread.
      */
     suspend fun detectEmulator(): EmulatorDetectionResult = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustDetector != null) {
+            try {
+                Timber.i("🔴 [EmulatorDetector] Using RUST implementation")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val result = rustDetector.detectEmulator()
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [EmulatorDetector] RUST detection completed - Emulator: ${result.isEmulator}, Methods: ${result.detectionMethodNames.size} | Duration: ${rustDuration}ms")
+                Timber.d("📊 [EmulatorDetector] Total time (including overhead): ${totalDuration}ms")
+                
+                return@withContext result
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [EmulatorDetector] RUST detection failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [EmulatorDetector] Rust detector not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [EmulatorDetector] Using KOTLIN implementation")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         val detectionMethods = mutableListOf<String>()
         
         // 1. Check Build properties
@@ -46,6 +84,9 @@ class EmulatorDetector(private val context: Context? = null) {
         // 6. Check CPU/ABI anomalies
         checkCPUABI(detectionMethods)
         
+        val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
         // Build debug details map (only for debug builds, contains PII)
         val debugDetails = if (BuildConfig.DEBUG) {
             buildDebugDetails()
@@ -53,11 +94,16 @@ class EmulatorDetector(private val context: Context? = null) {
             null
         }
         
-        return@withContext EmulatorDetectionResult(
+        val result = EmulatorDetectionResult(
             isEmulator = detectionMethods.isNotEmpty(),
             detectionMethodNames = detectionMethods,
             debugDetails = debugDetails
         )
+        
+        Timber.i("✅ [EmulatorDetector] KOTLIN detection completed - Emulator: ${result.isEmulator}, Methods: ${result.detectionMethodNames.size} | Duration: ${kotlinDuration}ms")
+        Timber.d("📊 [EmulatorDetector] Total time (including overhead): ${totalDuration}ms")
+        
+        return@withContext result
     }
     
     /**

@@ -29,16 +29,50 @@ class RootDetector(private val context: Context? = null) {
         context?.let { RootBeer(it) }
     }
     
+    private val rustDetector = try {
+        RustRootDetector(context)
+    } catch (e: Exception) {
+        null // Fallback to RootBeer if Rust not available
+    }
+    
     /**
-     * Detects root access using RootBeer library (primary) and additional specific heuristics.
-     * RootBeer covers most common root detection methods, so custom checks focus on
-     * specific cases like Magisk and Xposed that may not be fully covered by RootBeer.
+     * Detects root access using Rust implementation (primary) with fallback to RootBeer.
      * 
      * This method performs blocking I/O and should be called from a background thread.
      * 
      * @return RootDetectionResult with detection status and methods
      */
     suspend fun detectRoot(): RootDetectionResult = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustDetector != null) {
+            try {
+                Timber.i("🔴 [RootDetector] Using RUST implementation")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val result = rustDetector.detectRoot()
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [RootDetector] RUST detection completed - Rooted: ${result.isRooted}, Methods: ${result.detectionMethods.size} | Duration: ${rustDuration}ms")
+                Timber.d("📊 [RootDetector] Total time (including overhead): ${totalDuration}ms")
+                
+                return@withContext result
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [RootDetector] RUST detection failed after ${rustDuration}ms, falling back to RootBeer")
+                // Fall through to RootBeer implementation
+            }
+        } else {
+            Timber.w("⚠️ [RootDetector] Rust detector not available, using RootBeer")
+        }
+        
+        // Fallback to RootBeer implementation
+        Timber.i("🟢 [RootDetector] Using ROOTBEER implementation")
+        val rootBeerStartTime = System.currentTimeMillis()
+        
         val detectionMethods = mutableListOf<String>()
         
         // 1. RootBeer comprehensive check (primary method - replaces most custom checks)
@@ -55,6 +89,19 @@ class RootDetector(private val context: Context? = null) {
         
         // Check for Xposed frameworks (RootBeer doesn't specifically check for Xposed)
         checkXposed(detectionMethods)
+        
+        val rootBeerDuration = System.currentTimeMillis() - rootBeerStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
+        val result = RootDetectionResult(
+            isRooted = detectionMethods.isNotEmpty(),
+            detectionMethods = detectionMethods
+        )
+        
+        Timber.i("✅ [RootDetector] ROOTBEER detection completed - Rooted: ${result.isRooted}, Methods: ${result.detectionMethods.size} | Duration: ${rootBeerDuration}ms")
+        Timber.d("📊 [RootDetector] Total time (including overhead): ${totalDuration}ms")
+        
+        result
         
         // Note: The following checks are now handled by RootBeer:
         // - checkSuBinaries() - RootBeer checks su binaries

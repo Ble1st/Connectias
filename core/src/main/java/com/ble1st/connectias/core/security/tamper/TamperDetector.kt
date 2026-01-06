@@ -19,16 +19,54 @@ import java.io.File
  * 
  * Note: Detection performs I/O operations on Dispatchers.IO automatically.
  * Call from any coroutine context; threading is handled internally.
+ * 
+ * Uses Rust implementation (primary) with fallback to Kotlin implementation.
  */
 class TamperDetector(private val context: Context? = null) {
     
+    private val rustDetector = try {
+        RustTamperDetector(context)
+    } catch (e: Exception) {
+        null // Fallback to Kotlin if Rust not available
+    }
+    
     /**
-     * Detects tampering using multiple heuristics.
+     * Detects tampering using Rust implementation (primary) with fallback to Kotlin.
      * This is a suspend function that performs I/O on Dispatchers.IO to avoid blocking.
      * 
      * @return TamperDetectionResult with detection status and methods
      */
     suspend fun detectTampering(): TamperDetectionResult = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustDetector != null) {
+            try {
+                Timber.i("🔴 [TamperDetector] Using RUST implementation")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val result = rustDetector.detectTampering()
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [TamperDetector] RUST detection completed - Tampered: ${result.isTampered}, Methods: ${result.detectionMethods.size} | Duration: ${rustDuration}ms")
+                Timber.d("📊 [TamperDetector] Total time (including overhead): ${totalDuration}ms")
+                
+                return@withContext result
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [TamperDetector] RUST detection failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [TamperDetector] Rust detector not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [TamperDetector] Using KOTLIN implementation")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         val detectionMethods = mutableListOf<String>()
         
         // 1. Check for hook frameworks (Xposed variants)
@@ -45,10 +83,18 @@ class TamperDetector(private val context: Context? = null) {
             checkHookingApps(detectionMethods, context)
         }
         
-        return@withContext TamperDetectionResult(
+        val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
+        val result = TamperDetectionResult(
             isTampered = detectionMethods.isNotEmpty(),
             detectionMethods = detectionMethods
         )
+        
+        Timber.i("✅ [TamperDetector] KOTLIN detection completed - Tampered: ${result.isTampered}, Methods: ${result.detectionMethods.size} | Duration: ${kotlinDuration}ms")
+        Timber.d("📊 [TamperDetector] Total time (including overhead): ${totalDuration}ms")
+        
+        return@withContext result
     }
     
     /**

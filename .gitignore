@@ -102,3 +102,44 @@ lint/tmp/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Rust build artifacts
+# Target directories (Rust build output)
+**/target/
+**/target/**/*
+
+# Rust incremental compilation cache
+**/target/**/incremental/
+
+# Rust documentation
+**/target/doc/
+
+# Rust test artifacts
+**/target/**/*.d
+**/target/**/*.rmeta
+**/target/**/*.rlib
+
+# Rust build scripts output
+**/target/**/.fingerprint/
+
+# Rust backup files
+**/*.rs.bk
+
+# Rust IDE files (rust-analyzer)
+.rust-analyzer/
+rust-project.json
+
+# Compiled native libraries (already in target/, but explicit for safety)
+**/src/main/jniLibs/**/*.so
+!**/src/main/jniLibs/.gitkeep
+
+# Rust coverage reports
+**/coverage/
+**/*.profraw
+**/tarpaulin-report.html
+
+# Rust benchmarks
+**/target/**/criterion/
+
+# Rust flamegraph output
+**/flamegraph.svg

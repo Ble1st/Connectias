@@ -17,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
@@ -25,6 +26,11 @@ import timber.log.Timber
 class NetworkScanner(
     private val connectivityManager: ConnectivityManager
 ) {
+    private val rustScanner = try {
+        RustNetworkScanner()
+    } catch (e: Exception) {
+        null // Fallback to Kotlin if Rust not available
+    }
 
     suspend fun detectEnvironment(): NetworkEnvironment? = withContext(Dispatchers.IO) {
         val active = connectivityManager.activeNetwork
@@ -76,6 +82,36 @@ class NetworkScanner(
         maxHosts: Int = 512,
         onProgress: (Float) -> Unit = {}
     ): List<HostInfo> = coroutineScope {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster)
+        if (rustScanner != null) {
+            try {
+                Timber.i("🔴 [NetworkScanner] Using RUST implementation for network scan")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val results = rustScanner.scanHosts(environment, timeoutMs, maxConcurrency, maxHosts, onProgress)
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [NetworkScanner] RUST network scan completed in ${rustDuration}ms - Found ${results.size} hosts")
+                Timber.d("📊 [NetworkScanner] Total time (including overhead): ${totalDuration}ms")
+                
+                return@coroutineScope results
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [NetworkScanner] RUST network scan failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [NetworkScanner] Rust scanner not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [NetworkScanner] Using KOTLIN implementation for network scan")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         val (baseIp, prefix) = parseCidr(environment.cidr)
             ?: return@coroutineScope emptyList()
 
@@ -96,6 +132,12 @@ class NetworkScanner(
                 }
             }
         }.awaitAll()
+
+        val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
+        Timber.i("✅ [NetworkScanner] KOTLIN network scan completed in ${kotlinDuration}ms - Found ${results.filter { it.isReachable }.size} hosts")
+        Timber.d("📊 [NetworkScanner] Total time (including overhead): ${totalDuration}ms")
 
         results
             .filter { it.isReachable }
@@ -194,21 +236,33 @@ class NetworkScanner(
         return "${bytes[0].toInt() and 0xFF}.${bytes[1].toInt() and 0xFF}.${bytes[2].toInt() and 0xFF}.${bytes[3].toInt() and 0xFF}"
     }
 
-    private fun readArpEntry(ip: String): String? = runCatching {
-        val arp = File("/proc/net/arp")
-        if (!arp.exists()) return@runCatching null
-        arp.readLines()
-            .drop(1)
-            .mapNotNull { line ->
-                val parts = line.split(Regex("\\s+"))
-                if (parts.size >= 4) parts[0] to parts[3] else null
+    private fun readArpEntry(ip: String): String? {
+        // Try Rust implementation first
+        if (rustScanner != null) {
+            try {
+                return runBlocking { rustScanner.readArpEntry(ip) }
+            } catch (e: Exception) {
+                Timber.w(e, "Rust ARP read failed, falling back to Kotlin")
             }
-            .firstOrNull { it.first == ip }
-            ?.second
-            ?.takeIf { it != "00:00:00:00:00:00" }
-    }.getOrNull().also {
-        if (it == null) {
-            Timber.d("No ARP entry for $ip")
+        }
+        
+        // Fallback to Kotlin implementation
+        return runCatching {
+            val arp = File("/proc/net/arp")
+            if (!arp.exists()) return@runCatching null
+            arp.readLines()
+                .drop(1)
+                .mapNotNull { line ->
+                    val parts = line.split(Regex("\\s+"))
+                    if (parts.size >= 4) parts[0] to parts[3] else null
+                }
+                .firstOrNull { it.first == ip }
+                ?.second
+                ?.takeIf { it != "00:00:00:00:00:00" }
+        }.getOrNull().also {
+            if (it == null) {
+                Timber.d("No ARP entry for $ip")
+            }
         }
     }
 }

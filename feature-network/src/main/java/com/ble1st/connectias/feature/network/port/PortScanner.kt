@@ -17,6 +17,12 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 
 class PortScanner {
+    
+    private val rustScanner = try {
+        RustPortScanner()
+    } catch (e: Exception) {
+        null // Fallback to Kotlin implementation if Rust not available
+    }
 
     suspend fun scan(
         host: String,
@@ -26,6 +32,40 @@ class PortScanner {
         maxConcurrency: Int = 128,
         onProgress: (Float) -> Unit = {}
     ): List<PortResult> = withContext(Dispatchers.IO) {
+        val startTime = System.currentTimeMillis()
+        val portRange = endPort - startPort + 1
+        
+        // Try Rust implementation first (much faster)
+        if (rustScanner != null) {
+            try {
+                Timber.i("🔴 [PortScanner] Using RUST implementation - Range: $startPort-$endPort ($portRange ports)")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val results = rustScanner.scan(host, startPort, endPort, timeoutMs, maxConcurrency)
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                val portsPerSecond = if (rustDuration > 0) (portRange * 1000.0 / rustDuration).toInt() else 0
+                
+                Timber.i("✅ [PortScanner] RUST scan completed - Found: ${results.size} open ports | Duration: ${rustDuration}ms | Speed: ~$portsPerSecond ports/sec")
+                Timber.d("📊 [PortScanner] Total time (including overhead): ${totalDuration}ms")
+                
+                // Call progress callback for compatibility
+                onProgress(1.0f)
+                return@withContext results
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [PortScanner] RUST scan failed after ${rustDuration}ms, falling back to Kotlin implementation")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [PortScanner] Rust scanner not available, using Kotlin implementation")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟢 [PortScanner] Using KOTLIN implementation - Range: $startPort-$endPort ($portRange ports)")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         coroutineScope {
             if (startPort < 1 || endPort > 65535 || endPort < startPort) {
                 throw IllegalArgumentException("Invalid port range $startPort-$endPort")
@@ -54,7 +94,15 @@ class PortScanner {
                 }
             }.awaitAll()
 
-            results.filter { it.isOpen }.sortedBy { it.port }
+            val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+            val totalDuration = System.currentTimeMillis() - startTime
+            val openPorts = results.filter { it.isOpen }.sortedBy { it.port }
+            val portsPerSecond = if (kotlinDuration > 0) (portRange * 1000.0 / kotlinDuration).toInt() else 0
+            
+            Timber.i("✅ [PortScanner] KOTLIN scan completed - Found: ${openPorts.size} open ports | Duration: ${kotlinDuration}ms | Speed: ~$portsPerSecond ports/sec")
+            Timber.d("📊 [PortScanner] Total time (including overhead): ${totalDuration}ms")
+            
+            openPorts
         }
     }
 
@@ -69,7 +117,10 @@ class PortScanner {
                 banner = tryReadBanner(socket)
             }
         } catch (e: Exception) {
-            Timber.v(e, "Port $port closed or filtered")
+            // Verbose logging disabled for performance - only log in debug mode
+            if (Timber.forest().any { it is timber.log.Timber.DebugTree }) {
+                Timber.v(e, "🟢 [PortScanner] Port $port closed or filtered")
+            }
         }
         val service = PortServiceRegistry.serviceFor(port)
         return PortResult(port = port, isOpen = isOpen, service = service, banner = banner)

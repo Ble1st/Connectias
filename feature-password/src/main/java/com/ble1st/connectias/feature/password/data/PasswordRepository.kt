@@ -1,7 +1,9 @@
 package com.ble1st.connectias.feature.password.data
 
 import com.ble1st.connectias.feature.password.domain.PasswordAnalyzer
+import com.ble1st.connectias.feature.password.domain.RustPasswordGenerator
 import kotlinx.coroutines.flow.Flow
+import timber.log.Timber
 import java.security.SecureRandom
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,6 +15,12 @@ class PasswordRepository @Inject constructor(
     private val passwordAnalyzer: PasswordAnalyzer
 ) {
     private val secureRandom = SecureRandom()
+    
+    private val rustGenerator = try {
+        RustPasswordGenerator()
+    } catch (e: Exception) {
+        null // Fallback to Kotlin if Rust not available
+    }
     
     val history: Flow<List<PasswordHistoryEntity>> = passwordDao.getAllHistory()
 
@@ -33,7 +41,8 @@ class PasswordRepository @Inject constructor(
         val entropy = if (charSpace > 0) length * log2(charSpace.toDouble()) else 0.0
         
         // Use new Analyzer for Score and Classification
-        val (strength, score) = passwordAnalyzer.analyzePasswordStrength(password)
+        // Note: Use synchronous version since checkPassword is not suspend
+        val (strength, score) = passwordAnalyzer.analyzePasswordStrengthSync(password)
 
         val feedback = mutableListOf<String>()
         if (length < 12) feedback.add("Use at least 12 characters.")
@@ -52,6 +61,46 @@ class PasswordRepository @Inject constructor(
     }
 
     suspend fun generatePassword(config: PasswordGeneratorConfig): String {
+        val startTime = System.currentTimeMillis()
+        
+        // Try Rust implementation first (faster and more secure)
+        if (rustGenerator != null) {
+            try {
+                Timber.i("🔴 [PasswordRepository] Using RUST implementation for password generation")
+                val rustStartTime = System.currentTimeMillis()
+                
+                val password = rustGenerator.generatePassword(config)
+                
+                val rustDuration = System.currentTimeMillis() - rustStartTime
+                val totalDuration = System.currentTimeMillis() - startTime
+                
+                Timber.i("✅ [PasswordRepository] RUST password generation completed in ${rustDuration}ms")
+                Timber.d("📊 [PasswordRepository] Total time (including overhead): ${totalDuration}ms")
+                
+                val check = checkPassword(password)
+                passwordDao.insert(
+                    PasswordHistoryEntity(
+                        password = password,
+                        type = "CHARACTER",
+                        strength = check.strength.name,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+                
+                return password
+            } catch (e: Exception) {
+                val rustDuration = System.currentTimeMillis() - startTime
+                Timber.w(e, "❌ [PasswordRepository] RUST password generation failed after ${rustDuration}ms, falling back to Kotlin")
+                // Fall through to Kotlin implementation
+            }
+        } else {
+            Timber.w("⚠️ [PasswordRepository] Rust generator not available, using Kotlin")
+        }
+        
+        // Fallback to Kotlin implementation
+        Timber.i("🟡 [PasswordRepository] Using KOTLIN implementation for password generation")
+        val kotlinStartTime = System.currentTimeMillis()
+        
         val length = config.length.coerceIn(8, 256)
         val pool = buildString {
             if (config.includeLowercase) append(LOWER)
@@ -65,6 +114,12 @@ class PasswordRepository @Inject constructor(
             finalPool[secureRandom.nextInt(finalPool.length)]
         }
         val password = String(chars)
+        
+        val kotlinDuration = System.currentTimeMillis() - kotlinStartTime
+        val totalDuration = System.currentTimeMillis() - startTime
+        
+        Timber.i("✅ [PasswordRepository] KOTLIN password generation completed in ${kotlinDuration}ms")
+        Timber.d("📊 [PasswordRepository] Total time (including overhead): ${totalDuration}ms")
         
         val check = checkPassword(password)
         passwordDao.insert(
