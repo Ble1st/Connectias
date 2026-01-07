@@ -46,9 +46,54 @@ object PluginModule {
     
     @Provides
     @Singleton
-    fun providePluginValidator(
+    fun providePluginSignatureValidator(
         @ApplicationContext context: Context
+    ): PluginSignatureValidator {
+        return PluginSignatureValidator(context, emptyList())
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginPermissionManager(
+        @ApplicationContext context: Context
+    ): PluginPermissionManager {
+        return PluginPermissionManager(context)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginValidator(
+        @ApplicationContext context: Context,
+        signatureValidator: PluginSignatureValidator,
+        permissionManager: PluginPermissionManager
     ): PluginValidator {
-        return PluginValidator(context)
+        return PluginValidator(context, signatureValidator, permissionManager)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginImportService(
+        @ApplicationContext context: Context,
+        pluginDirectory: File,
+        validator: PluginValidator,
+        signatureValidator: PluginSignatureValidator
+    ): PluginImportService {
+        return PluginImportService(context, pluginDirectory, validator, signatureValidator)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginDependencyResolver(
+        pluginManager: PluginManager
+    ): PluginDependencyResolver {
+        return PluginDependencyResolver(pluginManager)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginNotificationManager(
+        @ApplicationContext context: Context
+    ): com.ble1st.connectias.ui.PluginNotificationManager {
+        return com.ble1st.connectias.ui.PluginNotificationManager(context)
     }
 }

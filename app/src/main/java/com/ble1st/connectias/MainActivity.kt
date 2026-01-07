@@ -121,6 +121,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var settingsRepository: SettingsRepository
+    
+    @Inject
+    lateinit var pluginManager: com.ble1st.connectias.plugin.PluginManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install Splash Screen before super.onCreate()
@@ -198,6 +201,7 @@ class MainActivity : AppCompatActivity() {
 
             // Module Discovery
             setupModuleDiscovery()
+        setupPluginSystem()
 
             // Log rotation
             lifecycleScope.launch {
@@ -334,6 +338,45 @@ class MainActivity : AppCompatActivity() {
 
         val activeModules = moduleRegistry.getActiveModules()
         Timber.d("Module discovery completed: ${activeModules.size} active modules")
+    }
+    
+    private fun setupPluginSystem() {
+        lifecycleScope.launch {
+            try {
+                Timber.d("Initializing plugin system...")
+                
+                val initResult = pluginManager.initialize()
+                
+                initResult.onSuccess { loadedMetadata ->
+                    Timber.i("Plugin system initialized with ${loadedMetadata.size} plugins")
+                    
+                    val loadedPlugins = pluginManager.getLoadedPlugins()
+                    loadedPlugins.forEach { pluginInfo ->
+                        val enableResult = pluginManager.enablePlugin(pluginInfo.pluginId)
+                        
+                        enableResult.onSuccess {
+                            Timber.i("Plugin enabled: ${pluginInfo.metadata.pluginName}")
+                            
+                            withContext(Dispatchers.Main) {
+                                val moduleInfo = com.ble1st.connectias.core.module.ModuleInfo(
+                                    id = pluginInfo.metadata.pluginId,
+                                    name = pluginInfo.metadata.pluginName,
+                                    version = pluginInfo.metadata.version,
+                                    isActive = true
+                                )
+                                moduleRegistry.registerModule(moduleInfo)
+                            }
+                        }
+                    }
+                    
+                    Timber.i("Plugin system setup completed")
+                }.onFailure { error ->
+                    Timber.e(error, "Failed to initialize plugin system")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "Exception during plugin system setup")
+            }
+        }
     }
 
     private fun blockApp() {
@@ -612,6 +655,7 @@ private fun getFragmentClassNameForNavId(navIdName: String): String? {
         "nav_password" -> "com.ble1st.connectias.feature.password.ui.PasswordFragment"
         "nav_gps" -> "com.ble1st.connectias.feature.satellite.ui.SatelliteFragment"
         "nav_device_info" -> "com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
+        "nav_plugin_management" -> "com.ble1st.connectias.ui.plugin.PluginManagementFragment"
         else -> null
     }
 }
@@ -638,6 +682,7 @@ private fun getNavIdByName(navIdName: String): Int? {
         "nav_password" -> R.id.nav_password
         "nav_gps" -> R.id.nav_gps
         "nav_device_info" -> R.id.nav_device_info
+        "nav_plugin_management" -> R.id.nav_plugin_management
         else -> null
     }
 }
@@ -715,6 +760,9 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
         FeatureCategoryDef("Device", listOf(
             FeatureDef("Device Info", Icons.Default.PermDeviceInformation, "nav_device_info"),
             FeatureDef("GPS Satellites", Icons.Default.Sensors, "nav_gps")
+        )),
+        FeatureCategoryDef("Extensions", listOf(
+            FeatureDef("Plugin Management", Icons.Rounded.Apps, "nav_plugin_management")
         ))
     )
 }

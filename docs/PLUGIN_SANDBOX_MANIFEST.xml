@@ -1,0 +1,46 @@
+<!-- 
+    AndroidManifest.xml entries for Plugin Sandbox (Option 3)
+    Add these entries to your app's AndroidManifest.xml
+-->
+
+<!-- Permission for plugin sandbox (optional, for extra security) -->
+<permission
+    android:name="com.ble1st.connectias.permission.PLUGIN_SANDBOX"
+    android:protectionLevel="signature" />
+
+<!-- Plugin Sandbox Service -->
+<service
+    android:name="com.ble1st.connectias.core.plugin.PluginSandboxService"
+    android:process=":plugin_sandbox"
+    android:isolatedProcess="false"
+    android:exported="false"
+    android:permission="com.ble1st.connectias.permission.PLUGIN_SANDBOX">
+    
+    <!-- 
+        android:process=":plugin_sandbox" - Runs in separate process
+        android:isolatedProcess="false" - Allows file access (set to true for maximum isolation)
+        android:exported="false" - Not accessible from other apps
+        android:permission - Requires signature permission
+    -->
+</service>
+
+<!-- 
+    NOTES:
+    
+    1. Process Isolation:
+       - :plugin_sandbox creates a new process named "com.ble1st.connectias:plugin_sandbox"
+       - Separate memory space from main app
+       - Plugin crash does NOT crash main app
+       
+    2. isolatedProcess Options:
+       - false: Plugin can access app files (needed for plugin loading)
+       - true: Maximum isolation, but requires custom file sharing via ContentProvider
+       
+    3. Memory Limits:
+       - Each process has its own heap limit (~256-512 MB depending on device)
+       - Prevents plugins from consuming all app memory
+       
+    4. Security:
+       - signature permission ensures only your app can bind to service
+       - exported=false prevents external apps from accessing sandbox
+-->

@@ -6,12 +6,16 @@ import timber.log.Timber
 import java.io.File
 import java.util.jar.JarFile
 import org.json.JSONObject
+import com.ble1st.connectias.plugin.PluginMetadata
+import com.ble1st.connectias.plugin.PluginCategory
 
 /**
  * Validates plugins before loading
  */
 class PluginValidator(
-    private val context: Context
+    private val context: Context,
+    private val signatureValidator: PluginSignatureValidator? = null,
+    private val permissionManager: PluginPermissionManager? = null
 ) {
     
     /**
@@ -29,14 +33,24 @@ class PluginValidator(
                 return Result.failure(Exception("Invalid plugin file format: ${pluginFile.extension}"))
             }
             
-            // 3. Extract and validate manifest
+            // 3. Validate signature if validator is provided
+            signatureValidator?.validateSignature(pluginFile)?.getOrElse {
+                Timber.w("Signature validation failed: ${it.message}")
+                // Don't fail validation if signature check fails (for now)
+            }
+            
+            // 4. Extract and validate manifest
             val metadata = extractMetadata(pluginFile)
             validateMetadata(metadata)
             
-            // 4. Check permissions
-            validatePermissions(metadata.permissions)
+            // 5. Check permissions with permission manager
+            if (permissionManager != null) {
+                validatePermissionsWithManager(metadata)
+            } else {
+                validatePermissions(metadata.permissions)
+            }
             
-            // 5. Check dependencies
+            // 6. Check dependencies
             validateDependencies(metadata.dependencies)
             
             Timber.d("Plugin validation passed: ${metadata.pluginId}")
@@ -144,13 +158,26 @@ class PluginValidator(
         }
     }
     
+    private suspend fun validatePermissionsWithManager(metadata: PluginMetadata) {
+        permissionManager?.let { manager ->
+            val result = manager.validatePermissions(metadata).getOrNull()
+            if (result != null) {
+                if (result.criticalPermissions.isNotEmpty()) {
+                    throw SecurityException(
+                        "Plugin requests critical permissions: ${result.criticalPermissions}"
+                    )
+                }
+                
+                if (result.requiresUserConsent) {
+                    Timber.w("Plugin requires user consent for permissions: ${result.dangerousPermissions}")
+                }
+            }
+        }
+    }
+    
     private fun validateDependencies(dependencies: List<String>) {
-        // Check if all plugin dependencies are available
-        // This would require access to PluginManager to check loaded plugins
-        // For now, just log a warning
         if (dependencies.isNotEmpty()) {
             Timber.d("Plugin has dependencies: $dependencies")
-            // TODO: Check if dependencies are loaded
         }
     }
     

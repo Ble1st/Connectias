@@ -4,61 +4,75 @@ import android.content.Context
 import kotlinx.coroutines.*
 import timber.log.Timber
 import java.io.File
-import java.net.URLClassLoader
 import java.util.concurrent.ConcurrentHashMap
-import java.util.jar.JarFile
-import org.json.JSONObject
-import org.json.JSONArray
+import com.ble1st.connectias.plugin.PluginMetadata
 
 /**
- * Manages plugin lifecycle and discovery
+ * Plugin manager that uses isolated sandbox process for plugin execution
+ * Provides crash isolation and memory isolation
  */
 class PluginManager(
     private val context: Context,
     private val pluginDirectory: File
 ) {
     
+    private val sandboxProxy = PluginSandboxProxy(context)
     private val loadedPlugins = ConcurrentHashMap<String, PluginInfo>()
-    private val classLoaders = ConcurrentHashMap<String, URLClassLoader>()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
+    companion object {
+        private const val INIT_TIMEOUT_MS = 10000L
+    }
+    
     /**
-     * Plugin information during runtime
+     * Plugin information in main process
      */
     data class PluginInfo(
         val pluginId: String,
         val metadata: PluginMetadata,
-        val instance: IPlugin,
-        val classLoader: URLClassLoader,
+        val pluginFile: File,
         val state: PluginState,
         val loadedAt: Long
     )
     
     enum class PluginState {
-        LOADED,      // Loaded but not activated
-        ENABLED,     // Activated and working
-        DISABLED,    // Disabled but still in memory
-        ERROR        // Error during loading
+        LOADED,
+        ENABLED,
+        DISABLED,
+        ERROR
     }
     
     /**
-     * Initializes plugin directory and loads available plugins
+     * Initializes the sandbox and loads available plugins
      */
     suspend fun initialize(): Result<List<PluginMetadata>> = withContext(Dispatchers.IO) {
         try {
-            // Create plugin directory if it doesn't exist
+            Timber.i("Initializing plugin sandbox...")
+            
+            // Connect to sandbox service
+            val connectResult = withTimeoutOrNull(INIT_TIMEOUT_MS) {
+                sandboxProxy.connect()
+            }
+            
+            if (connectResult == null || connectResult.isFailure) {
+                return@withContext Result.failure(
+                    Exception("Failed to connect to sandbox: ${connectResult?.exceptionOrNull()?.message}")
+                )
+            }
+            
+            // Create plugin directory if needed
             if (!pluginDirectory.exists()) {
                 pluginDirectory.mkdirs()
             }
             
-            // Scan for plugin AABs
+            // Scan for plugin files
             val pluginFiles = pluginDirectory.listFiles { file ->
-                file.extension == "aab" || file.extension == "jar" || file.extension == "apk"
+                file.extension in listOf("apk", "jar")
             } ?: emptyArray()
             
             Timber.d("Found ${pluginFiles.size} plugin files")
             
-            // Load all plugins
+            // Load all plugins in sandbox
             val loadedMetadata = mutableListOf<PluginMetadata>()
             for (pluginFile in pluginFiles) {
                 val result = loadPlugin(pluginFile)
@@ -70,314 +84,169 @@ class PluginManager(
                 }
             }
             
+            Timber.i("Plugin sandbox initialized with ${loadedMetadata.size} plugins")
             Result.success(loadedMetadata)
+            
         } catch (e: Exception) {
-            Timber.e(e, "Failed to initialize plugin manager")
+            Timber.e(e, "Failed to initialize plugin sandbox")
             Result.failure(e)
         }
     }
     
     /**
-     * Loads a plugin from an AAB/JAR file
+     * Loads a plugin in the sandbox process
      */
     suspend fun loadPlugin(pluginFile: File): Result<PluginInfo> = withContext(Dispatchers.IO) {
         try {
-            // 1. Extract plugin manifest
-            val metadata = extractPluginMetadata(pluginFile)
+            Timber.d("Loading plugin in sandbox: ${pluginFile.name}")
             
-            // 2. Validate plugin
-            validatePlugin(metadata)
+            // Load via sandbox proxy (IPC call)
+            val metadataResult = sandboxProxy.loadPlugin(pluginFile.absolutePath)
             
-            // 3. Create custom ClassLoader
-            val classLoader = URLClassLoader(
-                arrayOf(pluginFile.toURI().toURL()),
-                context.classLoader  // Parent ClassLoader is App ClassLoader
-            )
-            
-            // 4. Instantiate plugin class
-            // Note: For AAB files, we need to extract DEX files first
-            // This is a simplified version - in production, use bundletool to extract AAB
-            val pluginClass = classLoader.loadClass(metadata.fragmentClassName ?: throw IllegalArgumentException("fragmentClassName is required"))
-            val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
-                ?: throw ClassCastException("Plugin class does not implement IPlugin")
-            
-            // 5. Create PluginContext
-            val pluginContext = PluginContextImpl(
-                appContext = context,
-                pluginDir = File(pluginDirectory, metadata.pluginId),
-                nativeLibManager = NativeLibraryManager()
-            )
-            
-            // 6. Call onLoad()
-            val loadSuccess = pluginInstance.onLoad(pluginContext)
-            if (!loadSuccess) {
-                return@withContext Result.failure(Exception("Plugin.onLoad() returned false"))
+            if (metadataResult.isFailure) {
+                return@withContext Result.failure(
+                    metadataResult.exceptionOrNull() ?: Exception("Unknown error")
+                )
             }
             
-            // 7. Store plugin info
+            val metadata = metadataResult.getOrNull()
+                ?: return@withContext Result.failure(Exception("No metadata returned"))
+            
+            // Store plugin info in main process
             val pluginInfo = PluginInfo(
                 pluginId = metadata.pluginId,
                 metadata = metadata,
-                instance = pluginInstance,
-                classLoader = classLoader,
+                pluginFile = pluginFile,
                 state = PluginState.LOADED,
                 loadedAt = System.currentTimeMillis()
             )
             
             loadedPlugins[metadata.pluginId] = pluginInfo
-            classLoaders[metadata.pluginId] = classLoader
             
-            Timber.i("Plugin loaded: ${metadata.pluginName} v${metadata.version}")
+            Timber.i("Plugin loaded in sandbox: ${metadata.pluginName} v${metadata.version}")
             Result.success(pluginInfo)
             
         } catch (e: Exception) {
-            Timber.e(e, "Failed to load plugin: ${pluginFile.name}")
+            Timber.e(e, "Failed to load plugin in sandbox: ${pluginFile.name}")
             Result.failure(e)
         }
     }
     
     /**
-     * Enables a plugin
+     * Enables a plugin in the sandbox
      */
     suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val pluginInfo = loadedPlugins[pluginId]
                 ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
             
-            val enableSuccess = pluginInfo.instance.onEnable()
-            if (!enableSuccess) {
-                return@withContext Result.failure(Exception("Plugin.onEnable() returned false"))
+            // Enable via sandbox proxy (IPC call)
+            val result = sandboxProxy.enablePlugin(pluginId)
+            
+            if (result.isFailure) {
+                loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.ERROR)
+                return@withContext result
             }
             
-            // Update state
+            // Update state in main process
             loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.ENABLED)
             
-            Timber.i("Plugin enabled: $pluginId")
+            Timber.i("Plugin enabled in sandbox: $pluginId")
             Result.success(Unit)
+            
         } catch (e: Exception) {
-            Timber.e(e, "Failed to enable plugin: $pluginId")
+            Timber.e(e, "Failed to enable plugin in sandbox: $pluginId")
             Result.failure(e)
         }
     }
     
     /**
-     * Disables a plugin (but doesn't unload it)
+     * Disables a plugin in the sandbox
      */
     suspend fun disablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val pluginInfo = loadedPlugins[pluginId]
                 ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
             
-            val disableSuccess = pluginInfo.instance.onDisable()
-            if (!disableSuccess) {
-                return@withContext Result.failure(Exception("Plugin.onDisable() returned false"))
+            // Disable via sandbox proxy (IPC call)
+            val result = sandboxProxy.disablePlugin(pluginId)
+            
+            if (result.isFailure) {
+                return@withContext result
             }
             
-            // Update state
+            // Update state in main process
             loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.DISABLED)
             
-            Timber.i("Plugin disabled: $pluginId")
+            Timber.i("Plugin disabled in sandbox: $pluginId")
             Result.success(Unit)
+            
         } catch (e: Exception) {
-            Timber.e(e, "Failed to disable plugin: $pluginId")
+            Timber.e(e, "Failed to disable plugin in sandbox: $pluginId")
             Result.failure(e)
         }
     }
     
     /**
-     * Unloads a plugin
+     * Unloads a plugin from the sandbox
      */
     suspend fun unloadPlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val pluginInfo = loadedPlugins[pluginId]
                 ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
             
-            // Disable first
-            disablePlugin(pluginId).getOrNull()
+            // Disable first if enabled
+            if (pluginInfo.state == PluginState.ENABLED) {
+                disablePlugin(pluginId)
+            }
             
-            // Call onUnload()
-            pluginInfo.instance.onUnload()
+            // Unload via sandbox proxy (IPC call)
+            val result = sandboxProxy.unloadPlugin(pluginId)
             
-            // Cleanup
-            classLoaders[pluginId]?.close()
-            classLoaders.remove(pluginId)
+            if (result.isFailure) {
+                return@withContext result
+            }
+            
+            // Remove from main process
             loadedPlugins.remove(pluginId)
             
-            Timber.i("Plugin unloaded: $pluginId")
+            Timber.i("Plugin unloaded from sandbox: $pluginId")
             Result.success(Unit)
+            
         } catch (e: Exception) {
-            Timber.e(e, "Failed to unload plugin: $pluginId")
+            Timber.e(e, "Failed to unload plugin from sandbox: $pluginId")
             Result.failure(e)
         }
     }
     
     /**
-     * Returns all loaded plugins
+     * Gets all loaded plugins
      */
-    fun getLoadedPlugins(): List<PluginInfo> =
-        loadedPlugins.values.toList()
-    
-    /**
-     * Returns all enabled plugins
-     */
-    fun getEnabledPlugins(): List<PluginInfo> =
-        loadedPlugins.values.filter { it.state == PluginState.ENABLED }
-    
-    /**
-     * Gets a specific plugin by ID
-     */
-    fun getPlugin(pluginId: String): PluginInfo? =
-        loadedPlugins[pluginId]
-    
-    private suspend fun extractPluginMetadata(pluginFile: File): PluginMetadata = withContext(Dispatchers.Default) {
-        // Read plugin-manifest.json from JAR/AAB
-        JarFile(pluginFile).use { jar ->
-            val manifestEntry = jar.getEntry("plugin-manifest.json")
-                ?: throw IllegalArgumentException("No plugin-manifest.json found")
-            
-            val jsonString = jar.getInputStream(manifestEntry).bufferedReader().readText()
-            val json = JSONObject(jsonString)
-            
-            val requirements = json.optJSONObject("requirements") ?: JSONObject()
-            
-            PluginMetadata(
-                pluginId = json.getString("pluginId"),
-                pluginName = json.getString("pluginName"),
-                version = json.getString("version"),
-                author = json.optString("author", "Unknown"),
-                minApiLevel = requirements.optInt("minApiLevel", 33),
-                maxApiLevel = requirements.optInt("maxApiLevel", 36),
-                minAppVersion = requirements.optString("minAppVersion", "1.0.0"),
-                nativeLibraries = json.optJSONArray("nativeLibraries")?.let {
-                    (0 until it.length()).map { i -> it.getString(i) }
-                } ?: emptyList(),
-                fragmentClassName = json.getString("fragmentClassName"),
-                description = json.optString("description", ""),
-                permissions = json.optJSONArray("permissions")?.let {
-                    (0 until it.length()).map { i -> it.getString(i) }
-                } ?: emptyList(),
-                category = PluginCategory.valueOf(json.optString("category", "UTILITY")),
-                dependencies = json.optJSONArray("dependencies")?.let {
-                    (0 until it.length()).map { i -> it.getString(i) }
-                } ?: emptyList()
-            )
-        }
+    fun getLoadedPlugins(): List<PluginInfo> {
+        return loadedPlugins.values.toList()
     }
     
-    private fun validatePlugin(metadata: PluginMetadata) {
-        // Validate that app version is compatible
-        val currentAppVersion = try {
-            context.packageManager
-                .getPackageInfo(context.packageName, 0).versionName ?: "1.0.0"
-        } catch (e: Exception) {
-            "1.0.0"
-        }
-        
-        if (metadata.minAppVersion > currentAppVersion) {
-            throw IllegalArgumentException(
-                "Plugin requires app version ${metadata.minAppVersion}, " +
-                "but current is $currentAppVersion"
-            )
-        }
-        
-        // Validate that fragmentClassName is not null
-        if (metadata.fragmentClassName == null) {
-            throw IllegalArgumentException("fragmentClassName is required")
-        }
-        
-        // Validate API level
-        val currentApiLevel = android.os.Build.VERSION.SDK_INT
-        if (currentApiLevel < metadata.minApiLevel || currentApiLevel > metadata.maxApiLevel) {
-            throw IllegalArgumentException(
-                "Plugin requires API level ${metadata.minApiLevel}-${metadata.maxApiLevel}, " +
-                "but current is $currentApiLevel"
-            )
-        }
+    /**
+     * Gets all enabled plugins
+     */
+    fun getEnabledPlugins(): List<PluginInfo> {
+        return loadedPlugins.values.filter { it.state == PluginState.ENABLED }
     }
     
+    /**
+     * Gets a specific plugin
+     */
+    fun getPlugin(pluginId: String): PluginInfo? {
+        return loadedPlugins[pluginId]
+    }
+    
+    /**
+     * Shuts down the plugin system and sandbox
+     */
     fun shutdown() {
+        Timber.i("Shutting down plugin sandbox")
         scope.cancel()
-        classLoaders.values.forEach { it.close() }
-        classLoaders.clear()
+        sandboxProxy.disconnect()
         loadedPlugins.clear()
     }
-}
-
-/**
- * Implementation of PluginContext
- */
-private class PluginContextImpl(
-    private val appContext: Context,
-    private val pluginDir: File,
-    private val nativeLibManager: INativeLibraryManager
-) : PluginContext {
-    
-    private val services = ConcurrentHashMap<String, Any>()
-    
-    override fun getApplicationContext(): Context = appContext
-    override fun getPluginDirectory(): File = pluginDir.apply { mkdirs() }
-    override fun getNativeLibraryManager(): INativeLibraryManager = nativeLibManager
-    override fun registerService(name: String, service: Any) {
-        services[name] = service
-    }
-    override fun getService(name: String): Any? = services[name]
-    override fun logDebug(message: String) = Timber.d(message)
-    override fun logError(message: String, throwable: Throwable?) =
-        Timber.e(throwable, message)
-}
-
-/**
- * Native Library Manager implementation
- */
-class NativeLibraryManager : INativeLibraryManager {
-    
-    private val loadedLibraries = mutableSetOf<String>()
-    private val loadLock = Any()
-    
-    override suspend fun loadLibrary(
-        libraryName: String,
-        libraryPath: File
-    ): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            synchronized(loadLock) {
-                if (loadedLibraries.contains(libraryName)) {
-                    return@withContext Result.success(Unit)
-                }
-                
-                // Copy .so to app lib directory
-                val libDir = File("/data/data/com.ble1st.connectias/lib")
-                if (!libDir.exists()) {
-                    libDir.mkdirs()
-                }
-                
-                val destFile = File(libDir, "lib$libraryName.so")
-                libraryPath.copyTo(destFile, overwrite = true)
-                
-                // Load with System.load (absolute path)
-                System.load(destFile.absolutePath)
-                
-                loadedLibraries.add(libraryName)
-                Result.success(Unit)
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-    
-    override suspend fun unloadLibrary(libraryName: String): Result<Unit> = try {
-        synchronized(loadLock) {
-            loadedLibraries.remove(libraryName)
-            // Note: Java/Android cannot actually unload .so files!
-            // This is a known limitation
-            Result.success(Unit)
-        }
-    } catch (e: Exception) {
-        Result.failure(e)
-    }
-    
-    override fun isLoaded(libraryName: String): Boolean =
-        loadedLibraries.contains(libraryName)
-    
-    override fun getLoadedLibraries(): List<String> =
-        loadedLibraries.toList()
 }

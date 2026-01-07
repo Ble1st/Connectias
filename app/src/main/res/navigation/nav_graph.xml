@@ -97,4 +97,10 @@
         android:name="com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
         android:label="@string/nav_device_info" />
 
+    <!-- Plugin Management -->
+    <fragment
+        android:id="@+id/nav_plugin_management"
+        android:name="com.ble1st.connectias.ui.plugin.PluginManagementFragment"
+        android:label="@string/nav_plugin_management" />
+
 </navigation>

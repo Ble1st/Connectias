@@ -17,7 +17,11 @@ class PluginService @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pluginManager: PluginManager,
     private val pluginDownloadManager: GitHubPluginDownloadManager,
-    private val pluginValidator: PluginValidator
+    private val pluginValidator: PluginValidator,
+    private val pluginImportService: PluginImportService,
+    private val pluginDependencyResolver: PluginDependencyResolver,
+    private val pluginPermissionManager: PluginPermissionManager,
+    private val notificationManager: com.ble1st.connectias.ui.PluginNotificationManager? = null
 ) {
     
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -72,6 +76,12 @@ class PluginService @Inject constructor(
             
             result.onSuccess { pluginInfo ->
                 Timber.i("Plugin loaded: ${pluginInfo.metadata.pluginName} v${pluginInfo.metadata.version}")
+                notificationManager?.notifyPluginLoaded(pluginInfo.metadata.pluginName)
+            }.onFailure { error ->
+                notificationManager?.notifyPluginError(
+                    pluginFile.name,
+                    error.message ?: "Unbekannter Fehler"
+                )
             }
             
             result
@@ -112,6 +122,63 @@ class PluginService @Inject constructor(
     }
     
     /**
+     * Enables a plugin.
+     */
+    suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val plugin = pluginManager.getPlugin(pluginId)
+                ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
+            
+            // Check dependencies are enabled
+            val depsEnabled = pluginDependencyResolver.checkDependenciesEnabled(pluginId)
+            if (depsEnabled.isFailure || depsEnabled.getOrNull() == false) {
+                val disabledDeps = pluginDependencyResolver.getDisabledDependencies(pluginId)
+                return@withContext Result.failure(
+                    Exception("Plugin has disabled dependencies: $disabledDeps")
+                )
+            }
+            
+            // Check permissions
+            val permResult = pluginPermissionManager.validatePermissions(plugin.metadata)
+            if (permResult.isFailure) {
+                return@withContext Result.failure(
+                    permResult.exceptionOrNull() ?: Exception("Permission validation failed")
+                )
+            }
+            
+            val permValidation = permResult.getOrNull()
+            if (permValidation != null && !permValidation.isValid) {
+                if (permValidation.requiresUserConsent) {
+                    notificationManager?.notifyPluginPermissionRequired(
+                        plugin.metadata.pluginName,
+                        permValidation.dangerousPermissions
+                    )
+                }
+                return@withContext Result.failure(
+                    SecurityException("Plugin permissions not granted: ${permValidation.reason}")
+                )
+            }
+            
+            // Enable via manager
+            val result = pluginManager.enablePlugin(pluginId)
+            result.onSuccess {
+                notificationManager?.notifyPluginEnabled(plugin.metadata.pluginName)
+            }
+            result
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to enable plugin: $pluginId")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Disables a plugin.
+     */
+    suspend fun disablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        pluginManager.disablePlugin(pluginId)
+    }
+    
+    /**
      * Unloads a plugin.
      */
     suspend fun unloadPlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
@@ -130,6 +197,63 @@ class PluginService @Inject constructor(
      */
     fun getPlugin(pluginId: String): PluginInfo? {
         return pluginManager.getPlugin(pluginId)
+    }
+    
+    /**
+     * Gets all enabled plugins.
+     */
+    fun getEnabledPlugins(): List<PluginInfo> {
+        return pluginManager.getEnabledPlugins()
+    }
+    
+    /**
+     * Imports a plugin from an external path.
+     */
+    suspend fun importPlugin(sourcePath: String): Result<PluginInfo> = withContext(Dispatchers.IO) {
+        try {
+            // Import the file
+            val pluginFile = pluginImportService.importFromExternalPath(sourcePath).getOrElse {
+                return@withContext Result.failure(it)
+            }
+            
+            // Load the plugin
+            loadPlugin(pluginFile)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to import plugin from: $sourcePath")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Imports a plugin from a URI (e.g., from SAF).
+     */
+    suspend fun importPluginFromUri(uri: android.net.Uri): Result<PluginInfo> = withContext(Dispatchers.IO) {
+        try {
+            // Import the file
+            val pluginFile = pluginImportService.importFromUri(uri).getOrElse {
+                return@withContext Result.failure(it)
+            }
+            
+            // Load the plugin
+            loadPlugin(pluginFile)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to import plugin from URI: $uri")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Grants user consent for plugin permissions.
+     */
+    fun grantPermissionConsent(pluginId: String, permissions: List<String>) {
+        pluginPermissionManager.grantUserConsent(pluginId, permissions)
+    }
+    
+    /**
+     * Revokes user consent for plugin permissions.
+     */
+    fun revokePermissionConsent(pluginId: String, permissions: List<String>? = null) {
+        pluginPermissionManager.revokeUserConsent(pluginId, permissions)
     }
     
     /**
@@ -158,17 +282,27 @@ class PluginService @Inject constructor(
                     pluginId = pluginInfo.metadata.pluginId,
                     currentVersion = pluginInfo.metadata.version
                 )
-                
-                updateResult.onSuccess { update ->
-                    if (update != null) {
-                        Timber.d("Update available for ${pluginInfo.metadata.pluginName}: ${update.version}")
-                        // TODO: Notify user or auto-update
-                    }
+                val update = pluginDownloadManager.getLatestRelease(pluginInfo.metadata.pluginId).getOrNull()
+                if (update != null && update.version != pluginInfo.metadata.version) {
+                    Timber.d("Update available for ${pluginInfo.metadata.pluginName}: ${update.version}")
+                    notificationManager?.notifyPluginUpdateAvailable(
+                        pluginInfo.metadata.pluginName,
+                        pluginInfo.metadata.version,
+                        update.version
+                    )
                 }
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to check for updates")
         }
+    }
+    
+    /**
+     * Gets missing dependencies for a plugin.
+     */
+    fun getMissingDependencies(pluginId: String): List<String> {
+        val plugin = pluginManager.getPlugin(pluginId) ?: return emptyList()
+        return pluginDependencyResolver.getMissingDependencies(plugin.metadata)
     }
     
     fun shutdown() {

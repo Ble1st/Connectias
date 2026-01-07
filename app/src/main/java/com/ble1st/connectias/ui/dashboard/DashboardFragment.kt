@@ -44,9 +44,9 @@ class DashboardFragment : Fragment() {
                     dynamicColor = dynamicColor
                 ) {
                     DashboardScreen(
-                        onNavigateToNetwork = { findNavController().navigate(R.id.nav_network_tools) },
-                        onNavigateToBluetooth = { findNavController().navigate(R.id.nav_bluetooth_scanner) },
-                        onNavigateToSecureNotes = { findNavController().navigate(R.id.nav_secure_notes) },
+                        onNavigateToNetwork = { /* Feature disabled */ },
+                        onNavigateToBluetooth = { /* Feature disabled */ },
+                        onNavigateToSecureNotes = { /* Feature disabled */ },
                         onNavigateToSettings = { findNavController().navigate(R.id.nav_settings) }
                     )
                 }
