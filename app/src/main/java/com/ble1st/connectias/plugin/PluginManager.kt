@@ -53,6 +53,9 @@ class PluginManager(
                 pluginDirectory.mkdirs()
             }
             
+            // Copy plugins from assets on first run
+            copyPluginsFromAssets()
+            
             val pluginFiles = pluginDirectory.listFiles { file ->
                 file.extension in listOf("apk", "jar")
             } ?: emptyArray()
@@ -155,7 +158,11 @@ class PluginManager(
     private fun extractMetadata(pluginFile: File): PluginMetadata? {
         return try {
             ZipFile(pluginFile).use { zip ->
-                val manifestEntry = zip.getEntry("plugin-manifest.json") ?: return null
+                // Try both locations: root (APK) and assets/ (AAR)
+                val manifestEntry = zip.getEntry("plugin-manifest.json") 
+                    ?: zip.getEntry("assets/plugin-manifest.json")
+                    ?: return null
+                    
                 val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
                 val json = JSONObject(manifestJson)
                 
@@ -292,5 +299,38 @@ class PluginManager(
         
         loadedPlugins.clear()
         scope.cancel()
+    }
+    
+    /**
+     * Copy plugins from assets to plugin directory
+     */
+    private fun copyPluginsFromAssets() {
+        try {
+            val assetManager = context.assets
+            val assetPlugins = assetManager.list("plugins") ?: emptyArray()
+            
+            assetPlugins.forEach { assetFile ->
+                if (assetFile.endsWith(".apk") || assetFile.endsWith(".jar")) {
+                    val targetFile = File(pluginDirectory, assetFile)
+                    
+                    // Only copy if file doesn't exist or is older
+                    if (!targetFile.exists()) {
+                        assetManager.open("plugins/$assetFile").use { input ->
+                            targetFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        
+                        // Set file to read-only to comply with Android security requirements
+                        // Android 10+ requires DEX files to be non-writable
+                        targetFile.setReadOnly()
+                        
+                        Timber.i("Copied plugin from assets: $assetFile (read-only)")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to copy plugins from assets")
+        }
     }
 }

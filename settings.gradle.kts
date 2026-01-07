@@ -97,3 +97,8 @@ val featureGpsEnabled = providers.gradleProperty("feature.gps.enabled").orNull =
 if (featureGpsEnabled) {
     include(":feature-satellite")
 }
+
+// ============================================================================
+// Test Plugin (always included for testing)
+// ============================================================================
+include(":test-plugin")

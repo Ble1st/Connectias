@@ -1,0 +1,15 @@
+{
+  "pluginId": "com.ble1st.connectias.testplugin",
+  "pluginName": "Test Plugin",
+  "version": "1.0.0",
+  "author": "Connectias Team",
+  "description": "A simple test plugin demonstrating plugin functionality with a counter UI",
+  "category": "UTILITY",
+  "minApiLevel": 33,
+  "maxApiLevel": 36,
+  "minAppVersion": "1.0",
+  "fragmentClassName": "com.ble1st.connectias.testplugin.TestPlugin",
+  "permissions": [],
+  "dependencies": [],
+  "nativeLibraries": []
+}
