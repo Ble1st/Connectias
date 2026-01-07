@@ -1,0 +1,633 @@
+
+# 🏛️ **Connectias:  Core Modules für die Hauptapp**
+
+## 📊 **Übersicht - Was in die Hauptapp gehört? **
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│                      CONNECTIAS HAUPTAPP                           │
+│                  (Monolitische Basis-Installation)                 │
+│                                                                    │
+├────────────────────────────────────────────────────────────────────┤
+│  🔴 ALWAYS INCLUDED (settings.gradle. kts, Zeile 26-31)           │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  ✅  : app                    (Host-Application)                   │
+│  ✅  :core                   (Sicherheit, DB, DI)                │
+│  ✅  :common                 (Shared UI, Themes, Strings)        │
+│  ✅  :feature-settings       (App-Einstellungen)                 │
+│                                                                    │
+├────────────────────────────────────────────────────────────────────┤
+│  🟡 OPTIONAL (gradle.properties Flag)                             │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  Optional auf gradle.properties:                                  │
+│  ├─ : feature-network        (Port Scanner, WiFi)                │
+│  ├─ : feature-dnstools       (DNS Resolver)                      │
+│  ├─ :feature-ntp            (NTP Client)                        │
+│  ├─ :feature-password       (Password Generator)                │
+│  ├─ : feature-dvd            (DVD Player)                        │
+│  ├─ :feature-bluetooth      (BT Scanner)                        │
+│  ├─ :feature-barcode        (QR/Barcode)                        │
+│  ├─ :feature-calendar       (Calendar)                          │
+│  ├─ :feature-scanner        (Document Scanner)                  │
+│  ├─ :feature-ssh            (SSH/SCP)                           │
+│  ├─ :feature-deviceinfo     (Device Info)                       │
+│  ├─ :feature-satellite      (GPS)                               │
+│  └─ :feature-secure-notes   (Encrypted Notes)                   │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🎯 **TEIL 1: KERN-MODULE (Immer dabei)**
+
+### **1. 1 : app - Host Application**
+
+```gradle
+// app/build.gradle. kts
+plugins {
+    alias(libs.plugins.android.application)  // ← Hauptapp (AAB/APK)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.hilt)                 // ← Dependency Injection
+    alias(libs.plugins.ksp)                  // ← Annotation Processing
+    alias(libs.plugins.navigation. safe. args) // ← Fragment Navigation
+    alias(libs.plugins.kotlin.compose)       // ← Compose
+}
+
+dependencies {
+    // Core Module laden
+    implementation(project(":core"))
+    implementation(project(": common"))
+    implementation(project(":feature-settings"))  // ← Immer dabei! 
+    
+    // Optional Feature Module
+    val featureNetworkEnabled = ... 
+    if (featureNetworkEnabled) {
+        implementation(project(":feature-network"))
+    }
+    // ... weitere optionale Module
+}
+```
+
+**Verantwortlichkeiten:**
+- 🎯 **MainActivity** - App-Einstieg, Security Check
+- 🗺️ **Navigation** - Fragment-Navigation (nav_graph.xml)
+- 📱 **Splash Screen** - Willkommensbildschirm
+- 🔌 **Plugin Manager** - (Zukünftig) Plugin-Verwaltung
+
+**Größe:** ~200-300 KB (reine App-Code)
+
+---
+
+### **1.2 : core - Sicherheit & Infrastruktur**
+
+```gradle
+// core/build.gradle.kts
+plugins {
+    alias(libs.plugins.android.library)  // ← Library (nicht launchbar)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.parcelize)
+}
+
+dependencies {
+    implementation(project(":common"))  // Core braucht Common
+    
+    // Database + Encryption
+    implementation(libs.androidx. room. runtime)
+    implementation(libs. sqlcipher. android)  // ← Verschlüsselte DB
+    
+    // Security
+    implementation(libs.security.crypto)    // ← Keystore
+    implementation(libs.rootbeer)           // ← Root Detection
+    
+    // Logging + Hilt
+    implementation(libs.timber)
+    implementation(libs.hilt.android)
+    
+    // Networking
+    implementation(libs.okhttp)             // ← SSL Pinning
+}
+
+// NDK Configuration
+externalNativeBuild {
+    cmake {
+        path = file("src/main/cpp/CMakeLists.txt")
+    }
+}
+```
+
+**Was ist drin:**
+
+```
+core/src/main/kotlin/com/ble1st/connectias/core/
+├─ database/
+│  ├─ AppDatabase.kt           (SQLCipher)
+│  └─ dao/                      (SecurityLogDao, SystemLogDao)
+│
+├─ di/
+│  ├─ DatabaseModule.kt        (@Provides Singletons)
+│  ├─ SecurityModule.kt
+│  └─ NetworkModule. kt
+│
+├─ security/
+│  ├─ SecurityService.kt       (Hauptklasse!)
+│  ├─ RaspManager.kt           (Runtime App Self-Protection)
+│  ├─ KeyManager.kt            (Android Keystore)
+│  └─ Detectors/
+│     ├─ RootDetector.kt       (Rust Native!)
+│     ├─ TamperDetector.kt
+│     ├─ DebuggerDetector.kt
+│     └─ EmulatorDetector.kt
+│
+├─ services/
+│  ├─ LoggingService.kt        (Structured Logging)
+│  └─ SettingsRepository.kt    (DataStore Preferences)
+│
+├─ module/
+│  ├─ ModuleRegistry.kt        (Runtime Module Management)
+│  ├─ ModuleCatalog.kt         (Module Metadata)
+│  └─ [PLUGIN MANAGER]         (Zukünftig!)
+│
+└─ cpp/
+   └─ CMakeLists.txt           (NDK Build für Rust Root Detector)
+```
+
+**Kritische Funktionen:**
+- 🔐 **SecurityService** - Führt Sicherheitsprüfungen durch
+- 📊 **RaspManager** - Runtime App Self-Protection
+- 🗄️ **SQLCipher Database** - Verschlüsselte Daten
+- 📝 **Logging** - Sicherheits- und System-Logs
+
+**Größe:** ~400-500 KB
+
+---
+
+### **1.3 :common - Shared UI & Design**
+
+```gradle
+// common/build.gradle.kts
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.compose)
+}
+
+// KEINE Dependencies zu Core! 
+// Nur zu AndroidX
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs. material3)
+    
+    // Compose
+    implementation(platform(libs.androidx.compose. bom))
+    implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.material3)
+}
+```
+
+**Was ist drin:**
+
+```
+common/src/main/kotlin/com/ble1st/connectias/common/
+├─ ui/
+│  ├─ theme/
+│  │  ├─ Theme.kt              (Material3 + Expressive)
+│  │  ├─ ThemeStyle.kt         (Standard vs.  Adeptus Mechanicus)
+│  │  ├─ Color.kt              (Farb-Palette)
+│  │  └─ Type.kt               (Typographie)
+│  │
+│  └─ strings/
+│     ├─ LocalAppStrings.kt    (CompositionLocal für Texte)
+│     ├─ StandardDictionary.kt (Englisch)
+│     └─ AdeptusTheme.kt       (Tech-Variante)
+│
+└─ ui_components/
+   ├─ Buttons.kt               (Reusable Composables)
+   ├─ Cards.kt
+   └─ Dialogs.kt
+```
+
+**Verantwortung:**
+- 🎨 **Material3 Theme** - Moderne Google Design-Sprache
+- 🌙 **Dark/Light Mode** - Dynamisch
+- 📱 **Responsive UI** - Flexible Layouts
+- 🔤 **Theme-aware Strings** - Lokalisierbar
+
+**Größe:** ~150-200 KB
+
+---
+
+### **1.4 :feature-settings - Einstellungen**
+
+```gradle
+// feature-settings/build.gradle. kts
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.hilt)
+    alias(libs.plugins.kotlin. compose)
+}
+
+dependencies {
+    implementation(project(":core"))   // Braucht SettingsRepository
+    implementation(project(":common"))  // Braucht Theme
+}
+```
+
+**Was ist drin:**
+
+```
+feature-settings/src/main/kotlin/com/ble1st/connectias/
+feature/settings/
+├─ ui/
+│  ├─ SettingsFragment.kt
+│  ├─ SettingsScreen.kt        (Compose UI)
+│  └─ SettingsViewModel.kt
+│
+├─ data/
+│  └─ [SettingsRepository von Core]
+│
+└─ di/
+   └─ SettingsFeatureModule.kt (Hilt)
+```
+
+**Settings:**
+- 🎨 Theme (Light/Dark/System)
+- 🎭 Theme Style (Standard/Adeptus Mechanicus)
+- 🌈 Dynamic Color (Android 12+)
+- 🔒 Auto-Lock Timer
+- 📊 RASP Logging Level
+- 🗑️ Reset-Funktionen
+
+**Größe:** ~100-150 KB
+
+---
+
+## 🎛️ **TEIL 2: MODULE ABHÄNGIGKEITEN-BAUM**
+
+```
+                        : app (Host)
+                    /    |      \
+                   /     |       \
+            :core        :common  :feature-settings
+               |            |           /
+               |            |          /
+          [Sicherheit]  [Design]  [Settings UI]
+          [DB]          [Strings]  [SettingsRepo]
+          [DI]          [Theme]
+
+
+Optionale Module alle abhängig von : core + :common: 
+
+: feature-network ──┐
+: feature-dvd ──────┼─→ :core + :common + Android Framework
+:feature-password──┤
+:feature-barcode───┘
+...  alle anderen optional modules
+
+
+ABHÄNGIGKEITS-RICHTUNG:
+  optional module → core, common
+  core            → common
+  common          → NICHTS (Android Framework only)
+  app             → alles
+```
+
+---
+
+## 📦 **TEIL 3: Minimale vs. Maximale Installation**
+
+### **Minimale Installation (Nur Kern)**
+
+```gradle
+# gradle.properties
+feature.network.enabled=false
+feature.dvd.enabled=false
+feature.bluetooth.enabled=false
+feature. dnstools.enabled=false
+feature.ntp.enabled=false
+feature.password.enabled=false
+feature.barcode.enabled=false
+feature.calendar.enabled=false
+feature.scanner.enabled=false
+feature.ssh.enabled=false
+feature.deviceinfo.enabled=false
+feature.satellite.enabled=false
+feature.secure. notes.enabled=false
+```
+
+**Modules geladen:**
+- ✅ : app (HOST)
+- ✅ :core (SICHERHEIT)
+- ✅ :common (UI)
+- ✅ :feature-settings (EINSTELLUNGEN)
+
+**APK-Größe:** ~20-30 MB  
+**Native Libraries:** nur SQLCipher, Root Detector (Rust)
+
+**Was ist möglich:**
+- 🔐 Sicherheitsprüfungen
+- 🎨 Theme wechseln
+- ⚙️ Einstellungen
+- 📝 Logs anschauen
+
+---
+
+### **Maximale Installation (Alles aktiviert)**
+
+```gradle
+# gradle.properties
+feature.network.enabled=true
+feature.dvd.enabled=true
+feature.bluetooth.enabled=true
+feature.dnstools.enabled=true
+feature.ntp.enabled=true
+feature. password.enabled=true
+feature. barcode.enabled=true
+feature.calendar.enabled=true
+feature.scanner.enabled=true
+feature.ssh.enabled=true
+feature.deviceinfo.enabled=true
+feature.satellite.enabled=true
+feature.secure.notes.enabled=true
+```
+
+**Modules geladen:**
+- ✅ :app (HOST)
+- ✅ :core (SICHERHEIT)
+- ✅ :common (UI)
+- ✅ :feature-settings (EINSTELLUNGEN)
+- ✅ :feature-network (PORT SCANNER + DNS)
+- ✅ :feature-dvd (DVDPLAYER)
+- ✅ :feature-password (PASSWORD GEN)
+- ✅ :feature-barcode (QR CODES)
+- ✅ :feature-bluetooth (BT SCANNER)
+- ✅ :feature-dnstools (DNS TOOLS)
+- ✅ :feature-ntp (NTP)
+- ✅ :feature-calendar (CALENDAR)
+- ✅ :feature-scanner (DOC SCANNER)
+- ✅ :feature-ssh (SSH/SCP)
+- ✅ :feature-deviceinfo (INFO)
+- ✅ :feature-satellite (GPS)
+- ✅ :feature-secure-notes (NOTES)
+
+**APK-Größe:** ~80-120 MB  
+**Native Libraries:** 6+ . so Dateien (Rust Port Scanner, DNS Tools, NTP, Password, Root Detector, + C++ DVD)
+
+---
+
+## 🔌 **TEIL 4: Was ist NICHT im Kern?**
+
+### **NICHT im Kern (Alle Module)**
+
+```
+:feature-network
+:feature-dvd
+:feature-password
+:feature-barcode
+:feature-bluetooth
+:feature-dnstools
+:feature-ntp
+:feature-calendar
+:feature-scanner
+:feature-ssh
+:feature-deviceinfo
+:feature-satellite
+:feature-secure-notes
+
+Neue optionale Module:
+:feature-reporting       ← Crash/Error Reports
+:feature-utilities       ← Hash, Encoding, QR Tools
+:feature-backup         ← Backup & Restore
+:feature-privacy        ← Privacy Dashboard
+:feature-camera         ← Camera Scanner
+```
+
+**Warum nicht im Kern?**
+- 📦 **Speicher sparen** - Kleinere APK bei Bedarf
+- 🚀 **Performance** - Schnellerer Start
+- 🔧 **Modularität** - Unabhängig entwickelbar
+- 📱 **Device Variabilität** - Nicht jedes Device braucht alles
+- 🎯 **Plugin-System ready** - Leicht zu externalisieren
+
+---
+
+## ⚙️ **TEIL 5: Core Module Detailliert**
+
+### **: core Substruktur**
+
+```
+core/src/main/
+├─ kotlin/com/ble1st/connectias/core/
+│  │
+│  ├─ database/
+│  │  ├─ AppDatabase.kt              Room + SQLCipher
+│  │  ├─ dao/
+│  │  │  ├─ SecurityLogDao.kt        Sicherheitslogs
+│  │  │  └─ SystemLogDao.kt          System Logs
+│  │  └─ migrations/
+│  │     └─ MIGRATION_1_2.kt         Schema-Versioning
+│  │
+│  ├─ di/
+│  │  ├─ DatabaseModule.kt           @Provides AppDatabase
+│  │  ├─ SecurityModule.kt           @Provides SecurityService
+│  │  ├─ RepositoryModule.kt         @Provides Repositories
+│  │  └─ CoroutineModule.kt          @Provides Dispatchers
+│  │
+│  ├─ security/
+│  │  ├─ SecurityService.kt          ⭐ HAUPTKLASSE
+│  │  │  fun performSecurityCheckWithTermination()
+│  │  │  fun checkForThreats(): SecurityCheckResult
+│  │  │
+│  │  ├─ RaspManager.kt              Runtime App Self-Protection
+│  │  │  ├─ enableMonitoring()
+│  │  │  ├─ detectTamper()
+│  │  │  └─ blockIfNeeded()
+│  │  │
+│  │  ├─ KeyManager.kt               Android Keystore
+│  │  │  ├─ generateKey()
+│  │  │  ├─ encrypt(data)
+│  │  │  └─ decrypt(data)
+│  │  │
+│  │  └─ detectors/
+│  │     ├─ RootDetector.kt (JNI → Rust)
+│  │     ├─ TamperDetector.kt
+│  │     ├─ DebuggerDetector.kt
+│  │     ├─ EmulatorDetector.kt
+│  │     ├─ MockLocationDetector.kt
+│  │     └─ SuspiciousAPKsDetector.kt
+│  │
+│  ├─ services/
+│  │  ├─ LoggingService.kt           Structured Logging + Rotation
+│  │  ├─ SettingsRepository.kt       DataStore Preferences
+│  │  └─ TelemetryService.kt         (Optional) Analytics
+│  │
+│  ├─ module/
+│  │  ├─ ModuleRegistry.kt           ConcurrentHashMap
+│  │  ├─ ModuleCatalog.kt            Metadata
+│  │  ├─ PluginManager.kt            (Zukünftig!) Runtime Loading
+│  │  └─ PluginValidator.kt          (Zukünftig!) Security Check
+│  │
+│  └─ models/
+│     ├─ SecurityCheckResult.kt
+│     ├─ Threat.kt
+│     ├─ LogEntry.kt
+│     └─ PluginMetadata.kt
+│
+└─ cpp/
+   ├─ CMakeLists.txt                NDK Config
+   ├─ JniLoader.cpp
+   └─ [Rust bindings für Root Detection]
+
+core/src/main/rust/
+├─ Cargo.toml                        Rust Project
+├─ src/
+│  ├─ lib.rs                         JNI Bindings
+│  ├─ root_detector.rs               Root Detection Logic
+│  ├─ tamper_detector.rs
+│  └─ debugger_detector.rs
+```
+
+**Größe Breakdown:**
+
+| Komponente | Größe |
+|-----------|-------|
+| Kotlin Code | ~200 KB |
+| Rust Binaries | ~150 KB |
+| Dependencies | ~100 KB |
+| **TOTAL** | **~450 KB** |
+
+---
+
+## 🏗️ **TEIL 6: Startup-Sequenz**
+
+```
+1. App Start
+   ↓
+2. SplashScreen installieren
+   ↓
+3. Hilt Dependency Injection initialisieren
+   ├─ DatabaseModule.init() 
+   │  ├─ System. loadLibrary("sqlcipher")
+   │  └─ Room Database öffnen
+   │
+   ├─ SecurityModule. init()
+   │  ├─ Load Rust Root Detector
+   │  └─ Initialize KeyManager
+   │
+   └─ RepositoryModule.init()
+      ├─ SettingsRepository
+      └─ LoggingService
+   ↓
+4. MainActivity. onCreate()
+   ├─ performSecurityCheckWithTermination()  (5sec Timeout)
+   │  ├─ RootDetector.check() [Rust]
+   │  ├─ TamperDetector.check()
+   │  ├─ DebuggerDetector.check()
+   │  └─ EmulatorDetector.check()
+   │
+   └─ if threats:  blockApp()
+   
+   ↓
+5. setupModuleDiscovery()
+   ├─ ModuleCatalog.getAvailableModules()
+   │  ├─ Class.forName() für jedes Feature-Modul
+   │  └─ Nur die kompilierten laden
+   │
+   └─ ModuleRegistry.registerModule()
+   
+   ↓
+6. initializeMainUI()
+   ├─ setContentView(binding.root)
+   ├─ setupNavigation()
+   └─ addFabOverlay()
+   
+   ↓
+7. SplashScreen dismiss
+   ↓
+8. 🎉 App lädt Fragments
+```
+
+---
+
+## 📊 **TEIL 7: Build-Varianten**
+
+```gradle
+// build.gradle.kts (app)
+
+android {
+    buildTypes {
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles("proguard-rules.pro")
+        }
+        debug {
+            isMinifyEnabled = false
+        }
+    }
+    
+    // Splits für Größe-Optimierung
+    splits {
+        abi {
+            isEnable = true
+            include("arm64-v8a")      // Nur ARM64
+            isUniversalApk = false    // Kein Universal APK
+        }
+    }
+}
+```
+
+**Output:**
+- `app-release.aab` → ~60-120 MB (alle Features)
+- `app-debug.apk` → ~80-150 MB (unoptimiert)
+- Split-APKs → ~35-50 MB pro ABI (nur ARM64)
+
+---
+
+## 🎯 **TEIL 8: Checkliste - Was muss in Core bleiben?**
+
+```
+UNBEDINGT in : core:
+✅ SecurityService
+✅ RaspManager
+✅ KeyManager (Android Keystore)
+✅ SQLCipher Database
+✅ Logging Service
+✅ ModuleRegistry + ModuleCatalog
+✅ Dependency Injection (Hilt)
+✅ Detectors (Root, Tamper, Debugger, Emulator)
+
+OPTIONAL in :core: 
+⚠️ PluginManager (jetzt nicht needed, für Zukunft)
+⚠️ TelemetryService (Firebase)
+⚠️ CrashHandler
+
+NIEMALS in :core:
+❌ Feature-specific UI (NetworkToolsFragment, etc.)
+❌ Feature-specific Services (PortScanner, etc.)
+❌ DVD-specific Code (libdvdread, etc.)
+❌ Feature-specific Rust Libraries
+```
+
+---
+
+## 📋 **ZUSAMMENFASSUNG**
+
+| Modul | Typ | Größe | Status | Beschreibung |
+|-------|-----|-------|--------|-------------|
+| **: app** | Application | 200KB | KERN ✅ | Host App, Navigation, UI |
+| **:core** | Library | 450KB | KERN ✅ | Security, DB, DI, Services |
+| **:common** | Library | 175KB | KERN ✅ | Theme, UI Components |
+| **:feature-settings** | Library | 120KB | KERN ✅ | Einstellungen |
+| **:feature-network** | Library | 800KB | Optional | Port Scanner (Rust) |
+| **:feature-dvd** | Library | 5MB+ | Optional | DVD Player (C++) |
+| **:feature-password** | Library | 400KB | Optional | Password Gen (Rust) |
+| **:feature-barcode** | Library | 300KB | Optional | QR Codes |
+| **:feature-dnstools** | Library | 600KB | Optional | DNS Resolver (Rust) |
+| **:feature-ntp** | Library | 350KB | Optional | NTP Client (Rust) |
+| **... andere** | Library | var | Optional | Verschiedene Tools |
+
+**Kern-Größe (Minimal):** ~945 KB (ohne optionale Module)  
+**Mit allen Features:** ~80-120 MB

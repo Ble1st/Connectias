@@ -1,0 +1,1066 @@
+
+# 🚀 **Connectias Plugin System - GitHub Releases Edition**
+
+## 📊 **ÜBERBLICK:   Minimale Infrastruktur**
+
+```
+KEINE externe Server nötig! 
+├─ GitHub Releases als Plugin-Repository
+├─ Release Assets = Plugin AABs
+├─ Release Notes = Changelog & Metadaten
+├─ GitHub API = Update-Checker
+└─ GitHub Workflows = Auto-Build & Release
+
+ULTRA-EINFACH:  
+✅ Keine Docker Container
+✅ Keine separate DB
+✅ Keine Server-Administration
+✅ 100% kostenlos (GitHub ist kostenlos!)
+```
+
+---
+
+## 🏗️ **ARCHITEKTUR: GitHub-zentrisch**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Ble1st/Connectias-Plugins (GITHUB REPOSITORY)     │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  GitHub Releases                                   │
+│  ├─ v1.2.0-network-tools                           │
+│  │  ├─ connectias-plugin-network-1.2.0.aab         │
+│  │  ├─ plugin-manifest. json                        │
+│  │  └─ sha256sum.txt                              │
+│  │                                                 │
+│  ├─ v1.0.0-password-generator                      │
+│  │  ├─ connectias-plugin-password-1.0.0.aab        │
+│  │  ├─ plugin-manifest.json                        │
+│  │  └─ sha256sum.txt                              │
+│  │                                                 │
+│  ├─ v2.1.0-dvd-player                              │
+│  │  └─ ...                                          │
+│  │                                                 │
+│  └─ v1.5.0-barcode-tools                           │
+│     └─ ...                                          │
+│                                                     │
+│  GitHub Workflows (CI/CD)                          │
+│  ├─ build-plugins.yml                              │
+│  ├─ release-plugin.yml                             │
+│  └─ sign-and-upload.yml                            │
+│                                                     │
+│  Metadata Files (JSON)                             │
+│  ├─ plugins-index.json                             │
+│  └─ plugin-catalog.json                            │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+
+                          ↕
+                    GitHub API v3
+
+┌─────────────────────────────────────────────────────┐
+│  Ble1st/Connectias (MAIN APP)                       │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  PluginDownloadManager                             │
+│  └─ fetchPluginsFromGitHub()                       │
+│     ├─ GET /repos/Ble1st/Connectias-Plugins/      │
+│     │      releases                                │
+│     ├─ Filter nach Tag (v*-plugin-*)               │
+│     ├─ Parse Release Notes                         │
+│     └─ Download AABs                               │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📥 **PLUGIN DOWNLOAD MECHANISM**
+
+### **1. GitHub Releases Struktur**
+
+```
+Release Tag:  v1.2.0-network-tools
+
+Release Body (in Markdown):
+┌─────────────────────────────────────────────────┐
+│ # Network Tools v1.2.0                          │
+│                                                 │
+│ ## Changes                                      │
+│ - Added WiFi Analyzer                           │
+│ - Fixed port scanning bug #123                  │
+│ - Performance improvements                      │
+│                                                 │
+│ ## Plugin Info                                  │
+│ ```json                                         │
+│ {                                               │
+│   "pluginId": "network_tools",                 │
+│   "version": "1.2.0",                          │
+│   "minAppVersion": "2.0.0",                    │
+│   "minApiLevel": 33,                           │
+│   "nativeLibraries": [                         │
+│     "connectias_port_scanner",                │
+│     "connectias_wifi_scanner"                 │
+│   ]                                            │
+│ }                                              │
+│ ```                                            │
+│                                                 │
+│ ## Requirements                                 │
+│ - Connectias v2.0.0+                           │
+│ - Android 13+ (API 33+)                        │
+│ - ~15 MB storage                               │
+│                                                 │
+└─────────────────────────────────────────────────┘
+
+Assets:
+├─ connectias-plugin-network-1.2.0.aab           (~10 MB)
+├─ plugin-manifest.json                          (~2 KB)
+├─ sha256sum.txt                                 (~100 bytes)
+└─ INSTALL_GUIDE.md                             (optional)
+```
+
+### **2. Plugin Manifest in Release**
+
+```json
+// plugin-manifest.json (im Release)
+{
+  "pluginId": "network_tools",
+  "pluginName": "Network Tools",
+  "version": "1.2.0",
+  "author": "Ble1st",
+  "homepage": "https://github.com/Ble1st/Connectias-Plugins",
+  "releaseUrl": "https://github.com/Ble1st/Connectias-Plugins/releases/tag/v1.2.0-network-tools",
+  
+  "requirements": {
+    "minApiLevel": 33,
+    "maxApiLevel": 36,
+    "minAppVersion": "2.0.0",
+    "minRAM": 256
+  },
+  
+  "fragmentClassName": "com.ble1st.connectias.plugin.network.ui.NetworkToolsFragment",
+  "category": "NETWORK",
+  "description": "Port Scanner, WiFi Analyzer, Network Tools",
+  
+  "nativeLibraries": [
+    "connectias_port_scanner",
+    "connectias_wifi_scanner"
+  ],
+  
+  "permissions": [
+    "android.permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE"
+  ],
+  
+  "dependencies": [],
+  
+  "changelog": {
+    "1.2.0": "Added WiFi Analyzer, fixed port scanning",
+    "1.1.0": "Initial release with port scanner",
+    "1.0.0": "Beta version"
+  },
+  
+  "screenshot": "https://...",
+  "icon": "https://...",
+  "tags": ["network", "scanner", "security"]
+}
+```
+
+---
+
+## 💾 **PLUGIN DOWNLOAD MANAGER**
+
+### **1. Implementierung in Core**
+
+```kotlin
+// core/src/main/kotlin/com/ble1st/connectias/
+// core/plugin/PluginDownloadManager.kt
+
+package com.ble1st.connectias.core.plugin
+
+import android.content.Context
+import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import timber.log.Timber
+import java.io.File
+import java.security.MessageDigest
+import org.json.JSONObject
+import org.json.JSONArray
+
+/**
+ * Lädt Plugins von GitHub Releases herunter
+ * 
+ * GitHub API: 
+ * https://docs.github.com/en/rest/releases/releases? apiVersion=2022-11-28
+ */
+@Singleton
+class GitHubPluginDownloadManager(
+    private val context: Context,
+    private val pluginDirectory: File,
+    private val httpClient: OkHttpClient
+) {
+    
+    private val GITHUB_API_BASE = "https://api.github.com"
+    private val PLUGIN_REPO = "Ble1st/Connectias-Plugins"
+    private val PLUGIN_TAG_PREFIX = "v"  // v1.2.0-plugin-name
+    
+    data class PluginRelease(
+        val pluginId: String,
+        val version: String,
+        val tagName: String,
+        val aabUrl: String,
+        val manifestUrl: String,
+        val sha256Url: String,
+        val body: String,
+        val releaseDate: String,
+        val downloadCount: Int = 0
+    )
+    
+    /**
+     * Fetcht alle verfügbaren Plugins von GitHub Releases
+     */
+    suspend fun fetchAvailablePlugins(): Result<List<PluginRelease>> = 
+        withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$GITHUB_API_BASE/repos/$PLUGIN_REPO/releases")
+                .addHeader("Accept", "application/vnd.github.v3+json")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            
+            if (!response. isSuccessful) {
+                return@withContext Result.failure(
+                    Exception("GitHub API error: ${response.code}")
+                )
+            }
+            
+            val body = response.body?. string() 
+                ?: return@withContext Result. failure(Exception("Empty response"))
+            
+            val releasesJson = JSONArray(body)
+            val plugins = mutableListOf<PluginRelease>()
+            
+            for (i in 0 until releasesJson. length()) {
+                val release = releasesJson.getJSONObject(i)
+                
+                // Filter nur Plugin-Releases (tag_name = v*-plugin-*)
+                val tagName = release.getString("tag_name")
+                if (! isPluginRelease(tagName)) continue
+                
+                val aabAsset = findAssetByName(release, ". aab")
+                val manifestAsset = findAssetByName(release, "plugin-manifest.json")
+                val sha256Asset = findAssetByName(release, "sha256sum.txt")
+                
+                if (aabAsset != null && manifestAsset != null && sha256Asset != null) {
+                    val pluginId = extractPluginId(tagName)
+                    
+                    plugins.add(PluginRelease(
+                        pluginId = pluginId,
+                        version = release.getString("tag_name").removePrefix("v"),
+                        tagName = tagName,
+                        aabUrl = aabAsset. getString("browser_download_url"),
+                        manifestUrl = manifestAsset.getString("browser_download_url"),
+                        sha256Url = sha256Asset.getString("browser_download_url"),
+                        body = release.getString("body"),
+                        releaseDate = release.getString("published_at"),
+                        downloadCount = aabAsset.getInt("download_count")
+                    ))
+                }
+            }
+            
+            Timber.d("Found ${plugins. size} available plugins on GitHub")
+            Result.success(plugins)
+            
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to fetch plugins from GitHub")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Prüft ob Update für spezifisches Plugin verfügbar ist
+     */
+    suspend fun checkForUpdate(pluginId: String, currentVersion: String): 
+        Result<PluginRelease?> = withContext(Dispatchers.IO) {
+        
+        try {
+            val allPlugins = fetchAvailablePlugins().getOrNull() 
+                ?: return@withContext Result.success(null)
+            
+            val latestRelease = allPlugins
+                .filter { it.pluginId == pluginId }
+                .maxByOrNull { it. version. toVersionCode() }
+            
+            if (latestRelease != null && 
+                latestRelease.version.toVersionCode() > currentVersion.toVersionCode()) {
+                
+                Timber.d("Update available for $pluginId: ${latestRelease.version}")
+                Result.success(latestRelease)
+            } else {
+                Result.success(null)
+            }
+            
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to check for update:  $pluginId")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Downloaded Plugin AAB mit Verifizierung
+     */
+    suspend fun downloadPlugin(
+        release: PluginRelease,
+        onProgress: (current: Long, total: Long) -> Unit = { _, _ -> }
+    ): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            // 1. Download Manifest
+            val manifestJson = downloadFile(release.manifestUrl)
+            val manifest = JSONObject(manifestJson)
+            
+            // 2. Download SHA256 Checksum
+            val sha256Text = downloadFile(release.sha256Url)
+            val expectedChecksum = sha256Text.split("  ")[0]  // "hash  filename"
+            
+            // 3. Download AAB
+            val aabFile = downloadFile(
+                url = release.aabUrl,
+                outputFile = File(pluginDirectory, "temp_${release.pluginId}. aab"),
+                onProgress = onProgress
+            )
+            
+            // 4. Verifiziere Checksum
+            val actualChecksum = aabFile.sha256()
+            if (actualChecksum != expectedChecksum) {
+                aabFile.delete()
+                return@withContext Result.failure(
+                    Exception("Checksum mismatch!  Expected: $expectedChecksum, Got: $actualChecksum")
+                )
+            }
+            
+            // 5. Speichern im korrekten Verzeichnis
+            val finalFile = File(
+                pluginDirectory,
+                "${release.pluginId}-${release.version}.aab"
+            )
+            aabFile.renameTo(finalFile)
+            
+            Timber.i("Plugin downloaded & verified: ${release.pluginId} v${release.version}")
+            Result.success(finalFile)
+            
+        } catch (e:  Exception) {
+            Timber. e(e, "Failed to download plugin: ${release.pluginId}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Hilfsfunktion: Datei herunterladen mit Progress-Callback
+     */
+    private suspend fun downloadFile(
+        url: String,
+        outputFile: File = File. createTempFile("download", ".tmp"),
+        onProgress: (current: Long, total:  Long) -> Unit = { _, _ -> }
+    ): File = withContext(Dispatchers. IO) {
+        val request = Request.Builder().url(url).build()
+        val response = httpClient.newCall(request).execute()
+        
+        if (!response.isSuccessful) {
+            throw Exception("Download failed: ${response.code}")
+        }
+        
+        val body = response.body ?: throw Exception("Empty response body")
+        val contentLength = body.contentLength()
+        var downloaded = Long = 0
+        
+        outputFile.outputStream().use { output ->
+            body.byteStream().buffered().use { input ->
+                val buffer = ByteArray(8192)
+                var bytesRead:  Int
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    downloaded += bytesRead
+                    onProgress(downloaded, contentLength)
+                }
+            }
+        }
+        
+        return@withContext outputFile
+    }
+    
+    private fun isPluginRelease(tagName: String): Boolean {
+        // Format: v1.2.0-plugin-name
+        val pattern = Regex("^v[\\d.]+-. +$")
+        return pattern. matches(tagName)
+    }
+    
+    private fun extractPluginId(tagName: String): String {
+        // v1.2.0-network-tools → network-tools
+        return tagName
+            .removePrefix("v")
+            .replaceFirst(Regex("^[\\d.]+\\-"), "")
+    }
+    
+    private fun findAssetByName(releaseJson: JSONObject, filename: String): 
+        JSONObject? {
+        
+        val assets = releaseJson. getJSONArray("assets")
+        for (i in 0 until assets.length()) {
+            val asset = assets.getJSONObject(i)
+            if (asset.getString("name").contains(filename)) {
+                return asset
+            }
+        }
+        return null
+    }
+}
+
+// Extension Functions
+private fun File.sha256(): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    return inputStream().buffered().use { input ->
+        val buffer = ByteArray(8192)
+        var bytesRead: Int
+        while (input.read(buffer).also { bytesRead = it } != -1) {
+            digest.update(buffer, 0, bytesRead)
+        }
+        digest.digest().joinToString("") { "%02x".format(it) }
+    }
+}
+
+private fun downloadFile(url: String): String {
+    val request = Request. Builder().url(url).build()
+    val response = OkHttpClient().newCall(request).execute()
+    return response.body?.string() ?: ""
+}
+
+private fun String.toVersionCode(): Long {
+    // "1.2.3" → 10203000
+    return split(".").padEnd(4, "0")
+        .take(4)
+        .mapIndexed { i, part ->
+            part.toIntOrNull()?.toLong()?. times(1000L. pow(3 - i)) ?: 0L
+        }
+        .sum()
+}
+
+private fun Long.pow(exponent: Int): Long {
+    return (1.. exponent).fold(1L) { acc, _ -> acc * this }
+}
+```
+
+---
+
+## 🔧 **GITHUB WORKFLOWS:  Automatisierte Builds**
+
+### **1. Plugin Build & Release Workflow**
+
+```yaml
+# Connectias-Plugins/. github/workflows/release-plugin.yml
+
+name: Build & Release Plugin
+
+on:
+  workflow_dispatch:
+    inputs: 
+      plugin_name:
+        description: 'Plugin to build (e.g., network_tools)'
+        required: true
+      version:
+        description: 'Version number (e.g., 1.2.0)'
+        required: true
+
+jobs:
+  build-and-release:
+    runs-on:  ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+      
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+      
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26
+      
+      - name: Build Rust libraries
+        working-directory: connectias-plugin-${{ github.event.inputs.plugin_name }}/src/main/rust
+        run: |
+          cargo ndk --target aarch64-linux-android --platform 33 -- build --release
+      
+      - name:  Build Plugin AAB
+        run: |
+          ./gradlew :connectias-plugin-${{ github.event.inputs.plugin_name }}:bundleRelease
+      
+      - name: Sign AAB
+        env:
+          SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY }}
+          KEY_ALIAS: ${{ secrets. PLUGIN_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets. PLUGIN_KEY_PASSWORD }}
+        run: |
+          echo "$SIGNING_KEY" | base64 -d > signing.jks
+          
+          jarsigner -verbose -sigalg SHA256withRSA \
+            -digestalg SHA256 \
+            -keystore signing.jks \
+            -storepass "$KEY_PASSWORD" \
+            -keypass "$KEY_PASSWORD" \
+            connectias-plugin-${{ github.event.inputs.plugin_name }}/build/outputs/bundle/release/connectias-plugin-${{ github.event.inputs. plugin_name }}-release.aab \
+            "$KEY_ALIAS"
+      
+      - name: Generate SHA256 Checksum
+        run: |
+          sha256sum connectias-plugin-${{ github. event.inputs.plugin_name }}/build/outputs/bundle/release/connectias-plugin-${{ github.event.inputs.plugin_name }}-release.aab > sha256sum.txt
+      
+      - name: Copy Manifest
+        run: |
+          cp connectias-plugin-${{ github.event.inputs.plugin_name }}/src/main/resources/plugin-manifest.json . 
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with: 
+          tag_name: v${{ github.event.inputs. version }}-${{ github.event.inputs. plugin_name }}
+          body:  |
+            # ${{ github.event.inputs.plugin_name }} v${{ github. event.inputs.version }}
+            
+            Release notes automatically generated.  Update this with changelog details.
+            
+            ```json
+            $(cat plugin-manifest.json)
+            ```
+          files: |
+            connectias-plugin-${{ github.event.inputs.plugin_name }}/build/outputs/bundle/release/connectias-plugin-${{ github.event.inputs.plugin_name }}-release.aab
+            plugin-manifest.json
+            sha256sum.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### **2. Alle Plugins Bauen**
+
+```yaml
+# Connectias-Plugins/.github/workflows/build-all-plugins.yml
+
+name: Build All Plugins
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request: 
+    branches: [ main, develop ]
+
+jobs:
+  build: 
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        plugin: [
+          network_tools,
+          password_generator,
+          dvd_player,
+          barcode_tools,
+          dns_tools,
+          ntp_client
+        ]
+    
+    steps: 
+      - uses: actions/checkout@v3
+      
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      
+      - name: Build Plugin ${{ matrix.plugin }}
+        run: |
+          ./gradlew :connectias-plugin-${{ matrix.plugin }}:build
+      
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v3
+        with: 
+          name: ${{ matrix.plugin }}-build
+          path: connectias-plugin-${{ matrix.plugin }}/build/outputs/
+```
+
+---
+
+## 📱 **INTEGRATION IN HAUPTAPP**
+
+### **1. PluginDownloadManager in Core**
+
+```kotlin
+// core/src/main/kotlin/com/ble1st/connectias/core/di/
+// PluginModule.kt
+
+package com.ble1st.connectias.core.di
+
+import android.content.Context
+import dagger.Module
+import dagger. Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import com.ble1st.connectias.core.plugin.GitHubPluginDownloadManager
+import okhttp3.OkHttpClient
+import java.io.File
+import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object PluginModule {
+    
+    @Provides
+    @Singleton
+    fun providePluginDirectory(
+        @ApplicationContext context:  Context
+    ): File {
+        val pluginDir = File(context.cacheDir, "plugins")
+        pluginDir.mkdirs()
+        return pluginDir
+    }
+    
+    @Provides
+    @Singleton
+    fun provideGitHubPluginDownloadManager(
+        @ApplicationContext context: Context,
+        pluginDirectory: File,
+        okHttpClient: OkHttpClient
+    ): GitHubPluginDownloadManager {
+        return GitHubPluginDownloadManager(context, pluginDirectory, okHttpClient)
+    }
+}
+```
+
+### **2. MainActivity Update**
+
+```kotlin
+// app/src/main/kotlin/com/ble1st/connectias/MainActivity.kt
+
+@AndroidEntryPoint
+class MainActivity : AppCompatActivity() {
+    
+    @Inject
+    lateinit var pluginManager: PluginManager
+    
+    @Inject
+    lateinit var githubPluginDownloadManager: GitHubPluginDownloadManager
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        // ...  Security Check ... 
+        
+        lifecycleScope.launch {
+            // 1. Initialisiere lokale Plugins
+            pluginManager.initialize()
+            
+            // 2. Prüfe auf Updates von GitHub
+            checkForPluginUpdates()
+        }
+    }
+    
+    private suspend fun checkForPluginUpdates() {
+        try {
+            val availablePlugins = githubPluginDownloadManager
+                .fetchAvailablePlugins()
+                .getOrNull() ?: return
+            
+            // Vergleiche mit installierten Plugins
+            pluginManager.getLoadedPlugins().forEach { installed ->
+                val availableRelease = availablePlugins
+                    .find { it.pluginId == installed.pluginId }
+                
+                if (availableRelease != null &&
+                    availableRelease. version > installed.metadata.version) {
+                    
+                    // Update verfügbar! 
+                    showUpdateDialog(installed, availableRelease)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to check for plugin updates")
+        }
+    }
+    
+    private fun showUpdateDialog(
+        installed: PluginManager.PluginInfo,
+        availableRelease:  GitHubPluginDownloadManager. PluginRelease
+    ) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Update available:  ${installed.metadata.pluginName}")
+            .setMessage(
+                "Version ${availableRelease.version} is available\n\n" +
+                parseReleaseNotes(availableRelease.body)
+            )
+            .setPositiveButton("Update") { _, _ ->
+                downloadAndInstallUpdate(availableRelease)
+            }
+            .setNegativeButton("Later", null)
+            .show()
+    }
+    
+    private fun downloadAndInstallUpdate(
+        release: GitHubPluginDownloadManager.PluginRelease
+    ) {
+        lifecycleScope.launch {
+            // Show Progress Dialog
+            val progressDialog = ProgressDialog(this@MainActivity).apply {
+                setTitle("Downloading ${release.pluginId}...")
+                setProgressStyle(ProgressDialog.STYLE_HORIZONTAL)
+                show()
+            }
+            
+            try {
+                val result = githubPluginDownloadManager.downloadPlugin(
+                    release,
+                    onProgress = { current, total ->
+                        progressDialog.progress = (current * 100 / total).toInt()
+                    }
+                )
+                
+                result.onSuccess { pluginFile ->
+                    progressDialog.dismiss()
+                    
+                    // Unload alte Version
+                    pluginManager.disablePlugin(release.pluginId).getOrNull()
+                    pluginManager.unloadPlugin(release.pluginId).getOrNull()
+                    
+                    // Lade neue Version
+                    val loadResult = pluginManager.loadPlugin(pluginFile)
+                    if (loadResult.isSuccess) {
+                        pluginManager.enablePlugin(release.pluginId)
+                        showToast("Plugin updated successfully!")
+                    }
+                }
+                
+                result.onFailure { error ->
+                    progressDialog.dismiss()
+                    showError("Failed to update plugin: ${error.message}")
+                }
+            } catch (e: Exception) {
+                progressDialog.dismiss()
+                Timber.e(e)
+                showError("Update failed")
+            }
+        }
+    }
+    
+    private fun parseReleaseNotes(body:  String): String {
+        // Extrahiere aus Release Notes
+        // ## Changes
+        // - Item 1
+        // - Item 2
+        val changeSection = body.substringAfter("## Changes", "")
+        return changeSection.take(200) + "..."
+    }
+}
+```
+
+---
+
+## 🎯 **SETUP-ANLEITUNG:  Schritt-für-Schritt**
+
+### **Schritt 1: GitHub Repository erstellen**
+
+```bash
+# 1. Neue GitHub Organization oder User Repo
+https://github.com/Ble1st/Connectias-Plugins
+
+# 2. Klone initial
+git clone https://github.com/Ble1st/Connectias-Plugins.git
+cd Connectias-Plugins
+
+# 3. Initialize gradle project
+gradle init --type basic
+mkdir -p connectias-plugin-sdk
+
+# 4. Push
+git add .
+git commit -m "Initial commit"
+git push origin main
+```
+
+### **Schritt 2: Signing Keys Setup**
+
+```bash
+# 1. Generate Signing Key (One-Time)
+keytool -genkey -v -keystore ~/.connectias_plugins. jks \
+  -keyalg RSA -keysize 4096 -validity 10000 \
+  -alias connectias_plugins
+
+# 2. Encode to Base64
+base64 ~/. connectias_plugins.jks | tr -d '\n' > signing_key.txt
+
+# 3. Add als GitHub Secret
+# GitHub Settings → Secrets & Variables → Actions
+# PLUGIN_SIGNING_KEY=<base64_content>
+# PLUGIN_KEY_ALIAS=connectias_plugins
+# PLUGIN_KEY_PASSWORD=<password>
+```
+
+### **Schritt 3: Workflow Files erstellen**
+
+```bash
+# 1. Create workflows directory
+mkdir -p .github/workflows
+
+# 2. Kopiere Workflow Files (siehe oben)
+# release-plugin.yml
+# build-all-plugins.yml
+
+# 3. Commit & Push
+git add .github/workflows/
+git commit -m "Add GitHub workflows"
+git push origin main
+```
+
+### **Schritt 4:  Erstes Plugin bauen & releasen**
+
+```bash
+# Lokal oder via GitHub Actions
+
+# Option A: Lokal bauen
+cd connectias-plugin-network
+../../gradlew : connectias-plugin-network:bundleRelease
+
+# Option B:  Via GitHub UI
+# 1. Go to Actions
+# 2. Select "Build & Release Plugin"
+# 3. Click "Run workflow"
+# 4. Input:   plugin_name=network_tools, version=1.0.0
+# 5. Workflow läuft automatisch
+# 6. Release wird erstellt mit Assets!
+```
+
+---
+
+## 📊 **PLUGIN-INDEX (Optional)**
+
+### **plugins-index.json auf GitHub Pages**
+
+```json
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-01-20T10:30:00Z",
+  "plugins": [
+    {
+      "pluginId": "network_tools",
+      "name": "Network Tools",
+      "category": "NETWORK",
+      "icon": "https://github.com/Ble1st/Connectias-Plugins/raw/main/icons/network-tools.png",
+      "description":  "Port Scanner, WiFi Analyzer",
+      "latestVersion": "1.2.0",
+      "latestRelease": "https://github.com/Ble1st/Connectias-Plugins/releases/tag/v1.2.0-network-tools",
+      "downloadCount": 5234,
+      "rating": 4.8,
+      "reviews": 127
+    },
+    {
+      "pluginId": "password_generator",
+      "name": "Password Generator",
+      "category": "SECURITY",
+      "icon":  "https://...",
+      "description": "Secure password generation",
+      "latestVersion":  "1.0.0",
+      "latestRelease": "https://...",
+      "downloadCount": 3421,
+      "rating": 4.6,
+      "reviews": 89
+    }
+    // ... more plugins
+  ]
+}
+```
+
+---
+
+## 🚀 **KOMPLETTER WORKFLOW:  Plugin Release**
+
+```
+1️⃣  Developer pushed Code zu GitHub
+            ↓
+2️⃣  Manually trigger "Build & Release Plugin" Workflow
+            ↓
+3️⃣  GitHub Actions: 
+   ├─ Build Rust Libraries
+   ├─ Build Plugin AAB
+   ├─ Sign mit Keystore Secret
+   ├─ Generate SHA256 Checksum
+   ├─ Create GitHub Release mit Assets
+   └─ Post Release Notes
+            ↓
+4️⃣  Release sichtbar unter: 
+   https://github.com/Ble1st/Connectias-Plugins/releases
+            ↓
+5️⃣  User öffnet Connectias App
+            ↓
+6️⃣  PluginManager. checkForUpdates() wird aufgerufen
+   ├─ GitHubPluginDownloadManager. fetchAvailablePlugins()
+   ├─ GitHub API Call:  GET /repos/. ../releases
+   ├─ Parse Release Assets
+   └─ Compare Versions
+            ↓
+7️⃣  Wenn Update verfügbar:
+   ├─ Dialog anzeigen
+   ├─ User klickt "Update"
+   ├─ Download von GitHub (AAB + Manifest + SHA256)
+   ├─ Verifiziere SHA256 Checksum
+   ├─ Unload alte Version
+   ├─ Load neue Version
+   └─ Aktiviere Plugin
+            ↓
+8️⃣  ✅ Plugin aktualisiert! 
+```
+
+---
+
+## 💰 **KOSTEN-ANALYSE**
+
+```
+GitHub Releases Variante:
+├─ Repository-Speicher:  Kostenlos (bis 4 GB)
+├─ Release Assets: Kostenlos (unbegrenzt)
+├─ GitHub Actions (Build): 2000 min/Monat kostenlos
+├─ API Calls: 60 req/h kostenlos (für unauthenticated)
+│            5000 req/h mit GitHub Token (kostenlos)
+└─ TOTAL: 💰 $0 / Monat
+
+Alternative Server-Variante:
+├─ VPS:         ~$5-20/Monat
+├─ Domain:     ~$1-2/Monat
+├─ SSL Cert:   Kostenlos (Let's Encrypt)
+├─ Bandwidth:  Kostenlos < 1 TB/Monat
+└─ TOTAL:       💰 $6-22 / Monat
+
+ERSPARNIS:  ~ $72-264 / Jahr
+```
+
+---
+
+## ✅ **CHECKLISTE:  GitHub Releases Setup**
+
+```
+PRE-LAUNCH:
+  ☐ GitHub Repository erstellen
+  ☐ Signing Keys generieren
+  ☐ GitHub Secrets hinzufügen
+  ☐ Workflows einrichten (. github/workflows/)
+  ☐ PluginDownloadManager in Core implementieren
+  ☐ MainActivity Update-Check implementieren
+  ☐ Lokales Testing durchführen
+
+LAUNCH: 
+  ☐ Erstes Plugin bauen
+  ☐ via Workflow oder lokal releasen
+  ☐ Release Assets prüfen (AAB, Manifest, SHA256)
+  ☐ Update im Test-Device testen
+  ☐ Public Release gehen
+
+POST-LAUNCH:
+  ☐ Monitoring: GitHub API Rate Limits
+  ☐ Monitoring: Fehlerquoten bei Updates
+  ☐ Dokumentation für Plugin-Entwickler schreiben
+  ☐ Community-Support aktivieren (Discussions)
+```
+
+---
+
+## 📖 **DOKUMENTATION FÜR PLUGIN-ENTWICKLER**
+
+```markdown
+# Connectias Plugin Development Guide
+
+## Quick Start
+
+### 1. Plugin erstellen
+```bash
+./scripts/new-plugin.sh network_tools
+```
+
+### 2. Implementiere Plugin. kt
+```kotlin
+@ConnectiasPlugin(
+    id = "network_tools",
+    name = "Network Tools",
+    version = "1.0.0"
+)
+class NetworkToolsPlugin : IPlugin {
+    // ... 
+}
+```
+
+### 3. Baue lokal
+```bash
+./gradlew :connectias-plugin-network:bundleRelease
+```
+
+### 4. Release (Lokal oder GitHub)
+
+#### Option A: Lokal
+```bash
+# Sign AAB
+jarsigner -verbose ...  plugin.aab key
+
+# Generate Checksum
+sha256sum plugin. aab > sha256sum.txt
+
+# Create release files
+- plugin.aab
+- plugin-manifest.json
+- sha256sum.txt
+
+# Manually upload zu GitHub Release
+```
+
+#### Option B: GitHub Actions
+```
+1. Push Code
+2. Go to Actions → "Build & Release Plugin"
+3. Input plugin name & version
+4. Workflow läuft → Release erstellt! 
+```
+
+## Lokales Testen
+
+```bash
+# Baue Test-Version
+./gradlew :connectias-plugin-network:assembleDebug
+
+# Kopiere zu Emulator Plugin-Directory
+adb shell mkdir -p /data/data/com.ble1st.connectias/plugins
+adb push build/outputs/apk/debug/plugin.apk \
+  /data/data/com.ble1st.connectias/plugins/
+
+# Öffne Connectias → Plugin sollte geladen sein
+```
+
+## Publishing Checklist
+
+- [ ] Plugin-Name & ID korrekt
+- [ ] Version in plugin-manifest.json & build.gradle
+- [ ] Changelog aktualisieren
+- [ ] Permissions auflisten
+- [ ] Dependencies auflisten
+- [ ] Native Libraries getestet
+- [ ] Build lokal erfolgreich
+- [ ] README. md mit Features
+- [ ] Commits mit aussagekräftigen Messages
+- [ ] Push zu GitHub
+- [ ] GitHub Release erstellen oder Workflow triggern
+```

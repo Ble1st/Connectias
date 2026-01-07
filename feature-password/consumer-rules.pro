@@ -1,1 +1,0 @@
--keep class com.ble1st.connectias.feature.password.** { *; }

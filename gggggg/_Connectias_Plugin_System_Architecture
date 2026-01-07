@@ -1,0 +1,1271 @@
+
+# 🔌 **Connectias Plugin System - Vollständige Architektur**
+
+## 📐 **ÜBERBLICK:  Zwei-Repository-Modell**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│  Repository 1: Ble1st/Connectias (HOST-APP)                    │
+│  ├─ Core Framework                                             │
+│  ├─ UI Host (MainActivity, Navigation)                        │
+│  ├─ Plugin Manager                                             │
+│  └─ Security Manager                                            │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  Repository 2: Ble1st/Connectias-Plugins (PLUGIN SDK)          │
+│  ├─ connectias-plugin-network/                                │
+│  │   ├─ Port Scanner (Rust . so)                              │
+│  │   ├─ DNS Tools (Rust .so)                                │
+│  │   └─ NTP Client (Rust .so)                              │
+│  │                                                            │
+│  ├─ connectias-plugin-dvd/                                   │
+│  │   ├─ libdvdread/dvdnav/dvdcss                           │
+│  │   └─ LibVLC Integration                                  │
+│  │                                                            │
+│  ├─ connectias-plugin-password/                              │
+│  │   └─ Password Generator (Rust)                           │
+│  │                                                            │
+│  ├─ connectias-plugin-sdk/                                  │
+│  │   ├─ IPlugin Interface                                   │
+│  │   ├─ PluginContext                                       │
+│  │   ├─ NativeLibraryManager                               │
+│  │   └─ PluginAnnotations                                   │
+│  │                                                            │
+│  └─ plugin-manifest.json                                      │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🏗️ **PART 1: Plugin SDK (Neue Repository)**
+
+### **1.1 Plugin-Interface (Base Contract)**
+
+```kotlin
+// connectias-plugin-sdk/src/main/kotlin/
+// com/ble1st/connectias/plugin/IPlugin.kt
+
+package com.ble1st. connectias.plugin
+
+import android.content.Context
+import kotlin.reflect.KClass
+
+/**
+ * Base-Interface für alle Connectias Plugins. 
+ * Plugins MÜSSEN diese Schnittstelle implementieren.
+ */
+interface IPlugin {
+    
+    /**
+     * Plugin-Metadaten
+     */
+    fun getMetadata(): PluginMetadata
+    
+    /**
+     * Wird aufgerufen wenn Plugin geladen wird
+     */
+    fun onLoad(context: PluginContext): Boolean
+    
+    /**
+     * Wird aufgerufen wenn Plugin aktiviert wird
+     */
+    fun onEnable(): Boolean
+    
+    /**
+     * Wird aufgerufen wenn Plugin deaktiviert wird
+     */
+    fun onDisable(): Boolean
+    
+    /**
+     * Wird aufgerufen bevor Plugin entladen wird
+     */
+    fun onUnload(): Boolean
+    
+    /**
+     * Lifecycle:  App wurde in den Hintergrund verschoben
+     */
+    fun onPause() {}
+    
+    /**
+     * Lifecycle: App ist wieder aktiv
+     */
+    fun onResume() {}
+}
+
+/**
+ * Plugin-Metadaten
+ */
+data class PluginMetadata(
+    val pluginId: String,                    // "network_tools"
+    val pluginName:  String,                  // "Network Tools"
+    val version: String,                     // "1.2.3"
+    val author: String,                      // "Ble1st"
+    val minApiLevel: Int = 33,
+    val maxApiLevel: Int = 36,
+    val minAppVersion: String = "1.0.0",
+    val nativeLibraries: List<String> = emptyList(),  // ["libconnectias_port_scanner.so"]
+    val category: PluginCategory = PluginCategory.UTILITY,
+    val description: String = "",
+    val permissions: List<String> = emptyList(),
+    val dependencies: List<String> = emptyList(),    // Andere Plugins
+    val fragmentClassName: String?  = null
+)
+
+enum class PluginCategory {
+    SECURITY,
+    NETWORK,
+    PRIVACY,
+    UTILITY,
+    SYSTEM
+}
+
+/**
+ * Context den das Plugin bekommt
+ */
+interface PluginContext {
+    fun getApplicationContext(): Context
+    fun getPluginDirectory(): java.io.File
+    fun getNativeLibraryManager(): INativeLibraryManager
+    fun registerService(name: String, service: Any)
+    fun getService(name: String): Any?
+    fun logDebug(message: String)
+    fun logError(message: String, throwable: Throwable?  = null)
+}
+```
+
+---
+
+### **1.2 Annotations für Plugin-Registrierung**
+
+```kotlin
+// connectias-plugin-sdk/src/main/kotlin/
+// com/ble1st/connectias/plugin/annotations/
+
+package com.ble1st. connectias.plugin.annotations
+
+/**
+ * Markiert die Plugin-Einstiegsklasse
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class ConnectiasPlugin(
+    val id: String,
+    val name: String,
+    val version: String,
+    val author: String = "Unknown",
+    val category: String = "UTILITY"
+)
+
+/**
+ * Markiert eine Fragment-Klasse die vom Plugin kommt
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PluginFragment(
+    val id: String,
+    val name:  String,
+    val icon: String = ""
+)
+
+/**
+ * Markiert eine Kotlin-Coroutine-Funktion als Plugin-Service
+ */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.RUNTIME)
+annotation class PluginService(
+    val name: String
+)
+```
+
+---
+
+### **1.3 Native Library Manager**
+
+```kotlin
+// connectias-plugin-sdk/src/main/kotlin/
+// com/ble1st/connectias/plugin/native/
+
+package com.ble1st.connectias.plugin.native
+
+import android.os.Build
+import java.io.File
+
+/**
+ * Lädt native Bibliotheken (. so Dateien) zur Laufzeit
+ */
+interface INativeLibraryManager {
+    
+    /**
+     * Lädt eine . so-Datei von einem bestimmten Pfad
+     */
+    suspend fun loadLibrary(
+        libraryName: String,
+        libraryPath: File
+    ): Result<Unit>
+    
+    /**
+     * Entlädt eine .so-Datei
+     */
+    suspend fun unloadLibrary(libraryName:  String): Result<Unit>
+    
+    /**
+     * Prüft ob Library geladen ist
+     */
+    fun isLoaded(libraryName:  String): Boolean
+    
+    /**
+     * Gibt alle geladenen Libraries zurück
+     */
+    fun getLoadedLibraries(): List<String>
+}
+
+/**
+ * Standard-Implementierung mit Exception-Handling
+ */
+class NativeLibraryManager :  INativeLibraryManager {
+    
+    private val loadedLibraries = mutableSetOf<String>()
+    private val loadLock = Any()
+    
+    override suspend fun loadLibrary(
+        libraryName: String,
+        libraryPath: File
+    ): Result<Unit> = try {
+        synchronized(loadLock) {
+            if (loadedLibraries. contains(libraryName)) {
+                return Result.success(Unit)
+            }
+            
+            // Kopiere . so zu /data/data/app-lib/
+            val libDir = File("/data/data/com.ble1st.connectias/lib")
+            if (!libDir.exists()) {
+                libDir.mkdirs()
+            }
+            
+            val destFile = File(libDir, "lib$libraryName.so")
+            libraryPath.copyTo(destFile, overwrite = true)
+            
+            // Lade mit System. load (absoluter Pfad)
+            System. load(destFile.absolutePath)
+            
+            loadedLibraries.add(libraryName)
+            Result.success(Unit)
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+    
+    override suspend fun unloadLibrary(libraryName: String): Result<Unit> = try {
+        synchronized(loadLock) {
+            loadedLibraries.remove(libraryName)
+            // Hinweis: Java/Android können . so nicht direkt entladen! 
+            // Das ist ein bekanntes Limitation
+            Result.success(Unit)
+        }
+    } catch (e:  Exception) {
+        Result.failure(e)
+    }
+    
+    override fun isLoaded(libraryName: String): Boolean =
+        loadedLibraries. contains(libraryName)
+    
+    override fun getLoadedLibraries(): List<String> =
+        loadedLibraries. toList()
+}
+```
+
+---
+
+## 🎯 **PART 2: Host-App Plugin Manager (In Connectias)**
+
+### **2.1 Plugin Discovery & Loading**
+
+```kotlin
+// core/src/main/kotlin/com/ble1st/connectias/
+// core/plugin/PluginManager.kt
+
+package com.ble1st.connectias.core.plugin
+
+import android. content.Context
+import com.ble1st.connectias.plugin.IPlugin
+import com.ble1st.connectias.plugin.PluginContext
+import com.ble1st. connectias.plugin.PluginMetadata
+import kotlinx.coroutines.*
+import timber.log.Timber
+import java.io.File
+import java. net.URLClassLoader
+import java.util. concurrent.ConcurrentHashMap
+import java. util.jar.JarFile
+
+/**
+ * Verwaltet Plugin-Lebenszyklus und Entdeckung
+ */
+class PluginManager(
+    private val context: Context,
+    private val pluginDirectory:  File
+) {
+    
+    private val loadedPlugins = ConcurrentHashMap<String, PluginInfo>()
+    private val classLoaders = ConcurrentHashMap<String, URLClassLoader>()
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    
+    /**
+     * Plugin-Information während Laufzeit
+     */
+    data class PluginInfo(
+        val pluginId: String,
+        val metadata: PluginMetadata,
+        val instance: IPlugin,
+        val classLoader: URLClassLoader,
+        val state: PluginState,
+        val loadedAt: Long
+    )
+    
+    enum class PluginState {
+        LOADED,      // Geladen aber nicht aktiviert
+        ENABLED,     // Aktiviert und funktioniert
+        DISABLED,    // Deaktiviert aber noch im Speicher
+        ERROR        // Fehler beim Laden
+    }
+    
+    /**
+     * Initialisiert Plugin-Verzeichnis und lädt verfügbare Plugins
+     */
+    suspend fun initialize(): Result<List<PluginMetadata>> = withContext(Dispatchers.IO) {
+        try {
+            // Erstelle Plugin-Verzeichnis falls nicht existiert
+            if (!pluginDirectory.exists()) {
+                pluginDirectory.mkdirs()
+            }
+            
+            // Scanne nach Plugin-AABs
+            val pluginFiles = pluginDirectory.listFiles { file ->
+                file.extension == "aab" || file.extension == "jar"
+            } ?: emptyArray()
+            
+            Timber.d("Found ${pluginFiles.size} plugin files")
+            
+            // Lade alle Plugins
+            val loadedMetadata = mutableListOf<PluginMetadata>()
+            for (pluginFile in pluginFiles) {
+                val result = loadPlugin(pluginFile)
+                if (result.isSuccess) {
+                    val metadata = result.getOrNull()
+                    if (metadata != null) {
+                        loadedMetadata.add(metadata)
+                    }
+                }
+            }
+            
+            Result.success(loadedMetadata)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize plugin manager")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Lädt ein Plugin aus einer AAB/JAR-Datei
+     */
+    private suspend fun loadPlugin(pluginFile: File): Result<PluginMetadata> = try {
+        // 1. Extrahiere Plugin-Manifest
+        val metadata = extractPluginMetadata(pluginFile)
+        
+        // 2. Validiere Plugin
+        validatePlugin(metadata)
+        
+        // 3. Erstelle Custom ClassLoader
+        val classLoader = URLClassLoader(
+            arrayOf(pluginFile.toURI().toURL()),
+            context.classLoader  // Parent ClassLoader ist App ClassLoader
+        )
+        
+        // 4. Instanziiere Plugin-Klasse
+        val pluginClass = classLoader.loadClass(metadata.fragmentClassName)
+        val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as IPlugin
+        
+        // 5. Erstelle PluginContext
+        val pluginContext = PluginContextImpl(
+            appContext = context,
+            pluginDir = File(pluginDirectory, metadata.pluginId),
+            nativeLibManager = NativeLibraryManager()
+        )
+        
+        // 6. Rufe onLoad() auf
+        val loadSuccess = pluginInstance.onLoad(pluginContext)
+        if (!loadSuccess) {
+            return Result.failure(Exception("Plugin. onLoad() returned false"))
+        }
+        
+        // 7. Speichere Plugin-Info
+        val pluginInfo = PluginInfo(
+            pluginId = metadata.pluginId,
+            metadata = metadata,
+            instance = pluginInstance,
+            classLoader = classLoader,
+            state = PluginState.LOADED,
+            loadedAt = System.currentTimeMillis()
+        )
+        
+        loadedPlugins[metadata.pluginId] = pluginInfo
+        classLoaders[metadata.pluginId] = classLoader
+        
+        Timber.i("Plugin loaded: ${metadata.pluginName} v${metadata.version}")
+        Result.success(metadata)
+        
+    } catch (e: Exception) {
+        Timber.e(e, "Failed to load plugin:  ${pluginFile.name}")
+        Result.failure(e)
+    }
+    
+    /**
+     * Aktiviert ein Plugin
+     */
+    suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val pluginInfo = loadedPlugins[pluginId]
+                ?: return@withContext Result. failure(Exception("Plugin not found:  $pluginId"))
+            
+            val enableSuccess = pluginInfo.instance. onEnable()
+            if (!enableSuccess) {
+                return@withContext Result.failure(Exception("Plugin.onEnable() returned false"))
+            }
+            
+            // Update state
+            loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.ENABLED)
+            
+            Timber.i("Plugin enabled: $pluginId")
+            Result. success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to enable plugin: $pluginId")
+            Result. failure(e)
+        }
+    }
+    
+    /**
+     * Deaktiviert ein Plugin (aber entlädt es nicht)
+     */
+    suspend fun disablePlugin(pluginId:  String): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val pluginInfo = loadedPlugins[pluginId]
+                ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
+            
+            val disableSuccess = pluginInfo.instance.onDisable()
+            if (!disableSuccess) {
+                return@withContext Result.failure(Exception("Plugin.onDisable() returned false"))
+            }
+            
+            // Update state
+            loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.DISABLED)
+            
+            Timber.i("Plugin disabled: $pluginId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to disable plugin:  $pluginId")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Entlädt ein Plugin
+     */
+    suspend fun unloadPlugin(pluginId: String): Result<Unit> = withContext(Dispatchers. IO) {
+        try {
+            val pluginInfo = loadedPlugins[pluginId]
+                ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
+            
+            // Deaktiviere erst
+            disablePlugin(pluginId).getOrNull()
+            
+            // Rufe onUnload() auf
+            pluginInfo.instance.onUnload()
+            
+            // Cleanup
+            classLoaders[pluginId]?. close()
+            classLoaders. remove(pluginId)
+            loadedPlugins.remove(pluginId)
+            
+            Timber.i("Plugin unloaded: $pluginId")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to unload plugin: $pluginId")
+            Result. failure(e)
+        }
+    }
+    
+    /**
+     * Gibt alle geladenen Plugins zurück
+     */
+    fun getLoadedPlugins(): List<PluginInfo> =
+        loadedPlugins.values.toList()
+    
+    /**
+     * Gibt alle aktivierten Plugins zurück
+     */
+    fun getEnabledPlugins(): List<PluginInfo> =
+        loadedPlugins.values.filter { it.state == PluginState. ENABLED }
+    
+    private suspend fun extractPluginMetadata(pluginFile: File): PluginMetadata = withContext(Dispatchers.Default) {
+        // Lese plugin-manifest. json aus JAR
+        JarFile(pluginFile).use { jar ->
+            val manifestEntry = jar.getEntry("plugin-manifest.json")
+                ?: throw IllegalArgumentException("No plugin-manifest.json found")
+            
+            val jsonString = jar.getInputStream(manifestEntry).bufferedReader().readText()
+            val json = org.json.JSONObject(jsonString)
+            
+            PluginMetadata(
+                pluginId = json.getString("pluginId"),
+                pluginName = json.getString("pluginName"),
+                version = json.getString("version"),
+                author = json.optString("author", "Unknown"),
+                minApiLevel = json.optInt("minApiLevel", 33),
+                maxApiLevel = json.optInt("maxApiLevel", 36),
+                minAppVersion = json.optString("minAppVersion", "1.0.0"),
+                nativeLibraries = json.optJSONArray("nativeLibraries")?. let {
+                    (0 until it.length()).map { i -> it.getString(i) }
+                } ?: emptyList(),
+                fragmentClassName = json.getString("fragmentClassName"),
+                description = json.optString("description", ""),
+                permissions = json. optJSONArray("permissions")?.let {
+                    (0 until it.length()).map { i -> it.getString(i) }
+                } ?: emptyList()
+            )
+        }
+    }
+    
+    private fun validatePlugin(metadata: PluginMetadata) {
+        // Validiere dass die App-Version kompatibel ist
+        val currentAppVersion = context.packageManager
+            .getPackageInfo(context.packageName, 0).versionName
+        
+        if (metadata. minAppVersion > currentAppVersion) {
+            throw IllegalArgumentException(
+                "Plugin requires app version ${metadata.minAppVersion}, " +
+                "but current is $currentAppVersion"
+            )
+        }
+        
+        // Validiere dass fragmentClassName nicht null ist
+        if (metadata. fragmentClassName == null) {
+            throw IllegalArgumentException("fragmentClassName is required")
+        }
+    }
+    
+    fun shutdown() {
+        scope.cancel()
+        classLoaders.values.forEach { it.close() }
+        classLoaders.clear()
+        loadedPlugins.clear()
+    }
+}
+
+/**
+ * Implementierung von PluginContext
+ */
+private class PluginContextImpl(
+    private val appContext: Context,
+    private val pluginDir:  File,
+    private val nativeLibManager: INativeLibraryManager
+) : PluginContext {
+    
+    private val services = ConcurrentHashMap<String, Any>()
+    
+    override fun getApplicationContext(): Context = appContext
+    override fun getPluginDirectory(): File = pluginDir
+    override fun getNativeLibraryManager(): INativeLibraryManager = nativeLibManager
+    override fun registerService(name:  String, service: Any) {
+        services[name] = service
+    }
+    override fun getService(name: String): Any? = services[name]
+    override fun logDebug(message: String) = Timber.d(message)
+    override fun logError(message:  String, throwable: Throwable?) =
+        Timber.e(throwable, message)
+}
+```
+
+---
+
+### **2.2 Integration in MainActivity**
+
+```kotlin
+// app/src/main/kotlin/com/ble1st/connectias/MainActivity.kt
+
+package com. ble1st.connectias
+
+import androidx.lifecycle.lifecycleScope
+import com.ble1st.connectias.core.plugin.PluginManager
+import java.io.File
+
+@AndroidEntryPoint
+class MainActivity : AppCompatActivity() {
+    
+    @Inject
+    lateinit var pluginManager: PluginManager
+    
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
+        lifecycleScope.launch {
+            // Initialisiere Plugin-Manager
+            val pluginResult = pluginManager.initialize()
+            
+            pluginResult.onSuccess { plugins ->
+                Timber.i("Loaded ${plugins.size} plugins")
+                plugins.forEach { metadata ->
+                    // Aktiviere alle Plugins automatisch
+                    pluginManager. enablePlugin(metadata.pluginId)
+                }
+            }
+            
+            pluginResult.onFailure { error ->
+                Timber.e(error, "Failed to load plugins")
+            }
+        }
+        
+        // Rest vom onCreate... 
+    }
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        pluginManager.shutdown()
+    }
+}
+```
+
+---
+
+## 📦 **PART 3: Plugin-Beispiele (Neue Repository)**
+
+### **3.1 Network Plugin - Port Scanner**
+
+```kotlin
+// connectias-plugin-network/src/main/kotlin/
+// com/ble1st/connectias/plugin/network/NetworkPlugin.kt
+
+package com. ble1st.connectias.plugin.network
+
+import android.content. Context
+import androidx.fragment.app.Fragment
+import com. ble1st.connectias. plugin.IPlugin
+import com. ble1st.connectias.plugin.PluginContext
+import com.ble1st.connectias.plugin.PluginMetadata
+import com.ble1st.connectias.plugin.PluginCategory
+import com.ble1st.connectias.plugin.annotations.ConnectiasPlugin
+import timber.log.Timber
+
+@ConnectiasPlugin(
+    id = "network_tools",
+    name = "Network Tools",
+    version = "1.2.3",
+    author = "Ble1st",
+    category = "NETWORK"
+)
+class NetworkPlugin : IPlugin {
+    
+    private lateinit var context: PluginContext
+    private var isEnabled = false
+    
+    override fun getMetadata(): PluginMetadata = PluginMetadata(
+        pluginId = "network_tools",
+        pluginName = "Network Tools",
+        version = "1.2.3",
+        author = "Ble1st",
+        minApiLevel = 33,
+        maxApiLevel = 36,
+        nativeLibraries = listOf(
+            "connectias_port_scanner",
+            "connectias_dns_tools"
+        ),
+        category = PluginCategory.NETWORK,
+        description = "Port Scanner, DNS Tools, WiFi Analyzer",
+        fragmentClassName = "com.ble1st.connectias.plugin.network.ui.NetworkToolsFragment"
+    )
+    
+    override fun onLoad(context: PluginContext): Boolean = try {
+        this.context = context
+        
+        Timber. d("NetworkPlugin. onLoad()")
+        
+        // Lade native Libraries
+        val libManager = context.getNativeLibraryManager()
+        val pluginDir = context.getPluginDirectory()
+        
+        // Port Scanner Library
+        val portScannerLib = java.io.File(pluginDir, "lib/libconnectias_port_scanner.so")
+        if (portScannerLib.exists()) {
+            val result = kotlinx.coroutines.runBlocking {
+                libManager. loadLibrary("connectias_port_scanner", portScannerLib)
+            }
+            if (result. isFailure) {
+                context.logError("Failed to load port_scanner library", result.exceptionOrNull())
+            }
+        }
+        
+        // DNS Tools Library
+        val dnsToolsLib = java.io.File(pluginDir, "lib/libconnectias_dns_tools. so")
+        if (dnsToolsLib.exists()) {
+            val result = kotlinx.coroutines.runBlocking {
+                libManager.loadLibrary("connectias_dns_tools", dnsToolsLib)
+            }
+            if (result.isFailure) {
+                context.logError("Failed to load dns_tools library", result.exceptionOrNull())
+            }
+        }
+        
+        // Registriere Services
+        context.registerService(
+            "port_scanner",
+            RustPortScannerService()
+        )
+        context.registerService(
+            "dns_resolver",
+            RustDnsResolverService()
+        )
+        
+        true
+    } catch (e: Exception) {
+        Timber.e(e, "Error loading NetworkPlugin")
+        false
+    }
+    
+    override fun onEnable(): Boolean {
+        isEnabled = true
+        Timber. d("NetworkPlugin enabled")
+        return true
+    }
+    
+    override fun onDisable(): Boolean {
+        isEnabled = false
+        Timber. d("NetworkPlugin disabled")
+        return true
+    }
+    
+    override fun onUnload(): Boolean {
+        Timber.d("NetworkPlugin. onUnload()")
+        return true
+    }
+    
+    override fun onPause() {
+        Timber.d("NetworkPlugin paused")
+    }
+    
+    override fun onResume() {
+        Timber.d("NetworkPlugin resumed")
+    }
+}
+
+// Rust Port Scanner Service
+class RustPortScannerService {
+    external fun scanPorts(host: String, startPort: Int, endPort: Int): String
+    
+    companion object {
+        init {
+            try {
+                System.loadLibrary("connectias_port_scanner")
+            } catch (e: UnsatisfiedLinkError) {
+                timber.log. Timber.e(e)
+            }
+        }
+    }
+}
+
+// Rust DNS Resolver Service
+class RustDnsResolverService {
+    external fun resolveDns(domain: String, dnsType: Int, nameserver: String): String
+    
+    companion object {
+        init {
+            try {
+                System. loadLibrary("connectias_dns_tools")
+            } catch (e: UnsatisfiedLinkError) {
+                timber.log.Timber.e(e)
+            }
+        }
+    }
+}
+```
+
+### **3.2 Plugin Fragment**
+
+```kotlin
+// connectias-plugin-network/src/main/kotlin/
+// com/ble1st/connectias/plugin/network/ui/NetworkToolsFragment.kt
+
+package com.ble1st. connectias.plugin.network.ui
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose. runtime.*
+import androidx.compose. ui.Modifier
+import androidx.compose.ui. unit.dp
+import androidx.fragment.app.Fragment
+import androidx. fragment.app.viewModels
+
+class NetworkToolsFragment : Fragment() {
+    
+    private val viewModel: NetworkToolsViewModel by viewModels()
+    
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View = androidx.compose.ui.platform.ComposeView(requireContext()).apply {
+        setContent {
+            MaterialTheme {
+                NetworkToolsScreen(viewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun NetworkToolsScreen(viewModel: NetworkToolsViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text(
+            "Network Tools",
+            style = MaterialTheme.typography.headlineMedium
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(onClick = { viewModel.scanPorts() }) {
+            Text("Scan Ports")
+        }
+        
+        Button(onClick = { viewModel.resolveDns() }) {
+            Text("Resolve DNS")
+        }
+    }
+}
+```
+
+### **3.3 Plugin Manifest**
+
+```json
+// connectias-plugin-network/src/main/resources/plugin-manifest.json
+
+{
+  "pluginId": "network_tools",
+  "pluginName":  "Network Tools",
+  "version": "1.2.3",
+  "author": "Ble1st",
+  "minApiLevel": 33,
+  "maxApiLevel": 36,
+  "minAppVersion": "1.0.0",
+  "fragmentClassName": "com.ble1st.connectias.plugin.network.ui.NetworkToolsFragment",
+  "description": "Port Scanner, DNS Tools, and WiFi Analyzer",
+  "nativeLibraries": [
+    "connectias_port_scanner",
+    "connectias_dns_tools"
+  ],
+  "permissions": [
+    "android. permission.INTERNET",
+    "android.permission.ACCESS_NETWORK_STATE"
+  ],
+  "dependencies": []
+}
+```
+
+---
+
+## 🔀 **PART 4: Plugin Download & Updates**
+
+### **4.1 Plugin Download Manager**
+
+```kotlin
+// core/src/main/kotlin/com/ble1st/connectias/
+// core/plugin/PluginDownloadManager.kt
+
+package com. ble1st.connectias. core.plugin
+
+import android.content.Context
+import kotlinx.coroutines.*
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import timber.log.Timber
+import java.io.File
+import java. security.MessageDigest
+
+/**
+ * Lädt Plugin-Updates herunter und verifiziert sie
+ */
+class PluginDownloadManager(
+    private val context: Context,
+    private val pluginDir: File,
+    private val httpClient: OkHttpClient
+) {
+    
+    data class PluginRelease(
+        val pluginId: String,
+        val version: String,
+        val downloadUrl: String,
+        val checksum: String,  // SHA256
+        val releaseDate: String,
+        val changelog: String
+    )
+    
+    /**
+     * Prüft auf verfügbare Updates vom Server
+     */
+    suspend fun checkForUpdates(pluginId: String): Result<PluginRelease?> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("https://plugins.connectias.app/api/updates/$pluginId")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            
+            if (! response.isSuccessful) {
+                return@withContext Result. failure(Exception("HTTP ${response.code}"))
+            }
+            
+            val body = response.body?. string() ?: return@withContext Result.success(null)
+            
+            // Parse JSON response
+            val json = org.json.JSONObject(body)
+            val release = PluginRelease(
+                pluginId = json.getString("pluginId"),
+                version = json.getString("version"),
+                downloadUrl = json.getString("downloadUrl"),
+                checksum = json. getString("checksum"),
+                releaseDate = json.getString("releaseDate"),
+                changelog = json.getString("changelog")
+            )
+            
+            Result.success(release)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to check for updates")
+            Result. failure(e)
+        }
+    }
+    
+    /**
+     * Downloaded ein Plugin mit Verifizierung
+     */
+    suspend fun downloadPlugin(
+        release: PluginRelease,
+        onProgress: (current: Long, total: Long) -> Unit = { _, _ -> }
+    ): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(release.downloadUrl)
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(Exception("HTTP ${response.code}"))
+            }
+            
+            val body = response. body ?: return@withContext Result.failure(Exception("No response body"))
+            val contentLength = body.contentLength()
+            
+            // Speichere in temp-datei
+            val tempFile = File(pluginDir, "${release.pluginId}_${release.version}.tmp")
+            
+            val digest = MessageDigest.getInstance("SHA-256")
+            var downloaded:  Long = 0
+            
+            tempFile.outputStream().use { output ->
+                body.byteStream().buffered().use { input ->
+                    val buffer = ByteArray(4096)
+                    var bytesRead:  Int
+                    while (input.read(buffer).also { bytesRead = it } != -1) {
+                        output.write(buffer, 0, bytesRead)
+                        digest.update(buffer, 0, bytesRead)
+                        downloaded += bytesRead
+                        onProgress(downloaded, contentLength)
+                    }
+                }
+            }
+            
+            // Verifiziere Checksum
+            val downloadedChecksum = digest.digest().toHexString()
+            if (downloadedChecksum != release. checksum) {
+                tempFile.delete()
+                return@withContext Result.failure(
+                    Exception("Checksum mismatch: expected ${release.checksum}, got $downloadedChecksum")
+                )
+            }
+            
+            // Benenne in final name um
+            val finalFile = File(pluginDir, "${release.pluginId}_${release.version}.jar")
+            tempFile.renameTo(finalFile)
+            
+            Timber.i("Plugin downloaded: ${release.pluginId} v${release.version}")
+            Result.success(finalFile)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to download plugin")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Installiert ein heruntergeladenes Plugin
+     */
+    suspend fun installPlugin(
+        pluginFile: File,
+        pluginManager: PluginManager
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val result = pluginManager.loadPlugin(pluginFile)
+            if (result.isSuccess) {
+                Timber.i("Plugin installed: ${pluginFile.name}")
+            }
+            result
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to install plugin")
+            Result. failure(e)
+        }
+    }
+}
+
+private fun ByteArray.toHexString() = joinToString("") { "%02x".format(it) }
+```
+
+---
+
+## 📊 **PART 5: Verzeichnis-Struktur**
+
+```
+Ble1st/Connectias/                          (HOST-APP)
+├─ app/
+│  ├─ src/main/kotlin/MainActivity.kt      (Plugin-Integration)
+│  └─ build.gradle.kts
+├─ core/
+│  └─ src/main/kotlin/com/ble1st/connectias/
+│     └─ core/plugin/
+│        ├─ PluginManager.kt               ✨ NEW
+│        ├─ PluginDownloadManager.kt       ✨ NEW
+│        └─ ... 
+└─ build.gradle.kts (mit plugin SDK dependency)
+
+Ble1st/Connectias-Plugins/                 (PLUGIN REPOSITORY)
+├─ connectias-plugin-sdk/
+│  ├─ src/main/kotlin/com/ble1st/connectias/
+│  │  ├─ plugin/
+│  │  │  ├─ IPlugin.kt
+│  │  │  ├─ PluginMetadata.kt
+│  │  │  ├─ PluginContext.kt
+│  │  │  ├─ annotations/
+│  │  │  │  ├─ @ConnectiasPlugin
+│  │  │  │  ├─ @PluginFragment
+│  │  │  │  └─ @PluginService
+│  │  │  └─ native/
+│  │  │     └─ INativeLibraryManager.kt
+│  │  └─ ... 
+│  └─ build. gradle.kts (Pure library, NO Android dependencies)
+│
+├─ connectias-plugin-network/              ✨ Plugin Example
+│  ├─ src/main/
+│  │  ├─ kotlin/com/ble1st/connectias/plugin/network/
+│  │  │  ├─ NetworkPlugin.kt
+│  │  │  ├─ RustPortScannerService.kt
+│  │  │  ├─ RustDnsResolverService.kt
+│  │  │  └─ ui/NetworkToolsFragment.kt
+│  │  ├─ rust/
+│  │  │  ├─ port_scanner/
+│  │  │  │  ├─ src/lib.rs
+│  │  │  │  └─ Cargo.toml
+│  │  │  └─ dns_tools/
+│  │  │     ├─ src/lib.rs
+│  │  │     └─ Cargo. toml
+│  │  ├─ cpp/
+│  │  │  └─ CMakeLists.txt
+│  │  └─ resources/
+│  │     └─ plugin-manifest.json
+│  └─ build.gradle. kts (mit plugin-sdk dependency)
+│
+├─ connectias-plugin-dvd/                  ✨ Plugin Example
+│  ├─ src/main/
+│  │  ├─ kotlin/com/ble1st/connectias/plugin/dvd/
+│  │  │  ├─ DvdPlugin.kt
+│  │  │  └─ ui/DvdPlayerFragment.kt
+│  │  ├─ cpp/
+│  │  │  ├─ dvd_jni. cpp
+│  │  │  ├─ CMakeLists. txt
+│  │  │  └─ external/
+│  │  │     ├─ libdvdcss/
+│  │  │     ├─ libdvdnav/
+│  │  │     └─ libdvdread/
+│  │  └─ resources/
+│  │     └─ plugin-manifest.json
+│  └─ build.gradle.kts
+│
+├─ connectias-plugin-password/             ✨ Plugin Example
+│  ├─ src/main/
+│  │  ├─ kotlin/com/ble1st/connectias/plugin/password/
+│  │  │  ├─ PasswordPlugin.kt
+│  │  │  └─ ui/PasswordGeneratorFragment.kt
+│  │  ├─ rust/
+│  │  │  ├─ src/lib.rs
+│  │  │  └─ Cargo.toml
+│  │  └─ resources/
+│  │     └─ plugin-manifest.json
+│  └─ build.gradle. kts
+│
+├─ settings.gradle.kts
+└─ README.md (Mit Plugin-Development Guide)
+```
+
+---
+
+## 🚀 **PART 6: Plugin Development Workflow**
+
+### **6.1 Neue Plugin erstellen**
+
+```bash
+# 1. Klone plugin repository
+git clone https://github.com/Ble1st/Connectias-Plugins.git
+cd Connectias-Plugins
+
+# 2. Nutze Template
+./scripts/new-plugin.sh network_tools_v2
+
+# 3. Edit plugin-manifest.json
+# 4. Implementiere Plugin. kt
+# 5. Erstelle Fragment UI
+# 6. Build mit Rust (falls needed)
+
+# 7. Test
+./gradlew : connectias-plugin-network:build
+
+# 8. Package
+./gradlew : connectias-plugin-network:bundleRelease
+
+# 9. Output:  build/outputs/bundle/release/connectias-plugin-network. aab
+```
+
+### **6.2 Plugin Deploy auf Server**
+
+```bash
+# 1. Sign Plugin
+jarsigner -verbose -sigalg SHA1withRSA -digestalg SHA1 \
+  -keystore ~/.keystore \
+  connectias-plugin-network.aab my-key-alias
+
+# 2. Upload zu Release-Server
+curl -X POST https://plugins.connectias.app/api/upload \
+  -F "file=@connectias-plugin-network.aab" \
+  -F "metadata=plugin-manifest.json" \
+  -H "Authorization: Bearer $API_TOKEN"
+
+# 3. Server erstellt SHA256 Checksum
+# 4. Server aktualisiert Update-Manifest
+```
+
+### **6.3 Plugin Update installieren (User-Sicht)**
+
+```
+App startet
+  ↓
+PluginManager.initialize()
+  ↓
+PluginDownloadManager.checkForUpdates()
+  ↓
+Server:  Neue Version 1.2.4 verfügbar! 
+  ↓
+User:  "Update Plugin?" Dialog
+  ↓
+PluginDownloadManager.downloadPlugin()
+  → Download mit Progress
+  → SHA256 Verifizierung
+  ↓
+PluginManager.loadPlugin()
+  ↓
+pluginInstance.onLoad() wird aufgerufen
+  ↓
+Native Libraries werden geladen
+  ↓
+pluginInstance.onEnable()
+  ↓
+🎉 Plugin aktualisiert und aktiv!
+```
+
+---
+
+## 🔐 **PART 7: Security Considerations**
+
+### **7.1 Plugin Validation**
+
+```kotlin
+/**
+ * Validiert Plugin vor Laden
+ */
+class PluginValidator {
+    
+    fun validate(pluginFile: File): Result<Boolean> {
+        // 1. Signature Check
+        if (!verifySignature(pluginFile)) {
+            return Result.failure(Exception("Invalid signature"))
+        }
+        
+        // 2. Manifest Check
+        val metadata = extractMetadata(pluginFile)
+        if (metadata.fragmentClassName == null) {
+            return Result. failure(Exception("Missing fragmentClassName"))
+        }
+        
+        // 3. Permission Check
+        if (!validatePermissions(metadata. permissions)) {
+            return Result. failure(Exception("Dangerous permissions"))
+        }
+        
+        // 4. Dependency Check
+        if (!validateDependencies(metadata.dependencies)) {
+            return Result.failure(Exception("Unmet dependencies"))
+        }
+        
+        return Result.success(true)
+    }
+    
+    private fun verifySignature(pluginFile: File): Boolean {
+        // Verifiziere mit Public Key vom Server
+        val publicKey = loadPublicKey()
+        return verifySha256Signature(pluginFile, publicKey)
+    }
+}
+```
+
+---
+
+## 📈 **PART 8: Statistics & Monitoring**
+
+```kotlin
+/**
+ * Überwacht Plugin-Performance
+ */
+data class PluginMetrics(
+    val pluginId: String,
+    val loadTime: Long,                    // ms
+    val memoryUsage: Long,                 // bytes
+    val nativeMemoryUsage: Long,          // bytes
+    val crashCount: Int = 0,
+    val lastError: String? = null,
+    val uptime: Long = 0                  // ms seit activation
+)
+
+/**
+ * Sendet Telemetrie an Analytics
+ */
+class PluginTelemetry(private val analytics: FirebaseAnalytics) {
+    fun trackPluginLoad(pluginId: String, success: Boolean, timeMs: Long) {
+        analytics.logEvent("plugin_load", bundleOf(
+            "plugin_id" to pluginId,
+            "success" to success,
+            "time_ms" to timeMs
+        ))
+    }
+}
+```

@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="dns_section_title">DNS / DMARC / WHOIS</string>
-    <string name="dns_domain_label">Domain</string>
-    <string name="dns_lookup">DNS-Abfrage</string>
-    <string name="dns_result_title">DNS %1$s</string>
-
-</resources>
