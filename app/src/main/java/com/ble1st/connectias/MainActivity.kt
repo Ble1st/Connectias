@@ -87,7 +87,6 @@ import androidx.navigation.fragment.NavHostFragment
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.common.ui.theme.ThemeStyle
 import com.ble1st.connectias.core.module.ModuleRegistry
-import com.ble1st.connectias.core.services.LoggingService
 import com.ble1st.connectias.core.services.SecurityService
 import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.databinding.ActivityMainBinding
@@ -114,9 +113,6 @@ class MainActivity : AppCompatActivity() {
     lateinit var moduleRegistry: ModuleRegistry
 
     @Inject
-    lateinit var loggingService: LoggingService
-
-    @Inject
     lateinit var securityService: SecurityService
 
     @Inject
@@ -139,7 +135,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val result = withTimeoutOrNull(5000) {
-                    securityService.performSecurityCheckWithTermination()
+                    securityService.performSecurityCheck()
                 }
 
                 withContext(Dispatchers.Main) {
@@ -150,14 +146,8 @@ class MainActivity : AppCompatActivity() {
                             return@withContext
                         }
                         initializeMainUI()
-                    } else if (result.threats.isNotEmpty()) {
-                        Timber.e("Security threats detected - ensuring app blocking")
-                        if (!BuildConfig.DEBUG) {
-                            blockApp()
-                            return@withContext
-                        }
-                        initializeMainUI()
                     } else {
+                        // SecurityService now handles termination internally
                         initializeMainUI()
                     }
                     isSecurityCheckPending = false
@@ -203,14 +193,8 @@ class MainActivity : AppCompatActivity() {
             setupModuleDiscovery()
         setupPluginSystem()
 
-            // Log rotation
-            lifecycleScope.launch {
-                try {
-                    loggingService.rotateLogs()
-                } catch (e: Exception) {
-                    Timber.e(e, "Failed to perform log rotation on app start")
-                }
-            }
+            // Note: Log rotation moved to Domain Layer
+            // Use CleanupOldDataUseCase for log cleanup
             
             // Handle initial intent
             window.decorView.post {

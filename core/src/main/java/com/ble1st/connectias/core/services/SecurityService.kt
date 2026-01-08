@@ -15,22 +15,18 @@ import javax.inject.Singleton
  */
 @Singleton
 class SecurityService @Inject constructor(
-    private val raspManager: RaspManager,
-    private val loggingService: LoggingService
+    private val raspManager: RaspManager
 ) {
 
     /**
-     * Performs a comprehensive security check and terminates the app if threats are detected.
-     * In debug builds, termination is disabled to allow development and testing.
+     * Performs comprehensive security checks.
      * 
-     * @return SecurityCheckResult containing the check results (only returned if no termination occurs)
+     * @return SecurityCheckResult containing all detected threats
      */
-    suspend fun performSecurityCheckWithTermination(): SecurityCheckResult {
+    suspend fun performSecurityCheck(): SecurityCheckResult {
         val result = raspManager.performSecurityChecks()
         
-        // Log result before potential termination
-        loggingService.logSecurityCheck(result)
-        
+        // Note: Logging moved to Domain Layer (PerformSecurityCheckUseCase)
         // Ensure logs are written before termination
         delay(100) // Small delay to ensure log write
         

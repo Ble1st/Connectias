@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.navigation.safe.args)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.androidx.baselineprofile)
     id("jacoco")
 }
 
@@ -31,10 +32,24 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            
+            // Phase 8: R8 Full Mode für maximale Optimierung
+            // https://r8.googlesource.com/r8/+/refs/heads/main/compatibility-faq.md#r8-full-mode
+            // Aktiviert aggressive Optimierungen wie Vertical Class Merging
+            // WICHTIG: Kann Breaking Changes verursachen - gründlich testen!
+            isMinifyEnabled = true
+            
+            // Benchmark Mode für Baseline Profiles
+            // Deaktiviert während normaler Builds, aktiviert für Profiling
+            // signingConfig = signingConfigs.getByName("debug") // Für Benchmarking
         }
         debug {
             isMinifyEnabled = false
             isShrinkResources = false
+            
+            // Phase 8: Debug-spezifische Optimierungen
+            // Schnellere Builds durch weniger Optimierung
+            isDebuggable = true
         }
     }
     compileOptions {
@@ -200,7 +215,12 @@ tasks.register<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
 
 dependencies {
     // Core Modules (always included)
+    // Note: Still using :core alongside new submodules during migration
     implementation(project(":core"))
+    implementation(project(":core:data"))
+    implementation(project(":core:domain"))
+    implementation(project(":core:ui"))
+    implementation(project(":core:designsystem"))
     implementation(project(":common"))
     implementation(project(":feature-settings"))
     
@@ -319,6 +339,10 @@ dependencies {
     // so explicit dependency is needed even though :core also provides it
     implementation(libs.timber)
 
+    // Phase 8: Performance & Monitoring
+    // LeakCanary - Memory Leak Detection (nur Debug)
+    debugImplementation(libs.leakcanary)
+    
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

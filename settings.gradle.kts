@@ -1,4 +1,5 @@
 pluginManagement {
+    includeBuild("build-logic")
     repositories {
         google {
             content {
@@ -22,13 +23,28 @@ dependencyResolutionManagement {
 
 rootProject.name = "Connectias"
 
+// Enable type-safe project accessors (e.g., projects.core.data instead of project(":core:data"))
+enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
 // ============================================================================
 // Core Modules (always included)
 // ============================================================================ 
 include(":app")
 include(":common")
 include(":core")
+include(":core:model")
+include(":core:common")
+include(":core:designsystem")
+include(":core:ui")
+include(":core:database")
+include(":core:datastore")
+include(":core:network")
+include(":core:data")
+include(":core:domain")
+include(":core:testing")
 include(":feature-settings")
+include(":benchmark")
+// include(":test-plugin") // Deaktiviert - nur für lokale Tests
 
 // ============================================================================ 
 // Optional Modules (included based on gradle.properties)
@@ -99,6 +115,6 @@ if (featureGpsEnabled) {
 }
 
 // ============================================================================
-// Test Plugin (always included for testing)
+// Test Plugin (eigenständiges APK für Plugin-System)
 // ============================================================================
 include(":test-plugin")

@@ -44,6 +44,12 @@ coreSplashscreen = "1.2.0"
 # Logging
 timber = "5.0.1"
 
+# Phase 8: Performance & Monitoring
+leakcanary = "2.14"
+benchmarkMacro = "1.3.3"
+baselineprofile = "1.3.3"
+uiautomator = "2.3.0"
+
 # WorkManager
 workManager = "2.11.0" # Added for WorkManager
 
@@ -171,6 +177,13 @@ androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview"
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 
+# Phase 8: Performance & Monitoring
+leakcanary = { group = "com.squareup.leakcanary", name = "leakcanary-android", version.ref = "leakcanary" }
+androidx-benchmark-macro = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmarkMacro" }
+androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+androidx-test-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+
 # WorkManager
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" } # Added for WorkManager
 
@@ -280,11 +293,12 @@ tflite-runtime = { group = "org.tensorflow", name = "tensorflow-lite", version.r
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize" }
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }

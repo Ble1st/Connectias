@@ -36,8 +36,13 @@ kotlin {
 }
 
 dependencies {
-    // Core Modules
+    // Core Modules (using new modularized structure)
+    // Note: Still using :core for SettingsRepository until it's migrated
     implementation(project(":core"))
+    implementation(project(":core:model"))
+    implementation(project(":core:data"))
+    implementation(project(":core:ui"))
+    implementation(project(":core:designsystem"))
     implementation(project(":common"))
 
     // Android Core

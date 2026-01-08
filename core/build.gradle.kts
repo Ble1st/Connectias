@@ -4,8 +4,9 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.compose)
+    id("org.jetbrains.kotlin.plugin.parcelize")
+    id("jacoco")
 }
 
 android {
@@ -69,6 +70,9 @@ kotlin {
 dependencies {
     // Common Module
     implementation(project(":common"))
+    
+    // Domain Layer (Use Cases)
+    implementation(project(":core:domain"))
 
     // Android Core
     implementation(libs.androidx.core.ktx)

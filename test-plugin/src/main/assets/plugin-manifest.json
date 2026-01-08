@@ -3,13 +3,15 @@
   "pluginName": "Test Plugin",
   "version": "1.0.0",
   "author": "Connectias Team",
-  "description": "A simple test plugin demonstrating plugin functionality with a counter UI",
+  "description": "Ein Test-Plugin für das Connectias Plugin-System mit Compose UI",
   "category": "UTILITY",
-  "minApiLevel": 33,
-  "maxApiLevel": 36,
-  "minAppVersion": "1.0",
   "fragmentClassName": "com.ble1st.connectias.testplugin.TestPlugin",
+  "requirements": {
+    "minApiLevel": 33,
+    "maxApiLevel": 36,
+    "minAppVersion": "1.0.0"
+  },
   "permissions": [],
-  "dependencies": [],
-  "nativeLibraries": []
+  "nativeLibraries": [],
+  "dependencies": []
 }

@@ -1,17 +1,17 @@
 plugins {
-    id("com.android.application")
-    id("org.jetbrains.kotlin.android")
-    id("org.jetbrains.kotlin.plugin.compose") version "2.1.0"
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.ble1st.connectias.testplugin"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ble1st.connectias.testplugin"
         minSdk = 33
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
     }
@@ -33,10 +33,8 @@ android {
     
     buildFeatures {
         compose = true
+        buildConfig = false
     }
-    
-    // Disable features that cause issues with standalone plugin APK
-    buildFeatures.buildConfig = false
 }
 
 kotlin {
@@ -46,29 +44,23 @@ kotlin {
 }
 
 dependencies {
-    // Plugin SDK - use compileOnly to avoid circular dependency
-    compileOnly(project(":app"))
-    
-    // Provide common theme directly
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    
     // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.0")
     
-    // Compose
-    implementation(platform("androidx.compose:compose-bom:2024.02.00"))
+    // Compose BOM
+    implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.activity:activity-compose:1.9.3")
     
-    // AndroidX
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
-    implementation("androidx.fragment:fragment-ktx:1.6.2")
-    implementation("androidx.compose.ui:ui-viewbinding:1.6.0")
+    // AndroidX Core
+    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
     
-    // Timber
+    // Timber Logging
     implementation("com.jakewharton.timber:timber:5.0.1")
 }
