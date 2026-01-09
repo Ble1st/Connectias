@@ -29,7 +29,7 @@ object PluginModule {
         @ApplicationContext context: Context,
         pluginDirectory: File
     ): NativeLibraryManager {
-        return NativeLibraryManager(context, pluginDirectory)
+        return NativeLibraryManager(pluginDirectory)
     }
     
     @Provides

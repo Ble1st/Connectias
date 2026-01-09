@@ -30,7 +30,7 @@ class RaspManager @Inject constructor(
             val rootResult = rootDetector.detectRoot()
             if (rootResult.isRooted) {
                 rootResult.detectionMethods.forEach { method ->
-                    threats.add(SecurityThreat.RootDetected(method))
+                    threats.add(SecurityThreat.RootDetected())
                 }
             }
         } catch (e: SecurityException) {
@@ -56,7 +56,7 @@ class RaspManager @Inject constructor(
             val debuggerResult = debuggerDetector.detectDebugger()
             if (debuggerResult.isDebuggerAttached) {
                 debuggerResult.detectionMethods.forEach { method ->
-                    threats.add(SecurityThreat.DebuggerDetected(method))
+                    threats.add(SecurityThreat.DebuggerDetected())
                 }
             }
         } catch (e: SecurityException) {
@@ -78,7 +78,7 @@ class RaspManager @Inject constructor(
             val tamperResult = tamperDetector.detectTampering()
             if (tamperResult.isTampered) {
                 tamperResult.detectionMethods.forEach { method ->
-                    threats.add(SecurityThreat.TamperDetected(method))
+                    threats.add(SecurityThreat.TamperDetected())
                 }
             }
         } catch (e: SecurityException) {
@@ -100,7 +100,7 @@ class RaspManager @Inject constructor(
             val emulatorResult = emulatorDetector.detectEmulator()
             if (emulatorResult.isEmulator) {
                 emulatorResult.detectionMethodNames.forEach { method ->
-                    threats.add(SecurityThreat.EmulatorDetected(method))
+                    threats.add(SecurityThreat.EmulatorDetected())
                 }
             }
         } catch (e: SecurityException) {

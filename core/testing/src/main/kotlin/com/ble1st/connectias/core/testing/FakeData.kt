@@ -22,12 +22,12 @@ object FakeData {
     fun createSecurityThreat(
         type: String = "root"
     ): SecurityThreat = when (type) {
-        "root" -> SecurityThreat.RootDetected("su binary found")
-        "debugger" -> SecurityThreat.DebuggerDetected("debugger attached")
-        "emulator" -> SecurityThreat.EmulatorDetected("running on emulator")
-        "tamper" -> SecurityThreat.TamperDetected("signature mismatch")
-        "hook" -> SecurityThreat.HookDetected("frida detected")
-        else -> SecurityThreat.RootDetected("unknown")
+        "root" -> SecurityThreat.RootDetected()
+        "debugger" -> SecurityThreat.DebuggerDetected()
+        "emulator" -> SecurityThreat.EmulatorDetected()
+        "tamper" -> SecurityThreat.TamperDetected()
+        "hook" -> SecurityThreat.HookDetected()
+        else -> SecurityThreat.RootDetected()
     }
     
     fun createSecurityCheckResult(

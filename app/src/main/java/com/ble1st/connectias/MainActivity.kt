@@ -1,8 +1,6 @@
 package com.ble1st.connectias
-import androidx.compose.material.icons.automirrored.filled.Note
 
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
@@ -32,23 +30,8 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Album
-import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.automirrored.filled.Note
-import androidx.compose.material.icons.filled.Password
-import androidx.compose.material.icons.filled.PermDeviceInformation
-import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.Router
-import androidx.compose.material.icons.filled.Scanner
-import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Timeline
-import androidx.compose.material.icons.filled.Usb
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material3.Card
@@ -62,7 +45,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -100,7 +82,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import javax.inject.Inject
-import kotlin.math.absoluteValue
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -623,7 +604,6 @@ fun FeatureList(
                         if (feature.isPlugin && feature.pluginId != null) {
                             // Plugin feature - use plugin navigation
                             PluginFeatureRow(
-                                pluginId = feature.pluginId,
                                 name = feature.name,
                                 icon = feature.icon,
                                 onClick = { onPluginClick(feature.pluginId) }
@@ -671,7 +651,6 @@ fun FeatureRow(feature: ResolvedFeature, onClick: () -> Unit) {
 
 @Composable
 fun PluginFeatureRow(
-    pluginId: String,
     name: String,
     icon: ImageVector,
     onClick: () -> Unit

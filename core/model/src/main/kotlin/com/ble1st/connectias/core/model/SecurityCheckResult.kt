@@ -8,8 +8,7 @@ data class SecurityCheckResult private constructor(
     val isSecure: Boolean,
     val threats: List<SecurityThreat>,
     val failedChecks: List<String>,
-    val allChecksCompleted: Boolean,
-    val timestamp: Long
+    val allChecksCompleted: Boolean
 ) {
     init {
         require(!isSecure || threats.isEmpty()) {
@@ -41,8 +40,7 @@ data class SecurityCheckResult private constructor(
                 isSecure = finalIsSecure,
                 threats = immutableThreats,
                 failedChecks = immutableFailedChecks,
-                allChecksCompleted = allChecksCompleted,
-                timestamp = timestamp
+                allChecksCompleted = allChecksCompleted
             )
         }
     }

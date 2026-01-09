@@ -16,7 +16,7 @@ class GetSecurityStatusUseCase @Inject constructor(
     operator fun invoke(): Flow<SecurityStatus> {
         return securityRepository.getRecentThreats(limit = 100).map { threats ->
             SecurityStatus(
-                currentThreats = threats.filter { isRecentThreat(it) },
+                currentThreats = threats.filter { isRecentThreat() },
                 threatHistory = threats.takeLast(10),
                 riskLevel = calculateRiskLevel(threats),
                 recommendations = generateRecommendations(threats)
@@ -24,14 +24,14 @@ class GetSecurityStatusUseCase @Inject constructor(
         }
     }
 
-    private fun isRecentThreat(threat: SecurityThreat): Boolean {
+    private fun isRecentThreat(): Boolean {
         // Consider threats from last 24 hours as current
         // This is a placeholder - actual implementation would check timestamp
         return true
     }
 
     private fun calculateRiskLevel(threats: List<SecurityThreat>): RiskLevel {
-        val recentThreats = threats.filter { isRecentThreat(it) }
+        val recentThreats = threats.filter { isRecentThreat() }
         
         return when {
             recentThreats.any { it is SecurityThreat.RootDetected } -> RiskLevel.CRITICAL

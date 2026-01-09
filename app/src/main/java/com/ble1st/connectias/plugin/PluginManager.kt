@@ -22,7 +22,7 @@ class PluginManager(
     
     private val loadedPlugins = ConcurrentHashMap<String, PluginInfo>()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val nativeLibraryManager = NativeLibraryManager(context, pluginDirectory)
+    private val nativeLibraryManager = NativeLibraryManager(pluginDirectory)
     private val dexOutputDir = File(context.cacheDir, "plugin_dex")
     
     init {

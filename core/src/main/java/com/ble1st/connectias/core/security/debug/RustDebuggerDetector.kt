@@ -1,3 +1,8 @@
+@file:Suppress("KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction"
+)
+
 package com.ble1st.connectias.core.security.debug
 
 import android.os.Debug
@@ -15,6 +20,10 @@ import timber.log.Timber
  * 
  * Note: Android Debug API (Debug.isDebuggerConnected()) is checked in Kotlin layer.
  */
+@Suppress("KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction"
+)
 class RustDebuggerDetector {
     
     companion object {

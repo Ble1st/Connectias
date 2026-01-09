@@ -1,6 +1,5 @@
 package com.ble1st.connectias.plugin
 
-import android.content.Context
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
@@ -10,7 +9,6 @@ import java.util.zip.ZipFile
  * Manages native libraries for plugins
  */
 class NativeLibraryManager(
-    private val context: Context,
     private val pluginDirectory: File
 ) {
     

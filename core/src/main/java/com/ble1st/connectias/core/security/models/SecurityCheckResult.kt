@@ -7,8 +7,7 @@ data class SecurityCheckResult private constructor(
     val isSecure: Boolean,
     val threats: List<SecurityThreat>, // Immutable copy from factory
     val failedChecks: List<String>, // Immutable copy from factory
-    val allChecksCompleted: Boolean, // Whether all checks completed successfully
-    val timestamp: Long
+    val allChecksCompleted: Boolean // Whether all checks completed successfully
 ) {
     init {
         require(!isSecure || threats.isEmpty()) {
@@ -43,17 +42,16 @@ data class SecurityCheckResult private constructor(
                 isSecure = finalIsSecure,
                 threats = immutableThreats,
                 failedChecks = immutableFailedChecks,
-                allChecksCompleted = allChecksCompleted,
-                timestamp = timestamp
+                allChecksCompleted = allChecksCompleted
             )
         }
     }
 }
 sealed class SecurityThreat(open val name: String) {
-    data class RootDetected(val method: String) : SecurityThreat("Root Detected")
-    data class DebuggerDetected(val method: String) : SecurityThreat("Debugger Detected")
-    data class EmulatorDetected(val method: String) : SecurityThreat("Emulator Detected")
-    data class TamperDetected(val method: String) : SecurityThreat("Tamper Detected")
-    data class HookDetected(val method: String) : SecurityThreat("Hook Detected")
+    data class RootDetected() : SecurityThreat("Root Detected")
+    data class DebuggerDetected() : SecurityThreat("Debugger Detected")
+    data class EmulatorDetected() : SecurityThreat("Emulator Detected")
+    data class TamperDetected() : SecurityThreat("Tamper Detected")
+    data class HookDetected() : SecurityThreat("Hook Detected")
 }
 
