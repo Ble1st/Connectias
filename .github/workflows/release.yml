@@ -33,6 +33,46 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
+
+      - name: Set up Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build Rust libraries
+        working-directory: core/src/main/rust
+        run: |
+          echo "Building Rust libraries for all Android ABIs..."
+          
+          # Build for all Android ABIs
+          ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          
+          for ABI in "${ABIS[@]}"; do
+            echo "Building for ${ABI}..."
+            cargo ndk \
+              --target "${ABI}" \
+              --platform 33 \
+              -- build --release
+            
+            # Verify build succeeded
+            TARGET_DIR="target/${ABI}/release"
+            if [ -f "${TARGET_DIR}/libconnectias_root_detector.so" ]; then
+              echo "✓ Built successfully for ${ABI}"
+            else
+              echo "✗ Build failed for ${ABI} - library not found"
+              exit 1
+            fi
+          done
+          
+          echo "✓ All Rust builds completed successfully"
+
       - name: Calculate version and APK name
         id: version
         run: |
