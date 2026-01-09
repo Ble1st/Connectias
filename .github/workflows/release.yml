@@ -52,26 +52,55 @@ jobs:
           echo "Building Rust libraries for all Android ABIs..."
           
           # Build for all Android ABIs
-          ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          # Rust target names -> Android ABI names mapping
+          declare -A ABI_MAP=(
+            ["aarch64-linux-android"]="arm64-v8a"
+            ["armv7-linux-androideabi"]="armeabi-v7a"
+            ["x86_64-linux-android"]="x86_64"
+            ["i686-linux-android"]="x86"
+          )
           
-          for ABI in "${ABIS[@]}"; do
-            echo "Building for ${ABI}..."
+          RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          
+          for RUST_ABI in "${RUST_ABIS[@]}"; do
+            echo "Building for ${RUST_ABI}..."
             cargo ndk \
-              --target "${ABI}" \
+              --target "${RUST_ABI}" \
               --platform 33 \
               -- build --release
             
             # Verify build succeeded
-            TARGET_DIR="target/${ABI}/release"
-            if [ -f "${TARGET_DIR}/libconnectias_root_detector.so" ]; then
-              echo "✓ Built successfully for ${ABI}"
+            TARGET_DIR="target/${RUST_ABI}/release"
+            LIB_FILE="${TARGET_DIR}/libconnectias_root_detector.so"
+            
+            if [ -f "${LIB_FILE}" ]; then
+              echo "✓ Built successfully for ${RUST_ABI}"
+              
+              # Get Android ABI name
+              ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+              
+              # Copy to jniLibs directory for Gradle to find (direct inclusion in APK)
+              JNI_LIBS_DIR="../../jniLibs/${ANDROID_ABI}"
+              mkdir -p "${JNI_LIBS_DIR}"
+              cp "${LIB_FILE}" "${JNI_LIBS_DIR}/"
+              echo "✓ Copied to ${JNI_LIBS_DIR}/libconnectias_root_detector.so"
+              
+              # Also create symlink/copy for CMake (CMake expects Android ABI names in target/)
+              # CMake looks in: core/src/main/rust/target/${ANDROID_ABI}/release/
+              CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
+              mkdir -p "${CMAKE_TARGET_DIR}"
+              cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/"
+              echo "✓ Copied to ${CMAKE_TARGET_DIR}/libconnectias_root_detector.so (for CMake)"
             else
-              echo "✗ Build failed for ${ABI} - library not found"
+              echo "✗ Build failed for ${RUST_ABI} - library not found at ${LIB_FILE}"
               exit 1
             fi
           done
           
           echo "✓ All Rust builds completed successfully"
+          echo "Rust libraries are available in:"
+          echo "  - core/src/main/jniLibs/ (for direct Gradle inclusion)"
+          echo "  - core/src/main/rust/target/ (for CMake)"
 
       - name: Calculate version and APK name
         id: version
