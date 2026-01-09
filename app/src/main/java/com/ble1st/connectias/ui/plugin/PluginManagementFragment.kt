@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.PluginManager
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -18,6 +19,9 @@ class PluginManagementFragment : Fragment() {
     
     @Inject
     lateinit var pluginManager: PluginManager
+    
+    @Inject
+    lateinit var moduleRegistry: ModuleRegistry
     
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -30,6 +34,7 @@ class PluginManagementFragment : Fragment() {
                 ConnectiasTheme {
                     PluginManagementScreen(
                         pluginManager = pluginManager,
+                        moduleRegistry = moduleRegistry,
                         onNavigateBack = { findNavController().navigateUp() }
                     )
                 }

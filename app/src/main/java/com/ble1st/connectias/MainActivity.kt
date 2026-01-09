@@ -49,6 +49,7 @@ import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -73,6 +74,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
@@ -213,9 +215,11 @@ class MainActivity : AppCompatActivity() {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
                 // Observe theme, theme style, and dynamic color changes reactively
-                val theme by settingsRepository.observeTheme().collectAsState(initial = settingsRepository.getTheme())
-                val themeStyleString by settingsRepository.observeThemeStyle().collectAsState(initial = settingsRepository.getThemeStyle())
-                val dynamicColor by settingsRepository.observeDynamicColor().collectAsState(initial = settingsRepository.getDynamicColor())
+                // Use default values as initial state - Flow will emit actual value immediately
+                // This avoids synchronous SharedPreferences access on main thread (StrictMode violation)
+                val theme by settingsRepository.observeTheme().collectAsState(initial = "system")
+                val themeStyleString by settingsRepository.observeThemeStyle().collectAsState(initial = "standard")
+                val dynamicColor by settingsRepository.observeDynamicColor().collectAsState(initial = true)
                 val themeStyle = remember(themeStyleString) { ThemeStyle.fromString(themeStyleString) }
                 
                 ConnectiasTheme(
@@ -231,8 +235,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     FabWithBottomSheet(
                         navController = navController,
+                        pluginManager = pluginManager,
+                        moduleRegistry = moduleRegistry,
                         onFeatureSelected = { navId ->
                             navigateToFeature(navId)
+                        },
+                        onPluginSelected = { pluginId ->
+                            navigateToPlugin(pluginId)
                         }
                     )
                 }
@@ -254,6 +263,36 @@ class MainActivity : AppCompatActivity() {
             Timber.d("Navigated to feature with id: $navId")
         } catch (e: Exception) {
             Timber.e(e, "Navigation failed for id: $navId")
+        }
+    }
+    
+    /**
+     * Navigates to a plugin fragment by loading it dynamically.
+     * This allows plugins to be displayed without being in the static navigation graph.
+     */
+    fun navigateToPlugin(pluginId: String) {
+        try {
+            val pluginInfo = pluginManager.getPlugin(pluginId)
+            if (pluginInfo == null) {
+                Timber.w("Plugin not found: $pluginId")
+                return
+            }
+            
+            val fragment = pluginManager.createPluginFragment(pluginId)
+            if (fragment == null) {
+                Timber.e("Failed to create fragment for plugin: $pluginId")
+                return
+            }
+            
+            // Replace current fragment with plugin fragment
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.nav_host_fragment_content_main, fragment)
+                .addToBackStack("plugin_$pluginId")
+                .commit()
+            
+            Timber.i("Navigated to plugin: ${pluginInfo.metadata.pluginName}")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to navigate to plugin: $pluginId")
         }
     }
 
@@ -376,32 +415,22 @@ class MainActivity : AppCompatActivity() {
 @Composable
 fun FabWithBottomSheet(
     navController: NavController?,
-    onFeatureSelected: (Int) -> Unit
+    pluginManager: com.ble1st.connectias.plugin.PluginManager,
+    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
+    onFeatureSelected: (Int) -> Unit,
+    onPluginSelected: (String) -> Unit
 ) {
     var showBottomSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     
-    // P1: Cache resource IDs once for better performance
-    val context = LocalContext.current
-    data class NavIds(
-        val dvdPlayer: Int,
-        val dvdCdDetail: Int
-    )
-    val navIds = remember {
-        NavIds(
-            dvdPlayer = R.id.nav_dvd_player,
-            dvdCdDetail = R.id.nav_dvd_cd_detail
-        )
-    }
-    
-    // Observe current navigation destination to hide FAB during DVD playback
+    // Observe current navigation destination
     val currentBackStackEntry by navController?.currentBackStackEntryFlow?.collectAsState(
         initial = navController.currentBackStackEntry
     ) ?: remember { mutableStateOf(null) }
-    val currentDestinationId = currentBackStackEntry?.destination?.id
-    val shouldShowFab = currentDestinationId != navIds.dvdPlayer && currentDestinationId != navIds.dvdCdDetail
+    // FAB is always visible now that DVD features are removed
+    val shouldShowFab = true
 
     // Auto-hide FAB when scrolling: Create scroll state for FeatureList
     val featureListScrollState = rememberLazyListState()
@@ -494,6 +523,8 @@ fun FabWithBottomSheet(
         ) {
             FeatureList(
                 scrollState = featureListScrollState,
+                pluginManager = pluginManager,
+                moduleRegistry = moduleRegistry,
                 onFeatureClick = { navId ->
                     scope.launch {
                         try {
@@ -516,6 +547,29 @@ fun FabWithBottomSheet(
                             showBottomSheet = false
                         }
                     }
+                },
+                onPluginClick = { pluginId ->
+                    scope.launch {
+                        try {
+                            // P0: Proper error handling for sheet closing
+                            sheetState.hide()
+                            // Wait until sheet is actually hidden
+                            if (!sheetState.isVisible) {
+                                showBottomSheet = false
+                            }
+                            
+                            // P0: Error handling for plugin navigation
+                            try {
+                                onPluginSelected(pluginId)
+                            } catch (e: Exception) {
+                                Timber.e(e, "Failed to navigate to plugin: $pluginId")
+                                // Sheet is already closed, error is logged
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to close bottom sheet")
+                            showBottomSheet = false
+                        }
+                    }
                 }
             )
         }
@@ -526,13 +580,16 @@ fun FabWithBottomSheet(
 @Composable
 fun FeatureList(
     scrollState: LazyListState,
-    onFeatureClick: (Int) -> Unit
+    pluginManager: com.ble1st.connectias.plugin.PluginManager,
+    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
+    onFeatureClick: (Int) -> Unit,
+    onPluginClick: (String) -> Unit
 ) {
     val context = LocalContext.current
     // Resolve features dynamically on each composition to ensure only existing features are shown
     // This ensures that features are filtered based on what's actually available in the navigation graph
     // The function is fast enough to run on each composition without performance issues
-    val categories = resolveFeatureCategories()
+    val categories = resolveFeatureCategories(pluginManager, moduleRegistry)
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Text(
@@ -563,7 +620,18 @@ fun FeatureList(
                     }
                     
                     items(category.features) { feature ->
-                        FeatureRow(feature, onClick = { onFeatureClick(feature.resolvedId) })
+                        if (feature.isPlugin && feature.pluginId != null) {
+                            // Plugin feature - use plugin navigation
+                            PluginFeatureRow(
+                                pluginId = feature.pluginId,
+                                name = feature.name,
+                                icon = feature.icon,
+                                onClick = { onPluginClick(feature.pluginId) }
+                            )
+                        } else if (feature.resolvedId != null) {
+                            // Regular feature - use normal navigation
+                            FeatureRow(feature, onClick = { onFeatureClick(feature.resolvedId!!) })
+                        }
                     }
                 }
             }
@@ -601,48 +669,61 @@ fun FeatureRow(feature: ResolvedFeature, onClick: () -> Unit) {
     }
 }
 
+@Composable
+fun PluginFeatureRow(
+    pluginId: String,
+    name: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(12.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Plugin",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+        }
+    }
+}
+
 // Data classes for definition (String IDs) and resolved state (Int IDs)
 data class FeatureCategoryDef(val title: String, val features: List<FeatureDef>)
 data class FeatureDef(val name: String, val icon: ImageVector, val navIdName: String)
 
 data class ResolvedFeatureCategory(val title: String, val features: List<ResolvedFeature>)
-data class ResolvedFeature(val name: String, val icon: ImageVector, val resolvedId: Int)
-
-/**
- * Maps navigation IDs to their corresponding Fragment class names.
- * This allows checking if the Fragment class actually exists at runtime.
- */
-private fun getFragmentClassNameForNavId(navIdName: String): String? {
-    return when (navIdName) {
-        // Settings
-        "nav_settings" -> "com.ble1st.connectias.feature.settings.ui.SettingsFragment"
-
-        // System tools
-        "nav_log_viewer" -> "com.ble1st.connectias.core.logging.ui.LogViewerFragment"
-
-        // Secure notes
-        "nav_secure_notes" -> "com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment"
-        
-        // Scanner feature
-        "nav_scanner" -> "com.ble1st.connectias.feature.scanner.ui.ScannerFragment"
-
-        // DVD features
-        "nav_dvd_player" -> "com.ble1st.connectias.feature.dvd.ui.DvdPlayerFragment"
-        "nav_dvd_cd_detail" -> "com.ble1st.connectias.feature.dvd.ui.DvdCdDetailFragment"
-        "nav_bluetooth_scanner" -> "com.ble1st.connectias.feature.bluetooth.ui.BluetoothScannerFragment"
-        "nav_network_tools" -> "com.ble1st.connectias.feature.network.ui.NetworkToolsFragment"
-        "nav_dns_tools" -> "com.ble1st.connectias.feature.dnstools.ui.DnsToolsFragment"
-        "nav_barcode_tools" -> "com.ble1st.connectias.feature.barcode.ui.BarcodeFragment"
-        "nav_calendar" -> "com.ble1st.connectias.feature.calendar.ui.CalendarFragment"
-        "nav_ntp" -> "com.ble1st.connectias.feature.ntp.ui.NtpFragment"
-        "nav_ssh" -> "com.ble1st.connectias.feature.ssh.ui.SshFragment"
-        "nav_password" -> "com.ble1st.connectias.feature.password.ui.PasswordFragment"
-        "nav_gps" -> "com.ble1st.connectias.feature.satellite.ui.SatelliteFragment"
-        "nav_device_info" -> "com.ble1st.connectias.feature.deviceinfo.ui.DeviceInfoFragment"
-        "nav_plugin_management" -> "com.ble1st.connectias.ui.plugin.PluginManagementFragment"
-        else -> null
-    }
-}
+data class ResolvedFeature(
+    val name: String, 
+    val icon: ImageVector, 
+    val resolvedId: Int? = null,  // Nav ID for regular features
+    val isPlugin: Boolean = false,
+    val pluginId: String? = null  // Plugin ID for plugin features
+)
 
 /**
  * Maps navigation ID names (strings) to their corresponding R.id values.
@@ -652,58 +733,44 @@ private fun getNavIdByName(navIdName: String): Int? {
     return when (navIdName) {
         "nav_settings" -> R.id.nav_settings
         "nav_log_viewer" -> R.id.nav_log_viewer
-        "nav_secure_notes" -> R.id.nav_secure_notes
-        "nav_scanner" -> R.id.nav_scanner
-        "nav_dvd_player" -> R.id.nav_dvd_player
-        "nav_dvd_cd_detail" -> R.id.nav_dvd_cd_detail
-        "nav_bluetooth_scanner" -> R.id.nav_bluetooth_scanner
-        "nav_network_tools" -> R.id.nav_network_tools
-        "nav_dns_tools" -> R.id.nav_dns_tools
-        "nav_barcode_tools" -> R.id.nav_barcode_tools
-        "nav_calendar" -> R.id.nav_calendar
-        "nav_ntp" -> R.id.nav_ntp
-        "nav_ssh" -> R.id.nav_ssh
-        "nav_password" -> R.id.nav_password
-        "nav_gps" -> R.id.nav_gps
-        "nav_device_info" -> R.id.nav_device_info
         "nav_plugin_management" -> R.id.nav_plugin_management
         else -> null
     }
 }
 
-/**
- * Checks if a Fragment class exists at runtime by attempting to load it.
- */
-private fun isFragmentClassAvailable(className: String?): Boolean {
-    if (className == null) return false
-    return try {
-        Class.forName(className)
-        true
-    } catch (e: ClassNotFoundException) {
-        false
-    }
-}
-
-fun resolveFeatureCategories(): List<ResolvedFeatureCategory> {
+@Composable
+fun resolveFeatureCategories(
+    pluginManager: com.ble1st.connectias.plugin.PluginManager,
+    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry
+): List<ResolvedFeatureCategory> {
     val definitions = getFeatureDefinitions()
     
-    return definitions.mapNotNull { category ->
+    // Get plugin modules
+    val pluginModules = moduleRegistry.getActiveModules()
+        .filter { moduleInfo ->
+            pluginManager.getPlugin(moduleInfo.id) != null
+        }
+    
+    // Convert plugin modules to ResolvedFeature
+    val pluginFeatures = pluginModules.map { moduleInfo ->
+        ResolvedFeature(
+            name = moduleInfo.name,
+            icon = Icons.Default.Extension,
+            resolvedId = null,
+            isPlugin = true,
+            pluginId = moduleInfo.id
+        )
+    }
+    
+    val regularCategories = definitions.mapNotNull { category ->
         val resolvedFeatures = category.features.mapNotNull { featureDef ->
-            // First check if navigation ID exists
+            // Check if navigation ID exists
             val id = getNavIdByName(featureDef.navIdName)
             if (id == null) {
-                Timber.d("Feature filtered (nav ID not found): ${featureDef.name} (${featureDef.navIdName})")
                 return@mapNotNull null
             }
             
-            // Then check if Fragment class exists
-            val fragmentClassName = getFragmentClassNameForNavId(featureDef.navIdName)
-            if (!isFragmentClassAvailable(fragmentClassName)) {
-                Timber.d("Feature filtered (Fragment class not available): ${featureDef.name} (${featureDef.navIdName}) - class: $fragmentClassName")
-                return@mapNotNull null
-            }
-            
-            ResolvedFeature(featureDef.name, featureDef.icon, id)
+            ResolvedFeature(featureDef.name, featureDef.icon, id, isPlugin = false, pluginId = null)
         }
         
         if (resolvedFeatures.isNotEmpty()) {
@@ -712,6 +779,31 @@ fun resolveFeatureCategories(): List<ResolvedFeatureCategory> {
             null
         }
     }
+    
+    // Add plugins to Extensions category or create new category
+    val extensionsCategory = regularCategories.find { it.title == "Extensions" }
+    val finalCategories = if (pluginFeatures.isNotEmpty()) {
+        if (extensionsCategory != null) {
+            // Add plugins to existing Extensions category
+            regularCategories.map { category ->
+                if (category.title == "Extensions") {
+                    ResolvedFeatureCategory(
+                        category.title,
+                        category.features + pluginFeatures
+                    )
+                } else {
+                    category
+                }
+            }
+        } else {
+            // Create new Extensions category for plugins
+            regularCategories + ResolvedFeatureCategory("Extensions", pluginFeatures)
+        }
+    } else {
+        regularCategories
+    }
+    
+    return finalCategories
 }
 
 fun getFeatureDefinitions(): List<FeatureCategoryDef> {
@@ -719,31 +811,6 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
         FeatureCategoryDef("System & Security", listOf(
             FeatureDef("Settings", Icons.Default.Settings, "nav_settings"),
             FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer")
-        )),
-        FeatureCategoryDef("Notes", listOf(
-            FeatureDef("Secure Notes", Icons.AutoMirrored.Filled.Note, "nav_secure_notes")
-        )),
-        FeatureCategoryDef("Connectivity", listOf(
-            FeatureDef("Bluetooth Scanner", Icons.Default.Bluetooth, "nav_bluetooth_scanner"),
-            FeatureDef("Network Tools", Icons.Default.Router, "nav_network_tools"),
-            FeatureDef("DNS Tools", Icons.Default.Dns, "nav_dns_tools"),
-            FeatureDef("NTP Checker", Icons.Default.History, "nav_ntp"),
-            FeatureDef("SSH / SCP", Icons.Default.Lock, "nav_ssh")
-        )),
-        FeatureCategoryDef("Media", listOf(
-            FeatureDef("DVD Player", Icons.Default.Album, "nav_dvd_cd_detail")
-        )),
-        FeatureCategoryDef("Utilities", listOf(
-            FeatureDef("Barcode & QR", Icons.Default.QrCode, "nav_barcode_tools"),
-            FeatureDef("Document Scanner", Icons.Default.Scanner, "nav_scanner"),
-            FeatureDef("Password Tools", Icons.Default.Password, "nav_password")
-        )),
-        FeatureCategoryDef("Productivity", listOf(
-            FeatureDef("Kalender", Icons.Default.Timeline, "nav_calendar")
-        )),
-        FeatureCategoryDef("Device", listOf(
-            FeatureDef("Device Info", Icons.Default.PermDeviceInformation, "nav_device_info"),
-            FeatureDef("GPS Satellites", Icons.Default.Sensors, "nav_gps")
         )),
         FeatureCategoryDef("Extensions", listOf(
             FeatureDef("Plugin Management", Icons.Rounded.Apps, "nav_plugin_management")

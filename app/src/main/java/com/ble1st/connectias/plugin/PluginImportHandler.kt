@@ -22,48 +22,48 @@ class PluginImportHandler(
      * Import a plugin from a URI (file picker result)
      */
     suspend fun importPlugin(uri: Uri): Result<String> = withContext(Dispatchers.IO) {
+        // Create temporary file
+        val tempFile = File(context.cacheDir, "temp_plugin_${System.currentTimeMillis()}.apk")
+        
         try {
-            // Read file from URI
-            val inputStream = context.contentResolver.openInputStream(uri)
-                ?: return@withContext Result.failure(Exception("Cannot open file"))
-            
-            // Create temporary file
-            val tempFile = File(context.cacheDir, "temp_plugin_${System.currentTimeMillis()}.apk")
-            
-            try {
-                // Copy to temp file
+            // Read file from URI and copy to temp file
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 FileOutputStream(tempFile).use { output ->
                     inputStream.copyTo(output)
                 }
-                
-                // Validate plugin file
-                val validationResult = validatePluginFile(tempFile)
-                if (validationResult.isFailure) {
-                    return@withContext validationResult
-                }
-                
-                val pluginId = validationResult.getOrNull()
-                    ?: return@withContext Result.failure(Exception("Failed to extract plugin ID"))
-                
-                // Check if plugin already exists
-                val targetFile = File(pluginDirectory, "$pluginId.apk")
-                if (targetFile.exists()) {
-                    return@withContext Result.failure(Exception("Plugin already installed: $pluginId"))
-                }
-                
-                // Copy to plugin directory
-                tempFile.copyTo(targetFile, overwrite = false)
-                
-                Timber.i("Plugin imported successfully: $pluginId")
-                Result.success(pluginId)
-                
-            } finally {
-                // Cleanup temp file
-                tempFile.delete()
+            } ?: return@withContext Result.failure(Exception("Cannot open file"))
+            
+            // Validate plugin file
+            val validationResult = validatePluginFile(tempFile)
+            if (validationResult.isFailure) {
+                return@withContext validationResult
             }
+            
+            val pluginId = validationResult.getOrNull()
+                ?: return@withContext Result.failure(Exception("Failed to extract plugin ID"))
+            
+            // Check if plugin already exists
+            val targetFile = File(pluginDirectory, "$pluginId.apk")
+            if (targetFile.exists()) {
+                return@withContext Result.failure(Exception("Plugin already installed: $pluginId"))
+            }
+            
+            // Copy to plugin directory
+            tempFile.copyTo(targetFile, overwrite = false)
+            
+            // Set file to read-only to comply with Android security requirements
+            // Android 10+ requires DEX files to be non-writable
+            targetFile.setReadOnly()
+            
+            Timber.i("Plugin imported successfully: $pluginId")
+            Result.success(pluginId)
+            
         } catch (e: Exception) {
             Timber.e(e, "Failed to import plugin")
             Result.failure(e)
+        } finally {
+            // Cleanup temp file
+            tempFile.delete()
         }
     }
     
@@ -77,16 +77,17 @@ class PluginImportHandler(
                 return Result.failure(Exception("Invalid file type. Only .apk and .jar files are supported"))
             }
             
-            // Check file size (max 50MB)
-            val maxSize = 50 * 1024 * 1024 // 50MB
+            // Check file size (max 100MB)
+            val maxSize = 100 * 1024 * 1024 // 100MB
             if (file.length() > maxSize) {
-                return Result.failure(Exception("File too large. Maximum size is 50MB"))
+                return Result.failure(Exception("File too large. Maximum size is 100MB"))
             }
             
             // Validate ZIP structure
             ZipFile(file).use { zip ->
-                // Check for manifest
+                // Check for manifest - try both locations: root (APK) and assets/ (AAR)
                 val manifestEntry = zip.getEntry("plugin-manifest.json")
+                    ?: zip.getEntry("assets/plugin-manifest.json")
                     ?: return Result.failure(Exception("Invalid plugin: Missing plugin-manifest.json"))
                 
                 // Extract and validate manifest

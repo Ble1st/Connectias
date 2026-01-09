@@ -8,6 +8,9 @@ import androidx.compose.runtime.remember
 /**
  * Helper composable to observe theme settings and provide them to ConnectiasTheme.
  * This simplifies theme setup in Fragments.
+ * 
+ * Uses default values as initial state - Flow will emit actual value immediately.
+ * This avoids synchronous SharedPreferences access on main thread (StrictMode violation).
  */
 @Composable
 fun ObserveThemeSettings(
@@ -18,9 +21,9 @@ fun ObserveThemeSettings(
         dynamicColor: Boolean
     ) -> Unit
 ) {
-    val theme by settingsProvider.observeTheme().collectAsState(initial = settingsProvider.getTheme())
-    val themeStyleString by settingsProvider.observeThemeStyle().collectAsState(initial = settingsProvider.getThemeStyle())
-    val dynamicColor by settingsProvider.observeDynamicColor().collectAsState(initial = settingsProvider.getDynamicColor())
+    val theme by settingsProvider.observeTheme().collectAsState(initial = "system")
+    val themeStyleString by settingsProvider.observeThemeStyle().collectAsState(initial = "standard")
+    val dynamicColor by settingsProvider.observeDynamicColor().collectAsState(initial = true)
     val themeStyle = remember(themeStyleString) { ThemeStyle.fromString(themeStyleString) }
     
     content(theme, themeStyle, dynamicColor)

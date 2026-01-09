@@ -5,6 +5,7 @@ import java.io.File
 
 /**
  * Context provided to plugins for accessing app resources
+ * Must match the app's plugin SDK exactly
  */
 interface PluginContext {
     

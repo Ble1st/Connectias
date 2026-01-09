@@ -131,6 +131,16 @@
 -keep class * extends androidx.room.RoomDatabase { *; }
 
 # ------------------------------------------------------------------------------
+# SQLCipher
+# ------------------------------------------------------------------------------
+
+# Keep SQLCipher classes
+-keep class net.sqlcipher.** { *; }
+-keep class net.zetetic.database.sqlcipher.** { *; }
+-dontwarn net.sqlcipher.**
+-dontwarn net.zetetic.database.sqlcipher.**
+
+# ------------------------------------------------------------------------------
 # Jetpack Compose
 # ------------------------------------------------------------------------------
 

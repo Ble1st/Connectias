@@ -117,4 +117,9 @@ if (featureGpsEnabled) {
 // ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
 // ============================================================================
-include(":test-plugin")
+// Nur inkludieren wenn explizit gebaut wird, nicht beim Hauptapp-Build
+// Build mit: ./gradlew :test-plugin:assembleRelease -Pbuild.test.plugin=true
+val buildTestPlugin = providers.gradleProperty("build.test.plugin").orNull == "true"
+if (buildTestPlugin) {
+    include(":test-plugin")
+}

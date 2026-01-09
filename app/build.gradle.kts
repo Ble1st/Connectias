@@ -217,6 +217,7 @@ dependencies {
     // Core Modules (always included)
     // Note: Still using :core alongside new submodules during migration
     implementation(project(":core"))
+    implementation(project(":core:database"))
     implementation(project(":core:data"))
     implementation(project(":core:domain"))
     implementation(project(":core:ui"))
@@ -293,6 +294,14 @@ dependencies {
         implementation(project(":feature-satellite"))
     }
 
+    // Room Database + SQLCipher (for DatabaseModule)
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    // SQLCipher - already available transitively from core module, but need explicit for compilation
+    implementation(libs.sqlcipher.android)
+    // SQLCipher requires androidx.sqlite for SupportFactory
+    implementation("androidx.sqlite:sqlite:2.1.0")
+    
     // Android Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

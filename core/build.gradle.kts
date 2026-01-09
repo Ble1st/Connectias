@@ -73,6 +73,9 @@ dependencies {
     
     // Domain Layer (Use Cases)
     implementation(project(":core:domain"))
+    
+    // Data Layer (for LogRepository)
+    implementation(project(":core:data"))
 
     // Android Core
     implementation(libs.androidx.core.ktx)

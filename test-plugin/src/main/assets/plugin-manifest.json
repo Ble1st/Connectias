@@ -6,11 +6,9 @@
   "description": "Ein Test-Plugin für das Connectias Plugin-System mit Compose UI",
   "category": "UTILITY",
   "fragmentClassName": "com.ble1st.connectias.testplugin.TestPlugin",
-  "requirements": {
-    "minApiLevel": 33,
-    "maxApiLevel": 36,
-    "minAppVersion": "1.0.0"
-  },
+  "minApiLevel": 33,
+  "maxApiLevel": 36,
+  "minAppVersion": "1.0.0",
   "permissions": [],
   "nativeLibraries": [],
   "dependencies": []

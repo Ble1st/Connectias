@@ -15,14 +15,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ble1st.connectias.core.module.ModuleInfo
+import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.PluginImportHandler
 import com.ble1st.connectias.plugin.PluginManager
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PluginManagementScreen(
     pluginManager: PluginManager,
+    moduleRegistry: ModuleRegistry,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
@@ -57,8 +63,28 @@ fun PluginManagementScreen(
                     importError = false
                     showImportDialog = true
                     
-                    // Reload plugins
-                    pluginManager.initialize()
+                    // Load and enable the newly imported plugin immediately
+                    val loadResult = pluginManager.loadAndEnablePlugin(pluginId)
+                    loadResult.onSuccess { metadata ->
+                        importMessage = "Plugin imported, loaded and enabled: $pluginId"
+                        
+                        // Register plugin in module registry so it appears in navigation
+                        withContext(Dispatchers.Main) {
+                            val moduleInfo = ModuleInfo(
+                                id = metadata.pluginId,
+                                name = metadata.pluginName,
+                                version = metadata.version,
+                                isActive = true
+                            )
+                            moduleRegistry.registerModule(moduleInfo)
+                            Timber.i("Plugin registered in module registry: ${metadata.pluginName}")
+                        }
+                    }.onFailure { loadError ->
+                        Timber.e(loadError, "Failed to load plugin after import")
+                        importMessage = "Plugin imported but failed to load: ${loadError.message}"
+                    }
+                    
+                    // Refresh plugin list
                     plugins = pluginManager.getLoadedPlugins()
                 }.onFailure { error ->
                     importMessage = "Import failed: ${error.message}"

@@ -17,28 +17,84 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import com.ble1st.connectias.plugin.sdk.IPlugin
+import com.ble1st.connectias.plugin.sdk.PluginCategory
+import com.ble1st.connectias.plugin.sdk.PluginContext
+import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import timber.log.Timber
 
 /**
  * Test-Plugin für das Connectias Plugin-System
  * 
- * Demonstriert:
- * - Plugin-Lifecycle (onPluginEnabled/onPluginDisabled)
- * - Compose UI Integration
- * - Fragment-basierte Implementierung
- * - Material 3 Design
+ * Implementiert sowohl IPlugin als auch Fragment
+ * Das Plugin-System erwartet, dass die Klasse über fragmentClassName geladen wird
+ * und IPlugin implementiert
  */
-class TestPlugin : Fragment() {
-
+class TestPlugin : Fragment(), IPlugin {
+    
+    private var pluginContext: PluginContext? = null
     private var clickCount by mutableStateOf(0)
     private var isPluginEnabled by mutableStateOf(false)
-
+    
+    // IPlugin implementation
+    override fun onLoad(context: PluginContext): Boolean {
+        Timber.i("TestPlugin: onLoad called")
+        this.pluginContext = context
+        context.logVerbose("TestPlugin: Verbose log - detailed initialization info")
+        context.logInfo("TestPlugin loaded successfully")
+        context.logDebug("TestPlugin: Debug info - context initialized")
+        return true
+    }
+    
+    override fun onEnable(): Boolean {
+        Timber.i("TestPlugin: onEnable called")
+        isPluginEnabled = true
+        pluginContext?.logInfo("TestPlugin enabled")
+        pluginContext?.logDebug("TestPlugin: State changed to enabled")
+        return true
+    }
+    
+    override fun onDisable(): Boolean {
+        Timber.i("TestPlugin: onDisable called")
+        isPluginEnabled = false
+        pluginContext?.logWarning("TestPlugin disabled - features may not be available")
+        pluginContext?.logDebug("TestPlugin: State changed to disabled")
+        return true
+    }
+    
+    override fun onUnload(): Boolean {
+        Timber.i("TestPlugin: onUnload called")
+        pluginContext?.logInfo("TestPlugin unloaded")
+        pluginContext?.logDebug("TestPlugin: Cleanup completed")
+        return true
+    }
+    
+    override fun getMetadata(): PluginMetadata {
+        return PluginMetadata(
+            pluginId = "com.ble1st.connectias.testplugin",
+            pluginName = "Test Plugin",
+            version = "1.0.0",
+            author = "Connectias Team",
+            minApiLevel = 33,
+            maxApiLevel = 36,
+            minAppVersion = "1.0.0",
+            nativeLibraries = emptyList(),
+            fragmentClassName = "com.ble1st.connectias.testplugin.TestPlugin",
+            description = "Ein Test-Plugin für das Connectias Plugin-System mit Compose UI",
+            permissions = emptyList(),
+            category = PluginCategory.UTILITY,
+            dependencies = emptyList()
+        )
+    }
+    
+    // Fragment implementation
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
         Timber.d("TestPlugin: onCreateView called")
+        pluginContext?.logDebug("TestPlugin: Creating Compose view")
         
         return ComposeView(requireContext()).apply {
             setContent {
@@ -46,8 +102,14 @@ class TestPlugin : Fragment() {
                     TestPluginScreen(
                         clickCount = clickCount,
                         isPluginEnabled = isPluginEnabled,
-                        onIncrementClick = { clickCount++ },
-                        onResetClick = { clickCount = 0 }
+                        onIncrementClick = { 
+                            clickCount++
+                            pluginContext?.logDebug("Counter incremented to $clickCount")
+                        },
+                        onResetClick = { 
+                            pluginContext?.logInfo("Counter reset from $clickCount to 0")
+                            clickCount = 0 
+                        }
                     )
                 }
             }
@@ -57,27 +119,13 @@ class TestPlugin : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         Timber.i("TestPlugin: View created successfully")
-    }
-
-    /**
-     * Wird aufgerufen, wenn das Plugin aktiviert wird
-     */
-    fun onPluginEnabled() {
-        Timber.i("TestPlugin: Plugin enabled")
-        isPluginEnabled = true
-    }
-
-    /**
-     * Wird aufgerufen, wenn das Plugin deaktiviert wird
-     */
-    fun onPluginDisabled() {
-        Timber.i("TestPlugin: Plugin disabled")
-        isPluginEnabled = false
+        pluginContext?.logInfo("TestPlugin UI view created and ready")
     }
 
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("TestPlugin: onDestroy called")
+        pluginContext?.logDebug("TestPlugin: Fragment destroyed")
     }
 }
 
@@ -245,6 +293,7 @@ fun TestPluginScreen(
                     FeatureItem("✅ Fragment-basiert")
                     FeatureItem("✅ Lifecycle-Management")
                     FeatureItem("✅ Timber Logging")
+                    FeatureItem("✅ Database Logging")
                     FeatureItem("✅ Standalone APK")
                 }
             }

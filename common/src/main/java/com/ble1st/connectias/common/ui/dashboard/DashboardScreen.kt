@@ -13,10 +13,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,17 +40,13 @@ data class DashboardItem(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
-    onNavigateToNetwork: () -> Unit,
-    onNavigateToBluetooth: () -> Unit,
-    onNavigateToSecureNotes: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    pluginItems: List<DashboardItem> = emptyList()
 ) {
-    val items = listOf(
-        DashboardItem("Network", Icons.Default.Wifi, onNavigateToNetwork),
-        DashboardItem("Bluetooth", Icons.Default.Bluetooth, onNavigateToBluetooth),
-        DashboardItem("Secure Notes", Icons.Default.Lock, onNavigateToSecureNotes),
-        DashboardItem("Settings", Icons.Default.Settings, onNavigateToSettings)
-    )
+    val items = buildList {
+        add(DashboardItem("Settings", Icons.Default.Settings, onNavigateToSettings))
+        addAll(pluginItems)
+    }
 
     Scaffold(
         topBar = {

@@ -1,8 +1,10 @@
 package com.ble1st.connectias
 
 import android.app.Application
+import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
 import com.ble1st.connectias.performance.StrictModeConfig
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.android.EntryPointAccessors
 import timber.log.Timber
 
 @HiltAndroidApp
@@ -15,13 +17,21 @@ class ConnectiasApplication : Application() {
         StrictModeConfig.enableStrictMode(BuildConfig.DEBUG)
         
         // Initialize Timber for logging
+        // Get ConnectiasLoggingTree via Hilt EntryPoint
+        val loggingTree = EntryPointAccessors.fromApplication(
+            this,
+            LoggingTreeEntryPoint::class.java
+        ).loggingTree()
+        
+        // Plant database logging tree first (for production)
+        Timber.plant(loggingTree)
+        
+        // Also plant debug tree in debug builds for logcat output
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
         
         Timber.d("ConnectiasApplication initialized")
-        // Note: Advanced logging with ConnectiasLoggingTree will be re-implemented
-        // in a future update using the new Domain Layer architecture
     }
 }
 

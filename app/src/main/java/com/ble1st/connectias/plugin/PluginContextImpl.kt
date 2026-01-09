@@ -35,8 +35,20 @@ class PluginContextImpl(
         return services[name]
     }
     
+    override fun logVerbose(message: String) {
+        Timber.v("[$pluginId] $message")
+    }
+    
     override fun logDebug(message: String) {
         Timber.d("[$pluginId] $message")
+    }
+    
+    override fun logInfo(message: String) {
+        Timber.i("[$pluginId] $message")
+    }
+    
+    override fun logWarning(message: String) {
+        Timber.w("[$pluginId] $message")
     }
     
     override fun logError(message: String, throwable: Throwable?) {
