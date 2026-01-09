@@ -9,6 +9,7 @@
         android:id="@+id/icon_security"
         android:layout_width="120dp"
         android:layout_height="120dp"
+        android:contentDescription="TODO"
         android:src="@android:drawable/ic_lock_lock"
         app:layout_constraintBottom_toTopOf="@+id/text_title"
         app:layout_constraintEnd_toEndOf="parent"

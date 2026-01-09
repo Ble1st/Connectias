@@ -300,7 +300,7 @@ dependencies {
     // SQLCipher - already available transitively from core module, but need explicit for compilation
     implementation(libs.sqlcipher.android)
     // SQLCipher requires androidx.sqlite for SupportFactory
-    implementation("androidx.sqlite:sqlite:2.1.0")
+    implementation("androidx.sqlite:sqlite:2.6.2")
     
     // Android Core
     implementation(libs.androidx.core.ktx)

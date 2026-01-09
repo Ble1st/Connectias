@@ -37,14 +37,12 @@ object StrictModeConfig {
             .detectAll() // Alle Thread-Violations erkennen
             .penaltyLog() // In Logcat ausgeben
             .apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    penaltyListener(
-                        { runnable -> runnable.run() },
-                        { violation ->
-                            Timber.e(violation, "StrictMode ThreadPolicy Violation")
-                        }
-                    )
-                }
+                penaltyListener(
+                    { runnable -> runnable.run() },
+                    { violation ->
+                        Timber.e(violation, "StrictMode ThreadPolicy Violation")
+                    }
+                )
             }
             .build()
         
@@ -55,30 +53,22 @@ object StrictModeConfig {
             .detectAll() // Alle VM-Violations erkennen
             .penaltyLog() // In Logcat ausgeben
             .apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    penaltyListener(
-                        { runnable -> runnable.run() },
-                        { violation ->
-                            Timber.e(violation, "StrictMode VmPolicy Violation")
-                        }
-                    )
-                }
-                
+                penaltyListener(
+                    { runnable -> runnable.run() },
+                    { violation ->
+                        Timber.e(violation, "StrictMode VmPolicy Violation")
+                    }
+                )
+
                 // Spezifische Detections
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    detectContentUriWithoutPermission()
-                    detectUntaggedSockets()
-                }
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    detectCredentialProtectedWhileLocked()
-                    detectImplicitDirectBoot()
-                }
-                
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    detectIncorrectContextUse()
-                    detectUnsafeIntentLaunch()
-                }
+                detectContentUriWithoutPermission()
+                detectUntaggedSockets()
+
+                detectCredentialProtectedWhileLocked()
+                detectImplicitDirectBoot()
+
+                detectIncorrectContextUse()
+                detectUnsafeIntentLaunch()
             }
             .build()
         

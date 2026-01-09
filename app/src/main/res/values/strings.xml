@@ -17,7 +17,7 @@
     <string name="nav_password">Password Tools</string>
     <string name="nav_gps">GPS Satellites</string>
     <string name="nav_device_info">Device Info</string>
-    <string name="nav_plugin_management">Plugin Management</string>
+    <string name="nav_plugin_management" translatable="false">Plugin Management</string>
 
     <!-- Generic actions -->
 

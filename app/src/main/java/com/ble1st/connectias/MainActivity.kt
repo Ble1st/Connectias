@@ -765,11 +765,8 @@ fun resolveFeatureCategories(
     val regularCategories = definitions.mapNotNull { category ->
         val resolvedFeatures = category.features.mapNotNull { featureDef ->
             // Check if navigation ID exists
-            val id = getNavIdByName(featureDef.navIdName)
-            if (id == null) {
-                return@mapNotNull null
-            }
-            
+            val id = getNavIdByName(featureDef.navIdName) ?: return@mapNotNull null
+
             ResolvedFeature(featureDef.name, featureDef.icon, id, isPlugin = false, pluginId = null)
         }
         

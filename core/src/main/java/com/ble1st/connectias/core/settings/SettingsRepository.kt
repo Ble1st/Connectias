@@ -150,7 +150,7 @@ class SettingsRepository(
                 if (encryptedTheme != null) {
                     Timber.d("Migrating theme preference from encrypted to plain storage")
                     // Copy theme to plain prefs (new location)
-                    plainPrefs.edit().putString("theme", encryptedTheme).apply()
+                    plainPrefs.edit { putString("theme", encryptedTheme) }
                     // Remove theme from encrypted prefs (no longer needed there)
                     encryptedPrefs.edit {remove("theme")}
                     Timber.d("Theme preference migration completed")

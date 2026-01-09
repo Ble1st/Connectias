@@ -1,5 +1,6 @@
 package com.ble1st.connectias.core.security.emulator
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Build
 import android.telephony.TelephonyManager
@@ -178,7 +179,11 @@ class RustEmulatorDetector(private val context: Context? = null) {
             details["build_fingerprint"] = Build.FINGERPRINT
             
             // System properties are read in Rust, but we can add them here for debug
-            // Note: This uses reflection which is done in Kotlin layer for debug details
+            // Note: This uses reflection to access android.os.SystemProperties (internal API).
+            // This is necessary for emulator detection debug details as there's no public API
+            // for system properties. The reflection is wrapped in try-catch to handle cases
+            // where the API is unavailable. Only used in debug builds.
+            @SuppressLint("PrivateApi")
             try {
                 val systemProperties = Class.forName("android.os.SystemProperties")
                 val getMethod = systemProperties.getMethod("get", String::class.java)
