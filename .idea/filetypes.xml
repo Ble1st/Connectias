@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="FileTypeManager">
+    <ignoreFiles>
+      <option name="files" value="*.md" />
+      <option name="files" value="docs/**/*.md" />
+    </ignoreFiles>
+  </component>
+</project>

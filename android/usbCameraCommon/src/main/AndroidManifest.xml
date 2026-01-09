@@ -21,4 +21,9 @@
   ~  may have a different license, see the respective files.
   -->
 
-<manifest package="com.serenegiant.usbcameracommon"/>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 
+        Note: package attribute is now defined in build.gradle.kts (namespace)
+        This is a library module, so package should not be in the manifest.
+    -->
+</manifest>

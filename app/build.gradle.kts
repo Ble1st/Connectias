@@ -352,6 +352,10 @@ dependencies {
     // LeakCanary - Memory Leak Detection (nur Debug)
     debugImplementation(libs.leakcanary)
     
+    // Baseline Profile Support
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
+    implementation("androidx.startup:startup-runtime:1.2.0")
+    
     // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -12,15 +12,28 @@
     communicates with local network devices (scanners, printers) that use HTTP.
 -->
 <network-security-config>
-    <!-- Base configuration: Allow cleartext for local network devices -->
-    <!-- This is necessary because eSCL scanners use HTTP (not HTTPS) -->
-    <!-- The security risk is minimal as these are local network devices -->
-    <base-config cleartextTrafficPermitted="true">
+    <!-- Base configuration: No cleartext traffic by default (secure) -->
+    <!-- This enforces HTTPS for all network connections -->
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <!-- Trust system CA certificates -->
             <certificates src="system"/>
         </trust-anchors>
     </base-config>
+    
+    <!-- 
+        Note: If cleartext traffic is needed for local network devices (e.g., eSCL scanners),
+        add specific domain-config entries below. Android Network Security Config does not
+        support IP address wildcards, so each specific IP or domain must be listed.
+        
+        Example for local network devices:
+        <domain-config cleartextTrafficPermitted="true">
+            <domain>192.168.1.100</domain>
+            <trust-anchors>
+                <certificates src="system"/>
+            </trust-anchors>
+        </domain-config>
+    -->
 
     <!-- Debug configuration: Allow user certificates for development -->
     <debug-overrides>

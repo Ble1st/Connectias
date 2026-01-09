@@ -76,7 +76,7 @@ class {Name}Plugin : IPlugin {
   "pluginName": "{Plugin Name}",
   "version": "1.0.0",
   "fragmentClassName": "com.ble1st.connectias.plugin.{name}.ui.{Name}Fragment",
-  ...
+  "..."
 }
 ```
 

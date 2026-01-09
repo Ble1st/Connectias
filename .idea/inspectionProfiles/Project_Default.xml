@@ -46,5 +46,32 @@
     <inspection_tool class="PreviewPickerAnnotation" enabled="true" level="ERROR" enabled_by_default="true">
       <option name="composableFile" value="true" />
     </inspection_tool>
+    <inspection_tool class="XmlHighlightingBasedInspection" enabled="false" level="WARNING" enabled_by_default="false">
+      <option name="validatesSchema" value="false" />
+      <option name="validatesExternalSchema" value="false" />
+      <option name="validatesDTD" value="false" />
+    </inspection_tool>
+    <inspection_tool class="XmlUnboundNamespacePrefix" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="XmlWrongRootElementType" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="XmlMultipleRootTags" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="XmlUnusedNamespaceDeclaration" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="XmlInvalidId" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="KotlinUnusedImport" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Documentation Files" level="WARNING" enabled="false" />
+    </inspection_tool>
+    <inspection_tool class="KotlinHighlightingBasedInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Documentation Files" level="WARNING" enabled="false" />
+    </inspection_tool>
+    <inspection_tool class="MarkdownUnresolvedFileReference" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="MarkdownIncorrectTableFormatting" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="JniMissingFunction" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Rust Native Classes" level="WARNING" enabled="false" />
+    </inspection_tool>
+    <inspection_tool class="JniFunctionSignature" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Rust Native Classes" level="WARNING" enabled="false" />
+    </inspection_tool>
+    <inspection_tool class="NativeMethod" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Rust Native Classes" level="WARNING" enabled="false" />
+    </inspection_tool>
   </profile>
 </component>

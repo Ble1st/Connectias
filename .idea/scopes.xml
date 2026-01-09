@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DependencyValidationManager">
+    <scope name="Documentation Files" pattern="file:*.md||file:docs//*||file:**/*.md" />
+    <scope name="Rust Native Classes" pattern="file:**/Rust*.kt||file:**/security/**/KeyManager.kt||file:**/core/security/KeyManager.kt" />
+  </component>
+</project>

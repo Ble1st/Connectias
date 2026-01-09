@@ -78,9 +78,10 @@ class PluginManager(
                             error.cause?.message?.contains("classes.dex") == true) {
                             try {
                                 // Make file writable and readable before deleting (in case it's read-only)
-                                pluginFile.setWritable(true, false) // Make writable for owner
-                                pluginFile.setReadable(true, false) // Make readable for owner
-                                pluginFile.setExecutable(true, false) // Make executable for owner
+                                // Set permissions for owner only (ownerOnly=true) to avoid security risks
+                                pluginFile.setWritable(true, true) // Make writable for owner only
+                                pluginFile.setReadable(true, true) // Make readable for owner only
+                                pluginFile.setExecutable(true, true) // Make executable for owner only
                                 
                                 if (pluginFile.delete()) {
                                     Timber.w("Deleted invalid plugin file: ${pluginFile.name}")

@@ -21,13 +21,9 @@
   ~  may have a different license, see the respective files.
   -->
 
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.serenegiant.uvccamera"
-    android:versionCode="2"
-    android:versionName="1.1" >
-
-    <uses-sdk
-        android:minSdkVersion="14"
-        android:targetSdkVersion="22" />
-
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 
+        Note: versionCode, versionName, package, and uses-sdk are now defined in build.gradle.kts
+        This is a library module, so these attributes should not be in the manifest.
+    -->
 </manifest>

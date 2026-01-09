@@ -60,10 +60,28 @@ class NativeLibraryManager(
     }
     
     /**
-     * Load native library
+     * Load native library from absolute path.
+     * 
+     * Note: Uses System.load() instead of System.loadLibrary() because:
+     * - Plugins provide native libraries at runtime from extracted files
+     * - System.loadLibrary() only works with libraries in system library paths
+     * - System.load() is necessary for dynamically loaded plugin libraries
+     * 
+     * Security: The library path is validated to be within the app's private directory
+     * and is extracted from verified plugin APKs.
      */
+    @Suppress("UnsafeDynamicallyLoadedCode")
     fun loadLibrary(libraryPath: String): Result<Unit> {
         return try {
+            // Validate that library path is within app's private directory
+            val libraryFile = File(libraryPath)
+            val nativeLibDirCanonical = nativeLibDir.canonicalPath
+            val libraryFileCanonical = libraryFile.canonicalPath
+            
+            if (!libraryFileCanonical.startsWith(nativeLibDirCanonical)) {
+                return Result.failure(SecurityException("Library path outside allowed directory: $libraryPath"))
+            }
+            
             System.load(libraryPath)
             Timber.i("Loaded native library: $libraryPath")
             Result.success(Unit)

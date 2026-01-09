@@ -1,28 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
 <!-- 
     AndroidManifest.xml entries for Plugin Sandbox (Option 3)
     Add these entries to your app's AndroidManifest.xml
--->
-
-<!-- Permission for plugin sandbox (optional, for extra security) -->
-<permission
-    android:name="com.ble1st.connectias.permission.PLUGIN_SANDBOX"
-    android:protectionLevel="signature" />
-
-<!-- Plugin Sandbox Service -->
-<service
-    android:name="com.ble1st.connectias.core.plugin.PluginSandboxService"
-    android:process=":plugin_sandbox"
-    android:isolatedProcess="false"
-    android:exported="false"
-    android:permission="com.ble1st.connectias.permission.PLUGIN_SANDBOX">
     
-    <!-- 
-        android:process=":plugin_sandbox" - Runs in separate process
-        android:isolatedProcess="false" - Allows file access (set to true for maximum isolation)
-        android:exported="false" - Not accessible from other apps
-        android:permission - Requires signature permission
-    -->
-</service>
+    This is a documentation fragment - copy the elements below into your app's AndroidManifest.xml
+    inside the <manifest> tag (permission) and inside <application> tag (service).
+    
+    NOTE: This file is wrapped in a <manifest> tag for XML validity, but you should copy
+    the individual elements (permission and service) separately into your AndroidManifest.xml.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permission for plugin sandbox (optional, for extra security) -->
+    <!-- Add this inside <manifest> tag, before <application> -->
+    <permission
+        android:name="com.ble1st.connectias.permission.PLUGIN_SANDBOX"
+        android:protectionLevel="signature" />
+
+    <application>
+        <!-- Plugin Sandbox Service -->
+        <!-- Add this inside <application> tag -->
+        <service
+            android:name="com.ble1st.connectias.core.plugin.PluginSandboxService"
+            android:process=":plugin_sandbox"
+            android:isolatedProcess="false"
+            android:exported="false"
+            android:permission="com.ble1st.connectias.permission.PLUGIN_SANDBOX">
+            
+            <!-- 
+                android:process=":plugin_sandbox" - Runs in separate process
+                android:isolatedProcess="false" - Allows file access (set to true for maximum isolation)
+                android:exported="false" - Not accessible from other apps
+                android:permission - Requires signature permission
+            -->
+        </service>
+    </application>
+</manifest>
 
 <!-- 
     NOTES:
