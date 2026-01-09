@@ -48,10 +48,10 @@ data class SecurityCheckResult private constructor(
     }
 }
 sealed class SecurityThreat(open val name: String) {
-    data class RootDetected() : SecurityThreat("Root Detected")
-    data class DebuggerDetected() : SecurityThreat("Debugger Detected")
-    data class EmulatorDetected() : SecurityThreat("Emulator Detected")
-    data class TamperDetected() : SecurityThreat("Tamper Detected")
-    data class HookDetected() : SecurityThreat("Hook Detected")
+    class RootDetected : SecurityThreat("Root Detected")
+    class DebuggerDetected : SecurityThreat("Debugger Detected")
+    class EmulatorDetected : SecurityThreat("Emulator Detected")
+    class TamperDetected : SecurityThreat("Tamper Detected")
+    class HookDetected : SecurityThreat("Hook Detected")
 }
 
