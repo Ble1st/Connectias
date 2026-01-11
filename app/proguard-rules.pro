@@ -37,7 +37,8 @@
 -keepattributes RuntimeVisibleAnnotations
 -keep class kotlin.Metadata { *; }
 
-# Kotlin Coroutines
+# Kotlin Coroutines - MUST be kept for plugin compatibility
+# Plugins use coroutines extensively (launch, async, etc.)
 -keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
 -keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
 -keepclassmembers class kotlinx.coroutines.** {
@@ -46,6 +47,24 @@
 -keepclassmembernames class kotlinx.** {
     volatile <fields>;
 }
+# Keep coroutines classes and interfaces
+-keep class kotlinx.coroutines.** { *; }
+-keep interface kotlinx.coroutines.** { *; }
+# Keep coroutines extension functions
+-keep class kotlinx.coroutines.CoroutineScopeKt { *; }
+-keepclassmembers class kotlinx.coroutines.CoroutineScopeKt {
+    static *** launch(...);
+    static *** async(...);
+    static *** coroutineScope(...);
+}
+# Keep Dispatchers for plugins
+-keep class kotlinx.coroutines.Dispatchers { *; }
+-keepclassmembers class kotlinx.coroutines.Dispatchers {
+    static *** getMain();
+    static *** getIO();
+    static *** getDefault();
+}
+-dontwarn kotlinx.coroutines.**
 
 # Kotlin Serialization
 -keepattributes *Annotation*, InnerClasses
@@ -165,11 +184,12 @@
 -dontwarn net.zetetic.database.sqlcipher.**
 
 # ------------------------------------------------------------------------------
-# Jetpack Compose
+# Jetpack Compose - MUST be kept for plugin compatibility
 # ------------------------------------------------------------------------------
 
 # Keep Compose classes
 -keep class androidx.compose.** { *; }
+-keep interface androidx.compose.** { *; }
 -dontwarn androidx.compose.**
 
 # Keep @Composable functions
@@ -180,8 +200,41 @@
 # Keep Compose compiler generated code
 -keep class **ComposableSingletons* { *; }
 
+# Keep ComposeView - plugins use ComposeView to embed Compose UI
+-keep class androidx.compose.ui.platform.ComposeView { *; }
+-keepclassmembers class androidx.compose.ui.platform.ComposeView {
+    *** setContent(...);
+}
+
+# Keep Compose Runtime State Management - plugins use mutableStateOf, remember, etc.
+-keep class androidx.compose.runtime.** { *; }
+-keep interface androidx.compose.runtime.** { *; }
+# Keep State and MutableState for plugins
+-keep interface androidx.compose.runtime.State { *; }
+-keep interface androidx.compose.runtime.MutableState { *; }
+# Keep remember and mutableStateOf extension functions
+-keep class androidx.compose.runtime.SnapshotStateKt { *; }
+-keepclassmembers class androidx.compose.runtime.SnapshotStateKt {
+    static *** mutableStateOf(...);
+    static *** remember(...);
+    static *** remember(...);
+}
+# Keep remember extension functions
+-keep class androidx.compose.runtime.ComposableKt { *; }
+-keepclassmembers class androidx.compose.runtime.ComposableKt {
+    static *** remember(...);
+}
+# Keep StateList and StateMap for plugins
+-keep class androidx.compose.runtime.snapshots.SnapshotStateList { *; }
+-keep class androidx.compose.runtime.snapshots.SnapshotStateMap { *; }
+
+# Keep Compose Foundation - plugins use rememberScrollState, etc.
+-keep class androidx.compose.foundation.** { *; }
+-keep class androidx.compose.foundation.rememberScrollState { *; }
+
 # Material3
 -keep class androidx.compose.material3.** { *; }
+-keep class androidx.compose.material.** { *; }
 
 # ------------------------------------------------------------------------------
 # Navigation Component
@@ -201,15 +254,63 @@
 # AndroidX
 # ------------------------------------------------------------------------------
 
-# Lifecycle
+# Lifecycle - MUST be kept for plugin compatibility
+# Plugins use lifecycle-runtime-ktx extension functions like lifecycleScope
 -keep class * extends androidx.lifecycle.ViewModel { *; }
 -keep class * extends androidx.lifecycle.AndroidViewModel { *; }
+-keep class androidx.lifecycle.** { *; }
+-keep class androidx.lifecycle.LifecycleOwnerKt { *; }
+-keepclassmembers class androidx.lifecycle.LifecycleOwnerKt {
+    static *** getLifecycleScope(...);
+    static *** lifecycleScope(...);
+}
+# Keep LifecycleCoroutineScope for plugins
+-keep class androidx.lifecycle.LifecycleCoroutineScope { *; }
+-keep interface androidx.lifecycle.LifecycleCoroutineScope { *; }
+# Keep LifecycleOwner for plugins
+-keep interface androidx.lifecycle.LifecycleOwner { *; }
+-keep class androidx.lifecycle.Lifecycle { *; }
+-dontwarn androidx.lifecycle.**
 
-# Fragment
+# Fragment - MUST be kept for plugin compatibility
+# Plugins extend Fragment and use Fragment-KTX extension functions
 -keep class * extends androidx.fragment.app.Fragment { *; }
+-keep class androidx.fragment.app.Fragment { *; }
+-keep class androidx.fragment.** { *; }
+# Keep Fragment-KTX extension functions
+-keep class androidx.fragment.app.FragmentKt { *; }
+-keepclassmembers class androidx.fragment.app.FragmentKt {
+    static *** requireContext(...);
+    static *** requireActivity(...);
+    static *** requireView(...);
+    static *** viewLifecycleOwner(...);
+    static *** viewLifecycleOwnerLiveData(...);
+}
+# Keep ViewLifecycleOwner for plugins
+-keep interface androidx.fragment.app.FragmentViewLifecycleOwner { *; }
+-keep class androidx.fragment.app.FragmentViewLifecycleOwner { *; }
+-dontwarn androidx.fragment.**
 
-# Activity
+# Activity - MUST be kept for plugin compatibility
+# Plugins may use Activity-Compose extension functions
 -keep class * extends androidx.activity.ComponentActivity { *; }
+-keep class androidx.activity.** { *; }
+# Keep Activity-Compose extension functions
+-keep class androidx.activity.ActivityKt { *; }
+-keepclassmembers class androidx.activity.ActivityKt {
+    static *** setContent(...);
+    static *** findComponentActivity(...);
+}
+-dontwarn androidx.activity.**
+
+# Core-KTX - MUST be kept for plugin compatibility
+# Plugins use Core-KTX extension functions
+-keep class androidx.core.** { *; }
+-keep class androidx.core.content.ContextKt { *; }
+-keepclassmembers class androidx.core.content.ContextKt {
+    static *** getSystemService(...);
+}
+-dontwarn androidx.core.**
 
 # DataStore
 -keep class androidx.datastore.** { *; }
@@ -348,6 +449,18 @@
     *** loadClass(...);
     *** newInstance(...);
     *** getDeclaredConstructor(...);
+    *** createPluginFragment(...);
+}
+# Keep all reflection methods used by PluginManager
+-keepclassmembers class java.lang.Class {
+    java.lang.reflect.Constructor getDeclaredConstructor(...);
+    java.lang.Object newInstance(...);
+    java.lang.Class loadClass(...);
+}
+# Keep Constructor class for reflection
+-keep class java.lang.reflect.Constructor { *; }
+-keepclassmembers class java.lang.reflect.Constructor {
+    java.lang.Object newInstance(...);
 }
 
 # Keep DexClassLoader usage (needed for plugin loading)
