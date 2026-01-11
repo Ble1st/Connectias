@@ -62,8 +62,15 @@ jobs:
           
           RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
           
+          # Use absolute path for jniLibs directory (relative to repository root)
+          # From core/src/main/rust, we need to go up 3 levels to reach root
+          WORKSPACE="${GITHUB_WORKSPACE:-$(cd ../.. && pwd)}"
+          JNI_LIBS_BASE="${WORKSPACE}/core/src/main/jniLibs"
+          
+          echo "Workspace: ${WORKSPACE}"
+          echo "jniLibs directory: ${JNI_LIBS_BASE}"
+          
           # Create jniLibs directory structure upfront
-          JNI_LIBS_BASE="../../jniLibs"
           mkdir -p "${JNI_LIBS_BASE}"
           
           for RUST_ABI in "${RUST_ABIS[@]}"; do
@@ -91,7 +98,10 @@ jobs:
             # This is the critical path: core/src/main/jniLibs/${ANDROID_ABI}/libconnectias_root_detector.so
             JNI_LIBS_DIR="${JNI_LIBS_BASE}/${ANDROID_ABI}"
             mkdir -p "${JNI_LIBS_DIR}"
-            cp "${LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_root_detector.so"
+            
+            # Use absolute path for source file (relative to current working directory)
+            ABS_LIB_FILE="$(pwd)/${LIB_FILE}"
+            cp "${ABS_LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_root_detector.so"
             
             # Verify copy succeeded
             if [ -f "${JNI_LIBS_DIR}/libconnectias_root_detector.so" ]; then
@@ -99,6 +109,8 @@ jobs:
               ls -lh "${JNI_LIBS_DIR}/libconnectias_root_detector.so"
             else
               echo "✗ Failed to copy library to ${JNI_LIBS_DIR}/"
+              echo "Source file: ${ABS_LIB_FILE}"
+              echo "Target directory: ${JNI_LIBS_DIR}"
               exit 1
             fi
             
@@ -122,13 +134,31 @@ jobs:
       - name: Verify Rust libraries before Gradle build
         run: |
           echo "Verifying Rust libraries are in place before Gradle build..."
-          JNI_LIBS_DIR="core/src/main/jniLibs"
+          echo "Current working directory: $(pwd)"
+          
+          # Use absolute path from repository root (GITHUB_WORKSPACE is set by GitHub Actions)
+          WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
+          JNI_LIBS_DIR="${WORKSPACE}/core/src/main/jniLibs"
+          
+          echo "Workspace: ${WORKSPACE}"
+          echo "Looking for libraries in: ${JNI_LIBS_DIR}"
+          
+          # Check if directory exists
+          if [ ! -d "${JNI_LIBS_DIR}" ]; then
+            echo "✗ ERROR: jniLibs directory does not exist: ${JNI_LIBS_DIR}"
+            echo "Checking parent directory:"
+            ls -la "${WORKSPACE}/core/src/main/" 2>/dev/null || echo "core/src/main/ does not exist"
+            exit 1
+          fi
           
           # Check for arm64-v8a (required for release build)
           if [ ! -f "${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so" ]; then
             echo "✗ ERROR: Required library not found: ${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so"
-            echo "Available files:"
-            find "${JNI_LIBS_DIR}" -type f 2>/dev/null || echo "Directory does not exist"
+            echo "Available files in jniLibs:"
+            find "${JNI_LIBS_DIR}" -type f 2>/dev/null || echo "No files found"
+            echo ""
+            echo "Directory structure:"
+            find "${JNI_LIBS_DIR}" -type d 2>/dev/null || echo "Directory does not exist"
             exit 1
           fi
           
