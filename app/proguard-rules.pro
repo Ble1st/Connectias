@@ -283,6 +283,80 @@
 -keep class com.ble1st.connectias.SecurityBlockedActivity { *; }
 
 # ------------------------------------------------------------------------------
+# Plugin System - MUST be kept for reflection-based loading
+# ------------------------------------------------------------------------------
+
+# Keep all plugin-related classes and interfaces
+-keep class com.ble1st.connectias.plugin.** { *; }
+-keep interface com.ble1st.connectias.plugin.** { *; }
+
+# Keep plugin SDK classes (used by plugins at runtime)
+-keep class com.ble1st.connectias.plugin.sdk.** { *; }
+-keep interface com.ble1st.connectias.plugin.sdk.** { *; }
+
+# Keep IPlugin interface - critical for plugin loading
+-keep interface com.ble1st.connectias.plugin.sdk.IPlugin { *; }
+-keep interface com.ble1st.connectias.plugin.sdk.IPlugin$* { *; }
+
+# Keep PluginContext and related classes
+-keep class com.ble1st.connectias.plugin.sdk.PluginContext { *; }
+-keep interface com.ble1st.connectias.plugin.sdk.PluginContext { *; }
+-keep class com.ble1st.connectias.plugin.PluginContextImpl { *; }
+
+# Keep PluginMetadata - used for plugin discovery
+-keep class com.ble1st.connectias.plugin.sdk.PluginMetadata { *; }
+-keep class com.ble1st.connectias.plugin.sdk.PluginCategory { *; }
+
+# Keep PluginManager - handles dynamic loading
+-keep class com.ble1st.connectias.plugin.PluginManager { *; }
+-keep class com.ble1st.connectias.plugin.PluginManager$* { *; }
+
+# Keep NativeLibraryManager - loads plugin native libraries
+-keep class com.ble1st.connectias.plugin.NativeLibraryManager { *; }
+-keep class com.ble1st.connectias.plugin.NativeLibraryManager$* { *; }
+
+# Keep PluginInfo data class
+-keep class com.ble1st.connectias.plugin.PluginManager$PluginInfo { *; }
+-keep class com.ble1st.connectias.plugin.PluginManager$PluginState { *; }
+
+# Keep reflection-based class loading methods
+-keepclassmembers class com.ble1st.connectias.plugin.PluginManager {
+    *** loadClass(...);
+    *** newInstance(...);
+    *** getDeclaredConstructor(...);
+}
+
+# Keep DexClassLoader usage (needed for plugin loading)
+-keep class dalvik.system.DexClassLoader { *; }
+-keep class dalvik.system.BaseDexClassLoader { *; }
+
+# Keep all classes that might be loaded dynamically by plugins
+# This is important for reflection-based plugin instantiation
+-keepclassmembers class * {
+    <init>();
+}
+
+# Keep plugin fragment classes (if plugins use fragments)
+-keep class * extends androidx.fragment.app.Fragment {
+    <init>(...);
+}
+
+# Keep plugin classes that implement IPlugin (loaded via reflection)
+-keep class * implements com.ble1st.connectias.plugin.sdk.IPlugin {
+    <init>();
+    *;
+}
+
+# Keep JSON parsing classes used for plugin manifest
+-keep class org.json.** { *; }
+
+# Keep plugin import handler
+-keep class com.ble1st.connectias.plugin.PluginImportHandler { *; }
+
+# Keep plugin notification manager
+-keep class com.ble1st.connectias.plugin.PluginNotificationManager { *; }
+
+# ------------------------------------------------------------------------------
 # Suppress Warnings
 # ------------------------------------------------------------------------------
 
