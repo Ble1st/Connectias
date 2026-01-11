@@ -5,7 +5,7 @@
 
 ---
 
-## 🎉 Zusammenfassung
+## 🎉 Zusgammenfassung
 
 Phase 3 (Domain Layer mit Use Cases) wurde **erfolgreich implementiert**. Das Domain-Modul kapselt jetzt die Business Logic und macht ViewModels deutlich schlanker.
 
