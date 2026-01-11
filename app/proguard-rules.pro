@@ -68,6 +68,30 @@
 -keep class kotlin.reflect.** { *; }
 -dontwarn kotlin.reflect.**
 
+# Kotlin Standard Library - MUST be kept for plugin compatibility
+# Plugins depend on kotlin-stdlib from the app's classloader
+# This is critical: Plugins compiled with different Kotlin versions need access
+# to kotlin-stdlib methods that may be obfuscated or removed by R8
+-keep class kotlin.** { *; }
+-keep class kotlin.jvm.internal.** { *; }
+-keep class kotlin.jvm.internal.Intrinsics { *; }
+-keepclassmembers class kotlin.jvm.internal.Intrinsics {
+    static *** checkNotNullParameter(...);
+    static *** checkNotNull(...);
+    static *** checkParameterIsNotNull(...);
+    static *** checkExpressionValueIsNotNull(...);
+    static *** checkReturnedValueIsNotNull(...);
+    static *** checkNotNullExpressionValue(...);
+    static *** checkFieldIsNotNull(...);
+    static *** checkReturnedValueIsNotNull(...);
+}
+# Keep all Kotlin stdlib classes and methods
+-keep class kotlin.jvm.functions.** { *; }
+-keep class kotlin.collections.** { *; }
+-keep class kotlin.sequences.** { *; }
+-keep class kotlin.ranges.** { *; }
+-dontwarn kotlin.**
+
 # ------------------------------------------------------------------------------
 # Hilt / Dagger
 # ------------------------------------------------------------------------------
