@@ -62,6 +62,10 @@ jobs:
           
           RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
           
+          # Create jniLibs directory structure upfront
+          JNI_LIBS_BASE="../../jniLibs"
+          mkdir -p "${JNI_LIBS_BASE}"
+          
           for RUST_ABI in "${RUST_ABIS[@]}"; do
             echo "Building for ${RUST_ABI}..."
             cargo ndk \
@@ -73,34 +77,68 @@ jobs:
             TARGET_DIR="target/${RUST_ABI}/release"
             LIB_FILE="${TARGET_DIR}/libconnectias_root_detector.so"
             
-            if [ -f "${LIB_FILE}" ]; then
-              echo "✓ Built successfully for ${RUST_ABI}"
-              
-              # Get Android ABI name
-              ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
-              
-              # Copy to jniLibs directory for Gradle to find (direct inclusion in APK)
-              JNI_LIBS_DIR="../../jniLibs/${ANDROID_ABI}"
-              mkdir -p "${JNI_LIBS_DIR}"
-              cp "${LIB_FILE}" "${JNI_LIBS_DIR}/"
-              echo "✓ Copied to ${JNI_LIBS_DIR}/libconnectias_root_detector.so"
-              
-              # Also create symlink/copy for CMake (CMake expects Android ABI names in target/)
-              # CMake looks in: core/src/main/rust/target/${ANDROID_ABI}/release/
-              CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
-              mkdir -p "${CMAKE_TARGET_DIR}"
-              cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/"
-              echo "✓ Copied to ${CMAKE_TARGET_DIR}/libconnectias_root_detector.so (for CMake)"
-            else
+            if [ ! -f "${LIB_FILE}" ]; then
               echo "✗ Build failed for ${RUST_ABI} - library not found at ${LIB_FILE}"
               exit 1
             fi
+            
+            echo "✓ Built successfully for ${RUST_ABI}"
+            
+            # Get Android ABI name
+            ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+            
+            # Copy to jniLibs directory for Gradle to find (direct inclusion in APK)
+            # This is the critical path: core/src/main/jniLibs/${ANDROID_ABI}/libconnectias_root_detector.so
+            JNI_LIBS_DIR="${JNI_LIBS_BASE}/${ANDROID_ABI}"
+            mkdir -p "${JNI_LIBS_DIR}"
+            cp "${LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_root_detector.so"
+            
+            # Verify copy succeeded
+            if [ -f "${JNI_LIBS_DIR}/libconnectias_root_detector.so" ]; then
+              echo "✓ Copied to ${JNI_LIBS_DIR}/libconnectias_root_detector.so"
+              ls -lh "${JNI_LIBS_DIR}/libconnectias_root_detector.so"
+            else
+              echo "✗ Failed to copy library to ${JNI_LIBS_DIR}/"
+              exit 1
+            fi
+            
+            # Also create copy for CMake (CMake expects Android ABI names in target/)
+            # CMake looks in: core/src/main/rust/target/${ANDROID_ABI}/release/
+            CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
+            mkdir -p "${CMAKE_TARGET_DIR}"
+            cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/libconnectias_root_detector.so"
+            echo "✓ Copied to ${CMAKE_TARGET_DIR}/libconnectias_root_detector.so (for CMake)"
           done
           
+          echo ""
           echo "✓ All Rust builds completed successfully"
-          echo "Rust libraries are available in:"
-          echo "  - core/src/main/jniLibs/ (for direct Gradle inclusion)"
-          echo "  - core/src/main/rust/target/ (for CMake)"
+          echo ""
+          echo "Verifying jniLibs directory structure:"
+          find "${JNI_LIBS_BASE}" -name "*.so" -type f | sort
+          echo ""
+          echo "Library sizes:"
+          find "${JNI_LIBS_BASE}" -name "*.so" -type f -exec ls -lh {} \;
+
+      - name: Verify Rust libraries before Gradle build
+        run: |
+          echo "Verifying Rust libraries are in place before Gradle build..."
+          JNI_LIBS_DIR="core/src/main/jniLibs"
+          
+          # Check for arm64-v8a (required for release build)
+          if [ ! -f "${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so" ]; then
+            echo "✗ ERROR: Required library not found: ${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so"
+            echo "Available files:"
+            find "${JNI_LIBS_DIR}" -type f 2>/dev/null || echo "Directory does not exist"
+            exit 1
+          fi
+          
+          echo "✓ Verified: ${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so exists"
+          ls -lh "${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so"
+          
+          # List all available libraries
+          echo ""
+          echo "All available native libraries:"
+          find "${JNI_LIBS_DIR}" -name "*.so" -type f | sort
 
       - name: Calculate version and APK name
         id: version
