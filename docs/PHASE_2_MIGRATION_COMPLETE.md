@@ -10,7 +10,8 @@
 ### 1. Build-Logic Convention Plugins (Phase 1)
 - ✅ 6 Convention Plugins erstellt
 - ✅ In root settings.gradle.kts integriert
-- ✅ Reduziert Build-Scripts von ~50 auf ~10 Zeilen
+- ✅ Reduziert Build-Scripts von ~50 auf ~10 Zeilen 
+t
 
 ### 2. Core-Submodule erstellt
 ```
