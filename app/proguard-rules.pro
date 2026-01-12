@@ -493,6 +493,132 @@
 # Keep plugin notification manager
 -keep class com.ble1st.connectias.plugin.PluginNotificationManager { *; }
 
+# Keep PluginManifestParser - parses plugin manifests (uses reflection)
+-keep class com.ble1st.connectias.plugin.PluginManifestParser { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginManifestParser {
+    *;
+}
+
+# Keep PluginPermissionManager - critical for permission enforcement
+-keep class com.ble1st.connectias.plugin.PluginPermissionManager { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginPermissionManager {
+    *;
+}
+
+# Keep SecureContextWrapper - intercepts system service calls
+-keep class com.ble1st.connectias.plugin.SecureContextWrapper { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.SecureContextWrapper {
+    *;
+}
+
+# Keep PluginFragmentWrapper - wraps plugin fragments for exception handling
+-keep class com.ble1st.connectias.plugin.PluginFragmentWrapper { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginFragmentWrapper {
+    *;
+}
+
+# Keep PluginManagerSandbox - manages plugins in sandbox process
+-keep class com.ble1st.connectias.plugin.PluginManagerSandbox { *; }
+-keep class com.ble1st.connectias.plugin.PluginManagerSandbox$* { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginManagerSandbox {
+    *;
+}
+
+# Keep PluginPermissionException - used for permission validation errors
+-keep class com.ble1st.connectias.plugin.PluginPermissionException { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginPermissionException {
+    <init>(...);
+}
+
+# Keep PluginPermissionBroadcast - for inter-process permission synchronization
+-keep class com.ble1st.connectias.plugin.PluginPermissionBroadcast { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginPermissionBroadcast {
+    *;
+}
+
+# Keep PluginSandboxService - AIDL service running in separate process
+-keep class com.ble1st.connectias.core.plugin.PluginSandboxService { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService {
+    *;
+}
+
+# Keep PluginSandboxProxy - proxy for IPC communication with sandbox
+-keep class com.ble1st.connectias.core.plugin.PluginSandboxProxy { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxProxy {
+    *;
+}
+
+# Keep SandboxPluginContext - context wrapper for sandbox process
+-keep class com.ble1st.connectias.core.plugin.SandboxPluginContext { *; }
+-keep interface com.ble1st.connectias.core.plugin.SandboxPluginContext { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.SandboxPluginContext {
+    *;
+}
+
+# Keep AIDL interfaces and Parcelables - CRITICAL for IPC
+# AIDL generates stub classes that must not be obfuscated
+-keep class com.ble1st.connectias.plugin.IPluginSandbox { *; }
+-keep interface com.ble1st.connectias.plugin.IPluginSandbox { *; }
+-keep class com.ble1st.connectias.plugin.IPluginSandbox$* { *; }
+-keep class com.ble1st.connectias.plugin.IPluginSandbox$Stub { *; }
+-keep class com.ble1st.connectias.plugin.IPluginSandbox$Stub$Proxy { *; }
+
+# Keep AIDL Binder interface methods - required for IPC
+-keepclassmembers interface com.ble1st.connectias.plugin.IPluginSandbox {
+    *;
+}
+
+# Keep Android Binder classes used by AIDL
+-keep class android.os.Binder { *; }
+-keep class android.os.IBinder { *; }
+-keep interface android.os.IInterface { *; }
+-keepclassmembers class android.os.Binder {
+    boolean onTransact(int, android.os.Parcel, android.os.Parcel, int);
+}
+
+# Keep AIDL Parcelable classes
+-keep class com.ble1st.connectias.plugin.PluginMetadataParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginMetadataParcel {
+    <init>(...);
+    void writeToParcel(...);
+    int describeContents();
+}
+-keep class com.ble1st.connectias.plugin.PluginResultParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginResultParcel {
+    <init>(...);
+    void writeToParcel(...);
+    int describeContents();
+}
+
+# Keep Parcelable.Creator for AIDL Parcelables
+-keepclassmembers class com.ble1st.connectias.plugin.PluginMetadataParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+-keepclassmembers class com.ble1st.connectias.plugin.PluginResultParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep ContextWrapper methods used by SecureContextWrapper
+-keep class android.content.ContextWrapper { *; }
+-keepclassmembers class android.content.ContextWrapper {
+    android.content.Context getBaseContext();
+    android.content.Context getApplicationContext();
+    java.lang.Object getSystemService(java.lang.String);
+    int checkSelfPermission(java.lang.String);
+}
+
+# Keep BroadcastReceiver for PluginPermissionBroadcast
+-keep class android.content.BroadcastReceiver { *; }
+-keepclassmembers class android.content.BroadcastReceiver {
+    void onReceive(android.content.Context, android.content.Intent);
+}
+
+# Keep SharedPreferences classes used by PluginPermissionManager
+-keep class android.content.SharedPreferences { *; }
+-keep interface android.content.SharedPreferences { *; }
+-keep class android.content.SharedPreferences$Editor { *; }
+-keep interface android.content.SharedPreferences$Editor { *; }
+
 # ------------------------------------------------------------------------------
 # Plugin Exception Handler - MUST be kept for runtime exception handling
 # ------------------------------------------------------------------------------

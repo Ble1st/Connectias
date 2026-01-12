@@ -1,6 +1,7 @@
 package com.ble1st.connectias.plugin
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import com.ble1st.connectias.plugin.sdk.PluginCategory
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
@@ -9,6 +10,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
+import org.mockito.MockedStatic
 import org.mockito.Mockito.*
 import org.mockito.junit.MockitoJUnitRunner
 import org.junit.Assert.*
@@ -19,20 +21,23 @@ class PluginPermissionManagerTest {
     @Mock
     private lateinit var context: Context
     
+    @Mock
+    private lateinit var sharedPrefs: android.content.SharedPreferences
+    
+    @Mock
+    private lateinit var editor: android.content.SharedPreferences.Editor
+    
     private lateinit var permissionManager: PluginPermissionManager
+    private lateinit var intentMock: MockedStatic<Intent>
     
     @Before
     fun setup() {
         // Mock SharedPreferences
-        val sharedPrefs = mock(android.content.SharedPreferences::class.java)
-        val editor = mock(android.content.SharedPreferences.Editor::class.java)
-        
-        `when`(context.getSharedPreferences(anyString(), anyInt())).thenReturn(sharedPrefs)
+        `when`(context.getSharedPreferences("plugin_permissions", Context.MODE_PRIVATE)).thenReturn(sharedPrefs)
         `when`(sharedPrefs.edit()).thenReturn(editor)
         `when`(editor.putBoolean(anyString(), anyBoolean())).thenReturn(editor)
         `when`(editor.remove(anyString())).thenReturn(editor)
-        `when`(sharedPrefs.getBoolean(anyString(), anyBoolean())).thenReturn(false)
-        
+                
         // Mock checkSelfPermission
         `when`(context.checkSelfPermission(anyString())).thenReturn(PackageManager.PERMISSION_GRANTED)
         
@@ -49,6 +54,7 @@ class PluginPermissionManagerTest {
             )
         )
         
+        assertEquals(2, dangerous.size) // INTERNET and CAMERA are dangerous, VIBRATE is not
         assertTrue(dangerous.contains("android.permission.INTERNET"))
         assertTrue(dangerous.contains("android.permission.CAMERA"))
         assertFalse(dangerous.contains("android.permission.VIBRATE"))
@@ -90,8 +96,8 @@ class PluginPermissionManagerTest {
         val result = permissionManager.validatePermissions(metadata)
         assertTrue(result.isSuccess)
         val validation = result.getOrNull()!!
-        assertTrue(validation.isValid)
-        assertFalse(validation.requiresUserConsent)
+        assertFalse(validation.isValid) // VIBRATE requires user consent now
+        assertTrue(validation.requiresUserConsent)
     }
     
     @Test
@@ -137,7 +143,10 @@ class PluginPermissionManagerTest {
     
     @Test
     fun `test isPermissionAllowed allows normal permissions`() {
+        // VIBRATE is not dangerous, but still requires user consent
+        // isPermissionAllowed checks if permission is not critical AND has consent
+        // Since we haven't granted consent in this test, it should return false
         val result = permissionManager.isPermissionAllowed("test", "android.permission.VIBRATE")
-        assertTrue(result)
+        assertFalse(result) // No consent granted yet
     }
 }

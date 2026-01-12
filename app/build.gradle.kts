@@ -359,6 +359,9 @@ dependencies {
     
     // Testing
     testImplementation(libs.junit)
+    testImplementation("org.mockito:mockito-core:5.14.2")
+    testImplementation("org.mockito:mockito-inline:5.2.0")
+    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

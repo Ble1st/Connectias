@@ -25,12 +25,16 @@ class SecureContextWrapperTest {
     
     @Before
     fun setup() {
+        // Mock getSystemService
+        `when`(baseContext.getSystemService(Context.CONNECTIVITY_SERVICE)).thenReturn(null)
+        `when`(baseContext.getExternalFilesDir(null)).thenReturn(null)
+        
         secureContext = SecureContextWrapper(baseContext, pluginId, permissionManager)
     }
     
     @Test
     fun `test getSystemService allows access with permission`() {
-        `when`(permissionManager.isPermissionAllowed(eq(pluginId), anyString())).thenReturn(true)
+        `when`(permissionManager.isPermissionAllowed(pluginId, android.Manifest.permission.INTERNET)).thenReturn(true)
         
         // Should not throw exception
         secureContext.getSystemService(Context.CONNECTIVITY_SERVICE)
@@ -41,7 +45,7 @@ class SecureContextWrapperTest {
     
     @Test(expected = SecurityException::class)
     fun `test getSystemService blocks access without permission`() {
-        `when`(permissionManager.isPermissionAllowed(eq(pluginId), anyString())).thenReturn(false)
+        `when`(permissionManager.isPermissionAllowed(pluginId, android.Manifest.permission.INTERNET)).thenReturn(false)
         
         // Should throw SecurityException
         secureContext.getSystemService(Context.CONNECTIVITY_SERVICE)
@@ -70,7 +74,7 @@ class SecureContextWrapperTest {
     
     @Test(expected = SecurityException::class)
     fun `test getExternalFilesDir blocks without storage permission`() {
-        `when`(permissionManager.isPermissionAllowed(eq(pluginId), anyString())).thenReturn(false)
+        `when`(permissionManager.isPermissionAllowed(pluginId, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)).thenReturn(false)
         
         // Should throw SecurityException
         secureContext.getExternalFilesDir(null)
