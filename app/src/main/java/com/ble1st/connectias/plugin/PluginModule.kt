@@ -43,15 +43,41 @@ object PluginModule {
     
     @Provides
     @Singleton
+    fun providePluginPermissionManager(
+        @ApplicationContext context: Context
+    ): PluginPermissionManager {
+        return PluginPermissionManager(context)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginManifestParser(
+        @ApplicationContext context: Context,
+        permissionManager: PluginPermissionManager
+    ): PluginManifestParser {
+        return PluginManifestParser(context, permissionManager)
+    }
+    
+    @Provides
+    @Singleton
     fun providePluginManager(
         @ApplicationContext context: Context,
         pluginDirectory: File,
-        moduleRegistry: ModuleRegistry
+        moduleRegistry: ModuleRegistry,
+        permissionManager: PluginPermissionManager,
+        manifestParser: PluginManifestParser
     ): PluginManagerSandbox {
         // Use PluginManagerSandbox for process isolation (Option 3)
         // This runs plugins in a separate process, providing crash isolation
         // Plugin crashes will NOT crash the main app process
+        // Permission enforcement via PluginPermissionManager
         // Note: PluginManagerSandbox implements same API as PluginManager
-        return PluginManagerSandbox(context, pluginDirectory, moduleRegistry)
+        return PluginManagerSandbox(
+            context, 
+            pluginDirectory, 
+            moduleRegistry,
+            permissionManager,
+            manifestParser
+        )
     }
 }

@@ -19,6 +19,9 @@ import com.ble1st.connectias.core.module.ModuleInfo
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.PluginImportHandler
 import com.ble1st.connectias.plugin.PluginManagerSandbox
+import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.PluginPermissionException
+import com.ble1st.connectias.plugin.PluginManifestParser
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -30,7 +33,10 @@ import timber.log.Timber
 fun PluginManagementScreen(
     pluginManager: PluginManagerSandbox,
     moduleRegistry: ModuleRegistry,
-    onNavigateBack: () -> Unit
+    permissionManager: PluginPermissionManager,
+    manifestParser: PluginManifestParser,
+    onNavigateBack: () -> Unit,
+    onNavigateToPermissions: (String) -> Unit
 ) {
     val context = LocalContext.current
     val plugins by pluginManager.pluginsFlow.collectAsStateWithLifecycle()
@@ -40,6 +46,12 @@ fun PluginManagementScreen(
     var showImportDialog by remember { mutableStateOf(false) }
     var importMessage by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf(false) }
+    
+    // Permission dialog state
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    var permissionDialogPlugin by remember { mutableStateOf<PluginManagerSandbox.PluginInfo?>(null) }
+    var permissionDialogPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
+    
     val scope = rememberCoroutineScope()
     
     val pluginImportHandler = remember {
@@ -47,7 +59,9 @@ fun PluginManagementScreen(
             context,
             pluginManager.getPlugin(plugins.firstOrNull()?.pluginId ?: "")?.pluginFile?.parentFile
                 ?: context.filesDir.resolve("plugins"),
-            pluginManager
+            pluginManager,
+            manifestParser,
+            permissionManager
         )
     }
     
@@ -148,12 +162,29 @@ fun PluginManagementScreen(
                 items(plugins) { plugin ->
                     PluginListItem(
                         plugin = plugin,
+                        onShowPermissions = {
+                            onNavigateToPermissions(plugin.pluginId)
+                        },
                         onToggleEnabled = {
                             scope.launch {
                                 if (plugin.state == PluginManagerSandbox.PluginState.ENABLED) {
                                     pluginManager.disablePlugin(plugin.pluginId)
                                 } else {
-                                    pluginManager.enablePlugin(plugin.pluginId)
+                                    // Try to enable plugin
+                                    val result = pluginManager.enablePlugin(plugin.pluginId)
+                                    result.onFailure { error ->
+                                        // Check if it's a permission error
+                                        if (error is PluginPermissionException) {
+                                            // Show permission dialog
+                                            permissionDialogPlugin = plugin
+                                            permissionDialogPermissions = error.requiredPermissions
+                                            showPermissionDialog = true
+                                            Timber.i("Plugin requires permissions: ${error.requiredPermissions}")
+                                        } else {
+                                            // Other error - log it
+                                            Timber.e(error, "Failed to enable plugin: ${plugin.pluginId}")
+                                        }
+                                    }
                                 }
                                 // No need to manually refresh - StateFlow updates automatically
                                 // ModuleRegistry is automatically updated in PluginManagerSandbox
@@ -174,6 +205,40 @@ fun PluginManagementScreen(
                 }
             }
         }
+    }
+    
+    // Permission consent dialog
+    if (showPermissionDialog && permissionDialogPlugin != null) {
+        PluginPermissionDialog(
+            pluginName = permissionDialogPlugin!!.metadata.pluginName,
+            permissions = permissionDialogPermissions,
+            onDismiss = {
+                showPermissionDialog = false
+                permissionDialogPlugin = null
+                permissionDialogPermissions = emptyList()
+            },
+            onGrant = {
+                val plugin = permissionDialogPlugin
+                if (plugin != null) {
+                    // Grant permissions
+                    permissionManager.grantUserConsent(plugin.pluginId, permissionDialogPermissions)
+                    
+                    // Try enabling plugin again
+                    scope.launch {
+                        val result = pluginManager.enablePlugin(plugin.pluginId)
+                        result.onSuccess {
+                            Timber.i("Plugin enabled after permission grant: ${plugin.pluginId}")
+                        }.onFailure { error ->
+                            Timber.e(error, "Failed to enable plugin after permission grant: ${plugin.pluginId}")
+                        }
+                    }
+                }
+                
+                showPermissionDialog = false
+                permissionDialogPlugin = null
+                permissionDialogPermissions = emptyList()
+            }
+        )
     }
     
     if (showDetailDialog && selectedPlugin != null) {

@@ -8,18 +8,26 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Plugin context implementation providing access to app resources
+ * Uses SecureContextWrapper to enforce permission checks
  */
 class PluginContextImpl(
     private val appContext: Context,
     private val pluginId: String,
     private val pluginDataDir: File,
-    private val nativeLibraryManager: NativeLibraryManager
+    private val nativeLibraryManager: NativeLibraryManager,
+    private val permissionManager: PluginPermissionManager
 ) : PluginContext {
     
     private val services = ConcurrentHashMap<String, Any>()
     
+    // Lazy-initialized secure context wrapper
+    private val secureContext: Context by lazy {
+        SecureContextWrapper(appContext, pluginId, permissionManager)
+    }
+    
     override fun getApplicationContext(): Context {
-        return appContext
+        // Return wrapped context instead of direct context
+        return secureContext
     }
     
     override fun getPluginDirectory(): File {

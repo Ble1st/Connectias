@@ -17,6 +17,7 @@ fun PluginListItem(
     plugin: PluginManagerSandbox.PluginInfo,
     onToggleEnabled: () -> Unit,
     onShowDetails: () -> Unit,
+    onShowPermissions: () -> Unit,
     onUninstall: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -68,6 +69,18 @@ fun PluginListItem(
                 
                 // Status Badge
                 PluginStatusBadge(state = plugin.state)
+            }
+            
+            // Permission button (if plugin has permissions)
+            val hasPermissions = (plugin.permissionInfo?.allPermissions?.size ?: 0) > 0
+            if (hasPermissions) {
+                IconButton(onClick = onShowPermissions) {
+                    Icon(
+                        imageVector = Icons.Default.Security,
+                        contentDescription = "Manage Permissions",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
             
             // Enable/Disable Switch

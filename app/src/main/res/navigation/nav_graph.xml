@@ -25,6 +25,20 @@
     <fragment
         android:id="@+id/nav_plugin_management"
         android:name="com.ble1st.connectias.ui.plugin.PluginManagementFragment"
-        android:label="@string/nav_plugin_management" />
+        android:label="@string/nav_plugin_management">
+        <action
+            android:id="@+id/action_nav_plugin_management_to_nav_plugin_permission_detail"
+            app:destination="@id/nav_plugin_permission_detail" />
+    </fragment>
+    
+    <!-- Plugin Permission Detail -->
+    <fragment
+        android:id="@+id/nav_plugin_permission_detail"
+        android:name="com.ble1st.connectias.ui.plugin.PluginPermissionDetailFragment"
+        android:label="Plugin Permissions">
+        <argument
+            android:name="pluginId"
+            app:argType="string" />
+    </fragment>
 
 </navigation>

@@ -33,15 +33,21 @@ import timber.log.Timber
  * 2. Sets the plugin state to ERROR
  * 3. Shows an error message to the user
  * 4. Prevents the app from crashing
+ * 
+ * SECURITY: Before creating the plugin UI, checks if all required permissions are granted.
+ * If permissions are missing, shows an error view instead of loading the plugin.
  */
 class PluginFragmentWrapper(
     private val pluginId: String,
     private val wrappedFragment: Fragment,
+    private val requiredPermissions: List<String> = emptyList(), // Permissions required by this plugin
+    private val permissionManager: PluginPermissionManager? = null, // Permission manager for checking
     private val onError: ((Throwable) -> Unit)? = null,
     private val onCriticalError: (() -> Unit)? = null // Callback to navigate to dashboard
 ) : Fragment() {
     
     private var hasError = false
+    private var lastException: Throwable? = null
     private var containerView: ViewGroup? = null
     
     // Unique container ID for the child fragment
@@ -218,6 +224,24 @@ class PluginFragmentWrapper(
                 // Show error view if plugin has crashed
                 createErrorView(inflater, container)
             } else {
+                // SECURITY: Check permissions BEFORE creating plugin UI
+                // This prevents plugins from being displayed when they don't have required permissions
+                val missingPermissions = checkPermissions()
+                if (missingPermissions.isNotEmpty()) {
+                    Timber.w("Plugin $pluginId: Cannot create UI - missing permissions: $missingPermissions")
+                    
+                    // Create a SecurityException with details about missing permissions
+                    val securityException = SecurityException(
+                        "Plugin '$pluginId' requires the following permissions: ${missingPermissions.joinToString(", ")}\n\n" +
+                        "Please enable the plugin in Plugin Management to grant these permissions."
+                    )
+                    handleException("onCreateView", securityException)
+                    return createErrorView(inflater, container)
+                }
+                
+                // All permissions granted - proceed with UI creation
+                Timber.d("Plugin $pluginId: All permissions granted, creating UI")
+                
                 // Create a container for the child fragment
                 val fragmentContainer = android.widget.FrameLayout(requireContext()).apply {
                     id = containerId
@@ -244,6 +268,67 @@ class PluginFragmentWrapper(
             handleException("onCreateView", e)
             createErrorView(inflater, container)
         }
+    }
+    
+    /**
+     * Check if all required permissions are granted for this plugin
+     * Returns list of missing permissions (empty if all granted)
+     * 
+     * SECURITY: This is a critical check that runs BEFORE the plugin UI is created
+     * 
+     * NOTE: Custom Permissions (plugin-specific permissions starting with plugin package name)
+     * are IGNORED because they cannot be declared in the host app and are only relevant
+     * to the plugin itself.
+     */
+    private fun checkPermissions(): List<String> {
+        if (requiredPermissions.isEmpty()) {
+            Timber.d("Plugin $pluginId: No permissions required")
+            return emptyList()
+        }
+        
+        val manager = permissionManager
+        if (manager == null) {
+            Timber.w("Plugin $pluginId: PermissionManager not provided - cannot check permissions")
+            // If no permission manager, assume all permissions are missing (fail-safe)
+            // But filter out custom permissions
+            return requiredPermissions.filter { !isCustomPermission(it) }
+        }
+        
+        // Filter out custom permissions (plugin-specific permissions)
+        // Custom permissions start with the plugin's package name and cannot be declared in host app
+        val standardPermissions = requiredPermissions.filter { !isCustomPermission(it) }
+        
+        if (standardPermissions.isEmpty()) {
+            Timber.d("Plugin $pluginId: Only custom permissions requested - no check needed")
+            return emptyList()
+        }
+        
+        // Check each standard permission (ignore custom permissions)
+        val missing = mutableListOf<String>()
+        for (permission in standardPermissions) {
+            if (!manager.isPermissionAllowed(pluginId, permission)) {
+                Timber.d("Plugin $pluginId: Missing permission: $permission")
+                missing.add(permission)
+            }
+        }
+        
+        return missing
+    }
+    
+    /**
+     * Check if a permission is a custom (plugin-specific) permission
+     * Custom permissions typically start with the plugin's package name
+     * and cannot be declared in the host app's manifest
+     */
+    private fun isCustomPermission(permission: String): Boolean {
+        // Custom permissions are those that start with the plugin's package name
+        // or contain the plugin ID in their name
+        // Examples:
+        // - com.ble1st.connectias.networkinfoplugin.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+        // - com.ble1st.connectias.testplugin.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+        return permission.contains(pluginId) || 
+               permission.startsWith("com.ble1st.connectias.") && 
+               !permission.startsWith("android.permission.")
     }
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -462,8 +547,18 @@ class PluginFragmentWrapper(
                             .padding(16.dp),
                         contentAlignment = Alignment.Center
                     ) {
+                        val errorMessage = when (lastException) {
+                            is SecurityException -> {
+                                val permissionError = lastException as SecurityException
+                                "Permission Denied\n\nThe plugin '$pluginId' tried to access a feature without permission.\n\n${permissionError.message}\n\nPlease grant the required permissions in Plugin Management."
+                            }
+                            else -> {
+                                "Plugin Error\n\nThe plugin '$pluginId' encountered an error and has been disabled."
+                            }
+                        }
+                        
                         Text(
-                            text = "Plugin Error\n\nThe plugin '$pluginId' encountered an error and has been disabled.",
+                            text = errorMessage,
                             style = MaterialTheme.typography.bodyLarge,
                             textAlign = TextAlign.Center
                         )
@@ -475,10 +570,30 @@ class PluginFragmentWrapper(
     
     /**
      * Handles an exception by logging it and notifying the error callback.
+     * SecurityException gets special treatment with user-friendly messaging.
      */
     private fun handleException(operation: String, exception: Throwable) {
         hasError = true
-        PluginExceptionHandler.logException(pluginId, operation, exception, exception.javaClass.simpleName)
+        lastException = exception
+        
+        // Special handling for SecurityException (permission errors)
+        if (exception is SecurityException) {
+            Timber.e(exception, "Plugin $pluginId: Permission denied during $operation")
+            PluginExceptionHandler.logException(
+                pluginId, 
+                operation, 
+                exception, 
+                "SecurityException (Permission Denied)"
+            )
+        } else {
+            PluginExceptionHandler.logException(
+                pluginId, 
+                operation, 
+                exception, 
+                exception.javaClass.simpleName
+            )
+        }
+        
         onError?.invoke(exception)
     }
 }

@@ -1,6 +1,7 @@
 package com.ble1st.connectias.core.plugin
 
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Intent
 import android.os.IBinder
 import android.os.Handler
@@ -8,6 +9,8 @@ import android.os.Looper
 import com.ble1st.connectias.plugin.IPluginSandbox
 import com.ble1st.connectias.plugin.PluginMetadataParcel
 import com.ble1st.connectias.plugin.PluginResultParcel
+import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import dalvik.system.DexClassLoader
 import timber.log.Timber
 import java.io.File
@@ -25,6 +28,12 @@ class PluginSandboxService : Service() {
     
     private val loadedPlugins: ConcurrentHashMap<String, SandboxPluginInfo> = ConcurrentHashMap()
     private val classLoaders: ConcurrentHashMap<String, DexClassLoader> = ConcurrentHashMap()
+    
+    // Permission manager for sandbox process
+    private lateinit var permissionManager: PluginPermissionManager
+    
+    // Broadcast receiver for permission changes
+    private var permissionBroadcastReceiver: BroadcastReceiver? = null
     
     // Memory monitoring
     private val memoryMonitor = PluginMemoryMonitor()
@@ -295,11 +304,12 @@ class PluginSandboxService : Service() {
                 val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
                     ?: throw ClassCastException("Plugin does not implement IPlugin")
                 
-                // Create minimal PluginContext for sandbox
+                // Create minimal PluginContext for sandbox with permission manager
                 val pluginContext = SandboxPluginContext(
                     appContext = applicationContext,
                     pluginDir = File(filesDir, "sandbox_plugins/${metadata.pluginId}"),
-                    pluginId = metadata.pluginId
+                    pluginId = metadata.pluginId,
+                    permissionManager = permissionManager
                 )
                 
                 // Call onLoad
@@ -421,6 +431,16 @@ class PluginSandboxService : Service() {
     override fun onCreate() {
         super.onCreate()
         Timber.i("[SANDBOX] Service created in process: ${android.os.Process.myPid()}")
+
+        // Initialize permission manager for sandbox process
+        permissionManager = PluginPermissionManager(applicationContext)
+        
+        // Register broadcast receiver for permission changes from main process
+        permissionBroadcastReceiver = PluginPermissionBroadcast.registerReceiver(
+            applicationContext,
+            permissionManager
+        )
+        Timber.i("[SANDBOX] Permission broadcast receiver registered")
         
         // Start memory monitoring
         memoryMonitor.startMonitoring()
@@ -430,6 +450,12 @@ class PluginSandboxService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.i("[SANDBOX] Service destroyed")
+        
+        // Unregister broadcast receiver
+        permissionBroadcastReceiver?.let {
+            PluginPermissionBroadcast.unregisterReceiver(applicationContext, it)
+            Timber.i("[SANDBOX] Permission broadcast receiver unregistered")
+        }
         
         // Stop memory monitoring
         memoryMonitor.stopMonitoring()

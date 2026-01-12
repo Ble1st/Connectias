@@ -24,6 +24,7 @@ import java.util.zip.ZipFile
  * - Plugin lifecycle (onLoad, onEnable, onDisable, onUnload) runs in sandbox process via IPC
  * - Fragments are created in main process (UI must run on main thread)
  * - Plugin instances run in sandbox process, fragments are just UI wrappers
+ * - Permission enforcement via PluginPermissionManager
  * 
  * This class implements the same API as PluginManager but delegates plugin lifecycle
  * operations to a separate sandbox process via IPC.
@@ -31,7 +32,9 @@ import java.util.zip.ZipFile
 class PluginManagerSandbox(
     private val context: Context,
     private val pluginDirectory: File,
-    private val moduleRegistry: ModuleRegistry? = null
+    private val moduleRegistry: ModuleRegistry? = null,
+    private val permissionManager: PluginPermissionManager? = null,
+    private val manifestParser: PluginManifestParser? = null
 ) {
     
     private val loadedPlugins = ConcurrentHashMap<String, PluginInfo>()
@@ -59,7 +62,8 @@ class PluginManagerSandbox(
         val classLoader: DexClassLoader,
         val context: PluginContextImpl,
         var state: PluginState,
-        val loadedAt: Long
+        val loadedAt: Long,
+        val permissionInfo: PluginPermissionInfo? = null
     )
     
     enum class PluginState {
@@ -120,8 +124,30 @@ class PluginManagerSandbox(
     private suspend fun loadPlugin(pluginFile: File): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
             // Extract metadata locally first
-            val metadata = extractMetadata(pluginFile)
+            var metadata = extractMetadata(pluginFile)
                 ?: return@withContext Result.failure(Exception("Failed to extract metadata"))
+            
+            // Extract and validate permissions from APK + JSON
+            val permissionInfo = manifestParser?.extractPermissions(pluginFile)?.getOrNull()
+            
+            if (permissionInfo != null) {
+                // Block plugins with critical permissions
+                if (permissionInfo.hasCriticalPermissions()) {
+                    Timber.e("Plugin ${metadata.pluginName} requests critical permissions: ${permissionInfo.critical}")
+                    return@withContext Result.failure(
+                        SecurityException(
+                            "Plugin requests critical permissions: ${permissionInfo.critical.joinToString()}"
+                        )
+                    )
+                }
+                
+                // Update metadata with merged permissions (APK + JSON)
+                // permissionInfo.allPermissions already contains both sources merged
+                metadata = metadata.copy(permissions = permissionInfo.allPermissions)
+                
+                Timber.i("Plugin ${metadata.pluginName} permissions merged: ${permissionInfo.allPermissions.size} total, " +
+                    "${permissionInfo.dangerous.size} dangerous, ${permissionInfo.critical.size} critical")
+            }
             
             // Load plugin in sandbox process via IPC
             val sandboxResult = sandboxProxy.loadPlugin(pluginFile.absolutePath)
@@ -147,7 +173,7 @@ class PluginManagerSandbox(
                 context.classLoader
             )
             
-            // Create plugin context
+            // Create plugin context with permission manager
             val pluginDataDir = File(pluginDirectory, "data/${metadata.pluginId}")
             pluginDataDir.mkdirs()
             
@@ -155,7 +181,8 @@ class PluginManagerSandbox(
                 context,
                 metadata.pluginId,
                 pluginDataDir,
-                nativeLibraryManager
+                nativeLibraryManager,
+                permissionManager ?: PluginPermissionManager(context)
             )
             
             // Create a dummy plugin instance for compatibility
@@ -169,7 +196,7 @@ class PluginManagerSandbox(
                 override fun onUnload(): Boolean = true
             }
             
-            // Store plugin info
+            // Store plugin info with permission information
             val pluginInfo = PluginInfo(
                 pluginId = metadata.pluginId,
                 metadata = metadata,
@@ -178,7 +205,8 @@ class PluginManagerSandbox(
                 classLoader = classLoader,
                 context = pluginContext,
                 state = PluginState.LOADED,
-                loadedAt = System.currentTimeMillis()
+                loadedAt = System.currentTimeMillis(),
+                permissionInfo = permissionInfo
             )
             
             loadedPlugins[metadata.pluginId] = pluginInfo
@@ -282,9 +310,12 @@ class PluginManagerSandbox(
         
         // Wrap the fragment with PluginFragmentWrapper to catch exceptions in lifecycle methods
         // and Compose event handlers (via UncaughtExceptionHandler)
+        // SECURITY: Pass required permissions and permission manager for pre-UI permission check
         return PluginFragmentWrapper(
             pluginId = pluginId,
             wrappedFragment = wrappedFragment,
+            requiredPermissions = pluginInfo.metadata.permissions, // Pass required permissions
+            permissionManager = permissionManager, // Pass permission manager for checking
             onError = { exception ->
                 // Create new PluginInfo with ERROR state to trigger Compose recomposition
                 loadedPlugins[pluginId]?.let { currentInfo ->
@@ -303,6 +334,40 @@ class PluginManagerSandbox(
             
             if (pluginInfo.state == PluginState.ENABLED) {
                 return@withContext Result.success(Unit)
+            }
+            
+            // Validate permissions before enabling
+            if (permissionManager != null) {
+                val validationResult = permissionManager.validatePermissions(pluginInfo.metadata)
+                if (validationResult.isFailure) {
+                    Timber.e(validationResult.exceptionOrNull(), "Permission validation failed for plugin: $pluginId")
+                    return@withContext Result.failure(
+                        validationResult.exceptionOrNull() ?: Exception("Permission validation failed")
+                    )
+                }
+                
+                val permValidation = validationResult.getOrNull()
+                if (permValidation != null && !permValidation.isValid) {
+                    if (permValidation.requiresUserConsent) {
+                        // Return special error code for UI to show permission dialog
+                        // Use allRequestedPermissions instead of just dangerousPermissions
+                        Timber.i("Plugin $pluginId requires user consent for permissions: ${permValidation.allRequestedPermissions}")
+                        return@withContext Result.failure(
+                            PluginPermissionException(
+                                "User consent required for: ${permValidation.allRequestedPermissions.joinToString()}",
+                                permValidation.allRequestedPermissions
+                            )
+                        )
+                    }
+                    
+                    // Other validation failure (e.g., critical permissions)
+                    Timber.e("Plugin $pluginId permission validation failed: ${permValidation.reason}")
+                    return@withContext Result.failure(
+                        SecurityException(permValidation.reason)
+                    )
+                }
+                
+                Timber.d("Plugin $pluginId permission validation passed")
             }
             
             // If plugin is in ERROR state, it might have been killed in sandbox
@@ -522,3 +587,11 @@ class PluginManagerSandbox(
         }
     }
 }
+
+/**
+ * Exception thrown when a plugin requires user consent for permissions
+ */
+class PluginPermissionException(
+    message: String,
+    val requiredPermissions: List<String>
+) : Exception(message)

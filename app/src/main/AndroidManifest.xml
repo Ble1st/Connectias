@@ -15,6 +15,31 @@
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         tools:remove="android:maxSdkVersion" />
+    
+    <!-- Plugin Permissions - Commonly used by plugins -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    <!-- Android 13+ granular media permissions -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    
+    <!-- Network Permissions for plugins -->
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    
+    <!-- Dynamic Receiver Registration Security -->
+    <!-- DYNAMIC_RECEIVER_NOT_EXPORTED prevents exported dynamic broadcast receivers
+         This is a security measure for Android 13+ (API 33+) that ensures dynamically
+         registered receivers cannot be accessed by other apps unless explicitly marked as exported.
+         This protects against unauthorized apps sending broadcasts to our receivers. -->
+    <uses-permission android:name="android.permission.DYNAMIC_RECEIVER_NOT_EXPORTED"
+        tools:ignore="ProtectedPermissions" />
+    
     <application
         android:name=".ConnectiasApplication"
         android:allowBackup="false"

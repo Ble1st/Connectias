@@ -11,11 +11,14 @@ import java.util.zip.ZipFile
 
 /**
  * Handles importing plugin files from external sources
+ * Validates permissions and enforces security policies
  */
 class PluginImportHandler(
     private val context: Context,
     private val pluginDirectory: File,
-    private val pluginManager: PluginManagerSandbox
+    private val pluginManager: PluginManagerSandbox,
+    private val manifestParser: PluginManifestParser,
+    private val permissionManager: PluginPermissionManager
 ) {
     
     /**
@@ -68,9 +71,9 @@ class PluginImportHandler(
     }
     
     /**
-     * Validate plugin file and extract plugin ID
+     * Validate plugin file, extract plugin ID, and check permissions
      */
-    private fun validatePluginFile(file: File): Result<String> {
+    private suspend fun validatePluginFile(file: File): Result<String> {
         return try {
             // Check file extension
             if (!file.name.endsWith(".apk") && !file.name.endsWith(".jar")) {
@@ -113,6 +116,36 @@ class PluginImportHandler(
                 val fragmentClassName = json.optString("fragmentClassName")
                 if (fragmentClassName.isEmpty()) {
                     return Result.failure(Exception("Invalid manifest: Missing fragmentClassName"))
+                }
+                
+                // Extract and validate permissions
+                val permissionResult = manifestParser.extractPermissions(file)
+                if (permissionResult.isFailure) {
+                    Timber.w("Failed to extract permissions, continuing anyway")
+                } else {
+                    val permissionInfo = permissionResult.getOrNull()
+                    if (permissionInfo != null) {
+                        // Block plugins with critical permissions
+                        if (permissionInfo.hasCriticalPermissions()) {
+                            Timber.e("Plugin $pluginName requests critical permissions: ${permissionInfo.critical}")
+                            return Result.failure(
+                                SecurityException(
+                                    "Plugin requests critical permissions that are not allowed: " +
+                                    permissionInfo.critical.joinToString()
+                                )
+                            )
+                        }
+                        
+                        // Warn about missing permissions
+                        if (permissionInfo.missing.isNotEmpty()) {
+                            Timber.w("Plugin $pluginName requests permissions not available in host app: ${permissionInfo.missing}")
+                        }
+                        
+                        // Log dangerous permissions (will require user consent later)
+                        if (permissionInfo.hasDangerousPermissions()) {
+                            Timber.i("Plugin $pluginName requests dangerous permissions (will require user consent): ${permissionInfo.dangerous}")
+                        }
+                    }
                 }
                 
                 Timber.d("Plugin validated: $pluginName v$version ($pluginId)")

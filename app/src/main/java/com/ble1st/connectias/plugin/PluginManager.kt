@@ -157,7 +157,8 @@ class PluginManager(
                 context,
                 metadata.pluginId,
                 pluginDataDir,
-                nativeLibraryManager
+                nativeLibraryManager,
+                PluginPermissionManager(context) // Fallback permission manager for non-sandbox usage
             )
             
             // Call onLoad

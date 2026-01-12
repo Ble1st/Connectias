@@ -3,21 +3,30 @@ package com.ble1st.connectias.core.plugin
 import android.content.Context
 import com.ble1st.connectias.plugin.sdk.PluginContext
 import com.ble1st.connectias.plugin.NativeLibraryManager
+import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.SecureContextWrapper
 import timber.log.Timber
 import java.io.File
 
 /**
  * Minimal PluginContext implementation for sandbox process
  * Limited functionality to prevent sandbox escape
+ * Uses SecureContextWrapper to enforce permission checks
  */
 class SandboxPluginContext(
     private val appContext: Context,
     private val pluginDir: File,
-    private val pluginId: String
+    private val pluginId: String,
+    private val permissionManager: PluginPermissionManager
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
     private val nativeLibManager = NativeLibraryManager(pluginDir)
+    
+    // Lazy-initialized secure context wrapper
+    private val secureContext: Context by lazy {
+        SecureContextWrapper(appContext, pluginId, permissionManager)
+    }
     
     init {
         if (!pluginDir.exists()) {
@@ -26,7 +35,8 @@ class SandboxPluginContext(
     }
     
     override fun getApplicationContext(): Context {
-        return appContext
+        // Return wrapped context instead of direct context
+        return secureContext
     }
     
     override fun getPluginDirectory(): File {
