@@ -92,7 +92,7 @@ object PluginPermissionBroadcast {
             Timber.i("[SANDBOX] Registered permission broadcast receiver")
         } catch (e: Exception) {
             // Fallback for older Android versions
-            context.registerReceiver(receiver, filter)
+            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
             Timber.i("[SANDBOX] Registered permission broadcast receiver (legacy)")
         }
         
