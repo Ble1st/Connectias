@@ -7,6 +7,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -21,37 +24,58 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
 
-    // UI State
-    private val _uiState = MutableStateFlow(SettingsUiState())
-    val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
-
-    init {
-        loadSettings()
-    }
-
-    /**
-     * Loads all settings from repository and updates UI state.
-     */
-    private fun loadSettings() {
-        viewModelScope.launch {
-            try {
-                _uiState.update { currentState ->
-                    currentState.copy(
-                        theme = settingsRepository.getTheme(),
-                        themeStyle = settingsRepository.getThemeStyle(),
-                        dynamicColor = settingsRepository.getDynamicColor(),
-                        autoLockEnabled = settingsRepository.getAutoLockEnabled(),
-                        raspLoggingEnabled = settingsRepository.getRaspLoggingEnabled(),
-                        loggingLevel = settingsRepository.getLoggingLevel(),
-                        clipboardAutoClear = settingsRepository.getClipboardAutoClear()
-                    )
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to load settings")
-                _uiState.update { it.copy(errorMessage = "Failed to load settings: ${e.message}") }
-            }
+    // Separate state for error and success messages (not part of settings flows)
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    private val _successMessage = MutableStateFlow<String?>(null)
+    
+    // UI State - Flow-based, automatically updates when settings change
+    // Combine settings flows in groups (combine() supports max 5 flows, so we nest them)
+    private val settingsState: StateFlow<SettingsUiState> = combine(
+        // First group: theme and UI settings
+        combine(
+            settingsRepository.observeTheme(),
+            settingsRepository.observeThemeStyle(),
+            settingsRepository.observeDynamicColor()
+        ) { theme: String, themeStyle: String, dynamicColor: Boolean ->
+            Triple(theme, themeStyle, dynamicColor)
+        },
+        // Second group: security settings
+        combine(
+            settingsRepository.observeAutoLockEnabled(),
+            settingsRepository.observeRaspLoggingEnabled(),
+            settingsRepository.observeLoggingLevel(),
+            settingsRepository.observeClipboardAutoClear()
+        ) { autoLock: Boolean, raspLogging: Boolean, loggingLevel: String, clipboardClear: Boolean ->
+            SettingsUiState(
+                theme = "system", // Will be updated
+                themeStyle = "standard", // Will be updated
+                dynamicColor = true, // Will be updated
+                autoLockEnabled = autoLock,
+                raspLoggingEnabled = raspLogging,
+                loggingLevel = loggingLevel,
+                clipboardAutoClear = clipboardClear,
+                errorMessage = null,
+                successMessage = null
+            )
         }
-    }
+    ) { themeGroup, securityState ->
+        val (theme, themeStyle, dynamicColor) = themeGroup
+        securityState.copy(
+            theme = theme,
+            themeStyle = themeStyle,
+            dynamicColor = dynamicColor
+        )
+    }.combine(_errorMessage) { state, error ->
+        state.copy(errorMessage = error)
+    }.combine(_successMessage) { state, success ->
+        state.copy(successMessage = success)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = SettingsUiState()
+    )
+    
+    val uiState: StateFlow<SettingsUiState> = settingsState
 
     /**
      * Updates theme preference (light/dark/system).
@@ -60,10 +84,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setTheme(theme)
-                _uiState.update { it.copy(theme = theme) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set theme")
-                _uiState.update { it.copy(errorMessage = "Failed to set theme: ${e.message}") }
+                _errorMessage.value = "Failed to set theme: ${e.message}"
             }
         }
     }
@@ -75,10 +99,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setThemeStyle(themeStyle)
-                _uiState.update { it.copy(themeStyle = themeStyle) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set theme style")
-                _uiState.update { it.copy(errorMessage = "Failed to set theme style: ${e.message}") }
+                _errorMessage.value = "Failed to set theme style: ${e.message}"
             }
         }
     }
@@ -90,10 +114,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setDynamicColor(enabled)
-                _uiState.update { it.copy(dynamicColor = enabled) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set dynamic color")
-                _uiState.update { it.copy(errorMessage = "Failed to set dynamic color: ${e.message}") }
+                _errorMessage.value = "Failed to set dynamic color: ${e.message}"
             }
         }
     }
@@ -105,10 +129,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setAutoLockEnabled(enabled)
-                _uiState.update { it.copy(autoLockEnabled = enabled) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set auto-lock")
-                _uiState.update { it.copy(errorMessage = "Failed to set auto-lock: ${e.message}") }
+                _errorMessage.value = "Failed to set auto-lock: ${e.message}"
             }
         }
     }
@@ -120,10 +144,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setRaspLoggingEnabled(enabled)
-                _uiState.update { it.copy(raspLoggingEnabled = enabled) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set RASP logging")
-                _uiState.update { it.copy(errorMessage = "Failed to set RASP logging: ${e.message}") }
+                _errorMessage.value = "Failed to set RASP logging: ${e.message}"
             }
         }
     }
@@ -135,10 +159,10 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.setLoggingLevel(level)
-                _uiState.update { it.copy(loggingLevel = level) }
+                // State will automatically update via Flow
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set logging level")
-                _uiState.update { it.copy(errorMessage = "Failed to set logging level: ${e.message}") }
+                _errorMessage.value = "Failed to set logging level: ${e.message}"
             }
         }
     }
@@ -150,11 +174,11 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 settingsRepository.resetAllSettings(resetPlainSettings, resetEncryptedSettings)
-                loadSettings() // Reload settings after reset
-                _uiState.update { it.copy(successMessage = "Settings reset successfully") }
+                // State will automatically update via Flow
+                _successMessage.value = "Settings reset successfully"
             } catch (e: Exception) {
                 Timber.e(e, "Failed to reset settings")
-                _uiState.update { it.copy(errorMessage = "Failed to reset settings: ${e.message}") }
+                _errorMessage.value = "Failed to reset settings: ${e.message}"
             }
         }
     }
@@ -163,14 +187,14 @@ class SettingsViewModel @Inject constructor(
      * Clears error message.
      */
     fun clearErrorMessage() {
-        _uiState.update { it.copy(errorMessage = null) }
+        _errorMessage.value = null
     }
 
     /**
      * Clears success message.
      */
     fun clearSuccessMessage() {
-        _uiState.update { it.copy(successMessage = null) }
+        _successMessage.value = null
     }
 }
 

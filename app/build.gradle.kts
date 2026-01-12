@@ -60,6 +60,7 @@ android {
         buildConfig = true
         viewBinding = true
         compose = true
+        aidl = true  // Enable AIDL for PluginSandboxService IPC
     }
     splits {
         abi {

@@ -10,13 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.plugin.PluginManager
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
 fun PluginDetailDialog(
-    plugin: PluginManager.PluginInfo,
+    plugin: PluginManagerSandbox.PluginInfo,
     onDismiss: () -> Unit
 ) {
     AlertDialog(

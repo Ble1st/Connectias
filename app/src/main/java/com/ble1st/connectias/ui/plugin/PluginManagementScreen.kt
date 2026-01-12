@@ -18,24 +18,25 @@ import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.core.module.ModuleInfo
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.PluginImportHandler
-import com.ble1st.connectias.plugin.PluginManager
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import timber.log.Timber
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PluginManagementScreen(
-    pluginManager: PluginManager,
+    pluginManager: PluginManagerSandbox,
     moduleRegistry: ModuleRegistry,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var plugins by remember { mutableStateOf(pluginManager.getLoadedPlugins()) }
-    var selectedPlugin by remember { mutableStateOf<PluginManager.PluginInfo?>(null) }
+    val plugins by pluginManager.pluginsFlow.collectAsStateWithLifecycle()
+    var selectedPlugin by remember { mutableStateOf<PluginManagerSandbox.PluginInfo?>(null) }
     var showDetailDialog by remember { mutableStateOf(false) }
-    var isRefreshing by remember { mutableStateOf(false) }
+    var isImporting by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var importMessage by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf(false) }
@@ -55,7 +56,7 @@ fun PluginManagementScreen(
     ) { uri: Uri? ->
         if (uri != null) {
             scope.launch {
-                isRefreshing = true
+                isImporting = true
                 val result = pluginImportHandler.importPlugin(uri)
                 
                 result.onSuccess { pluginId ->
@@ -84,15 +85,14 @@ fun PluginManagementScreen(
                         importMessage = "Plugin imported but failed to load: ${loadError.message}"
                     }
                     
-                    // Refresh plugin list
-                    plugins = pluginManager.getLoadedPlugins()
+                    // No need to manually refresh - StateFlow updates automatically
                 }.onFailure { error ->
                     importMessage = "Import failed: ${error.message}"
                     importError = true
                     showImportDialog = true
                 }
                 
-                isRefreshing = false
+                isImporting = false
             }
         }
     }
@@ -104,20 +104,6 @@ fun PluginManagementScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, "Back")
-                    }
-                },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            scope.launch {
-                                isRefreshing = true
-                                pluginManager.initialize()
-                                plugins = pluginManager.getLoadedPlugins()
-                                isRefreshing = false
-                            }
-                        }
-                    ) {
-                        Icon(Icons.Default.Refresh, "Refresh")
                     }
                 }
             )
@@ -132,14 +118,18 @@ fun PluginManagementScreen(
             }
         }
     ) { padding ->
-        if (isRefreshing) {
+        if (isImporting) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator()
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Importing plugin...")
+                }
             }
         } else if (plugins.isEmpty()) {
             EmptyPluginState(
@@ -160,12 +150,13 @@ fun PluginManagementScreen(
                         plugin = plugin,
                         onToggleEnabled = {
                             scope.launch {
-                                if (plugin.state == PluginManager.PluginState.ENABLED) {
+                                if (plugin.state == PluginManagerSandbox.PluginState.ENABLED) {
                                     pluginManager.disablePlugin(plugin.pluginId)
                                 } else {
                                     pluginManager.enablePlugin(plugin.pluginId)
                                 }
-                                plugins = pluginManager.getLoadedPlugins()
+                                // No need to manually refresh - StateFlow updates automatically
+                                // ModuleRegistry is automatically updated in PluginManagerSandbox
                             }
                         },
                         onShowDetails = {
@@ -175,7 +166,8 @@ fun PluginManagementScreen(
                         onUninstall = {
                             scope.launch {
                                 pluginManager.unloadPlugin(plugin.pluginId)
-                                plugins = pluginManager.getLoadedPlugins()
+                                // No need to manually refresh - StateFlow updates automatically
+                                // ModuleRegistry is automatically updated in PluginManagerSandbox
                             }
                         }
                     )

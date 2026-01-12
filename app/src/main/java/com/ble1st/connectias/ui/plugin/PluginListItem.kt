@@ -9,12 +9,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.ble1st.connectias.plugin.PluginManager
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PluginListItem(
-    plugin: PluginManager.PluginInfo,
+    plugin: PluginManagerSandbox.PluginInfo,
     onToggleEnabled: () -> Unit,
     onShowDetails: () -> Unit,
     onUninstall: () -> Unit
@@ -72,7 +72,7 @@ fun PluginListItem(
             
             // Enable/Disable Switch
             Switch(
-                checked = plugin.state == PluginManager.PluginState.ENABLED,
+                checked = plugin.state == PluginManagerSandbox.PluginState.ENABLED,
                 onCheckedChange = { onToggleEnabled() }
             )
             
@@ -139,12 +139,12 @@ fun PluginListItem(
 }
 
 @Composable
-fun PluginStatusBadge(state: PluginManager.PluginState) {
+fun PluginStatusBadge(state: PluginManagerSandbox.PluginState) {
     val (text, color) = when (state) {
-        PluginManager.PluginState.ENABLED -> "Active" to MaterialTheme.colorScheme.primary
-        PluginManager.PluginState.LOADED -> "Loaded" to MaterialTheme.colorScheme.secondary
-        PluginManager.PluginState.DISABLED -> "Disabled" to MaterialTheme.colorScheme.outline
-        PluginManager.PluginState.ERROR -> "Error" to MaterialTheme.colorScheme.error
+        PluginManagerSandbox.PluginState.ENABLED -> "Active" to MaterialTheme.colorScheme.primary
+        PluginManagerSandbox.PluginState.LOADED -> "Loaded" to MaterialTheme.colorScheme.secondary
+        PluginManagerSandbox.PluginState.DISABLED -> "Disabled" to MaterialTheme.colorScheme.outline
+        PluginManagerSandbox.PluginState.ERROR -> "Error" to MaterialTheme.colorScheme.error
     }
     
     Surface(

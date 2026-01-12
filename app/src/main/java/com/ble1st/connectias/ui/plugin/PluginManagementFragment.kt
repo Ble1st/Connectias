@@ -10,7 +10,7 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.core.module.ModuleRegistry
-import com.ble1st.connectias.plugin.PluginManager
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -18,7 +18,7 @@ import javax.inject.Inject
 class PluginManagementFragment : Fragment() {
     
     @Inject
-    lateinit var pluginManager: PluginManager
+    lateinit var pluginManager: PluginManagerSandbox
     
     @Inject
     lateinit var moduleRegistry: ModuleRegistry

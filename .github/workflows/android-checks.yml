@@ -34,9 +34,34 @@ jobs:
         continue-on-error: false
         run: ./gradlew assembleDebug
       
+      - name: Find debug APK
+        id: find_apk
+        run: |
+          # Search for APK files in the debug output directory
+          # ABI splits may create APKs with ABI-specific names (e.g., app-arm64-v8a-debug.apk)
+          APK_DIR="app/build/outputs/apk/debug"
+          
+          if [ ! -d "$APK_DIR" ]; then
+            echo "Error: APK output directory not found: $APK_DIR"
+            exit 1
+          fi
+          
+          # Find the first APK file (should be only one with ABI splits enabled)
+          APK_PATH=$(find "$APK_DIR" -name "*.apk" -type f | head -n 1)
+          
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "Error: No APK file found in $APK_DIR"
+            echo "Available files:"
+            ls -la "$APK_DIR" || echo "Directory does not exist"
+            exit 1
+          fi
+          
+          echo "Found APK: $APK_PATH"
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+      
       - name: Check APK size
         run: |
-          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
           
           if [ ! -f "$APK_PATH" ]; then
             echo "Error: APK not found at $APK_PATH"
@@ -61,7 +86,7 @@ jobs:
       
       - name: Validate APK integrity
         run: |
-          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          APK_PATH="${{ steps.find_apk.outputs.apk_path }}"
           
           # Validate APK is a valid ZIP file
           if ! unzip -t "$APK_PATH" > /dev/null 2>&1; then
@@ -82,6 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk-${{ github.run_number }}
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find_apk.outputs.apk_path }}
           retention-days: 7
+          if-no-files-found: error
 

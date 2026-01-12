@@ -15,7 +15,7 @@ import java.util.zip.ZipFile
 class PluginImportHandler(
     private val context: Context,
     private val pluginDirectory: File,
-    private val pluginManager: PluginManager
+    private val pluginManager: PluginManagerSandbox
 ) {
     
     /**

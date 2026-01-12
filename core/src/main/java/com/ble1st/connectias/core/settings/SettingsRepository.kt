@@ -5,11 +5,20 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
+import kotlin.Deprecated
+import kotlin.ReplaceWith
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Singleton
@@ -41,11 +50,12 @@ class SettingsRepository(
     private val onRecoveryWillEraseData: (() -> Unit)? = null
 ) : com.ble1st.connectias.common.ui.theme.ThemeSettingsProvider {
     // Plain SharedPreferences for non-sensitive settings like theme
-    private val plainPrefs: SharedPreferences by lazy {
+    // Initialized directly (not lazy) to avoid StrictMode violations when accessed from observe*() methods
+    private val plainPrefs: SharedPreferences = 
         context.getSharedPreferences("connectias_settings", Context.MODE_PRIVATE)
-    }
     
-    private val encryptedPrefs: SharedPreferences by lazy {
+    // EncryptedSharedPreferences - initialized directly to avoid StrictMode violations
+    private val encryptedPrefs: SharedPreferences = run {
         try {
             val prefs = createEncryptedPrefs()
             performMigration(prefs)
@@ -163,9 +173,17 @@ class SettingsRepository(
     }
 
     /**
-     * Gets the theme preference.
-     * Uses plain SharedPreferences as theme is not sensitive data.
+     * Gets the theme preference synchronously.
+     * 
+     * @deprecated Use observeTheme() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current theme preference
      */
+    @Deprecated(
+        message = "Use observeTheme() Flow instead",
+        replaceWith = ReplaceWith("observeTheme().first()")
+    )
     override fun getTheme(): String {
         return plainPrefs.getString("theme", "system") ?: "system"
     }
@@ -180,9 +198,17 @@ class SettingsRepository(
     }
     
     /**
-     * Gets the theme style preference (Standard or Adeptus Mechanicus).
-     * Uses plain SharedPreferences as theme style is not sensitive data.
+     * Gets the theme style preference synchronously.
+     * 
+     * @deprecated Use observeThemeStyle() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current theme style preference
      */
+    @Deprecated(
+        message = "Use observeThemeStyle() Flow instead",
+        replaceWith = ReplaceWith("observeThemeStyle().first()")
+    )
     override fun getThemeStyle(): String {
         return plainPrefs.getString("theme_style", "standard") ?: "standard"
     }
@@ -199,56 +225,77 @@ class SettingsRepository(
     /**
      * Observes theme style preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the theme style changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
      */
     override fun observeThemeStyle(): Flow<String> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "theme_style") {
-                trySend(getThemeStyle())
+                scope.launch {
+                    trySend(getThemeStyle())
+                }
             }
         }
         plainPrefs.registerOnSharedPreferenceChangeListener(listener)
         
-        // Emit current value
-        trySend(getThemeStyle())
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getThemeStyle())
+        }
         
         awaitClose {
             plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
         }
     }
     
     /**
      * Observes theme preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the theme changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
      */
     override fun observeTheme(): Flow<String> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "theme") {
-                trySend(getTheme())
+                scope.launch {
+                    trySend(getTheme())
+                }
             }
         }
         plainPrefs.registerOnSharedPreferenceChangeListener(listener)
-        // Emit current value immediately
-        trySend(getTheme())
+        // Emit current value immediately on IO thread
+        scope.launch {
+            trySend(getTheme())
+        }
         awaitClose {
             plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
         }
     }
 
     /**
      * Observes logging level preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the logging level changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
      */
     fun observeLoggingLevel(): Flow<String> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "logging_level") {
-                trySend(getLoggingLevel())
+                scope.launch {
+                    trySend(getLoggingLevel())
+                }
             }
         }
         encryptedPrefs.registerOnSharedPreferenceChangeListener(listener)
-        // Emit current value immediately
-        trySend(getLoggingLevel())
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getLoggingLevel())
+        }
         awaitClose {
             encryptedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
         }
     }
 
@@ -257,9 +304,17 @@ class SettingsRepository(
     // ============================================================================
 
     /**
-     * Gets the dynamic color preference (Material You).
-     * Uses plain SharedPreferences as this is not sensitive data.
+     * Gets the dynamic color preference synchronously.
+     * 
+     * @deprecated Use observeDynamicColor() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current dynamic color preference
      */
+    @Deprecated(
+        message = "Use observeDynamicColor() Flow instead",
+        replaceWith = ReplaceWith("observeDynamicColor().first()")
+    )
     override fun getDynamicColor(): Boolean {
         return plainPrefs.getBoolean("dynamic_color", true)
     }
@@ -275,18 +330,25 @@ class SettingsRepository(
     /**
      * Observes dynamic color preference changes as a Flow.
      * Emits the current value immediately, then emits whenever the dynamic color setting changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
      */
     override fun observeDynamicColor(): Flow<Boolean> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == "dynamic_color") {
-                trySend(getDynamicColor())
+                scope.launch {
+                    trySend(getDynamicColor())
+                }
             }
         }
         plainPrefs.registerOnSharedPreferenceChangeListener(listener)
-        // Emit current value immediately
-        trySend(getDynamicColor())
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getDynamicColor())
+        }
         awaitClose {
             plainPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
         }
     }
 
@@ -295,9 +357,17 @@ class SettingsRepository(
     // ============================================================================
 
     /**
-     * Gets the auto-lock enabled preference.
-     * Uses EncryptedSharedPreferences as this is a security setting.
+     * Gets the auto-lock enabled preference synchronously.
+     * 
+     * @deprecated Use observeAutoLockEnabled() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current auto-lock enabled preference
      */
+    @Deprecated(
+        message = "Use observeAutoLockEnabled() Flow instead",
+        replaceWith = ReplaceWith("observeAutoLockEnabled().first()")
+    )
     fun getAutoLockEnabled(): Boolean {
         return try {
             encryptedPrefs.getBoolean("auto_lock_enabled", false)
@@ -318,11 +388,44 @@ class SettingsRepository(
             Timber.e(e, "Failed to set auto_lock_enabled")
         }
     }
+    
+    /**
+     * Observes auto-lock enabled preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the auto-lock setting changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
+     */
+    fun observeAutoLockEnabled(): Flow<Boolean> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "auto_lock_enabled") {
+                scope.launch {
+                    trySend(getAutoLockEnabled())
+                }
+            }
+        }
+        encryptedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getAutoLockEnabled())
+        }
+        awaitClose {
+            encryptedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
+        }
+    }
 
     /**
-     * Gets the RASP logging enabled preference.
-     * Uses EncryptedSharedPreferences as this is a security setting.
+     * Gets the RASP logging enabled preference synchronously.
+     * 
+     * @deprecated Use observeRaspLoggingEnabled() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current RASP logging enabled preference
      */
+    @Deprecated(
+        message = "Use observeRaspLoggingEnabled() Flow instead",
+        replaceWith = ReplaceWith("observeRaspLoggingEnabled().first()")
+    )
     fun getRaspLoggingEnabled(): Boolean {
         return try {
             encryptedPrefs.getBoolean("rasp_logging_enabled", true)
@@ -343,11 +446,44 @@ class SettingsRepository(
             Timber.e(e, "Failed to set rasp_logging_enabled")
         }
     }
+    
+    /**
+     * Observes RASP logging enabled preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the RASP logging setting changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
+     */
+    fun observeRaspLoggingEnabled(): Flow<Boolean> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "rasp_logging_enabled") {
+                scope.launch {
+                    trySend(getRaspLoggingEnabled())
+                }
+            }
+        }
+        encryptedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getRaspLoggingEnabled())
+        }
+        awaitClose {
+            encryptedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
+        }
+    }
 
     /**
-     * Gets the logging level preference.
-     * Uses EncryptedSharedPreferences as this may contain debug information.
+     * Gets the logging level preference synchronously.
+     * 
+     * @deprecated Use observeLoggingLevel() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current logging level preference
      */
+    @Deprecated(
+        message = "Use observeLoggingLevel() Flow instead",
+        replaceWith = ReplaceWith("observeLoggingLevel().first()")
+    )
     fun getLoggingLevel(): String {
         return try {
             encryptedPrefs.getString("logging_level", "INFO") ?: "INFO"
@@ -370,9 +506,17 @@ class SettingsRepository(
     }
 
     /**
-     * Gets the clipboard auto-clear preference.
-     * Uses EncryptedSharedPreferences as this is a privacy setting.
+     * Gets the clipboard auto-clear preference synchronously.
+     * 
+     * @deprecated Use observeClipboardAutoClear() Flow instead to avoid StrictMode violations.
+     * This method will be removed in a future version.
+     * 
+     * @return The current clipboard auto-clear preference
      */
+    @Deprecated(
+        message = "Use observeClipboardAutoClear() Flow instead",
+        replaceWith = ReplaceWith("observeClipboardAutoClear().first()")
+    )
     fun getClipboardAutoClear(): Boolean {
         return try {
             encryptedPrefs.getBoolean("clipboard_auto_clear", false)
@@ -391,6 +535,31 @@ class SettingsRepository(
             encryptedPrefs.edit {putBoolean("clipboard_auto_clear", enabled) }
         } catch (e: Exception) {
             Timber.e(e, "Failed to set clipboard_auto_clear")
+        }
+    }
+    
+    /**
+     * Observes clipboard auto-clear preference changes as a Flow.
+     * Emits the current value immediately, then emits whenever the clipboard auto-clear setting changes.
+     * All SharedPreferences access is performed on IO thread to avoid StrictMode violations.
+     */
+    fun observeClipboardAutoClear(): Flow<Boolean> = callbackFlow {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == "clipboard_auto_clear") {
+                scope.launch {
+                    trySend(getClipboardAutoClear())
+                }
+            }
+        }
+        encryptedPrefs.registerOnSharedPreferenceChangeListener(listener)
+        // Emit current value on IO thread
+        scope.launch {
+            trySend(getClipboardAutoClear())
+        }
+        awaitClose {
+            encryptedPrefs.unregisterOnSharedPreferenceChangeListener(listener)
+            scope.cancel()
         }
     }
 

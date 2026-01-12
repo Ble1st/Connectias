@@ -20,7 +20,7 @@ import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
 import com.ble1st.connectias.common.ui.theme.ThemeStyle
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.settings.SettingsRepository
-import com.ble1st.connectias.plugin.PluginManager
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -34,7 +34,7 @@ class DashboardFragment : Fragment() {
     lateinit var moduleRegistry: ModuleRegistry
     
     @Inject
-    lateinit var pluginManager: PluginManager
+    lateinit var pluginManager: PluginManagerSandbox
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -56,23 +56,26 @@ class DashboardFragment : Fragment() {
                     themeStyle = themeStyle,
                     dynamicColor = dynamicColor
                 ) {
-                    // Get plugin modules from registry - recalculate on each recomposition
-                    val pluginModules = moduleRegistry.getActiveModules()
-                        .filter { moduleInfo ->
-                            // Check if this is a plugin (not a core module)
-                            pluginManager.getPlugin(moduleInfo.id) != null
-                        }
-                        .map { moduleInfo ->
-                            DashboardItem(
-                                title = moduleInfo.name,
-                                icon = Icons.Default.Extension,
-                                onClick = {
-                                    // Navigate to plugin using MainActivity
-                                    (requireActivity() as? com.ble1st.connectias.MainActivity)
-                                        ?.navigateToPlugin(moduleInfo.id)
-                                }
-                            )
-                        }
+                    // Observe module registry changes reactively
+                    val allModules by moduleRegistry.modulesFlow.collectAsState()
+                    val pluginModules = remember(allModules) {
+                        allModules
+                            .filter { moduleInfo ->
+                                // Only show active plugins
+                                moduleInfo.isActive && pluginManager.getPlugin(moduleInfo.id) != null
+                            }
+                            .map { moduleInfo ->
+                                DashboardItem(
+                                    title = moduleInfo.name,
+                                    icon = Icons.Default.Extension,
+                                    onClick = {
+                                        // Navigate to plugin using MainActivity
+                                        (requireActivity() as? com.ble1st.connectias.MainActivity)
+                                            ?.navigateToPlugin(moduleInfo.id)
+                                    }
+                                )
+                            }
+                    }
                     
                     DashboardScreen(
                         onNavigateToSettings = { findNavController().navigate(R.id.nav_settings) },

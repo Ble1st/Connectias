@@ -1,6 +1,7 @@
 package com.ble1st.connectias.plugin
 
 import android.content.Context
+import com.ble1st.connectias.core.module.ModuleRegistry
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -44,8 +45,13 @@ object PluginModule {
     @Singleton
     fun providePluginManager(
         @ApplicationContext context: Context,
-        pluginDirectory: File
-    ): PluginManager {
-        return PluginManager(context, pluginDirectory)
+        pluginDirectory: File,
+        moduleRegistry: ModuleRegistry
+    ): PluginManagerSandbox {
+        // Use PluginManagerSandbox for process isolation (Option 3)
+        // This runs plugins in a separate process, providing crash isolation
+        // Plugin crashes will NOT crash the main app process
+        // Note: PluginManagerSandbox implements same API as PluginManager
+        return PluginManagerSandbox(context, pluginDirectory, moduleRegistry)
     }
 }

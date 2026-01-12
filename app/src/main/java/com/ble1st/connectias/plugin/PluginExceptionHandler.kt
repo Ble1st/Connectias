@@ -105,6 +105,71 @@ object PluginExceptionHandler {
     }
     
     /**
+     * Safe wrapper for Compose click handlers and event handlers.
+     * Catches exceptions in event handlers and prevents app crashes.
+     * 
+     * @param pluginId The ID of the plugin
+     * @param operationName Name of the operation (e.g., "onClick", "onEvent")
+     * @param onError Optional callback when an exception occurs
+     * @param block The event handler to execute
+     */
+    inline fun <T> safePluginEventHandler(
+        pluginId: String,
+        operationName: String,
+        noinline onError: ((Throwable) -> Unit)? = null,
+        block: () -> T
+    ): T? {
+        return safePluginCall(pluginId, operationName, onError, block)
+    }
+    
+    /**
+     * Safe wrapper for Compose click handlers that return Unit.
+     * 
+     * @param pluginId The ID of the plugin
+     * @param operationName Name of the operation (e.g., "onClick")
+     * @param onError Optional callback when an exception occurs
+     * @param block The click handler to execute
+     */
+    inline fun safePluginClickHandler(
+        pluginId: String,
+        operationName: String = "onClick",
+        noinline onError: ((Throwable) -> Unit)? = null,
+        block: () -> Unit
+    ) {
+        safePluginCall<Unit>(pluginId, operationName, onError, block)
+    }
+    
+    /**
+     * Safe wrapper for Compose click handlers that can be used as a lambda.
+     * This is a convenience function that wraps a click handler with exception handling.
+     * 
+     * Usage in Compose:
+     * ```
+     * Button(
+     *     onClick = PluginExceptionHandler.safeComposeClickHandler(pluginId, "buttonClick") {
+     *         // Your click handler code here
+     *     }
+     * )
+     * ```
+     * 
+     * @param pluginId The ID of the plugin
+     * @param operationName Name of the operation (e.g., "onClick")
+     * @param onError Optional callback when an exception occurs
+     * @param block The click handler to execute
+     * @return A lambda that can be used as an onClick handler
+     */
+    inline fun safeComposeClickHandler(
+        pluginId: String,
+        operationName: String = "onClick",
+        noinline onError: ((Throwable) -> Unit)? = null,
+        noinline block: () -> Unit
+    ): () -> Unit {
+        return {
+            safePluginClickHandler(pluginId, operationName, onError, block)
+        }
+    }
+    
+    /**
      * Logs an exception with detailed information.
      * 
      * @param pluginId The ID of the plugin

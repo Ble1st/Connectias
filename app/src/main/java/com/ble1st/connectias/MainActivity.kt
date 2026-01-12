@@ -2,6 +2,7 @@ package com.ble1st.connectias
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -74,6 +75,8 @@ import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.services.SecurityService
 import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.databinding.ActivityMainBinding
+import com.ble1st.connectias.plugin.PluginFragmentWrapper
+import com.ble1st.connectias.plugin.PluginManagerSandbox
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -102,7 +105,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var settingsRepository: SettingsRepository
     
     @Inject
-    lateinit var pluginManager: com.ble1st.connectias.plugin.PluginManager
+    lateinit var pluginManager: PluginManagerSandbox
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install Splash Screen before super.onCreate()
@@ -219,9 +222,17 @@ class MainActivity : AppCompatActivity() {
                         pluginManager = pluginManager,
                         moduleRegistry = moduleRegistry,
                         onFeatureSelected = { navId ->
+                            // If a plugin fragment is active, navigate back to dashboard first
+                            if (isPluginFragmentActive()) {
+                                navigateToDashboard(clearBackStack = true)
+                            }
                             navigateToFeature(navId)
                         },
                         onPluginSelected = { pluginId ->
+                            // If a plugin fragment is active, navigate back to dashboard first
+                            if (isPluginFragmentActive()) {
+                                navigateToDashboard(clearBackStack = true)
+                            }
                             navigateToPlugin(pluginId)
                         }
                     )
@@ -259,7 +270,23 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             
-            val fragment = pluginManager.createPluginFragment(pluginId)
+            // Check if plugin is enabled (not just loaded or disabled)
+            if (pluginInfo.state != PluginManagerSandbox.PluginState.ENABLED) {
+                Timber.w("Plugin is not enabled: $pluginId (state: ${pluginInfo.state})")
+                return
+            }
+            
+            // Create fragment with critical error callback
+            val fragment = pluginManager.createPluginFragment(
+                pluginId = pluginId,
+                onCriticalError = {
+                    // Watchdog detected critical error - navigate to dashboard
+                    Timber.w("[WATCHDOG] Critical error callback triggered, navigating to dashboard")
+                    runOnUiThread {
+                        navigateToDashboard(clearBackStack = true)
+                    }
+                }
+            )
             if (fragment == null) {
                 Timber.e("Failed to create fragment for plugin: $pluginId")
                 return
@@ -274,6 +301,174 @@ class MainActivity : AppCompatActivity() {
             Timber.i("Navigated to plugin: ${pluginInfo.metadata.pluginName}")
         } catch (e: Exception) {
             Timber.e(e, "Failed to navigate to plugin: $pluginId")
+        }
+    }
+    
+    /**
+     * Immediately "kills" a plugin fragment by removing it from the FragmentManager.
+     * Similar to Linux kill command - forcefully terminates the plugin fragment.
+     * 
+     * This function:
+     * 1. Finds and removes the plugin fragment from FragmentManager
+     * 2. Removes the fragment's view from the view hierarchy
+     * 3. Deactivates the plugin
+     * 4. Navigates back to dashboard
+     * 
+     * @param pluginId The ID of the plugin to kill
+     */
+    fun killPluginFragment(pluginId: String) {
+        try {
+            Timber.w("Killing plugin fragment: $pluginId")
+            
+            // Step 1: Find the fragment
+            val fragmentTag = "plugin_$pluginId"
+            var fragment = supportFragmentManager.findFragmentByTag(fragmentTag)
+            
+            // If not found by tag, search through all fragments
+            if (fragment == null) {
+                fragment = supportFragmentManager.fragments.firstOrNull { 
+                    it.javaClass.simpleName.contains("Plugin") || it is PluginFragmentWrapper
+                }
+            }
+            
+            // Step 2: CRITICAL - Remove the view from view hierarchy FIRST
+            // This immediately hides the plugin UI, even before fragment is removed
+            fragment?.view?.let { view ->
+                try {
+                    val parent = view.parent as? ViewGroup
+                    parent?.removeView(view)
+                    Timber.d("Removed plugin view from view hierarchy: $pluginId")
+                } catch (e: Exception) {
+                    Timber.w(e, "Could not remove view from hierarchy: ${e.message}")
+                }
+            }
+            
+            // Step 3: Immediately show dashboard by navigating
+            try {
+                // Immediately navigate to dashboard using NavController
+                val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as? NavHostFragment
+                navHostFragment?.navController?.let { navController ->
+                    navController.popBackStack(R.id.nav_dashboard, false)
+                    if (navController.currentDestination?.id != R.id.nav_dashboard) {
+                        navController.navigate(R.id.nav_dashboard)
+                    }
+                    Timber.d("Immediately navigated to dashboard")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Could not immediately show dashboard: ${e.message}")
+            }
+            
+            // Step 4: Remove fragment from FragmentManager
+            if (fragment != null) {
+                try {
+                    supportFragmentManager.beginTransaction()
+                        .remove(fragment)
+                        .commitNowAllowingStateLoss() // Force immediate removal
+                    Timber.d("Removed plugin fragment from FragmentManager: $pluginId")
+                } catch (e: Exception) {
+                    Timber.w(e, "Could not remove fragment: ${e.message}")
+                }
+            }
+            
+            // Step 5: Remove from back stack
+            try {
+                supportFragmentManager.popBackStack(fragmentTag, android.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+            } catch (e: Exception) {
+                Timber.d("Could not remove from back stack: ${e.message}")
+            }
+            
+            // Step 6: Deactivate the plugin
+            try {
+                val pluginInfo = pluginManager.getPlugin(pluginId)
+                if (pluginInfo != null) {
+                    pluginInfo.state = PluginManagerSandbox.PluginState.ERROR
+                    Timber.d("Set plugin state to ERROR: $pluginId")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Could not deactivate plugin: ${e.message}")
+            }
+            
+            // Step 7: Ensure dashboard is shown (fallback)
+            navigateToDashboard(clearBackStack = true)
+            
+            Timber.i("Successfully killed plugin fragment: $pluginId")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to kill plugin fragment: $pluginId")
+            // Fallback: Just navigate to dashboard
+            navigateToDashboard(clearBackStack = true)
+        }
+    }
+    
+    /**
+     * Checks if a plugin fragment is currently active.
+     * @return true if a plugin fragment is in the back stack or currently displayed
+     */
+    private fun isPluginFragmentActive(): Boolean {
+        return try {
+            // Check if there are any entries in the back stack with "plugin_" tag
+            val backStackEntryCount = supportFragmentManager.backStackEntryCount
+            if (backStackEntryCount > 0) {
+                val lastEntry = supportFragmentManager.getBackStackEntryAt(backStackEntryCount - 1)
+                if (lastEntry.name?.startsWith("plugin_") == true) {
+                    return true
+                }
+            }
+            
+            // Also check if there's a PluginFragmentWrapper currently visible
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
+            val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
+            currentFragment is PluginFragmentWrapper
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to check if plugin fragment is active")
+            false
+        }
+    }
+    
+    /**
+     * Navigates back to the dashboard.
+     * This is used to recover from plugin exceptions by returning to a safe state.
+     * 
+     * @param clearBackStack If true, clears the back stack to prevent returning to the plugin
+     */
+    fun navigateToDashboard(clearBackStack: Boolean = false) {
+        try {
+            // If a plugin fragment is active, remove it from the back stack first
+            if (isPluginFragmentActive()) {
+                val backStackEntryCount = supportFragmentManager.backStackEntryCount
+                if (backStackEntryCount > 0) {
+                    // Pop all plugin fragments from the back stack
+                    for (i in 0 until backStackEntryCount) {
+                        val entry = supportFragmentManager.getBackStackEntryAt(backStackEntryCount - 1 - i)
+                        if (entry.name?.startsWith("plugin_") == true) {
+                            supportFragmentManager.popBackStackImmediate(entry.id, 0)
+                        }
+                    }
+                }
+            }
+            
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as? NavHostFragment
+            val navController = navHostFragment?.navController
+            
+            if (navController != null) {
+                if (clearBackStack) {
+                    // Clear back stack and navigate to dashboard
+                    navController.popBackStack(R.id.nav_dashboard, false)
+                    // If not already at dashboard, navigate to it
+                    if (navController.currentDestination?.id != R.id.nav_dashboard) {
+                        navController.navigate(R.id.nav_dashboard)
+                    }
+                } else {
+                    // Just navigate to dashboard, keeping back stack
+                    navController.navigate(R.id.nav_dashboard)
+                }
+                Timber.i("Navigated to dashboard (clearBackStack=$clearBackStack)")
+            } else {
+                // Fallback: Use fragment transaction if NavController is not available
+                Timber.w("NavController not available, using fragment transaction fallback")
+                supportFragmentManager.popBackStack(null, android.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to navigate to dashboard")
         }
     }
 
@@ -396,7 +591,7 @@ class MainActivity : AppCompatActivity() {
 @Composable
 fun FabWithBottomSheet(
     navController: NavController?,
-    pluginManager: com.ble1st.connectias.plugin.PluginManager,
+    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
     moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
     onFeatureSelected: (Int) -> Unit,
     onPluginSelected: (String) -> Unit
@@ -561,16 +756,17 @@ fun FabWithBottomSheet(
 @Composable
 fun FeatureList(
     scrollState: LazyListState,
-    pluginManager: com.ble1st.connectias.plugin.PluginManager,
+    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
     moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
     onFeatureClick: (Int) -> Unit,
     onPluginClick: (String) -> Unit
 ) {
     val context = LocalContext.current
-    // Resolve features dynamically on each composition to ensure only existing features are shown
-    // This ensures that features are filtered based on what's actually available in the navigation graph
-    // The function is fast enough to run on each composition without performance issues
-    val categories = resolveFeatureCategories(pluginManager, moduleRegistry)
+    // Observe module registry changes reactively
+    val allModules by moduleRegistry.modulesFlow.collectAsState()
+    val categories = remember(allModules) {
+        resolveFeatureCategories(pluginManager, allModules)
+    }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Text(
@@ -717,17 +913,16 @@ private fun getNavIdByName(navIdName: String): Int? {
     }
 }
 
-@Composable
 fun resolveFeatureCategories(
-    pluginManager: com.ble1st.connectias.plugin.PluginManager,
-    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry
+    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
+    allModules: List<com.ble1st.connectias.core.module.ModuleInfo>
 ): List<ResolvedFeatureCategory> {
     val definitions = getFeatureDefinitions()
     
-    // Get plugin modules
-    val pluginModules = moduleRegistry.getActiveModules()
+    // Get plugin modules - filter for active plugins only
+    val pluginModules = allModules
         .filter { moduleInfo ->
-            pluginManager.getPlugin(moduleInfo.id) != null
+            moduleInfo.isActive && pluginManager.getPlugin(moduleInfo.id) != null
         }
     
     // Convert plugin modules to ResolvedFeature
