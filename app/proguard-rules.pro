@@ -494,6 +494,84 @@
 -keep class com.ble1st.connectias.plugin.PluginNotificationManager { *; }
 
 # ------------------------------------------------------------------------------
+# Plugin Exception Handler - MUST be kept for runtime exception handling
+# ------------------------------------------------------------------------------
+
+# Keep PluginExceptionHandler class and all its methods
+-keep class com.ble1st.connectias.plugin.PluginExceptionHandler { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PluginExceptionHandler {
+    *;
+}
+
+# Keep all methods of PluginExceptionHandler (including inline functions)
+# Inline functions are inlined at compile time, but the class must still be kept
+# for reflection-based access and debugging
+-keepclassmembers class com.ble1st.connectias.plugin.PluginExceptionHandler {
+    public static *** safePluginCall(...);
+    public static *** safePluginBooleanCall(...);
+    public static *** safePluginFragmentCall(...);
+}
+
+# Keep exception types that PluginExceptionHandler handles
+# These are needed for proper exception type checking and logging
+-keep class java.lang.Exception { *; }
+-keep class java.lang.Error { *; }
+-keep class java.lang.OutOfMemoryError { *; }
+-keep class java.lang.LinkageError { *; }
+-keep class java.lang.ClassCastException { *; }
+-keep class java.lang.NullPointerException { *; }
+-keep class java.lang.RuntimeException { *; }
+-keep class java.lang.IllegalArgumentException { *; }
+-keep class java.lang.IllegalStateException { *; }
+
+# Keep exception constructors and methods for proper exception handling
+-keepclassmembers class java.lang.Exception {
+    <init>(...);
+    <init>(java.lang.String);
+    <init>(java.lang.String, java.lang.Throwable);
+    <init>(java.lang.Throwable);
+}
+-keepclassmembers class java.lang.Error {
+    <init>(...);
+    <init>(java.lang.String);
+    <init>(java.lang.String, java.lang.Throwable);
+    <init>(java.lang.Throwable);
+}
+
+# Keep Throwable class and methods (base class for all exceptions)
+-keep class java.lang.Throwable { *; }
+-keepclassmembers class java.lang.Throwable {
+    java.lang.String getMessage();
+    java.lang.String getLocalizedMessage();
+    java.lang.Throwable getCause();
+    java.lang.StackTraceElement[] getStackTrace();
+    void printStackTrace();
+    void printStackTrace(java.io.PrintStream);
+    void printStackTrace(java.io.PrintWriter);
+}
+
+# Keep StackTraceElement for proper stack trace logging
+-keep class java.lang.StackTraceElement { *; }
+-keepclassmembers class java.lang.StackTraceElement {
+    java.lang.String getClassName();
+    java.lang.String getMethodName();
+    java.lang.String getFileName();
+    int getLineNumber();
+}
+
+# Keep Timber logging methods used by PluginExceptionHandler
+# (Timber is already kept in the general rules, but ensure it's not obfuscated)
+-keep class timber.log.Timber { *; }
+-keepclassmembers class timber.log.Timber {
+    public static void e(...);
+    public static void e(java.lang.Throwable, ...);
+    public static void w(...);
+    public static void w(java.lang.Throwable, ...);
+    public static void i(...);
+    public static void d(...);
+}
+
+# ------------------------------------------------------------------------------
 # Suppress Warnings
 # ------------------------------------------------------------------------------
 

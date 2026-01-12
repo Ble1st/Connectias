@@ -162,10 +162,30 @@ class PluginManager(
             
             // Call onLoad
             val loadSuccess = withTimeoutOrNull(10000L) {
-                pluginInstance.onLoad(pluginContext)
+                PluginExceptionHandler.safePluginBooleanCall(
+                    metadata.pluginId,
+                    "onLoad",
+                    onError = { exception ->
+                        // Plugin will be set to ERROR state if loadSuccess is false
+                    }
+                ) {
+                    pluginInstance.onLoad(pluginContext)
+                }
             } ?: false
             
             if (!loadSuccess) {
+                // Set state to ERROR if load fails
+                val pluginInfo = PluginInfo(
+                    pluginId = metadata.pluginId,
+                    metadata = metadata,
+                    pluginFile = pluginFile,
+                    instance = pluginInstance,
+                    classLoader = classLoader,
+                    context = pluginContext,
+                    state = PluginState.ERROR,
+                    loadedAt = System.currentTimeMillis()
+                )
+                loadedPlugins[metadata.pluginId] = pluginInfo
                 return@withContext Result.failure(Exception("Plugin onLoad returned false or timed out"))
             }
             
@@ -249,15 +269,19 @@ class PluginManager(
     fun createPluginFragment(pluginId: String): androidx.fragment.app.Fragment? {
         val pluginInfo = loadedPlugins[pluginId] ?: return null
         
-        return try {
+        return PluginExceptionHandler.safePluginFragmentCall(
+            pluginId,
+            "createFragment",
+            onError = { exception ->
+                pluginInfo.state = PluginState.ERROR
+            }
+        ) {
             val fragmentClassName = pluginInfo.metadata.fragmentClassName
                 ?: return null
             
             val fragmentClass = pluginInfo.classLoader.loadClass(fragmentClassName)
             fragmentClass.getDeclaredConstructor().newInstance() as? androidx.fragment.app.Fragment
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to create fragment for plugin: $pluginId")
-            null
+                ?: throw ClassCastException("Plugin class is not a Fragment")
         }
     }
     
@@ -324,10 +348,19 @@ class PluginManager(
             }
             
             val enableSuccess = withTimeoutOrNull(5000L) {
-                pluginInfo.instance.onEnable()
+                PluginExceptionHandler.safePluginBooleanCall(
+                    pluginId,
+                    "onEnable",
+                    onError = { exception ->
+                        pluginInfo.state = PluginState.ERROR
+                    }
+                ) {
+                    pluginInfo.instance.onEnable()
+                }
             } ?: false
             
             if (!enableSuccess) {
+                pluginInfo.state = PluginState.ERROR
                 return@withContext Result.failure(Exception("Plugin onEnable returned false or timed out"))
             }
             
@@ -350,7 +383,15 @@ class PluginManager(
             }
             
             val disableSuccess = withTimeoutOrNull(5000L) {
-                pluginInfo.instance.onDisable()
+                PluginExceptionHandler.safePluginBooleanCall(
+                    pluginId,
+                    "onDisable",
+                    onError = { exception ->
+                        // Disable should continue even on errors (no ERROR state needed)
+                    }
+                ) {
+                    pluginInfo.instance.onDisable()
+                }
             } ?: false
             
             if (!disableSuccess) {
@@ -372,11 +413,27 @@ class PluginManager(
                 ?: return@withContext Result.failure(Exception("Plugin not found: $pluginId"))
             
             if (pluginInfo.state == PluginState.ENABLED) {
-                pluginInfo.instance.onDisable()
+                PluginExceptionHandler.safePluginBooleanCall(
+                    pluginId,
+                    "onDisable",
+                    onError = { exception ->
+                        // Unload should continue even on errors
+                    }
+                ) {
+                    pluginInfo.instance.onDisable()
+                }
             }
             
             withTimeoutOrNull(5000L) {
-                pluginInfo.instance.onUnload()
+                PluginExceptionHandler.safePluginCall<Unit>(
+                    pluginId,
+                    "onUnload",
+                    onError = { exception ->
+                        // Unload should continue even on errors
+                    }
+                ) {
+                    pluginInfo.instance.onUnload()
+                }
             }
             
             nativeLibraryManager.cleanupLibraries(pluginId)
@@ -395,9 +452,25 @@ class PluginManager(
         loadedPlugins.values.forEach { pluginInfo ->
             try {
                 if (pluginInfo.state == PluginState.ENABLED) {
-                    pluginInfo.instance.onDisable()
+                    PluginExceptionHandler.safePluginBooleanCall(
+                        pluginInfo.pluginId,
+                        "onDisable",
+                        onError = { exception ->
+                            // Shutdown should continue even on errors
+                        }
+                    ) {
+                        pluginInfo.instance.onDisable()
+                    }
                 }
-                pluginInfo.instance.onUnload()
+                PluginExceptionHandler.safePluginCall<Unit>(
+                    pluginInfo.pluginId,
+                    "onUnload",
+                    onError = { exception ->
+                        // Shutdown should continue even on errors
+                    }
+                ) {
+                    pluginInfo.instance.onUnload()
+                }
             } catch (e: Exception) {
                 Timber.e(e, "Error shutting down plugin: ${pluginInfo.pluginId}")
             }
