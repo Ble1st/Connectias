@@ -149,8 +149,9 @@ class PluginManagerSandbox(
                     "${permissionInfo.dangerous.size} dangerous, ${permissionInfo.critical.size} critical")
             }
             
-            // Load plugin in sandbox process via IPC
-            val sandboxResult = sandboxProxy.loadPlugin(pluginFile.absolutePath)
+            // Load plugin in sandbox process via IPC using ParcelFileDescriptor
+            // This works even with isolatedProcess="true"
+            val sandboxResult = sandboxProxy.loadPluginFromFile(pluginFile, metadata.pluginId)
             if (sandboxResult.isFailure) {
                 return@withContext Result.failure(
                     sandboxResult.exceptionOrNull() ?: Exception("Sandbox load failed")
@@ -304,8 +305,26 @@ class PluginManagerSandbox(
                 ?: return null
             
             val fragmentClass = pluginInfo.classLoader.loadClass(fragmentClassName)
-            fragmentClass.getDeclaredConstructor().newInstance() as? androidx.fragment.app.Fragment
+            val fragmentInstance = fragmentClass.getDeclaredConstructor().newInstance() as? androidx.fragment.app.Fragment
                 ?: throw ClassCastException("Plugin class is not a Fragment")
+            
+            // CRITICAL: Initialize PluginContext for Fragment instance
+            // The Fragment runs in Main process and needs its own PluginContext
+            if (fragmentInstance is IPlugin) {
+                val pluginDir = File(context.filesDir, "plugins/${pluginInfo.metadata.pluginId}")
+                pluginDir.mkdirs()
+                val pluginContext = PluginContextImpl(
+                    appContext = context,
+                    pluginId = pluginInfo.metadata.pluginId,
+                    pluginDataDir = pluginDir,
+                    nativeLibraryManager = nativeLibraryManager,
+                    permissionManager = permissionManager ?: throw IllegalStateException("PermissionManager required for plugin fragments")
+                )
+                fragmentInstance.onLoad(pluginContext)
+                Timber.d("[PLUGIN MANAGER] Fragment instance initialized with PluginContext: $pluginId")
+            }
+            
+            fragmentInstance
         } ?: return null
         
         // Wrap the fragment with PluginFragmentWrapper to catch exceptions in lifecycle methods
@@ -376,7 +395,7 @@ class PluginManagerSandbox(
                 Timber.i("Plugin is in ERROR state, reloading in sandbox: $pluginId")
                 
                 // Try to reload plugin in sandbox (will fail if already loaded, that's ok)
-                val reloadResult = sandboxProxy.loadPlugin(pluginInfo.pluginFile.absolutePath)
+                val reloadResult = sandboxProxy.loadPluginFromFile(pluginInfo.pluginFile, pluginId)
                 reloadResult.onSuccess {
                     Timber.i("Plugin reloaded in sandbox after ERROR: $pluginId")
                 }.onFailure { error ->
@@ -386,7 +405,7 @@ class PluginManagerSandbox(
                     sandboxProxy.unloadPlugin(pluginId) // Ignore result
                     
                     // Try loading again
-                    val secondLoadResult = sandboxProxy.loadPlugin(pluginInfo.pluginFile.absolutePath)
+                    val secondLoadResult = sandboxProxy.loadPluginFromFile(pluginInfo.pluginFile, pluginId)
                     secondLoadResult.onFailure { secondError ->
                         Timber.e(secondError, "Failed to reload plugin after ERROR: $pluginId")
                     }
@@ -415,7 +434,12 @@ class PluginManagerSandbox(
             updateFlow()
             
             // Update ModuleRegistry to make plugin visible in navigation
-            moduleRegistry?.updateModuleState(pluginId, isActive = true)
+            if (moduleRegistry != null) {
+                moduleRegistry.updateModuleState(pluginId, isActive = true)
+                Timber.i("[PLUGIN MANAGER] Updated ModuleRegistry for plugin: $pluginId (isActive=true)")
+            } else {
+                Timber.w("[PLUGIN MANAGER] ModuleRegistry is NULL - plugin will not appear in navigation: $pluginId")
+            }
             
             Timber.i("Plugin enabled in sandbox: $pluginId")
             Result.success(Unit)

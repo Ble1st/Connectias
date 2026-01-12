@@ -15,21 +15,60 @@ import timber.log.Timber
 @HiltAndroidApp
 class ConnectiasApplication : Application() {
     
+    /**
+     * Check if we're running in the isolated sandbox process
+     * Isolated processes have NO access to:
+     * - KeyStore / EncryptedSharedPreferences
+     * - Database
+     * - Normal SharedPreferences
+     * - Network (without permission)
+     */
+    private fun isIsolatedSandboxProcess(): Boolean {
+        val processName = getCurrentProcessName()
+        return processName.contains(":plugin_sandbox")
+    }
+    
+    private fun getCurrentProcessName(): String {
+        return try {
+            val pid = android.os.Process.myPid()
+            val manager = getSystemService(android.app.ActivityManager::class.java)
+            manager?.runningAppProcesses
+                ?.find { it.pid == pid }
+                ?.processName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+    
     override fun onCreate() {
         super.onCreate()
+        
+        // Skip full initialization in isolated sandbox process
+        // Isolated processes cannot access KeyStore, Database, or SharedPreferences
+        if (isIsolatedSandboxProcess()) {
+            // Minimal Timber setup - only DebugTree, no database logging
+            Timber.plant(Timber.DebugTree())
+            Timber.i("[ISOLATED SANDBOX] Running in isolated process - skipping full app initialization")
+            Timber.i("[ISOLATED SANDBOX] Hilt is initialized but database/keystore modules are guarded")
+            return
+        }
         
         // Phase 8: Enable StrictMode for performance monitoring in Debug builds
       //  StrictModeConfig.enableStrictMode(BuildConfig.DEBUG)
         
         // Initialize Timber for logging
-        // Get ConnectiasLoggingTree via Hilt EntryPoint
-        val loggingTree = EntryPointAccessors.fromApplication(
-            this,
-            LoggingTreeEntryPoint::class.java
-        ).loggingTree()
-        
-        // Plant database logging tree first (for production)
-        Timber.plant(loggingTree)
+        // Get ConnectiasLoggingTree via Hilt EntryPoint (requires Database)
+        try {
+            val loggingTree = EntryPointAccessors.fromApplication(
+                this,
+                LoggingTreeEntryPoint::class.java
+            ).loggingTree()
+            
+            // Plant database logging tree first (for production)
+            Timber.plant(loggingTree)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to initialize database logging tree - using DebugTree only")
+        }
         
         // Also plant debug tree in debug builds for logcat output
         if (BuildConfig.DEBUG) {

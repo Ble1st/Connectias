@@ -11,6 +11,8 @@ import com.ble1st.connectias.plugin.PluginMetadataParcel
 import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.PluginPermissionBroadcast
+import com.ble1st.connectias.hardware.IHardwareBridge
+import android.os.ParcelFileDescriptor
 import dalvik.system.DexClassLoader
 import timber.log.Timber
 import java.io.File
@@ -31,6 +33,9 @@ class PluginSandboxService : Service() {
     
     // Permission manager for sandbox process
     private lateinit var permissionManager: PluginPermissionManager
+    
+    // Hardware bridge for hardware access
+    private var hardwareBridge: IHardwareBridge? = null
     
     // Broadcast receiver for permission changes
     private var permissionBroadcastReceiver: BroadcastReceiver? = null
@@ -304,12 +309,14 @@ class PluginSandboxService : Service() {
                 val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
                     ?: throw ClassCastException("Plugin does not implement IPlugin")
                 
-                // Create minimal PluginContext for sandbox with permission manager
+                // Create minimal PluginContext for sandbox with permission manager and hardware bridge
+                val pluginDir = File(filesDir, "sandbox_plugins/${metadata.pluginId}")
                 val pluginContext = SandboxPluginContext(
                     appContext = applicationContext,
-                    pluginDir = File(filesDir, "sandbox_plugins/${metadata.pluginId}"),
+                    pluginDir = pluginDir,
                     pluginId = metadata.pluginId,
-                    permissionManager = permissionManager
+                    permissionManager = permissionManager,
+                    hardwareBridge = hardwareBridge
                 )
                 
                 // Call onLoad
@@ -408,6 +415,99 @@ class PluginSandboxService : Service() {
         override fun getPluginMemoryUsage(pluginId: String): Long {
             val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
             return pluginInfo?.lastMemoryUsage ?: -1L
+        }
+        
+        override fun loadPluginFromDescriptor(pluginFd: ParcelFileDescriptor, pluginId: String): PluginResultParcel {
+            return try {
+                Timber.i("[SANDBOX] Loading plugin from descriptor: $pluginId")
+                
+                // Step 1: Copy to code_cache (writable, for initial storage)
+                val codeCache = codeCacheDir
+                if (!codeCache.exists()) {
+                    codeCache.mkdirs()
+                }
+                
+                val tempFile = File(codeCache, "${pluginId}_temp.apk")
+                
+                // Delete existing temp file if present
+                if (tempFile.exists()) {
+                    tempFile.delete()
+                }
+                
+                // Copy file from ParcelFileDescriptor to temp location
+                Timber.d("[SANDBOX] Copying plugin data from FileDescriptor to temp")
+                var bytesCopied = 0L
+                java.io.FileInputStream(pluginFd.fileDescriptor).use { input ->
+                    java.io.FileOutputStream(tempFile).use { output ->
+                        bytesCopied = input.copyTo(output)
+                    }
+                }
+                pluginFd.close()
+                
+                Timber.d("[SANDBOX] Copied $bytesCopied bytes to temp: ${tempFile.absolutePath}")
+                
+                // Verify file exists and has content
+                if (!tempFile.exists() || tempFile.length() == 0L) {
+                    throw IllegalStateException("Plugin file copy failed: exists=${tempFile.exists()}, size=${tempFile.length()}")
+                }
+                
+                // Step 2: Move to read-only location (required for DEX security)
+                val secureDir = File(filesDir, "sandbox_plugins_ro")
+                if (!secureDir.exists()) {
+                    secureDir.mkdirs()
+                }
+                
+                // Make directory read-only
+                secureDir.setWritable(false, false)
+                secureDir.setReadable(true, false)
+                secureDir.setExecutable(true, false)
+                
+                val finalFile = File(secureDir, "$pluginId.apk")
+                
+                // Delete existing final file if present
+                if (finalFile.exists()) {
+                    // Temporarily make writable to delete
+                    secureDir.setWritable(true, false)
+                    finalFile.delete()
+                    secureDir.setWritable(false, false)
+                }
+                
+                // Make directory temporarily writable for move
+                secureDir.setWritable(true, false)
+                
+                // Move file
+                val moved = tempFile.renameTo(finalFile)
+                if (!moved) {
+                    // If rename fails, copy and delete
+                    Timber.d("[SANDBOX] Rename failed, using copy")
+                    tempFile.copyTo(finalFile, overwrite = true)
+                    tempFile.delete()
+                }
+                
+                // Make file and directory read-only
+                finalFile.setReadable(true, false)
+                finalFile.setWritable(false, false)
+                secureDir.setWritable(false, false)
+                
+                Timber.i("[SANDBOX] Plugin file ready (read-only): ${finalFile.absolutePath} (${finalFile.length()} bytes, writable=${finalFile.canWrite()})")
+                
+                // Load using existing method
+                val result = loadPlugin(finalFile.absolutePath)
+                
+                result
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to load plugin from descriptor")
+                PluginResultParcel.failure(e.message ?: "Unknown error")
+            }
+        }
+        
+        override fun setHardwareBridge(hardwareBridge: IBinder) {
+            try {
+                this@PluginSandboxService.hardwareBridge = IHardwareBridge.Stub.asInterface(hardwareBridge)
+                Timber.i("[SANDBOX] Hardware bridge set")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set hardware bridge")
+            }
         }
         
         override fun shutdown() {

@@ -2,14 +2,35 @@ package com.ble1st.connectias.plugin;
 
 import com.ble1st.connectias.plugin.PluginMetadataParcel;
 import com.ble1st.connectias.plugin.PluginResultParcel;
+import android.os.ParcelFileDescriptor;
 
 /**
  * AIDL interface for plugin sandbox communication
+ * 
+ * Version 2.0: Added isolated process support
+ * - loadPlugin now uses ParcelFileDescriptor instead of String path
+ * - Added setHardwareBridge for hardware access delegation
  */
 interface IPluginSandbox {
     
     /**
      * Loads a plugin in the sandbox process
+     * 
+     * Version 2.0: Changed to ParcelFileDescriptor for isolated process support
+     * The file descriptor is closed after the plugin is loaded
+     * 
+     * @param pluginFd ParcelFileDescriptor for plugin APK/JAR file (MODE_READ_ONLY)
+     * @param pluginId Plugin identifier for tracking
+     * @return PluginResultParcel with success/failure and metadata
+     */
+    PluginResultParcel loadPluginFromDescriptor(in ParcelFileDescriptor pluginFd, String pluginId);
+    
+    /**
+     * Loads a plugin in the sandbox process (legacy, for backward compatibility)
+     * 
+     * DEPRECATED: Use loadPluginFromDescriptor for isolated process support
+     * This method will fail when isolatedProcess=true
+     * 
      * @param pluginPath Absolute path to plugin APK/JAR
      * @return PluginResultParcel with success/failure and metadata
      */
@@ -78,4 +99,12 @@ interface IPluginSandbox {
      * Shuts down the sandbox
      */
     void shutdown();
+    
+    /**
+     * Set hardware bridge interface for hardware access delegation
+     * Must be called before plugins try to access hardware
+     * 
+     * @param hardwareBridge IBinder from HardwareBridgeService
+     */
+    void setHardwareBridge(IBinder hardwareBridge);
 }

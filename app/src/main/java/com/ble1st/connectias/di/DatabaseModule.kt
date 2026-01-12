@@ -1,5 +1,6 @@
 package com.ble1st.connectias.di
 
+import android.app.Application
 import android.content.Context
 import com.ble1st.connectias.core.database.ConnectiasDatabase
 import com.ble1st.connectias.core.database.dao.SystemLogDao
@@ -22,12 +23,43 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
     
+    private fun isPluginSandboxProcess(context: Context): Boolean {
+        return try {
+            val processName = Application.getProcessName()
+            processName.contains(":plugin_sandbox")
+        } catch (e: Exception) {
+            false
+        }
+    }
+    
+    @Provides
+    @Singleton
+    fun provideKeyManager(
+        @ApplicationContext context: Context
+    ): KeyManager {
+        // CRITICAL: Sandbox process cannot access KeyManager
+        if (isPluginSandboxProcess(context)) {
+            throw UnsupportedOperationException(
+                "KeyManager not available in sandbox process."
+            )
+        }
+        return KeyManager(context)
+    }
+    
     @Provides
     @Singleton
     fun provideDatabase(
         @ApplicationContext context: Context,
         keyManager: KeyManager
     ): ConnectiasDatabase {
+        // CRITICAL: Sandbox process cannot access Database
+        // It runs in isolated process without KeyStore access
+        if (isPluginSandboxProcess(context)) {
+            throw UnsupportedOperationException(
+                "Database not available in sandbox process. " +
+                "Sandbox uses minimal initialization without DB/KeyStore."
+            )
+        }
         val passphrase = keyManager.getDatabasePassphrase()
         
         // Load SQLCipher native library first

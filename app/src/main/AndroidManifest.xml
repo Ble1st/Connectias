@@ -87,7 +87,16 @@
             android:permission="android.permission.DUMP"
             tools:replace="android:exported" />
         
-        <!-- Plugin Sandbox Service - Runs in separate process for crash isolation -->
+        <!-- Hardware Bridge Service - Provides hardware access to isolated sandbox -->
+        <!-- Runs in main process with all app permissions -->
+        <service
+            android:name="com.ble1st.connectias.hardware.HardwareBridgeService"
+            android:enabled="true"
+            android:exported="false" />
+        
+        <!-- Plugin Sandbox Service - Runs in SEPARATE process for crash isolation -->
+        <!-- isolatedProcess="false" = Hardware access controlled via Hardware Bridge + PermissionManager -->
+        <!-- Security: App-level enforcement (not OS-level, but pragmatic and functional) -->
         <service
             android:name="com.ble1st.connectias.core.plugin.PluginSandboxService"
             android:process=":plugin_sandbox"

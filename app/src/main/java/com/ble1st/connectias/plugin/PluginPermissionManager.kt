@@ -74,6 +74,34 @@ class PluginPermissionManager(
             "android.permission.MANAGE_EXTERNAL_STORAGE",
             "android.permission.SYSTEM_ALERT_WINDOW"
         )
+        
+        // Hardware permission categories for isolated process bridge
+        enum class HardwareCategory {
+            CAMERA,
+            NETWORK,
+            PRINTER,
+            BLUETOOTH,
+            STORAGE,
+            LOCATION,
+            AUDIO,
+            SENSORS
+        }
+        
+        // Map permissions to hardware categories
+        internal val HARDWARE_PERMISSION_MAP = mapOf(
+            "android.permission.CAMERA" to HardwareCategory.CAMERA,
+            "android.permission.INTERNET" to HardwareCategory.NETWORK,
+            "android.permission.ACCESS_NETWORK_STATE" to HardwareCategory.NETWORK,
+            "android.permission.BLUETOOTH_CONNECT" to HardwareCategory.BLUETOOTH,
+            "android.permission.BLUETOOTH_SCAN" to HardwareCategory.BLUETOOTH,
+            "android.permission.BLUETOOTH_ADVERTISE" to HardwareCategory.BLUETOOTH,
+            "android.permission.WRITE_EXTERNAL_STORAGE" to HardwareCategory.STORAGE,
+            "android.permission.READ_EXTERNAL_STORAGE" to HardwareCategory.STORAGE,
+            "android.permission.ACCESS_FINE_LOCATION" to HardwareCategory.LOCATION,
+            "android.permission.ACCESS_COARSE_LOCATION" to HardwareCategory.LOCATION,
+            "android.permission.RECORD_AUDIO" to HardwareCategory.AUDIO,
+            "android.permission.BODY_SENSORS" to HardwareCategory.SENSORS
+        )
     }
     
     /**
@@ -339,6 +367,111 @@ class PluginPermissionManager(
     
     private fun getPermissionKey(pluginId: String, permission: String): String {
         return "$pluginId:$permission"
+    }
+    
+    // ════════════════════════════════════════════════════════
+    // HARDWARE PERMISSION HELPERS (for isolated process bridge)
+    // ════════════════════════════════════════════════════════
+    
+    /**
+     * Get hardware category for a permission
+     * Used by Hardware Bridge to determine which hardware to access
+     */
+    fun getHardwareCategory(permission: String): HardwareCategory? {
+        return HARDWARE_PERMISSION_MAP[permission]
+    }
+    
+    /**
+     * Get all hardware categories required by permissions
+     * Useful for showing user what hardware a plugin will access
+     */
+    fun getHardwareCategories(permissions: List<String>): Set<HardwareCategory> {
+        return permissions.mapNotNull { getHardwareCategory(it) }.toSet()
+    }
+    
+    /**
+     * Check if plugin has permission for hardware category
+     * Used by Hardware Bridge before granting access
+     */
+    fun hasHardwareAccess(pluginId: String, category: HardwareCategory): Boolean {
+        // Find all permissions for this category
+        val categoryPermissions = HARDWARE_PERMISSION_MAP
+            .filter { it.value == category }
+            .keys
+        
+        // Check if plugin has at least one permission for this category
+        return categoryPermissions.any { permission ->
+            isPermissionAllowed(pluginId, permission)
+        }
+    }
+    
+    /**
+     * Log hardware access for audit trail
+     * Stores timestamp and category for security monitoring
+     */
+    fun logHardwareAccess(pluginId: String, category: HardwareCategory) {
+        val timestamp = System.currentTimeMillis()
+        val key = "hardware_log:$pluginId:${category.name}:$timestamp"
+        prefs.edit().putBoolean(key, true).apply()
+        
+        Timber.d("[HARDWARE ACCESS] Plugin $pluginId accessed ${category.name}")
+        
+        // Keep only last 100 logs per plugin to avoid unbounded growth
+        cleanupOldLogs(pluginId)
+    }
+    
+    /**
+     * Get hardware access log for plugin
+     * Returns list of (category, timestamp) pairs
+     */
+    fun getHardwareAccessLog(pluginId: String): List<Pair<HardwareCategory, Long>> {
+        val prefix = "hardware_log:$pluginId:"
+        return prefs.all.keys
+            .filter { it.startsWith(prefix) }
+            .mapNotNull { key ->
+                try {
+                    val parts = key.removePrefix(prefix).split(":")
+                    val category = HardwareCategory.valueOf(parts[0])
+                    val timestamp = parts[1].toLong()
+                    category to timestamp
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            .sortedByDescending { it.second }
+    }
+    
+    /**
+     * Cleanup old hardware access logs
+     * Keeps only last 100 entries per plugin
+     */
+    private fun cleanupOldLogs(pluginId: String) {
+        val logs = getHardwareAccessLog(pluginId)
+        if (logs.size > 100) {
+            val toDelete = logs.drop(100)
+            prefs.edit().apply {
+                toDelete.forEach { (category, timestamp) ->
+                    remove("hardware_log:$pluginId:${category.name}:$timestamp")
+                }
+                apply()
+            }
+        }
+    }
+    
+    /**
+     * Get human-readable description of hardware category
+     */
+    fun getHardwareCategoryDescription(category: HardwareCategory): String {
+        return when (category) {
+            HardwareCategory.CAMERA -> "Kamera (Fotos und Videos aufnehmen)"
+            HardwareCategory.NETWORK -> "Netzwerk (Internet und lokale Verbindungen)"
+            HardwareCategory.PRINTER -> "Drucker (Dokumente drucken)"
+            HardwareCategory.BLUETOOTH -> "Bluetooth (Geräteverbindungen)"
+            HardwareCategory.STORAGE -> "Speicher (Dateien lesen und schreiben)"
+            HardwareCategory.LOCATION -> "Standort (GPS und Netzwerk-Standort)"
+            HardwareCategory.AUDIO -> "Audio (Mikrofon und Audioaufnahme)"
+            HardwareCategory.SENSORS -> "Sensoren (Bewegung, Temperatur, etc.)"
+        }
     }
 }
 
