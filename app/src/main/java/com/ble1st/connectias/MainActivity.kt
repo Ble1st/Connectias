@@ -764,7 +764,10 @@ fun FeatureList(
     val context = LocalContext.current
     // Observe module registry changes reactively
     val allModules by moduleRegistry.modulesFlow.collectAsState()
-    val categories = remember(allModules) {
+    // Observe plugin state changes to update FAB when plugins error/recover
+    val allPlugins by pluginManager.pluginsFlow.collectAsState()
+    
+    val categories = remember(allModules, allPlugins) {
         resolveFeatureCategories(pluginManager, allModules)
     }
 
@@ -918,11 +921,18 @@ fun resolveFeatureCategories(
     allModules: List<com.ble1st.connectias.core.module.ModuleInfo>
 ): List<ResolvedFeatureCategory> {
     val definitions = getFeatureDefinitions()
-    
-    // Get plugin modules - filter for active plugins only
+
+    // Get plugin modules - filter for active plugins that are NOT in ERROR state
     val pluginModules = allModules
         .filter { moduleInfo ->
-            moduleInfo.isActive && pluginManager.getPlugin(moduleInfo.id) != null
+            if (!moduleInfo.isActive) return@filter false
+            
+            val pluginInfo = pluginManager.getPlugin(moduleInfo.id)
+            if (pluginInfo == null) return@filter false
+            
+            // Hide plugins in ERROR state from feature list
+            // They remain visible in plugin management for restart
+            pluginInfo.state != PluginManagerSandbox.PluginState.ERROR
         }
     
     // Convert plugin modules to ResolvedFeature

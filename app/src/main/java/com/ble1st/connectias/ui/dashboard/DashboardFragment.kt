@@ -58,11 +58,21 @@ class DashboardFragment : Fragment() {
                 ) {
                     // Observe module registry changes reactively
                     val allModules by moduleRegistry.modulesFlow.collectAsState()
-                    val pluginModules = remember(allModules) {
+                    // Observe plugin state changes to update dashboard when plugins error/recover
+                    val allPlugins by pluginManager.pluginsFlow.collectAsState()
+                    
+                    val pluginModules = remember(allModules, allPlugins) {
                         allModules
                             .filter { moduleInfo ->
-                                // Only show active plugins
-                                moduleInfo.isActive && pluginManager.getPlugin(moduleInfo.id) != null
+                                // Only show active plugins that are not in ERROR state
+                                if (!moduleInfo.isActive) return@filter false
+                                
+                                val pluginInfo = pluginManager.getPlugin(moduleInfo.id)
+                                if (pluginInfo == null) return@filter false
+                                
+                                // Hide plugins in ERROR state from dashboard
+                                // They remain visible in plugin management for restart
+                                pluginInfo.state != PluginManagerSandbox.PluginState.ERROR
                             }
                             .map { moduleInfo ->
                                 DashboardItem(

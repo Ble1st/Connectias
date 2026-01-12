@@ -265,7 +265,11 @@ class PluginManagerSandbox(
             pluginId,
             "createFragment",
             onError = { exception ->
-                pluginInfo.state = PluginState.ERROR
+                // Create new PluginInfo with ERROR state to trigger Compose recomposition
+                loadedPlugins[pluginId]?.let { currentInfo ->
+                    loadedPlugins[pluginId] = currentInfo.copy(state = PluginState.ERROR)
+                    updateFlow()
+                }
             }
         ) {
             val fragmentClassName = pluginInfo.metadata.fragmentClassName
@@ -282,7 +286,11 @@ class PluginManagerSandbox(
             pluginId = pluginId,
             wrappedFragment = wrappedFragment,
             onError = { exception ->
-                pluginInfo.state = PluginState.ERROR
+                // Create new PluginInfo with ERROR state to trigger Compose recomposition
+                loadedPlugins[pluginId]?.let { currentInfo ->
+                    loadedPlugins[pluginId] = currentInfo.copy(state = PluginState.ERROR)
+                    updateFlow()
+                }
             },
             onCriticalError = onCriticalError
         )
@@ -297,16 +305,48 @@ class PluginManagerSandbox(
                 return@withContext Result.success(Unit)
             }
             
+            // If plugin is in ERROR state, it might have been killed in sandbox
+            // We need to reload it completely in the sandbox process
+            if (pluginInfo.state == PluginState.ERROR) {
+                Timber.i("Plugin is in ERROR state, reloading in sandbox: $pluginId")
+                
+                // Try to reload plugin in sandbox (will fail if already loaded, that's ok)
+                val reloadResult = sandboxProxy.loadPlugin(pluginInfo.pluginFile.absolutePath)
+                reloadResult.onSuccess {
+                    Timber.i("Plugin reloaded in sandbox after ERROR: $pluginId")
+                }.onFailure { error ->
+                    // If reload fails, it might be already loaded - try to disable first
+                    Timber.w(error, "Plugin reload failed, trying disable+load: $pluginId")
+                    sandboxProxy.disablePlugin(pluginId) // Ignore result
+                    sandboxProxy.unloadPlugin(pluginId) // Ignore result
+                    
+                    // Try loading again
+                    val secondLoadResult = sandboxProxy.loadPlugin(pluginInfo.pluginFile.absolutePath)
+                    secondLoadResult.onFailure { secondError ->
+                        Timber.e(secondError, "Failed to reload plugin after ERROR: $pluginId")
+                    }
+                }
+                
+                // Update local state to DISABLED before enabling
+                loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.DISABLED)
+                updateFlow()
+            }
+            
             // Enable plugin in sandbox process via IPC
             val sandboxResult = sandboxProxy.enablePlugin(pluginId)
             if (sandboxResult.isFailure) {
-                pluginInfo.state = PluginState.ERROR
+                // Create new PluginInfo with ERROR state to trigger Compose recomposition
+                loadedPlugins[pluginId] = loadedPlugins[pluginId]?.copy(state = PluginState.ERROR) 
+                    ?: pluginInfo.copy(state = PluginState.ERROR)
+                updateFlow()
                 return@withContext Result.failure(
                     sandboxResult.exceptionOrNull() ?: Exception("Sandbox enable failed")
                 )
             }
             
-            pluginInfo.state = PluginState.ENABLED
+            // Create new PluginInfo with ENABLED state to trigger Compose recomposition
+            loadedPlugins[pluginId] = loadedPlugins[pluginId]?.copy(state = PluginState.ENABLED)
+                ?: pluginInfo.copy(state = PluginState.ENABLED)
             updateFlow()
             
             // Update ModuleRegistry to make plugin visible in navigation
@@ -316,6 +356,11 @@ class PluginManagerSandbox(
             Result.success(Unit)
         } catch (e: Exception) {
             Timber.e(e, "Failed to enable plugin: $pluginId")
+            // Update to ERROR state on exception
+            loadedPlugins[pluginId]?.let { currentInfo ->
+                loadedPlugins[pluginId] = currentInfo.copy(state = PluginState.ERROR)
+                updateFlow()
+            }
             Result.failure(e)
         }
     }
@@ -335,7 +380,8 @@ class PluginManagerSandbox(
                 Timber.w(sandboxResult.exceptionOrNull(), "Sandbox disable failed, but continuing")
             }
             
-            pluginInfo.state = PluginState.DISABLED
+            // Create new PluginInfo with DISABLED state to trigger Compose recomposition
+            loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.DISABLED)
             updateFlow()
             
             // Update ModuleRegistry to hide plugin from navigation
