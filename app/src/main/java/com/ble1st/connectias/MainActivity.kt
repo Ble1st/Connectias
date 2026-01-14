@@ -77,6 +77,7 @@ import com.ble1st.connectias.core.settings.SettingsRepository
 import com.ble1st.connectias.databinding.ActivityMainBinding
 import com.ble1st.connectias.plugin.PluginFragmentWrapper
 import com.ble1st.connectias.plugin.PluginManagerSandbox
+import com.ble1st.connectias.hardware.PermissionRequestManager
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -111,6 +112,9 @@ class MainActivity : AppCompatActivity() {
         // Install Splash Screen before super.onCreate()
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        
+        // Register MainActivity for permission requests
+        PermissionRequestManager.getInstance().currentActivity = this
 
         // Keep the splash screen visible until security checks are complete
         splashScreen.setKeepOnScreenCondition {
@@ -605,7 +609,7 @@ fun FabWithBottomSheet(
     val currentBackStackEntry by navController?.currentBackStackEntryFlow?.collectAsState(
         initial = navController.currentBackStackEntry
     ) ?: remember { mutableStateOf(null) }
-    // FAB is always visible now that DVD features are removed
+    // FAB is always visible
     val shouldShowFab = true
 
     // Auto-hide FAB when scrolling: Create scroll state for FeatureList
@@ -616,7 +620,7 @@ fun FabWithBottomSheet(
         }
     }
     
-    // Determine if FAB should be visible (hide during DVD playback, when bottom sheet is open, or when scrolling)
+    // Determine if FAB should be visible (hide when bottom sheet is open or when scrolling)
     val fabVisible = shouldShowFab && !sheetState.isVisible && !isScrolling.value
     
     // P0: Show bottom sheet after it's rendered to avoid composition disposal issues
@@ -651,7 +655,7 @@ fun FabWithBottomSheet(
         contentAlignment = Alignment.BottomCenter
     ) {
         // P1: FAB with animations and haptic feedback
-        // Auto-hide: Hide when scrolling, bottom sheet open, or DVD playback
+        // Auto-hide: Hide when scrolling or bottom sheet open
         AnimatedVisibility(
             visible = fabVisible,
             enter = fadeIn(animationSpec = tween(200)) + scaleIn(
@@ -997,4 +1001,19 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
             FeatureDef("Plugin Management", Icons.Rounded.Apps, "nav_plugin_management")
         ))
     )
+}
+
+// Extension function for MainActivity to handle permission results
+fun MainActivity.onRequestPermissionsResult(
+    requestCode: Int,
+    permissions: Array<String>,
+    grantResults: IntArray
+) {
+    // Forward to PermissionRequestManager
+    PermissionRequestManager.getInstance().handlePermissionResult(requestCode, permissions, grantResults)
+}
+
+fun MainActivity.onDestroyPermissionCleanup() {
+    // Unregister from permission manager
+    PermissionRequestManager.getInstance().currentActivity = null
 }

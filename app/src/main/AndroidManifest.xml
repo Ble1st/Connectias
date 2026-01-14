@@ -11,7 +11,6 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- ACCESS_FINE_LOCATION required for GPS/GNSS on all Android versions -->
-    <!-- Remove maxSdkVersion conflicts from feature modules (bluetooth has 30, network has 32) -->
     <uses-permission
         android:name="android.permission.ACCESS_FINE_LOCATION"
         tools:remove="android:maxSdkVersion" />
@@ -95,12 +94,12 @@
             android:exported="false" />
         
         <!-- Plugin Sandbox Service - Runs in SEPARATE process for crash isolation -->
-        <!-- isolatedProcess="false" = Hardware access controlled via Hardware Bridge + PermissionManager -->
-        <!-- Security: App-level enforcement (not OS-level, but pragmatic and functional) -->
+        <!-- isolatedProcess="true" = TRUE OS-Level isolation (no app permissions) -->
+        <!-- Security: Hardware access controlled via Hardware Bridge + PermissionManager -->
         <service
             android:name="com.ble1st.connectias.core.plugin.PluginSandboxService"
             android:process=":plugin_sandbox"
-            android:isolatedProcess="false"
+            android:isolatedProcess="true"
             android:exported="false" />
     </application>
 

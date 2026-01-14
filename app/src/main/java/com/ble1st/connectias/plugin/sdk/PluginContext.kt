@@ -66,6 +66,26 @@ interface PluginContext {
     suspend fun captureImage(): Result<ByteArray>
     
     /**
+     * Start camera preview via Hardware Bridge
+     * Returns SharedMemory file descriptor for reading preview frames
+     * 
+     * Frame format: YUV_420_888 (640x480)
+     * Buffer contains 2 frames for double buffering
+     * 
+     * Requires CAMERA permission
+     * 
+     * @return Result with preview metadata on success, or error
+     */
+    suspend fun startCameraPreview(): Result<CameraPreviewInfo>
+    
+    /**
+     * Stop camera preview
+     * 
+     * @return Result with Unit on success, or error
+     */
+    suspend fun stopCameraPreview(): Result<Unit>
+    
+    /**
      * Perform HTTP request via Hardware Bridge
      * Requires INTERNET permission to be granted by user
      * 
@@ -113,6 +133,18 @@ interface PluginContext {
      */
     fun getHardwareBridge(): Any? // Returns IHardwareBridge, using Any to avoid SDK dependency
 }
+
+/**
+ * Camera preview information
+ */
+data class CameraPreviewInfo(
+    val fileDescriptor: Int,
+    val width: Int,
+    val height: Int,
+    val format: String,
+    val frameSize: Int,
+    val bufferSize: Int
+)
 
 /**
  * Bluetooth device information

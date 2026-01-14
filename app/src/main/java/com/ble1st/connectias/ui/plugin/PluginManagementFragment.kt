@@ -53,6 +53,9 @@ class PluginManagementFragment : Fragment() {
                                 R.id.nav_plugin_permission_detail,
                                 bundleOf("pluginId" to pluginId)
                             )
+                        },
+                        onNavigateToStore = {
+                            findNavController().navigate(R.id.nav_plugin_store)
                         }
                     )
                 }

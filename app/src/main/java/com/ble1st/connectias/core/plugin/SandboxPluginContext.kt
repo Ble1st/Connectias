@@ -3,6 +3,7 @@ package com.ble1st.connectias.core.plugin
 import android.content.Context
 import com.ble1st.connectias.plugin.sdk.PluginContext
 import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
+import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
 import com.ble1st.connectias.plugin.NativeLibraryManager
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.SecureContextWrapper
@@ -85,6 +86,49 @@ class SandboxPluginContext(
     // Hardware Bridge APIs Implementation
     // ========================================
     
+    override suspend fun startCameraPreview(): Result<CameraPreviewInfo> = suspendCancellableCoroutine { continuation ->
+        try {
+            if (hardwareBridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not available")))
+                return@suspendCancellableCoroutine
+            }
+            
+            val response = hardwareBridge.startCameraPreview(pluginId)
+            if (response.success && response.fileDescriptor != null) {
+                val metadata = response.metadata ?: emptyMap()
+                val previewInfo = CameraPreviewInfo(
+                    fileDescriptor = response.fileDescriptor.fd,
+                    width = metadata["width"]?.toIntOrNull() ?: 640,
+                    height = metadata["height"]?.toIntOrNull() ?: 480,
+                    format = metadata["format"] ?: "YUV_420_888",
+                    frameSize = metadata["frameSize"]?.toIntOrNull() ?: 460800,
+                    bufferSize = metadata["bufferSize"]?.toIntOrNull() ?: 921600
+                )
+                continuation.resume(Result.success(previewInfo))
+            } else {
+                continuation.resume(Result.failure(Exception(response.errorMessage ?: "Preview failed")))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] startCameraPreview failed")
+            continuation.resume(Result.failure(e))
+        }
+    }
+    
+    override suspend fun stopCameraPreview(): Result<Unit> = suspendCancellableCoroutine { continuation ->
+        try {
+            if (hardwareBridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not available")))
+                return@suspendCancellableCoroutine
+            }
+            
+            hardwareBridge.stopCameraPreview(pluginId)
+            continuation.resume(Result.success(Unit))
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] stopCameraPreview failed")
+            continuation.resume(Result.failure(e))
+        }
+    }
+    
     override suspend fun captureImage(): Result<ByteArray> = suspendCancellableCoroutine { continuation ->
         try {
             if (hardwareBridge == null) {
@@ -148,10 +192,27 @@ class SandboxPluginContext(
                 return@suspendCancellableCoroutine
             }
             
-            // AIDL signature: printDocument(pluginId, printerId, documentFd)
-            // We need to get available printers first, then pass ParcelFileDescriptor
-            // For now, not fully implemented - return error
-            continuation.resume(Result.failure(UnsupportedOperationException("Print not yet fully implemented")))
+            // Create temp file for document data
+            val tempFile = java.io.File.createTempFile("print_", ".pdf", appContext.cacheDir)
+            tempFile.writeBytes(data)
+            
+            // Create ParcelFileDescriptor
+            val documentFd = android.os.ParcelFileDescriptor.open(
+                tempFile,
+                android.os.ParcelFileDescriptor.MODE_READ_ONLY
+            )
+            
+            val printerId = printerName ?: "default"
+            val response = hardwareBridge.printDocument(pluginId, printerId, documentFd)
+            
+            // Cleanup
+            tempFile.delete()
+            
+            if (response.success) {
+                continuation.resume(Result.success(Unit))
+            } else {
+                continuation.resume(Result.failure(Exception(response.errorMessage ?: "Print failed")))
+            }
         } catch (e: Exception) {
             Timber.e(e, "[SANDBOX:$pluginId] printDocument failed")
             continuation.resume(Result.failure(e))

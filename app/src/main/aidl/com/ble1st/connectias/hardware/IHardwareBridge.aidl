@@ -24,6 +24,15 @@ interface IHardwareBridge {
     // ════════════════════════════════════════════════════════
     
     /**
+     * Request runtime permission
+     * 
+     * @param pluginId Plugin requesting access (for permission check)
+     * @param permission Permission to request
+     * @return HardwareResponseParcel with permission result or error
+     */
+    HardwareResponseParcel requestPermission(String pluginId, String permission);
+    
+    /**
      * Capture image from camera
      * 
      * @param pluginId Plugin requesting access (for permission check)

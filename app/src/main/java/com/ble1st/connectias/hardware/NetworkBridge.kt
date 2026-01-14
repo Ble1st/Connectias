@@ -99,6 +99,7 @@ class NetworkBridge(private val context: Context) {
     
     /**
      * HTTP POST request
+     * Runs on IO thread to avoid NetworkOnMainThreadException
      * 
      * @param url Target URL
      * @param dataFd ParcelFileDescriptor with POST data
@@ -113,50 +114,54 @@ class NetworkBridge(private val context: Context) {
             
             Timber.d("[NETWORK BRIDGE] HTTP POST: $url")
             
-            // Write FD to temp file
-            val tempFile = File.createTempFile("post_", ".tmp", context.cacheDir)
-            FileInputStream(dataFd.fileDescriptor).use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    input.copyTo(output)
+            // Execute on IO thread using runBlocking
+            kotlinx.coroutines.runBlocking(kotlinx.coroutines.Dispatchers.IO) {
+                // Write FD to temp file
+                val tempFile = File.createTempFile("post_", ".tmp", context.cacheDir)
+                FileInputStream(dataFd.fileDescriptor).use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
-            }
-            
-            // Create request
-            val requestBody = tempFile.asRequestBody("application/octet-stream".toMediaType())
-            val request = Request.Builder()
-                .url(url)
-                .post(requestBody)
-                .build()
-            
-            val response = okHttpClient.newCall(request).execute()
-            
-            // Cleanup temp file
-            tempFile.delete()
-            
-            if (!response.isSuccessful) {
-                return HardwareResponseParcel.failure("HTTP ${response.code}: ${response.message}")
-            }
-            
-            val body = response.body ?: return HardwareResponseParcel.failure("Empty response body")
-            
-            // Check size
-            val contentLength = body.contentLength()
-            if (contentLength > maxResponseSize) {
-                return HardwareResponseParcel.failure("Response too large: $contentLength bytes")
-            }
-            
-            val data = body.bytes()
-            
-            Timber.i("[NETWORK BRIDGE] HTTP POST success: ${data.size} bytes")
-            
-            HardwareResponseParcel.success(
-                data = data,
-                metadata = mapOf(
-                    "status" to response.code.toString(),
-                    "contentType" to (response.header("Content-Type") ?: "unknown"),
-                    "size" to data.size.toString()
+                dataFd.close()
+                
+                // Create request
+                val requestBody = tempFile.asRequestBody("application/octet-stream".toMediaType())
+                val request = Request.Builder()
+                    .url(url)
+                    .post(requestBody)
+                    .build()
+                
+                val response = okHttpClient.newCall(request).execute()
+                
+                // Cleanup temp file
+                tempFile.delete()
+                
+                if (!response.isSuccessful) {
+                    return@runBlocking HardwareResponseParcel.failure("HTTP ${response.code}: ${response.message}")
+                }
+                
+                val body = response.body ?: return@runBlocking HardwareResponseParcel.failure("Empty response body")
+                
+                // Check size
+                val contentLength = body.contentLength()
+                if (contentLength > maxResponseSize) {
+                    return@runBlocking HardwareResponseParcel.failure("Response too large: $contentLength bytes")
+                }
+                
+                val data = body.bytes()
+                
+                Timber.i("[NETWORK BRIDGE] HTTP POST success: ${data.size} bytes")
+                
+                HardwareResponseParcel.success(
+                    data = data,
+                    metadata = mapOf(
+                        "status" to response.code.toString(),
+                        "contentType" to (response.header("Content-Type") ?: "unknown"),
+                        "size" to data.size.toString()
+                    )
                 )
-            )
+            }
             
         } catch (e: Exception) {
             Timber.e(e, "[NETWORK BRIDGE] HTTP POST failed: $url")

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Connectias
+
 pluginManagement {
     includeBuild("build-logic")
     repositories {
@@ -44,82 +47,23 @@ include(":core:domain")
 include(":core:testing")
 include(":feature-settings")
 include(":benchmark")
-// include(":test-plugin") // Deaktiviert - nur für lokale Tests
 
 // ============================================================================ 
 // Optional Modules (included based on gradle.properties)
 // ============================================================================ 
-val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
-if (featureDvdEnabled) {
-    include(":feature-dvd")
-}
+// Note: All optional feature modules have been migrated to the plugin system.
+// Features are now loaded dynamically via the plugin-sdk-temp directory.
+// The following conditional includes are kept for reference but disabled:
 
-val featureSecureNotesEnabled = providers.gradleProperty("feature.secure.notes.enabled").orNull == "true"
-if (featureSecureNotesEnabled) {
-    include(":feature-secure-notes")
-}
+// val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
+// if (featureDvdEnabled) {
+//     include(":feature-dvd")
+// }
 
-val featureBluetoothEnabled = providers.gradleProperty("feature.bluetooth.enabled").orNull == "true"
-if (featureBluetoothEnabled) {
-    include(":feature-bluetooth")
-}
-
-val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
-if (featureNetworkEnabled) {
-    include(":feature-network")
-}
-
-val featureDnsToolsEnabled = providers.gradleProperty("feature.dnstools.enabled").orNull == "true"
-if (featureDnsToolsEnabled) {
-    include(":feature-dnstools")
-}
-
-val featureBarcodeEnabled = providers.gradleProperty("feature.barcode.enabled").orNull == "true"
-if (featureBarcodeEnabled) {
-    include(":feature-barcode")
-}
-
-val featureCalendarEnabled = providers.gradleProperty("feature.calendar.enabled").orNull == "true"
-if (featureCalendarEnabled) {
-    include(":feature-calendar")
-}
-
-val featureNtpEnabled = providers.gradleProperty("feature.ntp.enabled").orNull == "true"
-if (featureNtpEnabled) {
-    include(":feature-ntp")
-}
-
-val featureSshEnabled = providers.gradleProperty("feature.ssh.enabled").orNull == "true"
-if (featureSshEnabled) {
-    include(":feature-ssh")
-}
-
-val featurePasswordEnabled = providers.gradleProperty("feature.password.enabled").orNull == "true"
-if (featurePasswordEnabled) {
-    include(":feature-password")
-}
-
-val featureDeviceInfoEnabled = providers.gradleProperty("feature.device.info.enabled").orNull == "true"
-if (featureDeviceInfoEnabled) {
-    include(":feature-deviceinfo")
-}
-
-val featureScannerEnabled = providers.gradleProperty("feature.scanner.enabled").orNull == "true"
-if (featureScannerEnabled) {
-    include(":feature-scanner")
-}
-
-val featureGpsEnabled = providers.gradleProperty("feature.gps.enabled").orNull == "true"
-if (featureGpsEnabled) {
-    include(":feature-satellite")
-}
+// All other feature modules have been removed and migrated to plugins.
 
 // ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
 // ============================================================================
-// Nur inkludieren wenn explizit gebaut wird, nicht beim Hauptapp-Build
-// Build mit: ./gradlew :test-plugin:assembleRelease -Pbuild.test.plugin=true
-val buildTestPlugin = providers.gradleProperty("build.test.plugin").orNull == "true"
-if (buildTestPlugin) {
-    include(":test-plugin")
-}
+// Note: The test plugin has been replaced by the plugin-sdk-temp structure
+// Build plugins in plugin-sdk-temp/connectias-plugin-sdk instead

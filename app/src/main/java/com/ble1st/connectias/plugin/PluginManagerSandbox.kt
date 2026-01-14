@@ -213,6 +213,21 @@ class PluginManagerSandbox(
             loadedPlugins[metadata.pluginId] = pluginInfo
             updateFlow()
             
+            // Register plugin in ModuleRegistry when loaded
+            moduleRegistry?.let { registry ->
+                val moduleMetadata = com.ble1st.connectias.core.module.ModuleCatalog.ModuleMetadata(
+                    id = metadata.pluginId,
+                    name = metadata.pluginName,
+                    version = metadata.version,
+                    fragmentClassName = metadata.fragmentClassName ?: "",
+                    category = com.ble1st.connectias.core.module.ModuleCatalog.ModuleCategory.UTILITY,
+                    isCore = false,
+                    description = metadata.description
+                )
+                registry.registerFromMetadata(moduleMetadata, isActive = false)
+                Timber.i("[PLUGIN MANAGER] Registered plugin in ModuleRegistry: ${metadata.pluginId} (inactive)")
+            }
+            
             Timber.i("Plugin loaded in sandbox: ${metadata.pluginName}")
             Result.success(metadata)
         } catch (e: Exception) {
@@ -504,6 +519,35 @@ class PluginManagerSandbox(
             nativeLibraryManager.cleanupLibraries(pluginId)
             File(dexOutputDir, pluginId).deleteRecursively()
             
+            // Delete the actual plugin file to prevent re-loading on app restart
+            try {
+                if (pluginInfo.pluginFile.exists()) {
+                    val deleted = pluginInfo.pluginFile.delete()
+                    if (deleted) {
+                        Timber.i("Plugin file deleted: ${pluginInfo.pluginFile.absolutePath}")
+                    } else {
+                        Timber.w("Failed to delete plugin file: ${pluginInfo.pluginFile.absolutePath}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to delete plugin file: ${pluginInfo.pluginFile.absolutePath}")
+            }
+            
+            // Delete plugin data directory
+            try {
+                val pluginDataDir = File(pluginDirectory, "data/${pluginId}")
+                if (pluginDataDir.exists()) {
+                    val deleted = pluginDataDir.deleteRecursively()
+                    if (deleted) {
+                        Timber.i("Plugin data directory deleted: ${pluginDataDir.absolutePath}")
+                    } else {
+                        Timber.w("Failed to delete plugin data directory: ${pluginDataDir.absolutePath}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to delete plugin data directory for plugin: $pluginId")
+            }
+            
             updateFlow()
             
             // Remove from ModuleRegistry
@@ -549,17 +593,16 @@ class PluginManagerSandbox(
                 return@withContext Result.failure(Exception("Plugin file not found for ID: $pluginId"))
             }
             
-            // Load the plugin
+            // Load the plugin only (don't enable automatically)
             val loadResult = loadPlugin(pluginFile)
             loadResult.onSuccess { metadata ->
-                // Automatically enable the plugin after loading
-                enablePlugin(pluginId)
-                Timber.i("Plugin loaded and enabled in sandbox: ${metadata.pluginName} v${metadata.version}")
+                Timber.i("Plugin loaded in sandbox (not enabled): ${metadata.pluginName} v${metadata.version}")
+                // Note: Plugin is loaded but not enabled - user must enable it manually
             }
             
             loadResult
         } catch (e: Exception) {
-            Timber.e(e, "Failed to load and enable plugin: $pluginId")
+            Timber.e(e, "Failed to load plugin: $pluginId")
             Result.failure(e)
         }
     }

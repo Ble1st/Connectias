@@ -7,6 +7,7 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.sdk.PluginContext
 import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
+import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
 import timber.log.Timber
@@ -109,6 +110,51 @@ class PluginContextImpl(
     // Hardware Bridge APIs (Main Process via IPC)
     // ========================================
     
+    override suspend fun startCameraPreview(): Result<CameraPreviewInfo> = suspendCancellableCoroutine { continuation ->
+        try {
+            val bridge = hardwareBridge
+            if (bridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not connected")))
+                return@suspendCancellableCoroutine
+            }
+            
+            val response = bridge.startCameraPreview(pluginId)
+            if (response.success && response.fileDescriptor != null) {
+                val metadata = response.metadata ?: emptyMap()
+                val previewInfo = CameraPreviewInfo(
+                    fileDescriptor = response.fileDescriptor.fd,
+                    width = metadata["width"]?.toIntOrNull() ?: 640,
+                    height = metadata["height"]?.toIntOrNull() ?: 480,
+                    format = metadata["format"] ?: "YUV_420_888",
+                    frameSize = metadata["frameSize"]?.toIntOrNull() ?: 460800,
+                    bufferSize = metadata["bufferSize"]?.toIntOrNull() ?: 921600
+                )
+                continuation.resume(Result.success(previewInfo))
+            } else {
+                continuation.resume(Result.failure(Exception(response.errorMessage ?: "Preview failed")))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[$pluginId] startCameraPreview failed")
+            continuation.resume(Result.failure(e))
+        }
+    }
+    
+    override suspend fun stopCameraPreview(): Result<Unit> = suspendCancellableCoroutine { continuation ->
+        try {
+            val bridge = hardwareBridge
+            if (bridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not connected")))
+                return@suspendCancellableCoroutine
+            }
+            
+            bridge.stopCameraPreview(pluginId)
+            continuation.resume(Result.success(Unit))
+        } catch (e: Exception) {
+            Timber.e(e, "[$pluginId] stopCameraPreview failed")
+            continuation.resume(Result.failure(e))
+        }
+    }
+    
     override suspend fun captureImage(): Result<ByteArray> = suspendCancellableCoroutine { continuation ->
         try {
             val bridge = hardwareBridge
@@ -180,16 +226,60 @@ class PluginContextImpl(
         data: ByteArray,
         mimeType: String,
         printerName: String?
-    ): Result<Unit> {
-        return Result.failure(UnsupportedOperationException(
-            "Print not implemented yet"
-        ))
+    ): Result<Unit> = suspendCancellableCoroutine { continuation ->
+        try {
+            val bridge = hardwareBridge
+            if (bridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not connected")))
+                return@suspendCancellableCoroutine
+            }
+            
+            // Create temp file for document
+            val tempFile = File.createTempFile("print_", ".pdf", appContext.cacheDir)
+            tempFile.writeBytes(data)
+            
+            val documentFd = ParcelFileDescriptor.open(
+                tempFile,
+                ParcelFileDescriptor.MODE_READ_ONLY
+            )
+            
+            val printerId = printerName ?: "default"
+            val response = bridge.printDocument(pluginId, printerId, documentFd)
+            
+            tempFile.delete()
+            
+            if (response.success) {
+                continuation.resume(Result.success(Unit))
+            } else {
+                continuation.resume(Result.failure(Exception(response.errorMessage ?: "Print failed")))
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[$pluginId] printDocument failed")
+            continuation.resume(Result.failure(e))
+        }
     }
     
-    override suspend fun getBluetoothDevices(): Result<List<BluetoothDeviceInfo>> {
-        return Result.failure(UnsupportedOperationException(
-            "Bluetooth not implemented yet"
-        ))
+    override suspend fun getBluetoothDevices(): Result<List<BluetoothDeviceInfo>> = suspendCancellableCoroutine { continuation ->
+        try {
+            val bridge = hardwareBridge
+            if (bridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("Hardware Bridge not connected")))
+                return@suspendCancellableCoroutine
+            }
+            
+            val devices = bridge.getPairedBluetoothDevices(pluginId)
+            val deviceList = devices.map { address ->
+                BluetoothDeviceInfo(
+                    name = address,
+                    address = address,
+                    bondState = 12 // BOND_BONDED
+                )
+            }
+            continuation.resume(Result.success(deviceList))
+        } catch (e: Exception) {
+            Timber.e(e, "[$pluginId] getBluetoothDevices failed")
+            continuation.resume(Result.failure(e))
+        }
     }
     
     override fun getHardwareBridge(): Any? {

@@ -29,7 +29,16 @@
         <action
             android:id="@+id/action_nav_plugin_management_to_nav_plugin_permission_detail"
             app:destination="@id/nav_plugin_permission_detail" />
+        <action
+            android:id="@+id/action_nav_plugin_management_to_nav_plugin_store"
+            app:destination="@id/nav_plugin_store" />
     </fragment>
+    
+    <!-- Plugin Store -->
+    <fragment
+        android:id="@+id/nav_plugin_store"
+        android:name="com.ble1st.connectias.ui.plugin.store.PluginStoreFragment"
+        android:label="Plugin Store" />
     
     <!-- Plugin Permission Detail -->
     <fragment

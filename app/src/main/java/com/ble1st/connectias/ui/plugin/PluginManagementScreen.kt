@@ -36,7 +36,8 @@ fun PluginManagementScreen(
     permissionManager: PluginPermissionManager,
     manifestParser: PluginManifestParser,
     onNavigateBack: () -> Unit,
-    onNavigateToPermissions: (String) -> Unit
+    onNavigateToPermissions: (String) -> Unit,
+    onNavigateToStore: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val plugins by pluginManager.pluginsFlow.collectAsStateWithLifecycle()
@@ -123,12 +124,23 @@ fun PluginManagementScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    filePickerLauncher.launch("*/*")
-                }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(horizontal = 16.dp)
             ) {
-                Icon(Icons.Default.Add, "Add Plugin")
+                FloatingActionButton(
+                    onClick = onNavigateToStore,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Icon(Icons.Default.ShoppingCart, "Store")
+                }
+                FloatingActionButton(
+                    onClick = {
+                        filePickerLauncher.launch("*/*")
+                    }
+                ) {
+                    Icon(Icons.Default.Add, "Add Plugin")
+                }
             }
         }
     ) { padding ->

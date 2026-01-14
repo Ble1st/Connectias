@@ -2,6 +2,7 @@ package com.ble1st.connectias.plugin
 
 import android.content.Context
 import com.ble1st.connectias.core.module.ModuleRegistry
+import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -79,5 +80,14 @@ object PluginModule {
             permissionManager,
             manifestParser
         )
+    }
+    
+    @Provides
+    @Singleton
+    fun provideGitHubPluginStore(
+        @ApplicationContext context: Context,
+        pluginManager: PluginManagerSandbox
+    ): GitHubPluginStore {
+        return GitHubPluginStore(context, pluginManager)
     }
 }

@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.navigation.safe.args)
@@ -227,73 +228,8 @@ dependencies {
     implementation(project(":feature-settings"))
     
     // Optional Modules (included based on gradle.properties)
-    // Note: feature.backup was removed as it was not implemented
-
-    val featureDvdEnabled = project.findProperty("feature.dvd.enabled") == "true"
-    if (featureDvdEnabled) {
-        implementation(project(":feature-dvd"))
-    }
-
-    val featureSecureNotesEnabled = project.findProperty("feature.secure.notes.enabled") == "true"
-    if (featureSecureNotesEnabled) {
-        implementation(project(":feature-secure-notes"))
-    }
-
-    val featureBluetoothEnabled = project.findProperty("feature.bluetooth.enabled") == "true"
-    if (featureBluetoothEnabled) {
-        implementation(project(":feature-bluetooth"))
-    }
-
-    val featureNetworkEnabled = project.findProperty("feature.network.enabled") == "true"
-    if (featureNetworkEnabled) {
-        implementation(project(":feature-network"))
-    }
-
-    val featureDnsToolsEnabled = project.findProperty("feature.dnstools.enabled") == "true"
-    if (featureDnsToolsEnabled) {
-        implementation(project(":feature-dnstools"))
-    }
-
-    val featureBarcodeEnabled = project.findProperty("feature.barcode.enabled") == "true"
-    if (featureBarcodeEnabled) {
-        implementation(project(":feature-barcode"))
-    }
-
-    val featureScannerEnabled = providers.gradleProperty("feature.scanner.enabled").orNull == "true"
-    if (featureScannerEnabled) {
-        implementation(project(":feature-scanner"))
-    }
-
-
-    val featureCalendarEnabled = project.findProperty("feature.calendar.enabled") == "true"
-    if (featureCalendarEnabled) {
-        implementation(project(":feature-calendar"))
-    }
-
-    val featureNtpEnabled = project.findProperty("feature.ntp.enabled") == "true"
-    if (featureNtpEnabled) {
-        implementation(project(":feature-ntp"))
-    }
-
-    val featureSshEnabled = project.findProperty("feature.ssh.enabled") == "true"
-    if (featureSshEnabled) {
-        implementation(project(":feature-ssh"))
-    }
-
-    val featurePasswordEnabled = project.findProperty("feature.password.enabled") == "true"
-    if (featurePasswordEnabled) {
-        implementation(project(":feature-password"))
-    }
-
-    val featureDeviceInfoEnabled = project.findProperty("feature.device.info.enabled") == "true"
-    if (featureDeviceInfoEnabled) {
-        implementation(project(":feature-deviceinfo"))
-    }
-
-    val featureGpsEnabled = project.findProperty("feature.gps.enabled") == "true"
-    if (featureGpsEnabled) {
-        implementation(project(":feature-satellite"))
-    }
+    // Note: All optional feature modules have been removed and migrated to plugin system
+    // Features are now loaded dynamically via the plugin-sdk-temp directory
 
     // Room Database + SQLCipher (for DatabaseModule)
     implementation(libs.androidx.room.runtime)
@@ -333,6 +269,10 @@ dependencies {
     
     // OkHttp (required for SSL Pinning in core module)
     implementation(libs.okhttp)
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    
+    // Kotlinx Serialization (for JSON parsing)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)

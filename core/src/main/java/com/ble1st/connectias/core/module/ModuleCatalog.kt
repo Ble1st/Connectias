@@ -38,57 +38,10 @@ object ModuleCatalog {
     
     /**
      * Optional modules that may be compiled into the app.
+     * Note: All optional feature modules have been removed and migrated to plugin system.
+     * Features are now loaded dynamically via the plugin-sdk-temp directory.
      */
-    val OPTIONAL_MODULES = listOf(
-        ModuleMetadata(
-            id = "privacy",
-            name = "Privacy Dashboard",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.privacy.ui.PrivacyDashboardFragment",
-            category = ModuleCategory.PRIVACY,
-            description = "Privacy settings and data protection"
-        ),
-        ModuleMetadata(
-            id = "utilities",
-            name = "Utilities",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.utilities.ui.UtilitiesDashboardFragment",
-            category = ModuleCategory.UTILITY,
-            description = "Utility tools: Hash, Encoding, QR Code, Text tools"
-        ),
-        ModuleMetadata(
-            id = "backup",
-            name = "Backup & Restore",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.backup.ui.BackupDashboardFragment",
-            category = ModuleCategory.UTILITY,
-            description = "Backup and restore app data"
-        ),
-        ModuleMetadata(
-            id = "secure_notes",
-            name = "Secure Notes",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.securenotes.ui.SecureNotesFragment",
-            category = ModuleCategory.SECURITY,
-            description = "Encrypted note storage"
-        ),
-        ModuleMetadata(
-            id = "bluetooth_scanner",
-            name = "Bluetooth Scanner",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.bluetooth.ui.BluetoothScannerFragment",
-            category = ModuleCategory.NETWORK,
-            description = "Scan nearby Bluetooth devices with signal proximity"
-        ),
-        ModuleMetadata(
-            id = "network_tools",
-            name = "Network Tools",
-            version = "1.0.0",
-            fragmentClassName = "com.ble1st.connectias.feature.network.ui.NetworkToolsFragment",
-            category = ModuleCategory.NETWORK,
-            description = "WLAN, Netz, Port und SSL Scanner"
-        )
-    )
+    val OPTIONAL_MODULES = emptyList<ModuleMetadata>()
     
     /**
      * All known modules (core + optional).

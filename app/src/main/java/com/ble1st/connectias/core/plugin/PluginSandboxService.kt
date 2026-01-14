@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Connectias
+
 package com.ble1st.connectias.core.plugin
 
 import android.app.Service
@@ -14,6 +17,7 @@ import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import com.ble1st.connectias.hardware.IHardwareBridge
 import android.os.ParcelFileDescriptor
 import dalvik.system.DexClassLoader
+import dalvik.system.InMemoryDexClassLoader
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
@@ -29,7 +33,7 @@ import java.util.zip.ZipFile
 class PluginSandboxService : Service() {
     
     private val loadedPlugins: ConcurrentHashMap<String, SandboxPluginInfo> = ConcurrentHashMap()
-    private val classLoaders: ConcurrentHashMap<String, DexClassLoader> = ConcurrentHashMap()
+    private val classLoaders: ConcurrentHashMap<String, ClassLoader> = ConcurrentHashMap()
     
     // Permission manager for sandbox process
     private lateinit var permissionManager: PluginPermissionManager
@@ -49,6 +53,8 @@ class PluginSandboxService : Service() {
         val pluginId: String,
         val metadata: PluginMetadata,
         val instance: IPlugin,
+        val classLoader: ClassLoader,
+        val context: SandboxPluginContext,
         val state: PluginState,
         var lastMemoryUsage: Long = 0L
     )
@@ -238,6 +244,42 @@ class PluginSandboxService : Service() {
             loadedPlugins.remove(pluginId)
             File(cacheDir, "sandbox_plugins/$pluginId").deleteRecursively()
             
+            // Delete read-only plugin file from sandbox_plugins_ro directory
+            try {
+                val secureDir = File(filesDir, "sandbox_plugins_ro")
+                val pluginFile = File(secureDir, "$pluginId.apk")
+                if (pluginFile.exists()) {
+                    // Temporarily make directory writable to delete the file
+                    secureDir.setWritable(true, false)
+                    val deleted = pluginFile.delete()
+                    // Make directory read-only again
+                    secureDir.setWritable(false, false)
+                    
+                    if (deleted) {
+                        Timber.i("[SANDBOX] Read-only plugin file deleted: ${pluginFile.absolutePath}")
+                    } else {
+                        Timber.w("[SANDBOX] Failed to delete read-only plugin file: ${pluginFile.absolutePath}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "[SANDBOX] Failed to delete read-only plugin file for: $pluginId")
+            }
+            
+            // Delete plugin data directory from sandbox
+            try {
+                val pluginDir = File(filesDir, "sandbox_plugins/$pluginId")
+                if (pluginDir.exists()) {
+                    val deleted = pluginDir.deleteRecursively()
+                    if (deleted) {
+                        Timber.i("[SANDBOX] Plugin directory deleted: ${pluginDir.absolutePath}")
+                    } else {
+                        Timber.w("[SANDBOX] Failed to delete plugin directory: ${pluginDir.absolutePath}")
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "[SANDBOX] Failed to delete plugin directory for: $pluginId")
+            }
+            
             Timber.i("[SANDBOX] Plugin unloaded: $pluginId")
             PluginResultParcel.success()
             
@@ -337,6 +379,8 @@ class PluginSandboxService : Service() {
                     pluginId = metadata.pluginId,
                     metadata = metadata,
                     instance = pluginInstance,
+                    classLoader = classLoader,
+                    context = pluginContext,
                     state = PluginState.LOADED,
                     lastMemoryUsage = 0L
                 )
@@ -421,80 +465,68 @@ class PluginSandboxService : Service() {
             return try {
                 Timber.i("[SANDBOX] Loading plugin from descriptor: $pluginId")
                 
-                // Step 1: Copy to code_cache (writable, for initial storage)
-                val codeCache = codeCacheDir
-                if (!codeCache.exists()) {
-                    codeCache.mkdirs()
-                }
-                
-                val tempFile = File(codeCache, "${pluginId}_temp.apk")
-                
-                // Delete existing temp file if present
-                if (tempFile.exists()) {
-                    tempFile.delete()
-                }
-                
-                // Copy file from ParcelFileDescriptor to temp location
-                Timber.d("[SANDBOX] Copying plugin data from FileDescriptor to temp")
-                var bytesCopied = 0L
-                java.io.FileInputStream(pluginFd.fileDescriptor).use { input ->
-                    java.io.FileOutputStream(tempFile).use { output ->
-                        bytesCopied = input.copyTo(output)
-                    }
-                }
+                // Step 1: Read entire APK into memory (isolated process has no file system access)
+                val apkBytes = java.io.FileInputStream(pluginFd.fileDescriptor).use { it.readBytes() }
                 pluginFd.close()
                 
-                Timber.d("[SANDBOX] Copied $bytesCopied bytes to temp: ${tempFile.absolutePath}")
+                Timber.d("[SANDBOX] Read ${apkBytes.size} bytes into memory")
                 
-                // Verify file exists and has content
-                if (!tempFile.exists() || tempFile.length() == 0L) {
-                    throw IllegalStateException("Plugin file copy failed: exists=${tempFile.exists()}, size=${tempFile.length()}")
-                }
+                // Step 2: Extract plugin metadata from APK bytes
+                val metadata = extractPluginMetadataFromBytes(apkBytes)
                 
-                // Step 2: Move to read-only location (required for DEX security)
-                val secureDir = File(filesDir, "sandbox_plugins_ro")
-                if (!secureDir.exists()) {
-                    secureDir.mkdirs()
-                }
+                // Step 3: Create in-memory DexClassLoader
+                val dexBuffer = java.nio.ByteBuffer.wrap(apkBytes)
+                val classLoader = InMemoryDexClassLoader(dexBuffer, this@PluginSandboxService.classLoader)
                 
-                // Make directory read-only
-                secureDir.setWritable(false, false)
-                secureDir.setReadable(true, false)
-                secureDir.setExecutable(true, false)
+                // Step 4: Load plugin class
+                val pluginClass = classLoader.loadClass(metadata.fragmentClassName ?: throw IllegalArgumentException("fragmentClassName required"))
+                val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
+                    ?: throw ClassCastException("Plugin does not implement IPlugin")
                 
-                val finalFile = File(secureDir, "$pluginId.apk")
+                // Step 5: Create plugin context
+                val context = SandboxPluginContext(
+                    applicationContext,
+                    File(applicationContext.cacheDir, pluginId),
+                    pluginId,
+                    permissionManager,
+                    hardwareBridge
+                )
                 
-                // Delete existing final file if present
-                if (finalFile.exists()) {
-                    // Temporarily make writable to delete
-                    secureDir.setWritable(true, false)
-                    finalFile.delete()
-                    secureDir.setWritable(false, false)
-                }
+                // Step 6: Store plugin info
+                val pluginInfo = SandboxPluginInfo(
+                    pluginId = pluginId,
+                    metadata = metadata,
+                    instance = pluginInstance,
+                    classLoader = classLoader,
+                    context = context,
+                    state = PluginState.ENABLED
+                )
+                this@PluginSandboxService.loadedPlugins[pluginId] = pluginInfo
+                this@PluginSandboxService.classLoaders[pluginId] = classLoader
                 
-                // Make directory temporarily writable for move
-                secureDir.setWritable(true, false)
+                // Step 7: Initialize plugin
+                pluginInstance.onLoad(context)
+                pluginInstance.onEnable()
                 
-                // Move file
-                val moved = tempFile.renameTo(finalFile)
-                if (!moved) {
-                    // If rename fails, copy and delete
-                    Timber.d("[SANDBOX] Rename failed, using copy")
-                    tempFile.copyTo(finalFile, overwrite = true)
-                    tempFile.delete()
-                }
+                Timber.i("[SANDBOX] Plugin loaded successfully from memory: $pluginId")
                 
-                // Make file and directory read-only
-                finalFile.setReadable(true, false)
-                finalFile.setWritable(false, false)
-                secureDir.setWritable(false, false)
-                
-                Timber.i("[SANDBOX] Plugin file ready (read-only): ${finalFile.absolutePath} (${finalFile.length()} bytes, writable=${finalFile.canWrite()})")
-                
-                // Load using existing method
-                val result = loadPlugin(finalFile.absolutePath)
-                
-                result
+                PluginResultParcel.success(
+                    PluginMetadataParcel(
+                        pluginId = metadata.pluginId,
+                        pluginName = metadata.pluginName,
+                        version = metadata.version,
+                        author = metadata.author,
+                        minApiLevel = metadata.minApiLevel,
+                        maxApiLevel = metadata.maxApiLevel,
+                        minAppVersion = metadata.minAppVersion,
+                        nativeLibraries = metadata.nativeLibraries,
+                        fragmentClassName = metadata.fragmentClassName ?: "",
+                        description = metadata.description,
+                        permissions = metadata.permissions,
+                        category = metadata.category.name,
+                        dependencies = metadata.dependencies
+                    )
+                )
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Failed to load plugin from descriptor")
                 PluginResultParcel.failure(e.message ?: "Unknown error")
@@ -535,12 +567,9 @@ class PluginSandboxService : Service() {
         // Initialize permission manager for sandbox process
         permissionManager = PluginPermissionManager(applicationContext)
         
-        // Register broadcast receiver for permission changes from main process
-        permissionBroadcastReceiver = PluginPermissionBroadcast.registerReceiver(
-            applicationContext,
-            permissionManager
-        )
-        Timber.i("[SANDBOX] Permission broadcast receiver registered")
+        // Note: Broadcast receiver cannot be registered in isolated process
+        // Permission changes will be handled via IPC through hardware bridge
+        Timber.i("[SANDBOX] Skipping broadcast receiver registration (not allowed in isolated process)")
         
         // Start memory monitoring
         memoryMonitor.startMonitoring()
@@ -551,11 +580,7 @@ class PluginSandboxService : Service() {
         super.onDestroy()
         Timber.i("[SANDBOX] Service destroyed")
         
-        // Unregister broadcast receiver
-        permissionBroadcastReceiver?.let {
-            PluginPermissionBroadcast.unregisterReceiver(applicationContext, it)
-            Timber.i("[SANDBOX] Permission broadcast receiver unregistered")
-        }
+        // Note: No broadcast receiver to unregister (isolated process restriction)
         
         // Stop memory monitoring
         memoryMonitor.stopMonitoring()
@@ -570,6 +595,51 @@ class PluginSandboxService : Service() {
                 ?: throw IllegalArgumentException("No plugin-manifest.json found")
             
             val jsonString = zip.getInputStream(manifestEntry).bufferedReader().readText()
+            val json = JSONObject(jsonString)
+            
+            val requirements = json.optJSONObject("requirements") ?: JSONObject()
+            
+            return PluginMetadata(
+                pluginId = json.getString("pluginId"),
+                pluginName = json.getString("pluginName"),
+                version = json.getString("version"),
+                author = json.optString("author", "Unknown"),
+                minApiLevel = requirements.optInt("minApiLevel", 33),
+                maxApiLevel = requirements.optInt("maxApiLevel", 36),
+                minAppVersion = requirements.optString("minAppVersion", "1.0.0"),
+                nativeLibraries = json.optJSONArray("nativeLibraries")?.let {
+                    (0 until it.length()).map { i -> it.getString(i) }
+                } ?: emptyList(),
+                fragmentClassName = json.getString("fragmentClassName"),
+                description = json.optString("description", ""),
+                permissions = json.optJSONArray("permissions")?.let {
+                    (0 until it.length()).map { i -> it.getString(i) }
+                } ?: emptyList(),
+                category = com.ble1st.connectias.plugin.sdk.PluginCategory.valueOf(
+                    json.optString("category", "UTILITY")
+                ),
+                dependencies = json.optJSONArray("dependencies")?.let {
+                    (0 until it.length()).map { i -> it.getString(i) }
+                } ?: emptyList()
+            )
+        }
+    }
+    
+    private fun extractPluginMetadataFromBytes(apkBytes: ByteArray): PluginMetadata {
+        // Create a temporary ZipInputStream from the byte array
+        java.util.zip.ZipInputStream(apkBytes.inputStream()).use { zip ->
+            var entry = zip.nextEntry
+            
+            // Find plugin-manifest.json
+            while (entry != null && !entry.name.endsWith("plugin-manifest.json")) {
+                entry = zip.nextEntry
+            }
+            
+            if (entry == null) {
+                throw IllegalArgumentException("No plugin-manifest.json found in APK")
+            }
+            
+            val jsonString = zip.bufferedReader().readText()
             val json = JSONObject(jsonString)
             
             val requirements = json.optJSONObject("requirements") ?: JSONObject()

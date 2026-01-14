@@ -1,0 +1,51 @@
+Connectias
+Copyright 2025 Connectias
+
+This product includes software developed at:
+- The Android Open Source Project (Apache-2.0)
+- The Kotlin Programming Language (Apache-2.0)
+- Dagger/Hilt Dependency Injection (Apache-2.0)
+- SQLCipher Database Encryption (BSD-style License)
+- Rust Programming Language (MIT/Apache-2.0)
+
+Third-party components requiring attribution:
+
+1. ring cryptography library
+   Copyright 2015-2016 Brian Smith.
+   Licensed under ISC License with OpenSSL linking exception.
+   Source: https://github.com/briansmith/ring
+
+2. SQLCipher
+   Copyright 2008-2016 Zetetic LLC
+   Licensed under BSD-style license
+   Source: https://github.com/sqlcipher/sqlcipher
+
+3. AndroidX Libraries
+   Copyright 2018 The Android Open Source Project
+   Licensed under Apache-2.0
+   Source: https://developer.android.com/jetpack/androidx
+
+4. Jetpack Compose
+   Copyright 2020 The Android Open Source Project
+   Licensed under Apache-2.0
+   Source: https://developer.android.com/jetpack/compose
+
+5. Timber Logging Library
+   Copyright 2013 Jake Wharton
+   Licensed under Apache-2.0
+   Source: https://github.com/JakeWharton/timber
+
+6. OkHttp Client
+   Copyright 2019 Square, Inc.
+   Licensed under Apache-2.0
+   Source: https://github.com/square/okhttp
+
+7. Rust crates used in connectias_root_detector:
+   - jni (MIT/Apache-2.0)
+   - serde (MIT/Apache-2.0)
+   - libc (MIT/Apache-2.0)
+   - walkdir (MIT/Apache-2.0)
+   - zeroize (MIT/Apache-2.0)
+   - android_logger (MIT/Apache-2.0)
+
+For full license information, see the LICENSE file.

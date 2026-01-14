@@ -36,7 +36,32 @@ class HardwareBridgeService : Service() {
     private lateinit var printerBridge: PrinterBridge
     private lateinit var bluetoothBridge: BluetoothBridge
     
+    private val permissionRequestManager = PermissionRequestManager.getInstance()
+    
     private val binder = object : IHardwareBridge.Stub() {
+        
+        override fun requestPermission(pluginId: String, permission: String): HardwareResponseParcel {
+            return try {
+                val activity = permissionRequestManager.currentActivity
+                if (activity == null) {
+                    return HardwareResponseParcel.failure("No active activity for permission request")
+                }
+                
+                Timber.i("[HARDWARE BRIDGE] Permission request: $permission for $pluginId")
+                val granted = permissionRequestManager.requestPermissionBlocking(activity, pluginId, permission)
+                
+                if (granted) {
+                    // Also grant in PluginPermissionManager for future checks
+                    permissionManager.grantPermissionForPlugin(pluginId, listOf(permission))
+                    HardwareResponseParcel.success(metadata = mapOf("granted" to "true"))
+                } else {
+                    HardwareResponseParcel.failure("Permission denied by user")
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[HARDWARE BRIDGE] Permission request failed")
+                HardwareResponseParcel.failure(e)
+            }
+        }
         
         // ════════════════════════════════════════════════════════
         // PERMISSION ENFORCEMENT
@@ -62,8 +87,22 @@ class HardwareBridgeService : Service() {
         
         override fun captureImage(pluginId: String): HardwareResponseParcel {
             return try {
+                // Auto-request permission if not granted
                 if (!checkPermission(pluginId, android.Manifest.permission.CAMERA)) {
-                    return HardwareResponseParcel.failure("Permission denied: CAMERA")
+                    val activity = permissionRequestManager.currentActivity
+                    if (activity != null) {
+                        Timber.i("[HARDWARE BRIDGE] Auto-requesting CAMERA permission for $pluginId")
+                        val granted = permissionRequestManager.requestPermissionBlocking(
+                            activity, pluginId, android.Manifest.permission.CAMERA
+                        )
+                        if (granted) {
+                            permissionManager.grantPermissionForPlugin(pluginId, listOf(android.Manifest.permission.CAMERA))
+                        } else {
+                            return HardwareResponseParcel.failure("Camera permission denied by user")
+                        }
+                    } else {
+                        return HardwareResponseParcel.failure("No activity available for permission request")
+                    }
                 }
                 
                 Timber.i("[HARDWARE BRIDGE] Camera capture requested by $pluginId")
@@ -77,8 +116,22 @@ class HardwareBridgeService : Service() {
         
         override fun startCameraPreview(pluginId: String): HardwareResponseParcel {
             return try {
+                // Auto-request permission if not granted
                 if (!checkPermission(pluginId, android.Manifest.permission.CAMERA)) {
-                    return HardwareResponseParcel.failure("Permission denied: CAMERA")
+                    val activity = permissionRequestManager.currentActivity
+                    if (activity != null) {
+                        Timber.i("[HARDWARE BRIDGE] Auto-requesting CAMERA permission for $pluginId")
+                        val granted = permissionRequestManager.requestPermissionBlocking(
+                            activity, pluginId, android.Manifest.permission.CAMERA
+                        )
+                        if (granted) {
+                            permissionManager.grantPermissionForPlugin(pluginId, listOf(android.Manifest.permission.CAMERA))
+                        } else {
+                            return HardwareResponseParcel.failure("Camera permission denied by user")
+                        }
+                    } else {
+                        return HardwareResponseParcel.failure("No activity available for permission request")
+                    }
                 }
                 
                 Timber.i("[HARDWARE BRIDGE] Camera preview start by $pluginId")
