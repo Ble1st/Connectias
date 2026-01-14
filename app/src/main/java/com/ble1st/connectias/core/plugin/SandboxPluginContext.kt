@@ -20,14 +20,14 @@ import kotlin.coroutines.resume
  */
 class SandboxPluginContext(
     private val appContext: Context,
-    private val pluginDir: File,
+    private val pluginDir: File?, // Nullable for isolated process
     private val pluginId: String,
     private val permissionManager: PluginPermissionManager,
     private val hardwareBridge: IHardwareBridge? = null
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
-    private val nativeLibManager = NativeLibraryManager(pluginDir)
+    private val nativeLibManager = pluginDir?.let { NativeLibraryManager(it) }
     
     // Lazy-initialized secure context wrapper
     private val secureContext: Context by lazy {
@@ -35,8 +35,10 @@ class SandboxPluginContext(
     }
     
     init {
-        if (!pluginDir.exists()) {
-            pluginDir.mkdirs()
+        pluginDir?.let {
+            if (!it.exists()) {
+                it.mkdirs()
+            }
         }
     }
     
@@ -46,7 +48,7 @@ class SandboxPluginContext(
     }
     
     override fun getPluginDirectory(): File {
-        return pluginDir
+    return pluginDir ?: throw UnsupportedOperationException("Plugin directory not available in isolated process")
     }
     
     override fun registerService(name: String, service: Any) {

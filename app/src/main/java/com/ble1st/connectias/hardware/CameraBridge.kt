@@ -1,6 +1,9 @@
 package com.ble1st.connectias.hardware
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.graphics.ImageFormat
 import android.hardware.camera2.*
 import android.media.ImageReader
@@ -420,10 +423,16 @@ class CameraBridge(private val context: Context) {
      */
     @Suppress("DEPRECATION")
     private fun openCameraSync(cameraId: String): CameraDevice {
+        // Check camera permission before opening camera
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            throw SecurityException("Camera permission not granted")
+        }
+        
         var device: CameraDevice? = null
         val lock = java.util.concurrent.CountDownLatch(1)
         
-        cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
+        try {
+            cameraManager.openCamera(cameraId, object : CameraDevice.StateCallback() {
             override fun onOpened(camera: CameraDevice) {
                 device = camera
                 lock.countDown()
@@ -439,6 +448,9 @@ class CameraBridge(private val context: Context) {
                 lock.countDown()
             }
         }, cameraHandler)
+        } catch (e: CameraAccessException) {
+            throw IllegalStateException("Failed to open camera", e)
+        }
         
         lock.await()
         return device ?: throw IllegalStateException("Failed to open camera")

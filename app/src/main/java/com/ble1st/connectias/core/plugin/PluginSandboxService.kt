@@ -17,6 +17,7 @@ import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import com.ble1st.connectias.hardware.IHardwareBridge
 import android.os.ParcelFileDescriptor
 import dalvik.system.DexClassLoader
+import dalvik.system.DexFile
 import dalvik.system.InMemoryDexClassLoader
 import timber.log.Timber
 import java.io.File
@@ -134,12 +135,9 @@ class PluginSandboxService : Service() {
         }
         
         private fun estimatePluginMemory(pluginInfo: SandboxPluginInfo) {
-            // Estimate memory usage (rough calculation)
-            // This is an approximation since we can't directly measure per-plugin heap
-            val pluginDir = File(filesDir, "sandbox_plugins/${pluginInfo.pluginId}")
-            val dexDir = File(cacheDir, "sandbox_plugins/${pluginInfo.pluginId}")
-            
-            val estimatedMemory = calculateDirectorySize(pluginDir) + calculateDirectorySize(dexDir)
+            // In isolated process, we cannot access filesystem
+            // Use a simple estimation based on plugin count and basic metrics
+            val estimatedMemory = 10L * 1024 * 1024 // 10MB base estimate per plugin
             
             // Update last known memory
             pluginInfo.lastMemoryUsage = estimatedMemory
@@ -242,10 +240,12 @@ class PluginSandboxService : Service() {
             // Cleanup
             classLoaders.remove(pluginId)
             loadedPlugins.remove(pluginId)
-            File(cacheDir, "sandbox_plugins/$pluginId").deleteRecursively()
+            // Note: In isolated process, we cannot access filesystem
+            // File(cacheDir, "sandbox_plugins/$pluginId").deleteRecursively()
             
             // Delete read-only plugin file from sandbox_plugins_ro directory
-            try {
+            // Note: In isolated process, we cannot access filesystem
+            /*
                 val secureDir = File(filesDir, "sandbox_plugins_ro")
                 val pluginFile = File(secureDir, "$pluginId.apk")
                 if (pluginFile.exists()) {
@@ -264,9 +264,11 @@ class PluginSandboxService : Service() {
             } catch (e: Exception) {
                 Timber.w(e, "[SANDBOX] Failed to delete read-only plugin file for: $pluginId")
             }
+            */
             
             // Delete plugin data directory from sandbox
-            try {
+            // Note: In isolated process, we cannot access filesystem
+            /*
                 val pluginDir = File(filesDir, "sandbox_plugins/$pluginId")
                 if (pluginDir.exists()) {
                     val deleted = pluginDir.deleteRecursively()
@@ -279,6 +281,7 @@ class PluginSandboxService : Service() {
             } catch (e: Exception) {
                 Timber.w(e, "[SANDBOX] Failed to delete plugin directory for: $pluginId")
             }
+            */
             
             Timber.i("[SANDBOX] Plugin unloaded: $pluginId")
             PluginResultParcel.success()
@@ -474,19 +477,24 @@ class PluginSandboxService : Service() {
                 // Step 2: Extract plugin metadata from APK bytes
                 val metadata = extractPluginMetadataFromBytes(apkBytes)
                 
-                // Step 3: Create in-memory DexClassLoader
-                val dexBuffer = java.nio.ByteBuffer.wrap(apkBytes)
-                val classLoader = InMemoryDexClassLoader(dexBuffer, this@PluginSandboxService.classLoader)
+                // Step 3: Extract ALL DEX files from APK for InMemoryDexClassLoader
+                val dexBytesList = extractAllDexFromApk(apkBytes)
+                val dexBuffers = dexBytesList.map { java.nio.ByteBuffer.wrap(it) }.toTypedArray()
+                val classLoader = InMemoryDexClassLoader(dexBuffers, this@PluginSandboxService.classLoader)
                 
-                // Step 4: Load plugin class
+                // Step 4: Debug - Show metadata
+                Timber.d("[SANDBOX] Plugin metadata: fragmentClassName=${metadata.fragmentClassName}")
+                Timber.d("[SANDBOX] Attempting to load class: ${metadata.fragmentClassName}")
+                
+                // Step 5: Load plugin class
                 val pluginClass = classLoader.loadClass(metadata.fragmentClassName ?: throw IllegalArgumentException("fragmentClassName required"))
                 val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
                     ?: throw ClassCastException("Plugin does not implement IPlugin")
                 
-                // Step 5: Create plugin context
+                // Step 6: Create plugin context (isolated process has no filesystem access)
                 val context = SandboxPluginContext(
                     applicationContext,
-                    File(applicationContext.cacheDir, pluginId),
+                    null, // No cache dir in isolated process
                     pluginId,
                     permissionManager,
                     hardwareBridge
@@ -668,5 +676,29 @@ class PluginSandboxService : Service() {
                 } ?: emptyList()
             )
         }
+    }
+    
+    private fun extractAllDexFromApk(apkBytes: ByteArray): List<ByteArray> {
+        val dexFiles = mutableListOf<ByteArray>()
+        
+        java.util.zip.ZipInputStream(apkBytes.inputStream()).use { zip ->
+            var entry = zip.nextEntry
+            
+            // Find all classes*.dex files
+            while (entry != null) {
+                if (entry.name.matches(Regex("classes[0-9]*\\.dex"))) {
+                    Timber.d("[SANDBOX] Found DEX entry: ${entry.name}, size: ${entry.size}")
+                    dexFiles.add(zip.readBytes())
+                }
+                entry = zip.nextEntry
+            }
+        }
+        
+        if (dexFiles.isEmpty()) {
+            throw IllegalArgumentException("No classes*.dex files found in APK")
+        }
+        
+        Timber.d("[SANDBOX] Extracted ${dexFiles.size} DEX files")
+        return dexFiles
     }
 }

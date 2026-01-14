@@ -467,6 +467,32 @@
 -keep class dalvik.system.DexClassLoader { *; }
 -keep class dalvik.system.BaseDexClassLoader { *; }
 
+# Keep InMemoryDexClassLoader - CRITICAL for new plugin system
+-keep class dalvik.system.InMemoryDexClassLoader { *; }
+-keepclassmembers class dalvik.system.InMemoryDexClassLoader {
+    <init>(java.nio.ByteBuffer[], java.lang.ClassLoader);
+    <init>(java.nio.ByteBuffer, java.lang.ClassLoader);
+}
+
+# Keep DexFile for DEX inspection in sandbox
+-keep class dalvik.system.DexFile { *; }
+-keepclassmembers class dalvik.system.DexFile {
+    java.util.Enumeration entries();
+}
+
+# Keep ByteBuffer for DEX loading
+-keep class java.nio.ByteBuffer { *; }
+-keepclassmembers class java.nio.ByteBuffer {
+    static *** wrap(...);
+    byte[] array();
+    int remaining();
+}
+
+# Keep Multidex support classes
+-keep class androidx.multidex.MultiDex { *; }
+-keep class androidx.multidex.MultiDexApplication { *; }
+-dontwarn androidx.multidex.**
+
 # Keep all classes that might be loaded dynamically by plugins
 # This is important for reflection-based plugin instantiation
 -keepclassmembers class * {
@@ -613,7 +639,50 @@
     void onReceive(android.content.Context, android.content.Intent);
 }
 
-# Keep SharedPreferences classes used by PluginPermissionManager
+# Keep Hardware Bridge interfaces - CRITICAL for plugin hardware access
+-keep class com.ble1st.connectias.hardware.IHardwareBridge { *; }
+-keep interface com.ble1st.connectias.hardware.IHardwareBridge { *; }
+-keep class com.ble1st.connectias.hardware.IHardwareBridge$* { *; }
+-keepclassmembers interface com.ble1st.connectias.hardware.IHardwareBridge {
+    *;
+}
+
+# Keep Hardware Bridge implementations
+-keep class com.ble1st.connectias.hardware.HardwareBridgeService { *; }
+-keep class com.ble1st.connectias.hardware.CameraBridge { *; }
+-keep class com.ble1st.connectias.hardware.NetworkBridge { *; }
+-keep class com.ble1st.connectias.hardware.PrinterBridge { *; }
+-keep class com.ble1st.connectias.hardware.BluetoothBridge { *; }
+
+# Keep ZIP handling for APK extraction
+-keep class java.util.zip.ZipFile { *; }
+-keep class java.util.zip.ZipInputStream { *; }
+-keep class java.util.zip.ZipEntry { *; }
+-keepclassmembers class java.util.zip.ZipFile {
+    java.util.zip.ZipEntry getEntry(java.lang.String);
+    java.io.InputStream getInputStream(java.util.zip.ZipEntry);
+}
+-keepclassmembers class java.util.zip.ZipInputStream {
+    java.util.zip.ZipEntry nextEntry();
+}
+
+# Keep ParcelFileDescriptor for IPC
+-keep class android.os.ParcelFileDescriptor { *; }
+-keepclassmembers class android.os.ParcelFileDescriptor {
+    android.os.ParcelFileDescriptor$Dup dup();
+    java.io.FileInputStream getFileInputStream();
+    java.io.FileOutputStream getFileOutputStream();
+}
+
+# Keep InputStream/ByteArray conversions for plugin loading
+-keep class java.io.ByteArrayInputStream { *; }
+-keep class java.io.ByteArrayOutputStream { *; }
+-keepclassmembers class java.io.ByteArrayInputStream {
+    byte[] readBytes();
+}
+-keepclassmembers class java.io.ByteArrayOutputStream {
+    byte[] toByteArray();
+}
 -keep class android.content.SharedPreferences { *; }
 -keep interface android.content.SharedPreferences { *; }
 -keep class android.content.SharedPreferences$Editor { *; }
@@ -722,3 +791,75 @@
 
 # JDK-internal X509 classes referenced by EdDSA
 -dontwarn sun.security.x509.**
+
+# ------------------------------------------------------------------------------
+# Isolated Process Support - CRITICAL for new sandbox system
+# ------------------------------------------------------------------------------
+
+# Keep Handler for memory monitoring in isolated process
+-keep class android.os.Handler { *; }
+-keepclassmembers class android.os.Handler {
+    boolean post(java.lang.Runnable);
+    boolean postDelayed(java.lang.Runnable, long);
+    void removeCallbacks(java.lang.Runnable);
+}
+
+# Keep Runnable for memory monitoring tasks
+-keep interface java.lang.Runnable { *; }
+-keepclassmembers class java.lang.Runnable {
+    void run();
+}
+
+# Keep MemoryInfo for memory monitoring
+-keep class android.app.ActivityManager$MemoryInfo { *; }
+-keepclassmembers class android.app.ActivityManager$MemoryInfo {
+    long availMem;
+    long totalMem;
+    long threshold;
+    boolean lowMemory;
+}
+
+# Keep Debug.MemoryInfo for detailed memory info
+-keep class android.os.Debug$MemoryInfo { *; }
+-keepclassmembers class android.os.Debug$MemoryInfo {
+    long getTotalPss();
+    long getTotalPrivateDirty();
+    long getTotalSharedDirty();
+}
+
+# Keep Process class for process status
+-keep class android.os.Process { *; }
+-keepclassmembers class android.os.Process {
+    int myPid();
+    int getUidForPid(int);
+    int getThreadPriority(int);
+}
+
+# Keep isolated process service components
+-keep class * extends android.app.Service {
+    <init>();
+    void onCreate();
+    void onDestroy();
+    android.os.IBinder onBind(android.content.Intent);
+}
+
+# Keep all methods in PluginSandboxService (isolated process)
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService {
+    *;
+}
+
+# Keep memory monitoring classes
+-keep class com.ble1st.connectias.core.plugin.PluginSandboxService$PluginMemoryMonitor { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService$PluginMemoryMonitor {
+    *;
+}
+
+# Keep SandboxPluginInfo for plugin tracking
+-keep class com.ble1st.connectias.core.plugin.PluginSandboxService$SandboxPluginInfo { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService$SandboxPluginInfo {
+    *;
+}
+
+# Suppress warnings about isolated process limitations
+-dontwarn android.content.ContextImpl
+-dontwarn android.app.ContextImpl

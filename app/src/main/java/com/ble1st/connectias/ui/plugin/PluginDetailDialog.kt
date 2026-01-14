@@ -166,7 +166,7 @@ fun DetailSection(
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary
         )
-        Divider()
+        HorizontalDivider()
         content()
     }
 }
