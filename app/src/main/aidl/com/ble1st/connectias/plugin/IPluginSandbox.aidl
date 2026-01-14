@@ -107,4 +107,36 @@ interface IPluginSandbox {
      * @param hardwareBridge IBinder from HardwareBridgeService
      */
     void setHardwareBridge(IBinder hardwareBridge);
+    
+    /**
+     * Set file system bridge interface for file system access
+     * Must be called before plugins try to access files
+     * 
+     * @param fileSystemBridge IBinder from FileSystemBridgeService
+     */
+    void setFileSystemBridge(IBinder fileSystemBridge);
+    
+    /**
+     * Request permission asynchronously for a plugin
+     * @param pluginId Plugin identifier
+     * @param permission Permission to request
+     * @return True if request was sent successfully, result will be delivered via callback
+     */
+    boolean requestPermissionAsync(String pluginId, String permission);
+    
+    /**
+     * Request multiple permissions asynchronously for a plugin
+     * @param pluginId Plugin identifier
+     * @param permissions List of permissions to request
+     * @return True if request was sent successfully, result will be delivered via callback
+     */
+    boolean requestPermissionsAsync(String pluginId, in List<String> permissions);
+    
+    /**
+     * Set permission result callback interface
+     * Must be called before requesting permissions asynchronously
+     * 
+     * @param callback IBinder for permission result callbacks
+     */
+    void setPermissionCallback(IBinder callback);
 }

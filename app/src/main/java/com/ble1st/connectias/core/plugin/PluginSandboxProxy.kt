@@ -9,6 +9,8 @@ import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.IPluginSandbox
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
+import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.core.plugin.FileSystemBridgeService
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.PluginResultParcel
 import kotlinx.coroutines.*
@@ -146,7 +148,7 @@ class PluginSandboxProxy(
     /**
      * Connects to Hardware Bridge Service
      */
-    private suspend fun connectHardwareBridge(): Boolean = withContext(Dispatchers.IO) {
+    suspend fun connectHardwareBridge(): Boolean = withContext(Dispatchers.IO) {
         try {
             if (isHardwareBridgeConnected.get()) {
                 return@withContext true
@@ -194,6 +196,49 @@ class PluginSandboxProxy(
             
         } catch (e: Exception) {
             Timber.e(e, "Failed to connect hardware bridge")
+            false
+        }
+    }
+    
+    /**
+     * Connects the file system bridge to the sandbox
+     * @return True if connection was successful
+     */
+    suspend fun connectFileSystemBridge(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Bind to file system bridge service
+            val fsIntent = Intent(context, FileSystemBridgeService::class.java)
+            val fsBound = context.bindService(
+                fsIntent,
+                object : ServiceConnection {
+                    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                        val fsBridge = IFileSystemBridge.Stub.asInterface(service)
+                        
+                        // Pass file system bridge to sandbox
+                        try {
+                            sandboxService?.setFileSystemBridge(fsBridge.asBinder())
+                            Timber.i("File system bridge set in sandbox")
+                        } catch (e: Exception) {
+                            Timber.e(e, "Failed to set file system bridge in sandbox")
+                        }
+                    }
+                    
+                    override fun onServiceDisconnected(name: ComponentName?) {
+                        Timber.i("File system bridge disconnected")
+                    }
+                },
+                Context.BIND_AUTO_CREATE
+            )
+            
+            if (!fsBound) {
+                Timber.w("Failed to bind to file system bridge service")
+                return@withContext false
+            }
+            
+            true
+            
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to connect file system bridge")
             false
         }
     }

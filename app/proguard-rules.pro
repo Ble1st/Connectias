@@ -607,14 +607,30 @@
 -keepclassmembers class com.ble1st.connectias.plugin.PluginMetadataParcel {
     <init>(...);
     void writeToParcel(...);
-    int describeContents();
+    *** createFromParcel(...);
 }
+
+# Keep additional AIDL classes for new features
 -keep class com.ble1st.connectias.plugin.PluginResultParcel { *; }
 -keepclassmembers class com.ble1st.connectias.plugin.PluginResultParcel {
     <init>(...);
     void writeToParcel(...);
-    int describeContents();
+    *** createFromParcel(...);
 }
+
+# Keep PermissionResult for async permission callbacks
+-keep class com.ble1st.connectias.plugin.PermissionResult { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.PermissionResult {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+}
+
+# Keep all AIDL interfaces with their inner classes
+-keep class com.ble1st.connectias.plugin.IFileSystemBridge { *; }
+-keep class com.ble1st.connectias.plugin.IFileSystemBridge$* { *; }
+-keep class com.ble1st.connectias.plugin.IPermissionCallback { *; }
+-keep class com.ble1st.connectias.plugin.IPermissionCallback$* { *; }
 
 # Keep Parcelable.Creator for AIDL Parcelables
 -keepclassmembers class com.ble1st.connectias.plugin.PluginMetadataParcel {
@@ -858,6 +874,78 @@
 -keep class com.ble1st.connectias.core.plugin.PluginSandboxService$SandboxPluginInfo { *; }
 -keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService$SandboxPluginInfo {
     *;
+}
+
+# ------------------------------------------------------------------------------
+# File System Bridge - NEW for secure file access
+# ------------------------------------------------------------------------------
+
+# Keep FileSystemBridge service and interface
+-keep class com.ble1st.connectias.core.plugin.FileSystemBridgeService { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.FileSystemBridgeService {
+    *;
+}
+
+-keep class com.ble1st.connectias.plugin.IFileSystemBridge { *; }
+-keep interface com.ble1st.connectias.plugin.IFileSystemBridge { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.IFileSystemBridge {
+    *;
+}
+
+# Keep file system methods in SandboxPluginContext
+-keepclassmembers class com.ble1st.connectias.core.plugin.SandboxPluginContext {
+    *** createFile(...);
+    *** openFile(...);
+    *** openFileForWrite(...);
+    *** deleteFile(...);
+    *** fileExists(...);
+    *** listFiles(...);
+    *** getFileSize(...);
+}
+
+# ------------------------------------------------------------------------------
+# Async Permission Requests - NEW for non-blocking permission handling
+# ------------------------------------------------------------------------------
+
+# Keep permission callback interface
+-keep class com.ble1st.connectias.plugin.IPermissionCallback { *; }
+-keep interface com.ble1st.connectias.plugin.IPermissionCallback { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.IPermissionCallback {
+    *;
+}
+
+# Keep async permission methods in PluginSandboxService
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxService {
+    *** requestPermissionAsync(...);
+    *** requestPermissionsAsync(...);
+    *** setPermissionCallback(...);
+}
+
+# Keep permission broadcast methods
+-keepclassmembers class com.ble1st.connectias.plugin.PluginPermissionBroadcast {
+    *** createPermissionRequestIntent(...);
+    *** createMultiplePermissionRequestIntent(...);
+}
+
+# Keep List and Boolean for permission results
+-keep class java.util.List { *; }
+-keep class java.lang.Boolean { *; }
+
+# ------------------------------------------------------------------------------
+# Memory Profiling - Enhanced for precise memory tracking
+# ------------------------------------------------------------------------------
+
+# Keep Debug.MemoryInfo access
+-keep class android.os.Debug$MemoryInfo { *; }
+-keepclassmembers class android.os.Debug$MemoryInfo {
+    *** getTotalPss();
+    *** getTotalPrivateDirty();
+    *** getTotalSharedDirty();
+}
+
+# Keep Process class for PID access
+-keepclassmembers class android.os.Process {
+    *** myPid();
 }
 
 # Suppress warnings about isolated process limitations

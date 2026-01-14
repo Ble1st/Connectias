@@ -84,6 +84,18 @@ class PluginManagerSandbox(
                 )
             }
             
+            // Connect hardware bridge
+            val hardwareConnected = sandboxProxy.connectHardwareBridge()
+            if (!hardwareConnected) {
+                Timber.w("Failed to connect hardware bridge - hardware access will be unavailable")
+            }
+            
+            // Connect file system bridge
+            val fileSystemConnected = sandboxProxy.connectFileSystemBridge()
+            if (!fileSystemConnected) {
+                Timber.w("Failed to connect file system bridge - file access will be unavailable")
+            }
+            
             if (!pluginDirectory.exists()) {
                 pluginDirectory.mkdirs()
             }

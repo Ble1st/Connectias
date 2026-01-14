@@ -93,6 +93,13 @@
             android:enabled="true"
             android:exported="false" />
         
+        <!-- File System Bridge Service - Provides file system access to isolated sandbox -->
+        <!-- Runs in main process with controlled file access -->
+        <service
+            android:name="com.ble1st.connectias.core.plugin.FileSystemBridgeService"
+            android:enabled="true"
+            android:exported="false" />
+        
         <!-- Plugin Sandbox Service - Runs in SEPARATE process for crash isolation -->
         <!-- isolatedProcess="true" = TRUE OS-Level isolation (no app permissions) -->
         <!-- Security: Hardware access controlled via Hardware Bridge + PermissionManager -->

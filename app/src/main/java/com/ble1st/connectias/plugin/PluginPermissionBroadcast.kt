@@ -16,8 +16,11 @@ import timber.log.Timber
 object PluginPermissionBroadcast {
     
     private const val ACTION_PERMISSION_CHANGED = "com.ble1st.connectias.PLUGIN_PERMISSION_CHANGED"
+    private const val ACTION_PERMISSION_REQUEST = "com.ble1st.connectias.PLUGIN_PERMISSION_REQUEST"
+    private const val ACTION_MULTIPLE_PERMISSION_REQUEST = "com.ble1st.connectias.PLUGIN_MULTIPLE_PERMISSION_REQUEST"
     private const val EXTRA_PLUGIN_ID = "plugin_id"
     private const val EXTRA_PERMISSION = "permission"
+    private const val EXTRA_PERMISSIONS = "permissions"
     private const val EXTRA_GRANTED = "granted"
     
     /**
@@ -109,6 +112,30 @@ object PluginPermissionBroadcast {
         } catch (e: IllegalArgumentException) {
             // Receiver was not registered
             Timber.w("[SANDBOX] Attempted to unregister non-registered receiver")
+        }
+    }
+    
+    /**
+     * Create intent for single permission request
+     * Used by sandbox to request permission from main process
+     */
+    fun createPermissionRequestIntent(pluginId: String, permission: String): Intent {
+        return Intent(ACTION_PERMISSION_REQUEST).apply {
+            putExtra(EXTRA_PLUGIN_ID, pluginId)
+            putExtra(EXTRA_PERMISSION, permission)
+            setPackage("com.ble1st.connectias") // Restrict to our app
+        }
+    }
+    
+    /**
+     * Create intent for multiple permission request
+     * Used by sandbox to request multiple permissions from main process
+     */
+    fun createMultiplePermissionRequestIntent(pluginId: String, permissions: List<String>): Intent {
+        return Intent(ACTION_MULTIPLE_PERMISSION_REQUEST).apply {
+            putExtra(EXTRA_PLUGIN_ID, pluginId)
+            putStringArrayListExtra(EXTRA_PERMISSIONS, ArrayList(permissions))
+            setPackage("com.ble1st.connectias") // Restrict to our app
         }
     }
 }

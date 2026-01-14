@@ -15,6 +15,8 @@ import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import com.ble1st.connectias.hardware.IHardwareBridge
+import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.IPermissionCallback
 import android.os.ParcelFileDescriptor
 import dalvik.system.DexClassLoader
 import dalvik.system.DexFile
@@ -25,6 +27,8 @@ import java.util.concurrent.ConcurrentHashMap
 import com.ble1st.connectias.plugin.sdk.IPlugin
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import org.json.JSONObject
+import android.os.Debug
+import android.os.Process
 import java.util.zip.ZipFile
 
 /**
@@ -41,6 +45,8 @@ class PluginSandboxService : Service() {
     
     // Hardware bridge for hardware access
     private var hardwareBridge: IHardwareBridge? = null
+    private var fileSystemBridge: IFileSystemBridge? = null
+    private var permissionCallback: IPermissionCallback? = null
     
     // Broadcast receiver for permission changes
     private var permissionBroadcastReceiver: BroadcastReceiver? = null
@@ -103,6 +109,10 @@ class PluginSandboxService : Service() {
         }
         
         private fun checkMemoryUsage() {
+            // Get precise memory info using Debug API
+            val memoryInfo = Debug.MemoryInfo()
+            Debug.getMemoryInfo(memoryInfo)
+            
             // Get overall heap status
             val maxMemory = runtime.maxMemory()
             val totalMemory = runtime.totalMemory()
@@ -110,53 +120,67 @@ class PluginSandboxService : Service() {
             val usedMemory = totalMemory - freeMemory
             val usagePercentage = usedMemory.toDouble() / maxMemory.toDouble()
             
-            // Log overall status (only if significant)
+            // Get PSS (Proportional Set Size) - more accurate memory usage
+            val totalPss = memoryInfo.getTotalPss() * 1024L // Convert KB to bytes
+            val totalPrivateDirty = memoryInfo.getTotalPrivateDirty() * 1024L
+            val totalSharedDirty = memoryInfo.getTotalSharedDirty() * 1024L
+            
+            // Log detailed memory info (only if significant)
             if (usagePercentage > 0.5) { // Only log if > 50% used
-                Timber.d("[SANDBOX] Heap: ${formatBytes(usedMemory)} / ${formatBytes(maxMemory)} (${(usagePercentage * 100).toInt()}%)")
+                Timber.d("[SANDBOX] Memory Details:")
+                Timber.d("  Heap: ${formatBytes(usedMemory)} / ${formatBytes(maxMemory)} (${(usagePercentage * 100).toInt()}%)")
+                Timber.d("  PSS: ${formatBytes(totalPss)} (actual RAM usage)")
+                Timber.d("  Private Dirty: ${formatBytes(totalPrivateDirty)}")
+                Timber.d("  Shared Dirty: ${formatBytes(totalSharedDirty)}")
             }
             
-            // Check sandbox-wide limits (Option 2)
+            // Check sandbox-wide limits using PSS (more accurate)
+            val pssPercentage = totalPss.toDouble() / maxMemory.toDouble()
             when {
-                usagePercentage >= sandboxCriticalLimit -> {
-                    Timber.e("[SANDBOX] CRITICAL: Sandbox memory at ${(usagePercentage * 100).toInt()}% - unloading largest plugin")
+                pssPercentage >= sandboxCriticalLimit -> {
+                    Timber.e("[SANDBOX] CRITICAL: Sandbox PSS memory at ${(pssPercentage * 100).toInt()}% - unloading largest plugin")
                     unloadLargestPlugin()
                 }
-                usagePercentage >= sandboxWarningLimit -> {
-                    Timber.w("[SANDBOX] WARNING: Sandbox memory at ${(usagePercentage * 100).toInt()}%")
+                pssPercentage >= sandboxWarningLimit -> {
+                    Timber.w("[SANDBOX] WARNING: Sandbox PSS memory at ${(pssPercentage * 100).toInt()}%")
                 }
             }
             
-            // Check per-plugin memory (Option 1)
-            // Note: Precise per-plugin measurement is not possible without instrumentation
-            // We estimate based on plugin data and track changes
+            // Check per-plugin memory (estimated)
             loadedPlugins.values.forEach { pluginInfo ->
-                estimatePluginMemory(pluginInfo)
+                estimatePluginMemory(pluginInfo, totalPss)
             }
         }
         
-        private fun estimatePluginMemory(pluginInfo: SandboxPluginInfo) {
-            // In isolated process, we cannot access filesystem
-            // Use a simple estimation based on plugin count and basic metrics
-            val estimatedMemory = 10L * 1024 * 1024 // 10MB base estimate per plugin
+        private fun estimatePluginMemory(pluginInfo: SandboxPluginInfo, totalPss: Long) {
+            // Better estimation based on plugin metadata and actual PSS distribution
+            val pluginCount = loadedPlugins.size
+            val baseMemory = totalPss / pluginCount // Distribute PSS evenly
+            
+            // Adjust based on plugin characteristics
+            val adjustedMemory = when {
+                pluginInfo.metadata.dependencies.isNotEmpty() -> {
+                    // Plugins with dependencies likely use more memory
+                    baseMemory + (baseMemory * 0.3).toLong()
+                }
+                pluginInfo.metadata.fragmentClassName?.contains("Compose") == true -> {
+                    // Compose UIs typically use more memory
+                    baseMemory + (baseMemory * 0.2).toLong()
+                }
+                else -> baseMemory
+            }
             
             // Update last known memory
-            pluginInfo.lastMemoryUsage = estimatedMemory
+            pluginInfo.lastMemoryUsage = adjustedMemory
             
             // Check limits
             when {
-                estimatedMemory >= pluginCriticalLimit -> {
-                    Timber.e("[SANDBOX] Plugin '${pluginInfo.pluginId}' CRITICAL memory: ${formatBytes(estimatedMemory)} - auto-unloading")
-                    // Trigger unload on main thread
-                    monitorHandler.post {
-                        try {
-                            performUnload(pluginInfo.pluginId)
-                        } catch (e: Exception) {
-                            Timber.e(e, "[SANDBOX] Failed to auto-unload plugin")
-                        }
-                    }
+                adjustedMemory >= pluginCriticalLimit -> {
+                    Timber.e("[SANDBOX] Plugin '${pluginInfo.pluginId}' CRITICAL memory: ${formatBytes(adjustedMemory)} - auto-unloading")
+                    performUnload(pluginInfo.pluginId)
                 }
-                estimatedMemory >= pluginWarningLimit -> {
-                    Timber.w("[SANDBOX] Plugin '${pluginInfo.pluginId}' WARNING: ${formatBytes(estimatedMemory)} memory usage")
+                adjustedMemory >= pluginWarningLimit -> {
+                    Timber.w("[SANDBOX] Plugin '${pluginInfo.pluginId}' WARNING memory: ${formatBytes(adjustedMemory)}")
                 }
             }
         }
@@ -460,8 +484,26 @@ class PluginSandboxService : Service() {
         }
         
         override fun getPluginMemoryUsage(pluginId: String): Long {
-            val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
-            return pluginInfo?.lastMemoryUsage ?: -1L
+            return try {
+                val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
+                if (pluginInfo == null) {
+                    Timber.w("[SANDBOX] Plugin not found for memory query: $pluginId")
+                    return -1L
+                }
+                
+                // Get current memory info for context
+                val memoryInfo = Debug.MemoryInfo()
+                Debug.getMemoryInfo(memoryInfo)
+                val totalPss = memoryInfo.getTotalPss() * 1024L
+                
+                // Return the estimated memory for this plugin
+                // Note: In isolated process, we can't get precise per-plugin memory
+                // This is an estimate based on PSS distribution
+                pluginInfo.lastMemoryUsage
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to get plugin memory usage")
+                -1L
+            }
         }
         
         override fun loadPluginFromDescriptor(pluginFd: ParcelFileDescriptor, pluginId: String): PluginResultParcel {
@@ -497,7 +539,8 @@ class PluginSandboxService : Service() {
                     null, // No cache dir in isolated process
                     pluginId,
                     permissionManager,
-                    hardwareBridge
+                    hardwareBridge,
+                    fileSystemBridge
                 )
                 
                 // Step 6: Store plugin info
@@ -547,6 +590,137 @@ class PluginSandboxService : Service() {
                 Timber.i("[SANDBOX] Hardware bridge set")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Failed to set hardware bridge")
+            }
+        }
+        
+        override fun setFileSystemBridge(fileSystemBridge: IBinder) {
+            try {
+                this@PluginSandboxService.fileSystemBridge = IFileSystemBridge.Stub.asInterface(fileSystemBridge)
+                Timber.i("[SANDBOX] File system bridge set")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set file system bridge")
+            }
+        }
+        
+        override fun setPermissionCallback(callback: IBinder) {
+            try {
+                this@PluginSandboxService.permissionCallback = IPermissionCallback.Stub.asInterface(callback)
+                Timber.i("[SANDBOX] Permission callback set")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set permission callback")
+            }
+        }
+        
+        override fun requestPermissionAsync(pluginId: String, permission: String): Boolean {
+            return try {
+                // Validate plugin exists
+                if (this@PluginSandboxService.loadedPlugins.get(pluginId as String) == null) {
+                    Timber.e("[SANDBOX] Plugin not found: $pluginId")
+                    return false
+                }
+                
+                // Check permission manager
+                if (!::permissionManager.isInitialized) {
+                    Timber.e("[SANDBOX] Permission manager not initialized")
+                    return false
+                }
+                
+                // Check if callback is set
+                if (permissionCallback == null) {
+                    Timber.e("[SANDBOX] Permission callback not set")
+                    return false
+                }
+                
+                // Check critical permissions (always denied)
+                val criticalPermissions = permissionManager.getCriticalPermissions(listOf(permission))
+                if (criticalPermissions.isNotEmpty()) {
+                    Timber.w("[SANDBOX] Critical permission denied: $permission")
+                    permissionCallback?.onPermissionResult(pluginId, permission, false, "Critical permission cannot be granted")
+                    return true
+                }
+                
+                // Check if already granted
+                if (permissionManager.isPermissionAllowed(pluginId, permission)) {
+                    Timber.d("[SANDBOX] Permission already granted: $permission")
+                    permissionCallback?.onPermissionResult(pluginId, permission, true, null)
+                    return true
+                }
+                
+                // Send permission request broadcast
+                val intent = PluginPermissionBroadcast.createPermissionRequestIntent(pluginId, permission)
+                sendBroadcast(intent)
+                
+                Timber.i("[SANDBOX] Permission request sent: $permission for plugin $pluginId")
+                true
+                
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to request permission: $permission")
+                false
+            }
+        }
+        
+        override fun requestPermissionsAsync(pluginId: String, permissions: List<String>): Boolean {
+            return try {
+                // Validate plugin exists
+                if (this@PluginSandboxService.loadedPlugins.get(pluginId as String) == null) {
+                    Timber.e("[SANDBOX] Plugin not found: $pluginId")
+                    return false
+                }
+                
+                // Check permission manager
+                if (!::permissionManager.isInitialized) {
+                    Timber.e("[SANDBOX] Permission manager not initialized")
+                    return false
+                }
+                
+                // Check if callback is set
+                if (permissionCallback == null) {
+                    Timber.e("[SANDBOX] Permission callback not set")
+                    return false
+                }
+                
+                val results = mutableMapOf<String, Boolean>()
+                val criticalPermissions = permissionManager.getCriticalPermissions(permissions)
+                
+                // Process each permission
+                for (permission in permissions) {
+                    // Check critical permissions
+                    if (criticalPermissions.contains(permission)) {
+                        results[permission] = false
+                        continue
+                    }
+                    
+                    // Check if already granted
+                    results[permission] = permissionManager.isPermissionAllowed(pluginId, permission)
+                }
+                
+                // Send permission request broadcast for non-granted permissions
+                val nonGrantedPermissions = permissions.filter { 
+                    !results[it]!! && !criticalPermissions.contains(it)
+                }
+                
+                if (nonGrantedPermissions.isNotEmpty()) {
+                    val intent = PluginPermissionBroadcast.createMultiplePermissionRequestIntent(
+                        pluginId, 
+                        nonGrantedPermissions
+                    )
+                    sendBroadcast(intent)
+                }
+                
+                // Send immediate results for already granted/critical permissions
+                if (results.isNotEmpty()) {
+                    val permissionResults = results.map { (permission, granted) ->
+                        com.ble1st.connectias.plugin.PermissionResult(permission, granted)
+                    }
+                    permissionCallback?.onPermissionsResult(pluginId, permissionResults, null)
+                }
+                
+                Timber.i("[SANDBOX] Multiple permission request sent for plugin $pluginId")
+                true
+                
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to request permissions for plugin $pluginId")
+                false
             }
         }
         

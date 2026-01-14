@@ -1,6 +1,7 @@
 package com.ble1st.connectias.core.plugin
 
 import android.content.Context
+import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.sdk.PluginContext
 import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
 import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
@@ -8,9 +9,13 @@ import com.ble1st.connectias.plugin.NativeLibraryManager
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.SecureContextWrapper
 import com.ble1st.connectias.hardware.IHardwareBridge
+import com.ble1st.connectias.plugin.IFileSystemBridge
 import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.io.IOException
 import kotlin.coroutines.resume
 
 /**
@@ -23,7 +28,8 @@ class SandboxPluginContext(
     private val pluginDir: File?, // Nullable for isolated process
     private val pluginId: String,
     private val permissionManager: PluginPermissionManager,
-    private val hardwareBridge: IHardwareBridge? = null
+    private val hardwareBridge: IHardwareBridge? = null,
+    private val fileSystemBridge: IFileSystemBridge? = null
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
@@ -246,5 +252,117 @@ class SandboxPluginContext(
     
     override fun getHardwareBridge(): Any? {
         return hardwareBridge
+    }
+    
+    // File System Methods - Uses FileSystemBridge for secure access
+    
+    fun createFile(path: String, mode: Int = 384): File? {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            val pfd = fileSystemBridge.createFile(pluginId, path, mode)
+            if (pfd != null) {
+                // Convert ParcelFileDescriptor to File object
+                val fd = pfd.fd
+                val file = File("/proc/self/fd/$fd")
+                pfd.close() // Close the descriptor as we have the file reference
+                file
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to create file: $path")
+            null
+        }
+    }
+    
+    fun openFile(path: String, mode: Int = ParcelFileDescriptor.MODE_READ_ONLY): FileInputStream? {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            val pfd = fileSystemBridge.openFile(pluginId, path, mode)
+            if (pfd != null) {
+                FileInputStream(pfd.fileDescriptor)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to open file: $path")
+            null
+        }
+    }
+    
+    fun openFileForWrite(path: String, mode: Int = ParcelFileDescriptor.MODE_WRITE_ONLY): FileOutputStream? {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            val pfd = fileSystemBridge.openFile(pluginId, path, mode)
+            if (pfd != null) {
+                FileOutputStream(pfd.fileDescriptor)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to open file for write: $path")
+            null
+        }
+    }
+    
+    fun deleteFile(path: String): Boolean {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            fileSystemBridge.deleteFile(pluginId, path)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to delete file: $path")
+            false
+        }
+    }
+    
+    fun fileExists(path: String): Boolean {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            fileSystemBridge.fileExists(pluginId, path)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to check file existence: $path")
+            false
+        }
+    }
+    
+    fun listFiles(path: String = ""): Array<String> {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            fileSystemBridge.listFiles(pluginId, path)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to list files: $path")
+            emptyArray()
+        }
+    }
+    
+    fun getFileSize(path: String): Long {
+        return try {
+            if (fileSystemBridge == null) {
+                throw UnsupportedOperationException("File system bridge not available")
+            }
+            
+            fileSystemBridge.getFileSize(pluginId, path)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to get file size: $path")
+            -1
+        }
     }
 }
