@@ -1,6 +1,6 @@
 # Now in Android Features - Implementierungsguide
 
-Dieses Dokument beschreibt die neu hinzugefügten Features aus der Now in Android (NiA) Referenz-App.
+Dieses Dokument beschreibt die neu hinzugefügte Features aus der Now in Android (NiA) Referenz-App.
 
 ## 📋 Übersicht
 
