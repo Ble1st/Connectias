@@ -1,0 +1,147 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Connectias
+
+package com.ble1st.connectias.ui
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.test.junit4.createComposeRule
+import com.github.takahirom.roborazzi.captureRoboImage
+import com.ble1st.connectias.common.ui.theme.ConnectiasTheme
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/**
+ * Roborazzi Screenshot-Tests für Plugin-UI
+ * 
+ * Inspiriert von Now in Android's Screenshot-Testing-Ansatz.
+ * 
+ * Tests ausführen:
+ * - Verify: ./gradlew verifyRoborazziDebug
+ * - Record: ./gradlew recordRoborazziDebug
+ * - Compare: ./gradlew compareRoborazziDebug
+ * 
+ * Screenshots werden in: app/src/test/screenshots/ gespeichert
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [33])
+class PluginListScreenshotTest {
+
+    @get:Rule
+    val composeTestRule = createComposeRule()
+
+    /**
+     * Screenshot-Test für Plugin-Liste in Light Theme
+     */
+    @Test
+    fun pluginList_lightTheme() {
+        composeTestRule.setContent {
+            ConnectiasTheme(
+                darkTheme = false,
+                dynamicColor = false
+            ) {
+                PluginListScreenPreview()
+            }
+        }
+
+        composeTestRule.onRoot()
+            .captureRoboImage("screenshots/plugin_list_light.png")
+    }
+
+    /**
+     * Screenshot-Test für Plugin-Liste in Dark Theme
+     */
+    @Test
+    fun pluginList_darkTheme() {
+        composeTestRule.setContent {
+            ConnectiasTheme(
+                darkTheme = true,
+                dynamicColor = false
+            ) {
+                PluginListScreenPreview()
+            }
+        }
+
+        composeTestRule.onRoot()
+            .captureRoboImage("screenshots/plugin_list_dark.png")
+    }
+
+    /**
+     * Screenshot-Test für leere Plugin-Liste
+     */
+    @Test
+    fun pluginList_empty() {
+        composeTestRule.setContent {
+            ConnectiasTheme(
+                darkTheme = false,
+                dynamicColor = false
+            ) {
+                PluginListEmptyStatePreview()
+            }
+        }
+
+        composeTestRule.onRoot()
+            .captureRoboImage("screenshots/plugin_list_empty.png")
+    }
+
+    /**
+     * Screenshot-Test für Plugin-Detail-Ansicht
+     */
+    @Test
+    fun pluginDetail_lightTheme() {
+        composeTestRule.setContent {
+            ConnectiasTheme(
+                darkTheme = false,
+                dynamicColor = false
+            ) {
+                PluginDetailScreenPreview()
+            }
+        }
+
+        composeTestRule.onRoot()
+            .captureRoboImage("screenshots/plugin_detail_light.png")
+    }
+}
+
+// ============================================================================
+// Preview Composables (Diese sollten in der tatsächlichen UI implementiert werden)
+// ============================================================================
+
+@Composable
+private fun PluginListScreenPreview() {
+    // TODO: Implementiere echte Plugin-Liste UI
+    // Diese Funktion ist ein Platzhalter für die tatsächliche Plugin-Liste
+    androidx.compose.material3.Surface {
+        androidx.compose.foundation.layout.Column {
+            androidx.compose.material3.Text("Plugin Liste - Platzhalter")
+            androidx.compose.material3.Text("Implementiere echte UI in plugin-sdk-temp")
+        }
+    }
+}
+
+@Composable
+private fun PluginListEmptyStatePreview() {
+    // TODO: Implementiere Empty State UI
+    androidx.compose.material3.Surface {
+        androidx.compose.foundation.layout.Box(
+            modifier = androidx.compose.ui.Modifier.fillMaxSize(),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            androidx.compose.material3.Text("Keine Plugins installiert")
+        }
+    }
+}
+
+@Composable
+private fun PluginDetailScreenPreview() {
+    // TODO: Implementiere Plugin-Detail UI
+    androidx.compose.material3.Surface {
+        androidx.compose.foundation.layout.Column {
+            androidx.compose.material3.Text("Plugin Details - Platzhalter")
+        }
+    }
+}

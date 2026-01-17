@@ -1,0 +1,14 @@
+# Dependency Guard Baseline
+# Generiert von: com.dropbox.dependency-guard
+# 
+# Diese Datei wird automatisch generiert und dient als Baseline für
+# Dependency-Änderungen. Sie hilft dabei, unerwartete Dependency-Änderungen
+# zu erkennen.
+# 
+# Generierung:
+# ./gradlew :app:dependencyGuard
+# 
+# Bei Änderungen:
+# 1. Überprüfe ob die Änderungen beabsichtigt sind
+# 2. Falls ja: ./gradlew :app:dependencyGuardBaseline
+# 3. Commit die aktualisierte dependencies.txt

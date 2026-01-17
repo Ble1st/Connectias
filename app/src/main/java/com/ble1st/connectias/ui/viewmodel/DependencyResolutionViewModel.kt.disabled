@@ -1,0 +1,54 @@
+package com.ble1st.connectias.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.ble1st.connectias.plugin.dependency.DependencyResolutionResult
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import timber.log.Timber
+
+// TODO: Re-enable Hilt after KSP issue is resolved
+// @HiltViewModel
+class DependencyResolutionViewModel(
+) : ViewModel() {
+    
+    private val _uiState = MutableStateFlow<DependencyResolutionUiState>(
+        DependencyResolutionUiState.Loading("Initializing...")
+    )
+    val uiState: StateFlow<DependencyResolutionUiState> = _uiState.asStateFlow()
+    
+    fun loadDependencies(pluginId: String) {
+        viewModelScope.launch {
+            _uiState.value = DependencyResolutionUiState.Loading("Resolving dependencies...")
+            
+            try {
+                // Placeholder implementation - will be connected to actual resolver
+                val result = DependencyResolutionResult(
+                    success = true,
+                    loadOrder = listOf(pluginId),
+                    missingDependencies = emptyList(),
+                    versionConflicts = emptyList(),
+                    circularDependencies = emptyList()
+                )
+                _uiState.value = DependencyResolutionUiState.Success(result)
+            } catch (e: Exception) {
+                Timber.e(e, "Unexpected error resolving dependencies")
+                _uiState.value = DependencyResolutionUiState.Error(
+                    e.message ?: "Unexpected error occurred"
+                )
+            }
+        }
+    }
+    
+    fun retry(pluginId: String) {
+        loadDependencies(pluginId)
+    }
+}
+
+sealed class DependencyResolutionUiState {
+    data class Loading(val message: String) : DependencyResolutionUiState()
+    data class Success(val result: DependencyResolutionResult) : DependencyResolutionUiState()
+    data class Error(val message: String) : DependencyResolutionUiState()
+}

@@ -120,6 +120,30 @@ class PluginManager(
         }
     }
     
+    /**
+     * Public method to load a plugin from file
+     * Used by VersionedPluginManager for version tracking
+     */
+    suspend fun loadPluginFromFile(pluginFile: File): Result<PluginMetadata> {
+        return loadPlugin(pluginFile)
+    }
+    
+    /**
+     * Export a plugin to a file
+     * Returns the original plugin file
+     */
+    suspend fun exportPlugin(pluginId: String): Result<File> = withContext(Dispatchers.IO) {
+        try {
+            val pluginInfo = loadedPlugins[pluginId]
+                ?: return@withContext Result.failure(IllegalArgumentException("Plugin not found: $pluginId"))
+            
+            Result.success(pluginInfo.pluginFile)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to export plugin: $pluginId")
+            Result.failure(e)
+        }
+    }
+    
     private suspend fun loadPlugin(pluginFile: File): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
             // Extract metadata

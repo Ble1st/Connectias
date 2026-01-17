@@ -130,6 +130,7 @@ commonmark = "0.27.0"
 # Jetpack Compose
 composeBom = "2025.12.01"
 composeCompiler = "1.5.15"
+composeAdaptive = "1.1.1"
 
 [libraries]
 # Android Core
@@ -239,6 +240,9 @@ androidx-compose-foundation = { group = "androidx.compose.foundation", name = "f
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-compose-activity = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
+androidx-compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "composeAdaptive" }
+androidx-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "composeAdaptive" }
+androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "composeAdaptive" }
 
 # Compose UI Testing
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
