@@ -3,13 +3,21 @@ package com.ble1st.connectias.plugin
 import android.content.Context
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
-import com.ble1st.connectias.plugin.sdk.IPlugin
+import com.ble1st.connectias.plugin.PluginPermissionException
+import com.ble1st.connectias.plugin.PluginPermissionBroadcast
+import com.ble1st.connectias.plugin.security.PluginThreadMonitor
+import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
+import com.ble1st.connectias.plugin.sdk.IPlugin
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dalvik.system.DexClassLoader
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
+import javax.inject.Singleton
 import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
@@ -29,11 +37,15 @@ import java.util.zip.ZipFile
  * This class implements the same API as PluginManager but delegates plugin lifecycle
  * operations to a separate sandbox process via IPC.
  */
-class PluginManagerSandbox(
-    private val context: Context,
+class PluginManagerSandbox @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val pluginDirectory: File,
+    private val sandboxProxy: PluginSandboxProxy,
     private val moduleRegistry: ModuleRegistry? = null,
+    private val threadMonitor: PluginThreadMonitor,
     private val permissionManager: PluginPermissionManager? = null,
+    private val resourceLimiter: EnhancedPluginResourceLimiter,
+    private val auditManager: SecurityAuditManager,
     private val manifestParser: PluginManifestParser? = null
 ) {
     
@@ -42,7 +54,6 @@ class PluginManagerSandbox(
     val pluginsFlow: StateFlow<List<PluginInfo>> = _pluginsFlow.asStateFlow()
     
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val sandboxProxy = PluginSandboxProxy(context)
     private val dexOutputDir = File(context.cacheDir, "plugin_dex")
     private val nativeLibraryManager = NativeLibraryManager(pluginDirectory)
     
@@ -75,13 +86,16 @@ class PluginManagerSandbox(
     
     suspend fun initialize(): Result<List<PluginMetadata>> = withContext(Dispatchers.IO) {
         try {
-            // Connect to sandbox service
-            val connectResult = sandboxProxy.connect()
-            if (connectResult.isFailure) {
-                Timber.e(connectResult.exceptionOrNull(), "Failed to connect to sandbox service")
-                return@withContext Result.failure(
-                    connectResult.exceptionOrNull() ?: Exception("Sandbox connection failed")
-                )
+            Timber.i("[PLUGIN MANAGER] Initializing PluginManagerSandbox")
+            
+            // Initialize thread monitoring for main process plugin UI security
+            PluginThreadMonitor.startMonitoring()
+            
+            // Connect to sandbox
+            val result = sandboxProxy.connect()
+            if (result.isFailure) {
+                Timber.e(result.exceptionOrNull(), "Failed to connect to sandbox")
+                throw result.exceptionOrNull() ?: Exception("Sandbox connection failed")
             }
             
             // Connect hardware bridge
@@ -443,6 +457,54 @@ class PluginManagerSandbox(
                 updateFlow()
             }
             
+            // Register plugin with network policy (default: normal network access)
+            try {
+                // Get hardware bridge service and register plugin
+                val hardwareBridge = sandboxProxy.getHardwareBridge()
+                hardwareBridge?.registerPluginNetworking(pluginId, false) // false = full network access
+                Timber.i("[PLUGIN MANAGER] Plugin registered for network access: $pluginId")
+            } catch (e: Exception) {
+                auditManager.logSecurityEvent(
+                    eventType = SecurityAuditManager.SecurityEventType.SECURITY_CONFIGURATION_CHANGE,
+                    severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                    source = "PluginManagerSandbox",
+                    pluginId = pluginId,
+                    message = "Failed to register plugin networking",
+                    exception = e
+                )
+                Timber.w(e, "[PLUGIN MANAGER] Failed to register plugin networking: $pluginId")
+                // Don't fail plugin enable for network registration failure
+            }
+            
+            // Register plugin with enhanced resource limiter
+            try {
+                // Get sandbox PID for resource monitoring
+                val sandboxPid = sandboxProxy.getSandboxPid()
+                if (sandboxPid > 0) {
+                    val resourceLimits = EnhancedPluginResourceLimiter.ResourceLimits(
+                        maxMemoryMB = 512, // 512MB limit per plugin (more reasonable)
+                        maxCpuPercent = 40f, // 40% CPU limit
+                        maxDiskUsageMB = 1024, // 1GB disk limit
+                        maxThreads = 15, // 15 threads max
+                        emergencyMemoryMB = 256 // Emergency kill at 256MB (was too low before)
+                    )
+                    resourceLimiter.registerPlugin(pluginId, sandboxPid, resourceLimits)
+                    Timber.i("[PLUGIN MANAGER] Plugin registered with resource limiter: $pluginId (PID: $sandboxPid)")
+                } else {
+                    Timber.w("[PLUGIN MANAGER] Could not get sandbox PID for resource limiting: $pluginId")
+                }
+            } catch (e: Exception) {
+                auditManager.logSecurityEvent(
+                    eventType = SecurityAuditManager.SecurityEventType.SECURITY_CONFIGURATION_CHANGE,
+                    severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                    source = "PluginManagerSandbox",
+                    pluginId = pluginId,
+                    message = "Failed to register plugin with resource limiter",
+                    exception = e
+                )
+                Timber.w(e, "[PLUGIN MANAGER] Failed to register plugin with resource limiter: $pluginId")
+            }
+            
             // Enable plugin in sandbox process via IPC
             val sandboxResult = sandboxProxy.enablePlugin(pluginId)
             if (sandboxResult.isFailure) {
@@ -467,6 +529,8 @@ class PluginManagerSandbox(
             } else {
                 Timber.w("[PLUGIN MANAGER] ModuleRegistry is NULL - plugin will not appear in navigation: $pluginId")
             }
+            
+            // Thread monitoring is already started globally
             
             Timber.i("Plugin enabled in sandbox: $pluginId")
             Result.success(Unit)
@@ -494,6 +558,16 @@ class PluginManagerSandbox(
             val sandboxResult = sandboxProxy.disablePlugin(pluginId)
             if (sandboxResult.isFailure) {
                 Timber.w(sandboxResult.exceptionOrNull(), "Sandbox disable failed, but continuing")
+            }
+            
+            // Unregister plugin from network policy
+            try {
+                val hardwareBridge = sandboxProxy.getHardwareBridge()
+                hardwareBridge?.unregisterPluginNetworking(pluginId)
+                Timber.i("[PLUGIN MANAGER] Plugin unregistered from network access: $pluginId")
+            } catch (e: Exception) {
+                Timber.w(e, "[PLUGIN MANAGER] Failed to unregister plugin networking: $pluginId")
+                // Don't fail plugin disable for network unregistration failure
             }
             
             // Create new PluginInfo with DISABLED state to trigger Compose recomposition
@@ -619,23 +693,32 @@ class PluginManagerSandbox(
         }
     }
     
-    suspend fun shutdown() {
-        Timber.i("Shutting down plugin manager sandbox")
-        
-        // Unload all plugins in sandbox
-        loadedPlugins.keys.toList().forEach { pluginId ->
-            try {
-                unloadPlugin(pluginId)
-            } catch (e: Exception) {
-                Timber.e(e, "Error unloading plugin during shutdown: $pluginId")
+    suspend fun shutdown() = withContext(Dispatchers.IO) {
+        try {
+            // Disable all enabled plugins first
+            val enabledPlugins = getEnabledPlugins()
+            enabledPlugins.forEach { pluginInfo ->
+                try {
+                    disablePlugin(pluginInfo.pluginId)
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to disable plugin during shutdown: ${pluginInfo.pluginId}")
+                }
             }
+            
+            // Stop thread monitoring
+            PluginThreadMonitor.stopMonitoring()
+            
+            // Disconnect from sandbox
+            sandboxProxy.disconnect()
+            
+            // Clear all loaded plugins
+            loadedPlugins.clear()
+            updateFlow()
+            
+            Timber.i("[PLUGIN MANAGER] PluginManagerSandbox shutdown completed")
+        } catch (e: Exception) {
+            Timber.e(e, "Error during PluginManagerSandbox shutdown")
         }
-        
-        // Disconnect from sandbox
-        sandboxProxy.disconnect()
-        
-        loadedPlugins.clear()
-        scope.cancel()
     }
     
     /**

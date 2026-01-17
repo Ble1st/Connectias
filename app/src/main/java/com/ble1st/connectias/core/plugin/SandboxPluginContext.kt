@@ -10,6 +10,8 @@ import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.SecureContextWrapper
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
+import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
 import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
 import java.io.File
@@ -28,8 +30,8 @@ class SandboxPluginContext(
     private val pluginDir: File?, // Nullable for isolated process
     private val pluginId: String,
     private val permissionManager: PluginPermissionManager,
-    private val hardwareBridge: IHardwareBridge? = null,
-    private val fileSystemBridge: IFileSystemBridge? = null
+    private val hardwareBridge: IHardwareBridge? = null, // Now accepts secure wrappers
+    private val fileSystemBridge: IFileSystemBridge? = null // Now accepts secure wrappers
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
@@ -251,7 +253,10 @@ class SandboxPluginContext(
     }
     
     override fun getHardwareBridge(): Any? {
-        return hardwareBridge
+        // SECURITY: Raw bridge access removed to prevent pluginId spoofing
+        // Plugins must use the provided bridge API methods instead
+        Timber.w("[SANDBOX:$pluginId] getHardwareBridge() called - raw bridge access denied for security")
+        return null
     }
     
     // File System Methods - Uses FileSystemBridge for secure access

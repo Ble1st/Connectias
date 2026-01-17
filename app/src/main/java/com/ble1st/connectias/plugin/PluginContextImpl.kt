@@ -283,7 +283,10 @@ class PluginContextImpl(
     }
     
     override fun getHardwareBridge(): Any? {
-        return hardwareBridge
+        // SECURITY: Raw bridge access removed to prevent pluginId spoofing
+        // Plugins must use the provided bridge API methods instead
+        Timber.w("[$pluginId] getHardwareBridge() called - raw bridge access denied for security")
+        return null
     }
     
     /**

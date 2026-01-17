@@ -17,7 +17,12 @@ import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.IPermissionCallback
+import com.ble1st.connectias.plugin.security.PluginIdentitySession
+import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
+import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import android.os.ParcelFileDescriptor
+import android.os.Binder
 import dalvik.system.DexClassLoader
 import dalvik.system.DexFile
 import dalvik.system.InMemoryDexClassLoader
@@ -264,8 +269,12 @@ class PluginSandboxService : Service() {
             // Cleanup
             classLoaders.remove(pluginId)
             loadedPlugins.remove(pluginId)
-            // Note: In isolated process, we cannot access filesystem
-            // File(cacheDir, "sandbox_plugins/$pluginId").deleteRecursively()
+            // SECURITY: Clean up identity session
+            PluginIdentitySession.unregisterPluginSession(pluginId)
+            Timber.i("[SANDBOX] Plugin identity session cleaned up: $pluginId")
+            
+            // Remove ClassLoader reference
+            classLoaders.remove(pluginId)
             
             // Delete read-only plugin file from sandbox_plugins_ro directory
             // Note: In isolated process, we cannot access filesystem
@@ -273,31 +282,6 @@ class PluginSandboxService : Service() {
                 val secureDir = File(filesDir, "sandbox_plugins_ro")
                 val pluginFile = File(secureDir, "$pluginId.apk")
                 if (pluginFile.exists()) {
-                    // Temporarily make directory writable to delete the file
-                    secureDir.setWritable(true, false)
-                    val deleted = pluginFile.delete()
-                    // Make directory read-only again
-                    secureDir.setWritable(false, false)
-                    
-                    if (deleted) {
-                        Timber.i("[SANDBOX] Read-only plugin file deleted: ${pluginFile.absolutePath}")
-                    } else {
-                        Timber.w("[SANDBOX] Failed to delete read-only plugin file: ${pluginFile.absolutePath}")
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.w(e, "[SANDBOX] Failed to delete read-only plugin file for: $pluginId")
-            }
-            */
-            
-            // Delete plugin data directory from sandbox
-            // Note: In isolated process, we cannot access filesystem
-            /*
-                val pluginDir = File(filesDir, "sandbox_plugins/$pluginId")
-                if (pluginDir.exists()) {
-                    val deleted = pluginDir.deleteRecursively()
-                    if (deleted) {
-                        Timber.i("[SANDBOX] Plugin directory deleted: ${pluginDir.absolutePath}")
                     } else {
                         Timber.w("[SANDBOX] Failed to delete plugin directory: ${pluginDir.absolutePath}")
                     }
@@ -472,6 +456,10 @@ class PluginSandboxService : Service() {
             return true
         }
         
+        override fun getSandboxPid(): Int {
+            return android.os.Process.myPid()
+        }
+        
         override fun getSandboxMemoryUsage(): Long {
             val runtime = Runtime.getRuntime()
             val totalMemory = runtime.totalMemory()
@@ -533,17 +521,30 @@ class PluginSandboxService : Service() {
                 val pluginInstance = pluginClass.getDeclaredConstructor().newInstance() as? IPlugin
                     ?: throw ClassCastException("Plugin does not implement IPlugin")
                 
-                // Step 6: Create plugin context (isolated process has no filesystem access)
+                // Step 6: Register plugin identity session for security
+                val callerUid = Binder.getCallingUid()
+                val sessionToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
+                Timber.i("[SANDBOX] Plugin identity registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
+                
+                // Step 7: Create secure bridge wrappers (no raw bridge access)
+                val secureHardwareBridge = hardwareBridge?.let { 
+                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, SecurityAuditManager(this@PluginSandboxService))
+                }
+                val secureFileSystemBridge = fileSystemBridge?.let {
+                    SecureFileSystemBridgeWrapper(it, pluginId)
+                }
+                
+                // Step 8: Create plugin context (isolated process has no filesystem access)
                 val context = SandboxPluginContext(
                     applicationContext,
                     null, // No cache dir in isolated process
                     pluginId,
                     permissionManager,
-                    hardwareBridge,
-                    fileSystemBridge
+                    secureHardwareBridge, // Use secure wrapper
+                    secureFileSystemBridge // Use secure wrapper
                 )
                 
-                // Step 6: Store plugin info
+                // Step 9: Store plugin info
                 val pluginInfo = SandboxPluginInfo(
                     pluginId = pluginId,
                     metadata = metadata,
@@ -555,7 +556,7 @@ class PluginSandboxService : Service() {
                 this@PluginSandboxService.loadedPlugins[pluginId] = pluginInfo
                 this@PluginSandboxService.classLoaders[pluginId] = classLoader
                 
-                // Step 7: Initialize plugin
+                // Step 10: Initialize plugin
                 pluginInstance.onLoad(context)
                 pluginInstance.onEnable()
                 

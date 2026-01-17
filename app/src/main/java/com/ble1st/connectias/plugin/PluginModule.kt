@@ -3,12 +3,18 @@ package com.ble1st.connectias.plugin
 import android.content.Context
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.store.GitHubPluginStore
+import com.ble1st.connectias.plugin.store.StreamingGitHubPluginStore
+import com.ble1st.connectias.plugin.security.PluginThreadMonitor
+import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
+import com.ble1st.connectias.core.plugin.PluginSandboxProxy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
+import javax.inject.Qualifier
 import javax.inject.Singleton
 
 @Module
@@ -61,24 +67,28 @@ object PluginModule {
     
     @Provides
     @Singleton
-    fun providePluginManager(
+    fun providePluginManagerSandbox(
         @ApplicationContext context: Context,
-        pluginDirectory: File,
+        sandboxProxy: PluginSandboxProxy,
         moduleRegistry: ModuleRegistry,
+        threadMonitor: PluginThreadMonitor,
         permissionManager: PluginPermissionManager,
+        resourceLimiter: EnhancedPluginResourceLimiter,
+        auditManager: SecurityAuditManager,
         manifestParser: PluginManifestParser
     ): PluginManagerSandbox {
-        // Use PluginManagerSandbox for process isolation (Option 3)
-        // This runs plugins in a separate process, providing crash isolation
-        // Plugin crashes will NOT crash the main app process
-        // Permission enforcement via PluginPermissionManager
+        val pluginDirectory = File(context.filesDir, "plugins").apply { mkdirs() }
         // Note: PluginManagerSandbox implements same API as PluginManager
         return PluginManagerSandbox(
-            context, 
-            pluginDirectory, 
-            moduleRegistry,
-            permissionManager,
-            manifestParser
+            context = context,
+            pluginDirectory = pluginDirectory,
+            sandboxProxy = sandboxProxy,
+            moduleRegistry = moduleRegistry,
+            threadMonitor = threadMonitor,
+            permissionManager = permissionManager,
+            resourceLimiter = resourceLimiter,
+            auditManager = auditManager,
+            manifestParser = manifestParser
         )
     }
     

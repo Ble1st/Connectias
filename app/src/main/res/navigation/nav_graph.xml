@@ -35,6 +35,12 @@
         <action
             android:id="@+id/action_nav_plugin_management_to_nav_plugin_security"
             app:destination="@id/nav_plugin_security" />
+        <action
+            android:id="@+id/action_pluginManagement_to_networkPolicyConfig"
+            app:destination="@id/nav_network_policy_config" />
+        <action
+            android:id="@+id/action_pluginManagement_to_securityAudit"
+            app:destination="@id/nav_security_audit_dashboard" />
     </fragment>
     
     <!-- Plugin Store -->
@@ -62,5 +68,17 @@
             android:name="pluginId"
             app:argType="string" />
     </fragment>
+    
+    <!-- Network Policy Configuration -->
+    <fragment
+        android:id="@+id/nav_network_policy_config"
+        android:name="com.ble1st.connectias.ui.plugin.security.NetworkPolicyConfigurationFragment"
+        android:label="Network Policy Configuration" />
+    
+    <!-- Security Audit Dashboard -->
+    <fragment
+        android:id="@+id/nav_security_audit_dashboard"
+        android:name="com.ble1st.connectias.ui.plugin.security.SecurityAuditDashboardFragment"
+        android:label="Security Audit Dashboard" />
 
 </navigation>

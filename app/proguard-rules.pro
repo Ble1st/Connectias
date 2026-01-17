@@ -951,3 +951,294 @@
 # Suppress warnings about isolated process limitations
 -dontwarn android.content.ContextImpl
 -dontwarn android.app.ContextImpl
+
+# ------------------------------------------------------------------------------
+# NEW SECURITY FEATURES - CRITICAL for Release Builds
+# ------------------------------------------------------------------------------
+
+# SecurityAuditManager - MUST be kept for audit logging and event collection
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.SecurityAuditManager {
+    *;
+}
+
+# Keep SecurityAuditEvent and related data classes - used for JSON serialization
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$SecurityAuditEvent { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$SecurityEventType { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$SecuritySeverity { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$DeviceInfo { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$SecurityStatistics { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$PluginSecuritySummary { *; }
+-keep class com.ble1st.connectias.plugin.security.SecurityAuditManager$RiskLevel { *; }
+
+# Keep all SecurityAuditManager methods - used by reflection and coroutines
+-keepclassmembers class com.ble1st.connectias.plugin.security.SecurityAuditManager {
+    *** logSecurityEvent(...);
+    *** logPluginSpoofingAttempt(...);
+    *** logNetworkPolicyViolation(...);
+    *** logResourceLimitViolation(...);
+    *** logPluginVerificationFailure(...);
+    *** logMaliciousPluginDetected(...);
+    *** logPermissionViolation(...);
+    *** logRootDetection(...);
+    *** logDebuggerDetection(...);
+    *** getEventsForPlugin(...);
+    *** getEventsBySeverity(...);
+    *** getEventsByType(...);
+    *** getPluginSecuritySummary(...);
+}
+
+# EnhancedPluginResourceLimiter - MUST be kept for resource enforcement
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter {
+    *;
+}
+
+# Keep ResourceLimits and ResourceUsage data classes
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter$ResourceLimits { *; }
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter$ResourceUsage { *; }
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter$EnforcementResult { *; }
+
+# Keep all EnhancedPluginResourceLimiter methods - used for CPU/Memory/Disk enforcement
+-keepclassmembers class com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter {
+    *** registerPlugin(...);
+    *** unregisterPlugin(...);
+    *** enforceMemoryLimits(...);
+    *** enforceCpuLimits(...);
+    *** enforceDiskLimits(...);
+    *** monitorResourceUsage(...);
+    *** getPluginsExceedingLimits();
+}
+
+# Enhanced Network Policy - MUST be kept for network security
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy {
+    *;
+}
+
+# Keep NetworkPolicyConfig and related classes
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy$NetworkPolicyConfig { *; }
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy$PolicyResult { *; }
+-keep class com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy$PolicyReport { *; }
+
+# Keep PluginNetworkTracker - used for network monitoring
+-keep class com.ble1st.connectias.plugin.security.PluginNetworkTracker { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.PluginNetworkTracker {
+    *;
+}
+
+# Keep NetworkUsageAggregator - used for bandwidth tracking
+-keep class com.ble1st.connectias.plugin.security.NetworkUsageAggregator { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.NetworkUsageAggregator {
+    *;
+}
+
+# Security UI Components - MUST be kept for Compose UI
+-keep class com.ble1st.connectias.ui.plugin.security.SecurityAuditDashboardScreen { *; }
+-keep class com.ble1st.connectias.ui.plugin.security.SecurityAuditDashboardFragment { *; }
+-keep class com.ble1st.connectias.ui.plugin.security.NetworkPolicyConfigurationScreen { *; }
+-keep class com.ble1st.connectias.ui.plugin.security.NetworkPolicyConfigurationFragment { *; }
+-keep class com.ble1st.connectias.ui.plugin.security.NetworkPolicyDialogs { *; }
+
+# Keep all @Composable functions in security UI
+-keepclassmembers class com.ble1st.connectias.ui.plugin.security.** {
+    @androidx.compose.runtime.Composable <methods>;
+}
+
+# Keep SecureHardwareBridgeWrapper - MUST be kept for security enforcement
+-keep class com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper {
+    *;
+}
+
+# Keep PluginIdentitySession - MUST be kept for identity verification
+-keep class com.ble1st.connectias.plugin.security.PluginIdentitySession { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.PluginIdentitySession {
+    *;
+}
+
+# Keep PluginThreadMonitor - MUST be kept for thread monitoring
+-keep class com.ble1st.connectias.plugin.security.PluginThreadMonitor { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.security.PluginThreadMonitor {
+    *;
+}
+
+# Enhanced Hardware Bridge Service - MUST be kept for extended functionality
+-keepclassmembers class com.ble1st.connectias.hardware.HardwareBridgeService {
+    *** registerPluginNetworking(...);
+    *** unregisterPluginNetworking(...);
+}
+
+# Updated AIDL interfaces with new methods
+-keepclassmembers interface com.ble1st.connectias.hardware.IHardwareBridge {
+    *** registerPluginNetworking(...);
+    *** unregisterPluginNetworking(...);
+}
+
+-keepclassmembers interface com.ble1st.connectias.plugin.IPluginSandbox {
+    *** getSandboxPid();
+    *** getSandboxMemoryUsage();
+    *** getSandboxMaxMemory();
+}
+
+# Keep HardwareResponseParcel - MUST be kept for AIDL communication
+-keep class com.ble1st.connectias.hardware.HardwareResponseParcel { *; }
+-keepclassmembers class com.ble1st.connectias.hardware.HardwareResponseParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep ActivityManager.RunningAppProcessInfo for memory monitoring
+-keep class android.app.ActivityManager$RunningAppProcessInfo { *; }
+-keepclassmembers class android.app.ActivityManager$RunningAppProcessInfo {
+    *** pid;
+    *** processName;
+    *** importance;
+}
+
+# Keep ActivityManager.MemoryInfo for memory limits
+-keepclassmembers class android.app.ActivityManager {
+    *** getProcessMemoryInfo(...);
+    *** getRunningAppProcesses();
+    *** killBackgroundProcesses(...);
+}
+
+# Kotlinx Serialization for SecurityAuditManager JSON logging
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class com.ble1st.connectias.plugin.security.SecurityAuditManager$** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.ble1st.connectias.plugin.security.SecurityAuditManager$** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+-keep,includedescriptorclasses class com.ble1st.connectias.plugin.security.SecurityAuditManager$**$$serializer { *; }
+
+# Keep Flow and StateFlow for reactive UI updates
+-keep class kotlinx.coroutines.flow.Flow { *; }
+-keep class kotlinx.coroutines.flow.StateFlow { *; }
+-keep class kotlinx.coroutines.flow.MutableStateFlow { *; }
+-keep class kotlinx.coroutines.flow.FlowKt { *; }
+-keepclassmembers class kotlinx.coroutines.flow.FlowKt {
+    static *** collectAsStateWithLifecycle(...);
+}
+
+# Keep Compose lifecycle integration for security UI
+-keep class androidx.lifecycle.compose.** { *; }
+-keepclassmembers class androidx.lifecycle.compose.** {
+    static *** collectAsStateWithLifecycle(...);
+}
+
+# Keep File I/O classes for security audit logging
+-keep class java.io.File { *; }
+-keepclassmembers class java.io.File {
+    *** exists();
+    *** createNewFile();
+    *** mkdirs();
+    *** getParentFile();
+    *** appendText(...);
+    *** length();
+    *** renameTo(...);
+    *** walkTopDown();
+    *** walkBottomUp();
+    *** lastModified();
+    *** delete();
+}
+
+# Keep Thread and ThreadGroup for plugin isolation
+-keep class java.lang.Thread { *; }
+-keep class java.lang.ThreadGroup { *; }
+-keepclassmembers class java.lang.Thread {
+    *** getId();
+    *** getPriority();
+    *** setPriority(...);
+}
+-keepclassmembers class java.lang.ThreadGroup {
+    *** activeCount();
+    *** enumerate(...);
+    *** interrupt();
+}
+
+# Keep ConcurrentHashMap and atomic classes for thread-safe operations
+-keep class java.util.concurrent.ConcurrentHashMap { *; }
+-keep class java.util.concurrent.atomic.AtomicBoolean { *; }
+-keep class java.util.concurrent.atomic.AtomicLong { *; }
+-keep class java.util.concurrent.atomic.AtomicInteger { *; }
+-keep class java.util.concurrent.ConcurrentLinkedQueue { *; }
+
+# Keep UUID for audit event IDs
+-keep class java.util.UUID { *; }
+-keepclassmembers class java.util.UUID {
+    static *** randomUUID();
+    *** toString();
+}
+
+# Keep SimpleDateFormat for audit timestamps
+-keep class java.text.SimpleDateFormat { *; }
+-keepclassmembers class java.text.SimpleDateFormat {
+    *** format(...);
+}
+
+# Keep Date for timestamps
+-keep class java.util.Date { *; }
+-keepclassmembers class java.util.Date {
+    <init>(long);
+}
+
+# Keep StatFs for disk usage monitoring
+-keep class android.os.StatFs { *; }
+-keepclassmembers class android.os.StatFs {
+    *** getAvailableBytes();
+    *** getTotalBytes();
+}
+
+# Keep RandomAccessFile for advanced file operations
+-keep class java.io.RandomAccessFile { *; }
+-keepclassmembers class java.io.RandomAccessFile {
+    *** length();
+    *** seek(...);
+    *** read(...);
+    *** write(...);
+}
+
+# Keep SupervisorJob for coroutine error handling
+-keep class kotlinx.coroutines.SupervisorJob { *; }
+-keepclassmembers class kotlinx.coroutines.SupervisorJob {
+    <init>(...);
+}
+
+# Keep CoroutineScope for background tasks
+-keep class kotlinx.coroutines.CoroutineScope { *; }
+-keep interface kotlinx.coroutines.CoroutineScope { *; }
+-keepclassmembers class kotlinx.coroutines.CoroutineScopeKt {
+    static *** CoroutineScope(...);
+}
+
+# Keep delay function for monitoring intervals
+-keepclassmembers class kotlinx.coroutines.DelayKt {
+    static *** delay(...);
+}
+
+# Keep withContext for dispatcher switching
+-keepclassmembers class kotlinx.coroutines.BuildersKt {
+    static *** withContext(...);
+    static *** runBlocking(...);
+}
+
+# Keep Dispatchers.IO for file operations
+-keepclassmembers class kotlinx.coroutines.Dispatchers {
+    static *** getIO();
+}
+
+# Keep Json serialization for audit logging
+-keep class kotlinx.serialization.json.Json { *; }
+-keep class kotlinx.serialization.json.JsonBuilder { *; }
+-keepclassmembers class kotlinx.serialization.json.Json {
+    *** encodeToString(...);
+    *** decodeFromString(...);
+}
+
+# Keep Hilt modules for security features
+-keep @dagger.Module class com.ble1st.connectias.di.SecurityPolicyModule { *; }
+-keep @dagger.Module class com.ble1st.connectias.di.NetworkPolicyModule { *; }

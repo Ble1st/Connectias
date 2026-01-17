@@ -77,6 +77,12 @@ interface IPluginSandbox {
     boolean ping();
     
     /**
+     * Gets the process ID of the sandbox
+     * @return Process ID
+     */
+    int getSandboxPid();
+    
+    /**
      * Gets current memory usage of sandbox process
      * @return Used memory in bytes
      */

@@ -204,6 +204,33 @@ class PluginSandboxProxy(
      * Connects the file system bridge to the sandbox
      * @return True if connection was successful
      */
+    /**
+     * Gets the hardware bridge interface for direct method calls
+     */
+    fun getHardwareBridge(): IHardwareBridge? {
+        return if (isHardwareBridgeConnected.get()) {
+            hardwareBridgeService
+        } else {
+            null
+        }
+    }
+    
+    /**
+     * Gets the sandbox process PID for resource monitoring
+     */
+    fun getSandboxPid(): Int {
+        return try {
+            if (isConnected.get()) {
+                sandboxService?.getSandboxPid() ?: 0
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get sandbox PID")
+            0
+        }
+    }
+    
     suspend fun connectFileSystemBridge(): Boolean = withContext(Dispatchers.IO) {
         try {
             // Bind to file system bridge service

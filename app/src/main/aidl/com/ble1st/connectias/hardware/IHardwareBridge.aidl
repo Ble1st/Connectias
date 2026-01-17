@@ -172,4 +172,8 @@ interface IHardwareBridge {
      * @return true if bridge is responsive
      */
     boolean ping();
+    
+    // Network Policy Management
+    void registerPluginNetworking(String pluginId, boolean telemetryOnly);
+    void unregisterPluginNetworking(String pluginId);
 }

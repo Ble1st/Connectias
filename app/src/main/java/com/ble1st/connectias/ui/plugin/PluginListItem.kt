@@ -17,8 +17,10 @@ fun PluginListItem(
     plugin: PluginManagerSandbox.PluginInfo,
     onToggleEnabled: () -> Unit,
     onShowDetails: () -> Unit,
-    onShowPermissions: () -> Unit,
-    onShowSecurity: () -> Unit = {},
+    onShowPermissions: (String) -> Unit = {},
+    onShowSecurity: (String) -> Unit = {},
+    onShowNetworkPolicy: () -> Unit = {},
+    onShowSecurityAudit: () -> Unit = {},
     onUninstall: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -75,7 +77,7 @@ fun PluginListItem(
             // Permission button (if plugin has permissions)
             val hasPermissions = (plugin.permissionInfo?.allPermissions?.size ?: 0) > 0
             if (hasPermissions) {
-                IconButton(onClick = onShowPermissions) {
+                IconButton(onClick = { onShowPermissions(plugin.metadata.pluginName) }) {
                     Icon(
                         imageVector = Icons.Default.Security,
                         contentDescription = "Manage Permissions",
@@ -114,10 +116,36 @@ fun PluginListItem(
                         text = { Text("Security Status") },
                         onClick = {
                             showMenu = false
-                            onShowSecurity()
+                            onShowSecurity(plugin.metadata.pluginName)
                         },
                         leadingIcon = {
                             Icon(Icons.Default.Shield, null)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Network Policy") },
+                        onClick = {
+                            showMenu = false
+                            onShowNetworkPolicy()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.NetworkCheck,
+                                contentDescription = null
+                            )
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Security Audit") },
+                        onClick = {
+                            showMenu = false
+                            onShowSecurityAudit()
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null
+                            )
                         }
                     )
                     DropdownMenuItem(

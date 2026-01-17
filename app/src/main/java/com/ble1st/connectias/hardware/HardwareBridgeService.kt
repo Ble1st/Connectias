@@ -5,6 +5,9 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.security.PluginNetworkTracker
+import com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy
+import com.ble1st.connectias.plugin.security.NetworkUsageAggregator
 import timber.log.Timber
 import java.io.File
 import java.io.FileInputStream
@@ -35,6 +38,7 @@ class HardwareBridgeService : Service() {
     private lateinit var networkBridge: NetworkBridge
     private lateinit var printerBridge: PrinterBridge
     private lateinit var bluetoothBridge: BluetoothBridge
+    private lateinit var enhancedNetworkPolicy: EnhancedPluginNetworkPolicy
     
     private val permissionRequestManager = PermissionRequestManager.getInstance()
     
@@ -159,13 +163,32 @@ class HardwareBridgeService : Service() {
         override fun httpGet(pluginId: String, url: String): HardwareResponseParcel {
             return try {
                 if (!checkPermission(pluginId, android.Manifest.permission.INTERNET)) {
-                    return HardwareResponseParcel.failure("Permission denied: INTERNET")
+                    return HardwareResponseParcel.failure("Internet permission required")
                 }
                 
-                Timber.i("[HARDWARE BRIDGE] HTTP GET $url by $pluginId")
-                networkBridge.httpGet(url)
+                // Enhanced network policy check
+                val policyResult = enhancedNetworkPolicy.isRequestAllowed(pluginId, url, isTelemetry = false)
+                if (!policyResult.allowed) {
+                    Timber.w("[HARDWARE BRIDGE] HTTP GET blocked by policy: $pluginId -> $url (${policyResult.reason})")
+                    return HardwareResponseParcel.failure("Request blocked by network policy: ${policyResult.reason}")
+                }
                 
+                // Track network request
+                PluginNetworkTracker.trackNetworkRequest(pluginId, url, "GET")
+                
+                Timber.i("[HARDWARE BRIDGE] HTTP GET requested by $pluginId: $url")
+                val response = networkBridge.httpGet(url)
+                
+                // Track data transfer if successful
+                if (response.success) {
+                    val responseSize = response.data?.size?.toLong() ?: 0L
+                    PluginNetworkTracker.trackDataTransfer(pluginId, bytesReceived = responseSize)
+                    NetworkUsageAggregator.recordExplicitUsage(pluginId, bytesReceived = responseSize, domain = java.net.URL(url).host)
+                }
+                
+                response
             } catch (e: Exception) {
+                PluginNetworkTracker.trackConnectionFailure(pluginId, url, e.message ?: "Unknown error")
                 Timber.e(e, "[HARDWARE BRIDGE] HTTP GET failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             }
@@ -182,10 +205,42 @@ class HardwareBridgeService : Service() {
                     return HardwareResponseParcel.failure("Permission denied: INTERNET")
                 }
                 
-                Timber.i("[HARDWARE BRIDGE] HTTP POST $url by $pluginId")
-                networkBridge.httpPost(url, dataFd)
+                // Enhanced network policy check for POST (more sensitive)
+                val policyResult = enhancedNetworkPolicy.isRequestAllowed(pluginId, url, isTelemetry = false)
+                if (!policyResult.allowed) {
+                    Timber.w("[HARDWARE BRIDGE] HTTP POST blocked by policy: $pluginId -> $url (${policyResult.reason})")
+                    dataFd.close()
+                    return HardwareResponseParcel.failure("Request blocked by network policy: ${policyResult.reason}")
+                }
                 
+                // Estimate data size for tracking
+                val dataSize = try {
+                    dataFd.statSize
+                } catch (e: Exception) {
+                    0L
+                }
+                
+                // Track network request
+                PluginNetworkTracker.trackNetworkRequest(pluginId, url, "POST")
+                
+                Timber.i("[HARDWARE BRIDGE] HTTP POST $url by $pluginId (${dataSize} bytes)")
+                val response = networkBridge.httpPost(url, dataFd)
+                
+                // Track data transfer
+                if (response.success) {
+                    val responseSize = response.data?.size?.toLong() ?: 0L
+                    PluginNetworkTracker.trackDataTransfer(pluginId, bytesReceived = responseSize, bytesSent = dataSize)
+                    NetworkUsageAggregator.recordExplicitUsage(
+                        pluginId, 
+                        bytesReceived = responseSize, 
+                        bytesSent = dataSize, 
+                        domain = java.net.URL(url).host
+                    )
+                }
+                
+                response
             } catch (e: Exception) {
+                PluginNetworkTracker.trackConnectionFailure(pluginId, url, e.message ?: "Unknown error")
                 Timber.e(e, "[HARDWARE BRIDGE] HTTP POST failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             } finally {
@@ -207,10 +262,30 @@ class HardwareBridgeService : Service() {
                     return HardwareResponseParcel.failure("Permission denied: INTERNET")
                 }
                 
-                Timber.i("[HARDWARE BRIDGE] Socket $host:$port by $pluginId")
-                networkBridge.openSocket(host, port)
+                // Build URL for policy check
+                val socketUrl = "tcp://$host:$port"
                 
+                // Enhanced network policy check for socket (high risk)
+                val policyResult = enhancedNetworkPolicy.isRequestAllowed(pluginId, socketUrl, isTelemetry = false)
+                if (!policyResult.allowed) {
+                    Timber.w("[HARDWARE BRIDGE] Socket blocked by policy: $pluginId -> $host:$port (${policyResult.reason})")
+                    return HardwareResponseParcel.failure("Socket blocked by network policy: ${policyResult.reason}")
+                }
+                
+                // Track network request
+                PluginNetworkTracker.trackNetworkRequest(pluginId, socketUrl, "SOCKET")
+                
+                Timber.i("[HARDWARE BRIDGE] Socket $host:$port by $pluginId")
+                val response = networkBridge.openSocket(host, port)
+                
+                // Register for ongoing tracking if successful
+                if (response.success) {
+                    NetworkUsageAggregator.recordExplicitUsage(pluginId, domain = host)
+                }
+                
+                response
             } catch (e: Exception) {
+                PluginNetworkTracker.trackConnectionFailure(pluginId, "$host:$port", e.message ?: "Unknown error")
                 Timber.e(e, "[HARDWARE BRIDGE] Socket failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             }
@@ -371,6 +446,18 @@ class HardwareBridgeService : Service() {
         override fun ping(): Boolean {
             return true
         }
+        
+        // ════════════════════════════════════════════════════════
+        // NETWORK POLICY MANAGEMENT
+        // ════════════════════════════════════════════════════════
+        
+        override fun registerPluginNetworking(pluginId: String, telemetryOnly: Boolean) {
+            this@HardwareBridgeService.registerPluginNetworking(pluginId, telemetryOnly)
+        }
+        
+        override fun unregisterPluginNetworking(pluginId: String) {
+            this@HardwareBridgeService.unregisterPluginNetworking(pluginId)
+        }
     }
     
     override fun onCreate() {
@@ -381,10 +468,23 @@ class HardwareBridgeService : Service() {
         permissionManager = PluginPermissionManager(applicationContext)
         
         // Initialize hardware bridges
-        cameraBridge = CameraBridge(applicationContext)
-        networkBridge = NetworkBridge(applicationContext)
-        printerBridge = PrinterBridge(applicationContext)
-        bluetoothBridge = BluetoothBridge(applicationContext)
+        initializeBridges()
+        
+        Timber.i("[HARDWARE BRIDGE] All bridges initialized with enhanced network tracking")
+    }
+    
+    private fun initializeBridges() {
+        cameraBridge = CameraBridge(this)
+        networkBridge = NetworkBridge(this)
+        printerBridge = PrinterBridge(this)
+        bluetoothBridge = BluetoothBridge(this)
+        
+        // Initialize enhanced network tracking and policy
+        PluginNetworkTracker.startTracking()
+        NetworkUsageAggregator.startAggregation()
+        enhancedNetworkPolicy = EnhancedPluginNetworkPolicy()
+        
+        Timber.i("[HARDWARE BRIDGE] Enhanced network security initialized")
     }
     
     override fun onBind(intent: Intent): IBinder {
@@ -392,7 +492,56 @@ class HardwareBridgeService : Service() {
         return binder
     }
     
+    /**
+     * Register a plugin with network policy and tracking
+     */
+    fun registerPluginNetworking(pluginId: String, telemetryOnly: Boolean = false) {
+        try {
+            // Register with enhanced network policy
+            enhancedNetworkPolicy.registerPlugin(pluginId, telemetryOnly)
+            
+            // Register with network tracker
+            PluginNetworkTracker.registerPlugin(pluginId)
+            
+            // Register with usage aggregator
+            NetworkUsageAggregator.registerPlugin(pluginId, android.os.Process.myUid())
+            
+            Timber.i("[HARDWARE BRIDGE] Plugin registered for networking: $pluginId (telemetry-only: $telemetryOnly)")
+        } catch (e: Exception) {
+            Timber.e(e, "[HARDWARE BRIDGE] Failed to register plugin networking: $pluginId")
+        }
+    }
+    
+    /**
+     * Unregister a plugin from network policy and tracking
+     */
+    fun unregisterPluginNetworking(pluginId: String) {
+        try {
+            // Unregister from enhanced network policy
+            enhancedNetworkPolicy.unregisterPlugin(pluginId)
+            
+            // Unregister from network tracker
+            PluginNetworkTracker.unregisterPlugin(pluginId)
+            
+            // Unregister from usage aggregator
+            NetworkUsageAggregator.unregisterPlugin(pluginId)
+            
+            Timber.i("[HARDWARE BRIDGE] Plugin unregistered from networking: $pluginId")
+        } catch (e: Exception) {
+            Timber.e(e, "[HARDWARE BRIDGE] Failed to unregister plugin networking: $pluginId")
+        }
+    }
+    
     override fun onDestroy() {
+        // Cleanup network tracking
+        try {
+            PluginNetworkTracker.stopTracking()
+            NetworkUsageAggregator.stopAggregation()
+            Timber.i("[HARDWARE BRIDGE] Network tracking cleaned up")
+        } catch (e: Exception) {
+            Timber.w(e, "[HARDWARE BRIDGE] Error during network tracking cleanup")
+        }
+        
         super.onDestroy()
         Timber.i("[HARDWARE BRIDGE] Service destroyed")
         

@@ -60,6 +60,12 @@ class PluginManagementFragment : Fragment() {
                                 bundleOf("pluginId" to pluginId)
                             )
                         },
+                        onNavigateToNetworkPolicy = {
+                            findNavController().navigate(R.id.action_pluginManagement_to_networkPolicyConfig)
+                        },
+                        onNavigateToSecurityAudit = {
+                            findNavController().navigate(R.id.action_pluginManagement_to_securityAudit)
+                        },
                         onNavigateToStore = {
                             findNavController().navigate(R.id.nav_plugin_store)
                         }

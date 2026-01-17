@@ -18,6 +18,8 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import com.ble1st.connectias.plugin.security.PluginThreadMonitor
+import com.ble1st.connectias.plugin.security.PluginDataLeakageProtector
 import timber.log.Timber
 
 /**
@@ -78,6 +80,10 @@ class PluginFragmentWrapper(
     
     // Process management
     private var sandboxProcessId: Int? = null
+    
+    // Security monitoring
+    private var securityMonitoringActive = false
+    private val originalUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
     
     private fun findSandboxProcess() {
         if (sandboxProcessId != null) return // Already found
@@ -203,8 +209,12 @@ class PluginFragmentWrapper(
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
         try {
-            // Find sandbox process for potential kill
+            // Initialize security monitoring
+            initializeSecurityMonitoring()
+            
+            // Find the sandbox process for emergency shutdown
             findSandboxProcess()
             
             // Pass arguments to wrapped fragment
@@ -342,10 +352,82 @@ class PluginFragmentWrapper(
     }
     
     override fun onDestroy() {
-        super.onDestroy()
-        // Clean up watchdog thread
+        // Cleanup security monitoring
+        cleanupSecurityMonitoring()
+        
+        // Stop watchdog
         watchdogHandler.removeCallbacksAndMessages(null)
         watchdogThread.quitSafely()
+        
+        super.onDestroy()
+        
+        Timber.d("[PLUGIN WRAPPER] Fragment destroyed: $pluginId")
+    }
+    
+    /**
+     * Initializes security monitoring for plugin UI fragments
+     */
+    private fun initializeSecurityMonitoring() {
+        if (securityMonitoringActive) return
+        
+        try {
+            // Register plugin for thread monitoring
+            PluginThreadMonitor.registerPlugin(pluginId)
+            
+            // Register plugin for data leakage protection
+            PluginDataLeakageProtector.registerPlugin(pluginId)
+            
+            // Set up thread monitoring with custom exception handler
+            Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+                // Track this thread for the plugin
+                PluginThreadMonitor.trackThread(pluginId, thread)
+                
+                // Log the exception
+                Timber.e(throwable, "[SECURITY] Uncaught exception in plugin thread: ${thread.name}")
+                
+                // Handle the exception
+                handleException("uncaughtException-${thread.name}", throwable)
+                
+                // Call original handler if available
+                originalUncaughtExceptionHandler?.uncaughtException(thread, throwable)
+            }
+            
+            securityMonitoringActive = true
+            Timber.i("[SECURITY] Security monitoring initialized for plugin: $pluginId")
+            
+        } catch (e: Exception) {
+            Timber.e(e, "[SECURITY] Failed to initialize security monitoring for plugin: $pluginId")
+        }
+    }
+    
+    /**
+     * Cleans up security monitoring for plugin UI fragments
+     */
+    private fun cleanupSecurityMonitoring() {
+        if (!securityMonitoringActive) return
+        
+        try {
+            // Unregister plugin from thread monitoring (this will kill background threads)
+            PluginThreadMonitor.unregisterPlugin(pluginId)
+            
+            // Generate security report before cleanup
+            val securityReport = PluginDataLeakageProtector.getSecurityReport(pluginId)
+            if (securityReport.contains("SUSPICIOUS")) {
+                Timber.w("[SECURITY] Plugin $pluginId had suspicious activity:\n$securityReport")
+            }
+            
+            // Unregister plugin from data leakage protection
+            PluginDataLeakageProtector.unregisterPlugin(pluginId)
+            
+            // Restore original exception handler
+            Thread.setDefaultUncaughtExceptionHandler(originalUncaughtExceptionHandler)
+            
+            securityMonitoringActive = false
+            Timber.i("[SECURITY] Security monitoring cleaned up for plugin: $pluginId")
+            
+        } catch (e: Exception) {
+            Timber.e(e, "[SECURITY] Failed to cleanup security monitoring for plugin: $pluginId")
+        }
     }
     
     /**
