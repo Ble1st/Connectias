@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.ble1st.connectias.plugin.security.*
 import kotlinx.coroutines.flow.*
 
@@ -28,15 +29,19 @@ fun PluginSecurityDashboard(
     behaviorAnalyzer: PluginBehaviorAnalyzer
 ) {
     var securityStatus by remember { mutableStateOf<SecurityStatus>(SecurityStatus.Loading) }
-    val anomalies by behaviorAnalyzer.anomalies
-        .map { it }
-        .scan(emptyList<PluginBehaviorAnalyzer.Anomaly>()) { acc, anomaly ->
-            if (anomaly.pluginId == pluginId) (acc + anomaly).takeLast(50) else acc
-        }
-        .collectAsState(initial = emptyList())
-    val resourceUsage by resourceLimiter.resourceUsage
-        .map { it[pluginId] }
-        .collectAsState(initial = null)
+    val anomaliesFlow = remember {
+        behaviorAnalyzer.anomalies
+            .scan(emptyList<PluginBehaviorAnalyzer.Anomaly>()) { acc, anomaly ->
+                if (anomaly.pluginId == pluginId) (acc + anomaly).takeLast(50) else acc
+            }
+    }
+    val anomalies by anomaliesFlow.collectAsStateWithLifecycle(initialValue = emptyList())
+    
+    val resourceUsageFlow = remember {
+        resourceLimiter.resourceUsage
+            .map { usage -> usage[pluginId] }
+    }
+    val resourceUsage by resourceUsageFlow.collectAsStateWithLifecycle(initialValue = null)
     
     LaunchedEffect(pluginId) {
         val result = zeroTrustVerifier.verifyOnExecution(pluginId)

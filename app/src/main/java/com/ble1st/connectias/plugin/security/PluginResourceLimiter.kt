@@ -3,6 +3,7 @@ package com.ble1st.connectias.plugin.security
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Process
+import android.annotation.SuppressLint
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -62,9 +63,8 @@ class PluginResourceLimiter @Inject constructor(
     /**
      * Enforce memory limits for a plugin process
      */
-    fun enforceMemoryLimits(pluginId: String, pid: Int): Boolean {
-        val limits = getResourceLimits(pluginId)
-        
+    @SuppressLint("MissingPermission")
+    fun enforceMemoryLimits(pluginId: String, pid: Int, limits: ResourceLimits): Boolean {
         try {
             val memInfo = ActivityManager.RunningAppProcessInfo()
             activityManager.getProcessMemoryInfo(intArrayOf(pid)).firstOrNull()?.let { memInfo ->

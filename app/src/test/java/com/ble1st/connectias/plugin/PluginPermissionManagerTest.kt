@@ -33,7 +33,6 @@ class PluginPermissionManagerTest {
         `when`(context.getSharedPreferences("plugin_permissions", Context.MODE_PRIVATE)).thenReturn(sharedPrefs)
         `when`(sharedPrefs.edit()).thenReturn(editor)
         `when`(editor.putBoolean(anyString(), anyBoolean())).thenReturn(editor)
-        `when`(editor.remove(anyString())).thenReturn(editor)
         
         // Mock checkSelfPermission
         `when`(context.checkSelfPermission(anyString())).thenReturn(PackageManager.PERMISSION_GRANTED)

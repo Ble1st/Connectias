@@ -114,6 +114,8 @@ testRules = "1.7.0"
 mockk = "1.14.7"
 coroutinesTest = "1.10.2"
 hiltTesting = "2.56.1"
+robolectric = "4.14.1"
+roborazzi = "1.34.0"
 
 # FOSS Feature Libraries
 zxing = "3.5.4"
@@ -216,6 +218,10 @@ androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hiltTesting" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
+roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 
 # FOSS Feature Libraries
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }

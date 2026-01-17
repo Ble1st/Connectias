@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.androidx.baselineprofile)
     id("jacoco")
+    id("io.github.takahirom.roborazzi") version "1.34.0"
 }
 
 android {
@@ -305,6 +306,11 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.14.2")
     testImplementation("org.mockito:mockito-inline:5.2.0")
     testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation(libs.robolectric)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
+    testImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

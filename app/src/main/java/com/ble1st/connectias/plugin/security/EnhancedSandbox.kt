@@ -91,7 +91,8 @@ class EnhancedSandbox @Inject constructor(
             launch {
                 while (true) {
                     resourceLimiter.monitorResourceUsage(pluginId, pid)
-                    resourceLimiter.enforceMemoryLimits(pluginId, pid)
+                    val limits = resourceLimiter.getResourceLimits(pluginId)
+                    resourceLimiter.enforceMemoryLimits(pluginId, pid, limits)
                     kotlinx.coroutines.delay(5000) // Every 5 seconds
                 }
             }
