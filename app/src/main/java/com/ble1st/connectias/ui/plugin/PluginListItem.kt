@@ -18,6 +18,7 @@ fun PluginListItem(
     onToggleEnabled: () -> Unit,
     onShowDetails: () -> Unit,
     onShowPermissions: () -> Unit,
+    onShowSecurity: () -> Unit = {},
     onUninstall: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -107,6 +108,16 @@ fun PluginListItem(
                         },
                         leadingIcon = {
                             Icon(Icons.Default.Info, null)
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Security Status") },
+                        onClick = {
+                            showMenu = false
+                            onShowSecurity()
+                        },
+                        leadingIcon = {
+                            Icon(Icons.Default.Shield, null)
                         }
                     )
                     DropdownMenuItem(

@@ -38,6 +38,7 @@ fun PluginManagementScreen(
     manifestParser: PluginManifestParser,
     onNavigateBack: () -> Unit,
     onNavigateToPermissions: (String) -> Unit,
+    onNavigateToSecurity: (String) -> Unit = {},
     onNavigateToStore: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -177,6 +178,9 @@ fun PluginManagementScreen(
                         plugin = plugin,
                         onShowPermissions = {
                             onNavigateToPermissions(plugin.pluginId)
+                        },
+                        onShowSecurity = {
+                            onNavigateToSecurity(plugin.pluginId)
                         },
                         onToggleEnabled = {
                             scope.launch {

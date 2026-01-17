@@ -32,6 +32,9 @@
         <action
             android:id="@+id/action_nav_plugin_management_to_nav_plugin_store"
             app:destination="@id/nav_plugin_store" />
+        <action
+            android:id="@+id/action_nav_plugin_management_to_nav_plugin_security"
+            app:destination="@id/nav_plugin_security" />
     </fragment>
     
     <!-- Plugin Store -->
@@ -45,6 +48,16 @@
         android:id="@+id/nav_plugin_permission_detail"
         android:name="com.ble1st.connectias.ui.plugin.PluginPermissionDetailFragment"
         android:label="Plugin Permissions">
+        <argument
+            android:name="pluginId"
+            app:argType="string" />
+    </fragment>
+    
+    <!-- Plugin Security Dashboard -->
+    <fragment
+        android:id="@+id/nav_plugin_security"
+        android:name="com.ble1st.connectias.ui.plugin.security.PluginSecurityDashboardFragment"
+        android:label="Plugin Security">
         <argument
             android:name="pluginId"
             app:argType="string" />
