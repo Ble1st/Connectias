@@ -4,6 +4,10 @@ import android.content.Context
 import com.ble1st.connectias.plugin.PluginManagerSandbox
 import com.ble1st.connectias.plugin.sdk.PluginCategory
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
+import com.ble1st.connectias.plugin.store.GitHubPluginStore.GitHubRelease
+import com.ble1st.connectias.plugin.version.PluginVersion
+import java.text.SimpleDateFormat
+import java.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -45,7 +49,8 @@ class GitHubPluginStore(
         val name: String,
         val body: String,
         val published_at: String,
-        val assets: List<GitHubAsset>
+        val assets: List<GitHubAsset>,
+        val prerelease: Boolean = false
     )
     
     @Serializable
@@ -54,6 +59,12 @@ class GitHubPluginStore(
         val content_type: String,
         val size: Long,
         val browser_download_url: String
+    )
+    
+    data class PluginHashInfo(
+        val pluginId: String,
+        val sha256Hash: String,
+        val downloadUrl: String
     )
     
     data class StorePlugin(
@@ -292,6 +303,129 @@ class GitHubPluginStore(
         } catch (e: Exception) {
             // Fallback to date comparison
             release1.published_at > release2.published_at
+        }
+    }
+    
+    /**
+     * Load SHA256 hash for a plugin from .sha256sum file in GitHub release
+     */
+    suspend fun loadPluginHash(pluginId: String, version: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$GITHUB_API_BASE/repos/$REPO_OWNER/$REPO_NAME/releases")
+                .header("Accept", "application/vnd.github.v3+json")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(IOException("Failed to fetch releases: ${response.code}"))
+            }
+            
+            val responseBody = response.body?.string() ?: return@withContext Result.failure(IOException("Empty response"))
+            val releases = json.decodeFromString<List<GitHubRelease>>(responseBody)
+            
+            // Find the release for this plugin version
+            val release = releases.find { release ->
+                val releasePluginId = extractPluginId(release.name, release.tag_name)
+                if (releasePluginId == pluginId) {
+                    // Extract version the same way as in getAvailablePlugins
+                    val releaseVersion = release.tag_name.removePrefix("v").removeSuffix("-${pluginId}")
+                    releaseVersion == version
+                } else {
+                    false
+                }
+            }
+            
+            if (release != null) {
+                // Look for .sha256sum file in assets
+                val sha256Asset = release.assets.find { it.name.endsWith(".sha256sum") }
+                if (sha256Asset != null) {
+                    // Download and parse the SHA256 file
+                    val hashResponse = httpClient.newCall(
+                        Request.Builder().url(sha256Asset.browser_download_url).build()
+                    ).execute()
+                    
+                    if (hashResponse.isSuccessful) {
+                        val hashContent = hashResponse.body?.string() ?: return@withContext Result.failure(IOException("Empty hash file"))
+                        // Parse hash file format: <hash>  <filename>
+                        val hash = hashContent.split(" ").firstOrNull()
+                        if (!hash.isNullOrEmpty()) {
+                            return@withContext Result.success(hash.lowercase())
+                        }
+                    }
+                }
+            }
+            
+            Result.failure(Exception("SHA256 hash not found for $pluginId v$version"))
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to load SHA256 hash for $pluginId v$version")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get all available versions for a specific plugin from GitHub releases
+     */
+    suspend fun getPluginVersions(pluginId: String): Result<List<PluginVersion>> = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url("$GITHUB_API_BASE/repos/$REPO_OWNER/$REPO_NAME/releases")
+                .header("Accept", "application/vnd.github.v3+json")
+                .build()
+            
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                return@withContext Result.failure(IOException("Failed to fetch releases: ${response.code}"))
+            }
+            
+            val responseBody = response.body?.string() ?: return@withContext Result.failure(IOException("Empty response"))
+            val releases = json.decodeFromString<List<GitHubRelease>>(responseBody)
+            
+            // Filter releases for this plugin and convert to PluginVersion
+            val pluginVersions = releases
+                .filter { release ->
+                    val releasePluginId = extractPluginId(release.name, release.tag_name)
+                    releasePluginId == pluginId
+                }
+                .mapNotNull { release ->
+                    val asset = release.assets.find { it.name.endsWith(".aab") || it.name.endsWith(".apk") }
+                    if (asset != null) {
+                        val version = release.tag_name.removePrefix("v")
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.getDefault())
+                        val releaseDate = dateFormat.parse(release.published_at) ?: Date()
+                        
+                        PluginVersion(
+                            version = version,
+                            versionCode = extractVersionCode(version),
+                            releaseDate = releaseDate,
+                            changelog = extractDescription(release.body),
+                            minHostVersion = "1.0.0", // TODO: Extract from manifest
+                            size = asset.size,
+                            checksum = "", // TODO: Get from release assets or calculate
+                            downloadUrl = asset.browser_download_url,
+                            isPrerelease = release.prerelease
+                        )
+                    } else null
+                }
+                .sortedByDescending { it.releaseDate }
+            
+            Result.success(pluginVersions)
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to get plugin versions for $pluginId")
+            Result.failure(e)
+        }
+    }
+    
+    private fun extractVersionCode(version: String): Int {
+        // Simple version code extraction from version string
+        return try {
+            val parts = version.split(".")
+            val major = parts.getOrNull(0)?.toIntOrNull() ?: 0
+            val minor = parts.getOrNull(1)?.toIntOrNull() ?: 0
+            val patch = parts.getOrNull(2)?.toIntOrNull() ?: 0
+            major * 10000 + minor * 100 + patch
+        } catch (e: Exception) {
+            1
         }
     }
     

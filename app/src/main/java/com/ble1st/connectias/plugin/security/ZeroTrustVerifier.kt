@@ -19,7 +19,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class ZeroTrustVerifier @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val gitHubStore: com.ble1st.connectias.plugin.store.GitHubPluginStore
 ) {
     
     sealed class VerificationResult {
@@ -92,10 +93,9 @@ class ZeroTrustVerifier @Inject constructor(
      */
     private fun verifySignature(pluginId: String): VerificationResult {
         try {
-            val pluginFile = File(context.filesDir, "plugins/$pluginId.apk")
-            
-            if (!pluginFile.exists()) {
-                Timber.w("Plugin file not found: ${pluginFile.absolutePath}")
+            val pluginFile = getPluginFile(pluginId)
+            if (pluginFile == null) {
+                Timber.w("Plugin file not found for $pluginId")
                 return VerificationResult.Suspicious(listOf("Plugin APK file not found"))
             }
             
@@ -139,11 +139,7 @@ class ZeroTrustVerifier @Inject constructor(
      */
     private fun verifyIntegrity(pluginId: String): VerificationResult {
         try {
-            val pluginFile = File(context.filesDir, "plugins/$pluginId.apk")
-            
-            if (!pluginFile.exists()) {
-                return VerificationResult.Failed("Plugin file not found")
-            }
+            val pluginFile = getPluginFile(pluginId) ?: return VerificationResult.Failed("Plugin file not found")
             
             // Compute hash
             val hash = computeFileHash(pluginFile)
@@ -220,11 +216,7 @@ class ZeroTrustVerifier @Inject constructor(
      */
     private fun verifyFilePermissions(pluginId: String): VerificationResult {
         try {
-            val pluginFile = File(context.filesDir, "plugins/$pluginId.apk")
-            
-            if (!pluginFile.exists()) {
-                return VerificationResult.Failed("Plugin file not found")
-            }
+            val pluginFile = getPluginFile(pluginId) ?: return VerificationResult.Failed("Plugin file not found")
             
             // Check if world-readable/writable
             if (pluginFile.canRead() && pluginFile.canWrite()) {
@@ -269,6 +261,44 @@ class ZeroTrustVerifier @Inject constructor(
             Timber.e(e, "Failed to compute file hash")
             ""
         }
+    }
+    
+    /**
+     * Get plugin file
+     */
+    private fun getPluginFile(pluginId: String): File? {
+        val pluginDir = File(context.filesDir, "plugins")
+        if (!pluginDir.exists()) return null
+        
+        // First try exact match (for plugins imported directly)
+        val exactMatchFile = File(pluginDir, "$pluginId.apk")
+        if (exactMatchFile.exists()) {
+            return exactMatchFile
+        }
+        
+        // Fallback: search all plugin files and match by metadata
+        // This handles plugins downloaded from GitHub that use different naming
+        pluginDir.listFiles { file ->
+            file.extension in listOf("apk", "jar")
+        }?.firstOrNull { file ->
+            try {
+                val pm = context.packageManager
+                val packageInfo = pm.getPackageArchiveInfo(
+                    file.absolutePath,
+                    PackageManager.GET_META_DATA
+                )
+                val appInfo = packageInfo?.applicationInfo
+                val metaData = appInfo?.metaData
+                val packageIdFromMeta = metaData?.getString("plugin.packageId")
+                    ?: packageInfo?.packageName
+                
+                packageIdFromMeta == pluginId
+            } catch (e: Exception) {
+                false
+            }
+        }?.let { return it }
+        
+        return null
     }
     
     /**

@@ -482,11 +482,11 @@ class PluginManagerSandbox @Inject constructor(
                 val sandboxPid = sandboxProxy.getSandboxPid()
                 if (sandboxPid > 0) {
                     val resourceLimits = EnhancedPluginResourceLimiter.ResourceLimits(
-                        maxMemoryMB = 500, // 500MB limit per plugin
+                        maxMemoryMB = 300, // 300MB limit per plugin (adjusted for mobile)
                         maxCpuPercent = 40f, // 40% CPU limit
                         maxDiskUsageMB = 1024, // 1GB disk limit
                         maxThreads = 15, // 15 threads max
-                        emergencyMemoryMB = 256 // Emergency kill at 256MB (was too low before)
+                        emergencyMemoryMB = 200 // Emergency kill at 200MB
                     )
                     resourceLimiter.registerPlugin(pluginId, sandboxPid, resourceLimits)
                     Timber.i("[PLUGIN MANAGER] Plugin registered with resource limiter: $pluginId (PID: $sandboxPid)")

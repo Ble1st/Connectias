@@ -81,9 +81,9 @@ class PluginSandboxService : Service() {
      */
     inner class PluginMemoryMonitor {
         
-        // Memory limits (in bytes)
-        private val pluginWarningLimit = 400 * 1024 * 1024L  // 400 MB warning
-        private val pluginCriticalLimit = 500 * 1024 * 1024L // 500 MB critical (auto-unload)
+        // Memory limits (in bytes) - adjusted for mobile devices
+        private val pluginWarningLimit = 300 * 1024 * 1024L  // 300 MB warning
+        private val pluginCriticalLimit = 400 * 1024 * 1024L // 400 MB critical (auto-unload)
         private val sandboxWarningLimit = 0.7  // 70% of max heap
         private val sandboxCriticalLimit = 0.85 // 85% of max heap
         
@@ -271,9 +271,6 @@ class PluginSandboxService : Service() {
             // SECURITY: Clean up identity session
             PluginIdentitySession.unregisterPluginSession(pluginId)
             Timber.i("[SANDBOX] Plugin identity session cleaned up: $pluginId")
-            
-            // Remove ClassLoader reference
-            classLoaders.remove(pluginId)
             
             // Delete read-only plugin file from sandbox_plugins_ro directory
             // Note: In isolated process, we cannot access filesystem

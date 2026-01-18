@@ -24,6 +24,7 @@ import com.ble1st.connectias.core.model.LogEntry
 import com.ble1st.connectias.core.model.LogLevel
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.text.Regex
 
 /**
  * Compose screen for viewing system logs.
@@ -42,6 +43,8 @@ fun LogViewerScreen(
     var showOnlyPlugins by remember { mutableStateOf(false) }
     
     val logs = logsResult?.logs ?: emptyList()
+    // Use same regex pattern for filtering as in LogEntryCard
+    val pluginLogFilterPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)\]\s*""") }
     val filteredLogs = remember(logs, selectedLevel, searchQuery, showOnlyPlugins) {
         logs.filter { log ->
             val matchesLevel = selectedLevel?.let { log.level == it } ?: true
@@ -49,8 +52,8 @@ fun LogViewerScreen(
                 log.message.contains(searchQuery, ignoreCase = true) ||
                 log.tag.contains(searchQuery, ignoreCase = true)
             val matchesPluginFilter = if (showOnlyPlugins) {
-                // Plugin logs have format: [pluginId] message
-                log.message.startsWith("[") && log.message.contains("]")
+                // Use regex for more reliable plugin log detection
+                pluginLogFilterPattern.find(log.message) != null
             } else {
                 true
             }
@@ -274,12 +277,11 @@ private fun LogEntryCard(log: LogEntry) {
     val dateString = dateFormat.format(Date(log.timestamp))
     
     // Check if this is a plugin log (format: [pluginId] message)
-    val isPluginLog = log.message.startsWith("[") && log.message.contains("]")
-    val pluginId = if (isPluginLog) {
-        log.message.substringAfter("[").substringBefore("]")
-    } else {
-        null
-    }
+    // Regex ensures we only match valid plugin IDs at the start of the message
+    val pluginLogPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)\]\s*""") }
+    val pluginMatch = pluginLogPattern.find(log.message)
+    val isPluginLog = pluginMatch != null
+    val pluginId = pluginMatch?.groupValues?.get(1)
     
     val levelColor = when (log.level) {
         LogLevel.ERROR -> MaterialTheme.colorScheme.error

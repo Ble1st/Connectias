@@ -191,7 +191,7 @@ class EnhancedSandbox @Inject constructor(
         networkPolicy.clearPluginPolicy(pluginId)
         permissionMonitor.clearPluginHistory(pluginId)
         behaviorAnalyzer.clearBaseline(pluginId)
-        zeroTrustVerifier.clearCache(pluginId)
+        zeroTrustVerifier.clearCache()
         
         Timber.i("Enhanced sandbox cleaned up for plugin $pluginId")
     }

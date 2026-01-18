@@ -42,9 +42,10 @@ object SecurityModule {
     @Provides
     @Singleton
     fun provideZeroTrustVerifier(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        gitHubStore: com.ble1st.connectias.plugin.store.GitHubPluginStore
     ): ZeroTrustVerifier {
-        return ZeroTrustVerifier(context)
+        return ZeroTrustVerifier(context, gitHubStore)
     }
     
     @Provides

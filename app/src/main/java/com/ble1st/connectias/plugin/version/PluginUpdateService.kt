@@ -81,7 +81,13 @@ class PluginUpdateWorker @AssistedInject constructor(
                 val currentVersion = versionManager.getCurrentVersion(plugin.pluginId)
                 if (currentVersion != null) {
                     // Get available versions from GitHub
-                    val availableVersions = emptyList<PluginVersion>() // TODO: Implement getPluginVersions in GitHubStore
+                    val availableVersionsResult = gitHubStore.getPluginVersions(plugin.pluginId)
+                    val availableVersions = if (availableVersionsResult.isSuccess) {
+                        availableVersionsResult.getOrThrow()
+                    } else {
+                        Timber.e(availableVersionsResult.exceptionOrNull(), "Failed to fetch versions for ${plugin.pluginId}")
+                        emptyList()
+                    }
                     
                     val update = versionManager.checkUpdateAvailable(
                         pluginId = plugin.pluginId,
