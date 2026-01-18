@@ -28,6 +28,24 @@ class SecurityAuditManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     
+    // Check if we're running in the isolated sandbox process
+    private val isIsolatedSandboxProcess: Boolean by lazy {
+        val processName = getCurrentProcessName()
+        processName.contains(":plugin_sandbox")
+    }
+    
+    private fun getCurrentProcessName(): String {
+        return try {
+            val pid = android.os.Process.myPid()
+            val manager = context.getSystemService(android.app.ActivityManager::class.java)
+            manager?.runningAppProcesses
+                ?.find { it.pid == pid }
+                ?.processName ?: ""
+        } catch (e: Exception) {
+            ""
+        }
+    }
+    
     // ════════════════════════════════════════════════════════
     // EVENT TYPES
     // ════════════════════════════════════════════════════════
@@ -134,15 +152,20 @@ class SecurityAuditManager @Inject constructor(
     }
     
     private val auditLogFile: File by lazy {
-        val logDir = File(context.filesDir, "security")
-        logDir.mkdirs() // Ensure directory exists
-        File(logDir, "security_audit.jsonl").also { 
-            try {
-                if (!it.exists()) {
-                    it.createNewFile()
+        // In sandbox process, we can't access files, so return a dummy file
+        if (isIsolatedSandboxProcess) {
+            File("/dev/null")
+        } else {
+            val logDir = File(context.filesDir, "security")
+            logDir.mkdirs() // Ensure directory exists
+            File(logDir, "security_audit.jsonl").also { 
+                try {
+                    if (!it.exists()) {
+                        it.createNewFile()
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[SECURITY AUDIT] Failed to create audit log file")
                 }
-            } catch (e: Exception) {
-                Timber.e(e, "[SECURITY AUDIT] Failed to create audit log file")
             }
         }
     }
@@ -169,8 +192,13 @@ class SecurityAuditManager @Inject constructor(
     )
     
     init {
-        startAuditProcessing()
-        logSystemStartup()
+        // Only start audit processing if not in sandbox
+        if (!isIsolatedSandboxProcess) {
+            startAuditProcessing()
+            logSystemStartup()
+        } else {
+            Timber.d("[SECURITY AUDIT] Running in isolated sandbox - audit processing disabled")
+        }
     }
     
     private fun getCurrentSessionId(): String = sessionId
@@ -191,6 +219,19 @@ class SecurityAuditManager @Inject constructor(
         details: Map<String, String> = emptyMap(),
         exception: Throwable? = null
     ) {
+        // Skip event processing in sandbox process
+        if (isIsolatedSandboxProcess) {
+            // Only log to Timber, don't queue events
+            when (severity) {
+                SecuritySeverity.CRITICAL -> Timber.e("[SECURITY AUDIT] CRITICAL: $message")
+                SecuritySeverity.HIGH -> Timber.w("[SECURITY AUDIT] HIGH: $message")
+                SecuritySeverity.MEDIUM -> Timber.i("[SECURITY AUDIT] MEDIUM: $message")
+                SecuritySeverity.LOW -> Timber.d("[SECURITY AUDIT] LOW: $message")
+                SecuritySeverity.INFO -> Timber.v("[SECURITY AUDIT] INFO: $message")
+            }
+            return
+        }
+        
         val event = SecurityAuditEvent(
             eventType = eventType,
             severity = severity,
@@ -403,11 +444,15 @@ class SecurityAuditManager @Inject constructor(
     }
     
     private suspend fun writeEventsToFile(events: List<SecurityAuditEvent>) {
+        // Skip file operations in sandbox process
+        if (isIsolatedSandboxProcess) {
+            Timber.d("[SECURITY AUDIT] Skipping file write in isolated sandbox process")
+            return
+        }
+        
         try {
             // Ensure file and directory exist
-            if (!auditLogFile.parentFile?.exists()!!) {
-                auditLogFile.parentFile?.mkdirs()
-            }
+            auditLogFile.parentFile?.mkdirs()
             if (!auditLogFile.exists()) {
                 auditLogFile.createNewFile()
             }
@@ -420,6 +465,11 @@ class SecurityAuditManager @Inject constructor(
             // Try to create the file in a different location as fallback
             try {
                 val fallbackFile = File(context.cacheDir, "security_audit_fallback.jsonl")
+                // Ensure parent directory exists
+                fallbackFile.parentFile?.mkdirs()
+                if (!fallbackFile.exists()) {
+                    fallbackFile.createNewFile()
+                }
                 fallbackFile.appendText(
                     events.joinToString("\n") { json.encodeToString(it) } + "\n"
                 )
@@ -483,6 +533,11 @@ class SecurityAuditManager @Inject constructor(
     }
     
     private suspend fun checkLogRotation() {
+        // Skip log rotation in sandbox process
+        if (isIsolatedSandboxProcess) {
+            return
+        }
+        
         try {
             if (auditLogFile.exists() && auditLogFile.length() > MAX_LOG_FILE_SIZE_MB * 1024 * 1024) {
                 // Rotate log file
@@ -607,18 +662,22 @@ class SecurityAuditManager @Inject constructor(
     // ════════════════════════════════════════════════════════
     
     fun shutdown() {
-        auditScope.cancel()
-        
-        // Process remaining events
-        runBlocking {
-            processEventQueue()
+        if (!isIsolatedSandboxProcess) {
+            auditScope.cancel()
+            
+            // Process remaining events
+            runBlocking {
+                processEventQueue()
+            }
+            
+            logSecurityEvent(
+                eventType = SecurityEventType.SECURITY_CONFIGURATION_CHANGE,
+                severity = SecuritySeverity.INFO,
+                source = "SecurityAuditManager",
+                message = "Security audit system shutdown"
+            )
+        } else {
+            Timber.d("[SECURITY AUDIT] Shutdown called in sandbox - no action needed")
         }
-        
-        logSecurityEvent(
-            eventType = SecurityEventType.SECURITY_CONFIGURATION_CHANGE,
-            severity = SecuritySeverity.INFO,
-            source = "SecurityAuditManager",
-            message = "Security audit system shutdown"
-        )
     }
 }

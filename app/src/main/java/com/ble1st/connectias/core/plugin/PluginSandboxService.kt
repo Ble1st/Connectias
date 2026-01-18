@@ -20,7 +20,6 @@ import com.ble1st.connectias.plugin.IPermissionCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
-import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import android.os.ParcelFileDescriptor
 import android.os.Binder
 import dalvik.system.DexClassLoader
@@ -83,8 +82,8 @@ class PluginSandboxService : Service() {
     inner class PluginMemoryMonitor {
         
         // Memory limits (in bytes)
-        private val pluginWarningLimit = 50 * 1024 * 1024L  // 50 MB warning
-        private val pluginCriticalLimit = 100 * 1024 * 1024L // 100 MB critical (auto-unload)
+        private val pluginWarningLimit = 400 * 1024 * 1024L  // 400 MB warning
+        private val pluginCriticalLimit = 500 * 1024 * 1024L // 500 MB critical (auto-unload)
         private val sandboxWarningLimit = 0.7  // 70% of max heap
         private val sandboxCriticalLimit = 0.85 // 85% of max heap
         
@@ -528,7 +527,7 @@ class PluginSandboxService : Service() {
                 
                 // Step 7: Create secure bridge wrappers (no raw bridge access)
                 val secureHardwareBridge = hardwareBridge?.let { 
-                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, SecurityAuditManager(this@PluginSandboxService))
+                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, null)
                 }
                 val secureFileSystemBridge = fileSystemBridge?.let {
                     SecureFileSystemBridgeWrapper(it, pluginId)

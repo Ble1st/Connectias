@@ -19,7 +19,7 @@ import javax.inject.Inject
 class SecureHardwareBridgeWrapper @Inject constructor(
     private val actualBridge: IHardwareBridge,
     private val context: Context,
-    private val auditManager: SecurityAuditManager
+    private val auditManager: SecurityAuditManager?
 ) : IHardwareBridge.Stub() {
     
     /**

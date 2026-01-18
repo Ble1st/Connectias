@@ -482,7 +482,7 @@ class PluginManagerSandbox @Inject constructor(
                 val sandboxPid = sandboxProxy.getSandboxPid()
                 if (sandboxPid > 0) {
                     val resourceLimits = EnhancedPluginResourceLimiter.ResourceLimits(
-                        maxMemoryMB = 512, // 512MB limit per plugin (more reasonable)
+                        maxMemoryMB = 500, // 500MB limit per plugin
                         maxCpuPercent = 40f, // 40% CPU limit
                         maxDiskUsageMB = 1024, // 1GB disk limit
                         maxThreads = 15, // 15 threads max

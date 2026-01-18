@@ -1,5 +1,9 @@
 package com.ble1st.connectias.ui.logging
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
@@ -30,6 +35,8 @@ fun LogViewerScreen(
     onNavigateBack: () -> Unit
 ) {
     val logsResult by viewModel.logsResult.collectAsState(initial = null)
+    val exportState by viewModel.exportState.collectAsState()
+    val context = LocalContext.current
     var selectedLevel by remember { mutableStateOf<LogLevel?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var showOnlyPlugins by remember { mutableStateOf(false) }
@@ -51,7 +58,39 @@ fun LogViewerScreen(
         }
     }
     
+    // Create file launcher for export
+    val fileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri: Uri? ->
+        uri?.let {
+            viewModel.exportLogs(context, it, filteredLogs)
+        }
+    }
+    
+    // Handle export state changes
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(exportState) {
+        when (val state = exportState) {
+            is LogEntryViewModel.ExportState.Success -> {
+                snackbarHostState.showSnackbar(
+                    message = state.message,
+                    duration = SnackbarDuration.Short
+                )
+                viewModel.resetExportState()
+            }
+            is LogEntryViewModel.ExportState.Error -> {
+                snackbarHostState.showSnackbar(
+                    message = state.message,
+                    duration = SnackbarDuration.Long
+                )
+                viewModel.resetExportState()
+            }
+            else -> {}
+        }
+    }
+    
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("Log Viewer") },
@@ -61,6 +100,29 @@ fun LogViewerScreen(
                     }
                 },
                 actions = {
+                    // Export button
+                    IconButton(
+                        onClick = {
+                            val timestamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
+                                .format(Date())
+                            val fileName = "connectias_logs_$timestamp.txt"
+                            fileLauncher.launch(fileName)
+                        },
+                        enabled = filteredLogs.isNotEmpty() && exportState !is LogEntryViewModel.ExportState.Exporting
+                    ) {
+                        if (exportState is LogEntryViewModel.ExportState.Exporting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.FileDownload,
+                                contentDescription = "Export logs"
+                            )
+                        }
+                    }
+                    
                     // Statistics
                     if (logsResult != null) {
                         Text(

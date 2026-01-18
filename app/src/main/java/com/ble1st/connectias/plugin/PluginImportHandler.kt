@@ -80,10 +80,10 @@ class PluginImportHandler(
                 return Result.failure(Exception("Invalid file type. Only .apk and .jar files are supported"))
             }
             
-            // Check file size (max 100MB)
-            val maxSize = 100 * 1024 * 1024 // 100MB
+            // Check file size (max 500MB)
+            val maxSize = 500 * 1024 * 1024 // 500MB
             if (file.length() > maxSize) {
-                return Result.failure(Exception("File too large. Maximum size is 100MB"))
+                return Result.failure(Exception("File too large. Maximum size is 500MB"))
             }
             
             // Validate ZIP structure
