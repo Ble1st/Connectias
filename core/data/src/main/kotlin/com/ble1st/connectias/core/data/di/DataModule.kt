@@ -3,6 +3,7 @@ package com.ble1st.connectias.core.data.di
 import com.ble1st.connectias.core.data.repository.LogRepository
 import com.ble1st.connectias.core.data.repository.SecurityRepository
 import com.ble1st.connectias.core.data.repository.impl.LogRepositoryImpl
+import com.ble1st.connectias.core.data.repository.impl.SecurityRepositoryImpl
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -23,10 +24,9 @@ abstract class DataModule {
         impl: LogRepositoryImpl
     ): LogRepository
     
-    // SecurityRepository wird später hinzugefügt wenn SecurityRepositoryImpl existiert
-    // @Binds
-    // @Singleton
-    // abstract fun bindSecurityRepository(
-    //     impl: SecurityRepositoryImpl
-    // ): SecurityRepository
+    @Binds
+    @Singleton
+    abstract fun bindSecurityRepository(
+        impl: SecurityRepositoryImpl
+    ): SecurityRepository
 }

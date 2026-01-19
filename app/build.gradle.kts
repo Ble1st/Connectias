@@ -268,6 +268,9 @@ dependencies {
     // Explicitly add JavaPoet 1.13.0 for Hilt compatibility
     implementation(libs.javapoet)
     
+    // Hilt Navigation Compose (for hiltViewModel())
+    implementation(libs.androidx.hilt.navigation.compose)
+    
     // Hilt WorkManager (required for @HiltWorker)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.work.compiler)

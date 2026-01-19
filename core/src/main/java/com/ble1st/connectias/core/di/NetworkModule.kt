@@ -1,5 +1,6 @@
 package com.ble1st.connectias.core.di
 
+import com.ble1st.connectias.core.security.ssl.SslPinningManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,8 +16,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        return OkHttpClient.Builder()
+    fun provideOkHttpClient(
+        sslPinningManager: SslPinningManager
+    ): OkHttpClient {
+        return sslPinningManager.getOkHttpClient().newBuilder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
             .writeTimeout(15, TimeUnit.SECONDS)

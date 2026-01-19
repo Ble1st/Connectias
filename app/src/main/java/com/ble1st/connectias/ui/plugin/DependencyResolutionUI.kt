@@ -11,16 +11,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.ble1st.connectias.plugin.dependency.*
 import com.ble1st.connectias.ui.viewmodel.DependencyResolutionViewModel
+import com.ble1st.connectias.ui.viewmodel.DependencyResolutionUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DependencyResolutionScreen(
     pluginId: String,
     onNavigateBack: () -> Unit,
-    viewModel: DependencyResolutionViewModel = viewModel()
+    viewModel: DependencyResolutionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     
@@ -286,7 +287,7 @@ private fun DependencyTreeNode(
     graph: DependencyGraph,
     level: Int
 ) {
-    val indent = level * 16.dp
+    val indent = (level * 16).dp
     
     Column {
         Row(

@@ -2,16 +2,19 @@ package com.ble1st.connectias.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ble1st.connectias.core.plugin.PluginDependencyResolverV2
 import com.ble1st.connectias.plugin.dependency.DependencyResolutionResult
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import javax.inject.Inject
 
-// TODO: Re-enable Hilt after KSP issue is resolved
-// @HiltViewModel
-class DependencyResolutionViewModel(
+@HiltViewModel
+class DependencyResolutionViewModel @Inject constructor(
+    private val pluginDependencyResolver: PluginDependencyResolverV2
 ) : ViewModel() {
     
     private val _uiState = MutableStateFlow<DependencyResolutionUiState>(
@@ -24,14 +27,13 @@ class DependencyResolutionViewModel(
             _uiState.value = DependencyResolutionUiState.Loading("Resolving dependencies...")
             
             try {
-                // Placeholder implementation - will be connected to actual resolver
-                val result = DependencyResolutionResult(
-                    success = true,
-                    loadOrder = listOf(pluginId),
-                    missingDependencies = emptyList(),
-                    versionConflicts = emptyList(),
-                    circularDependencies = emptyList()
-                )
+                val result = pluginDependencyResolver.resolveDependencies(
+                    pluginId = pluginId,
+                    onProgress = { message ->
+                        _uiState.value = DependencyResolutionUiState.Loading(message)
+                    }
+                ).getOrThrow()
+                
                 _uiState.value = DependencyResolutionUiState.Success(result)
             } catch (e: Exception) {
                 Timber.e(e, "Unexpected error resolving dependencies")

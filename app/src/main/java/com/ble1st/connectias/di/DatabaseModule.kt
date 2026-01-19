@@ -3,6 +3,7 @@ package com.ble1st.connectias.di
 import android.app.Application
 import android.content.Context
 import com.ble1st.connectias.core.database.ConnectiasDatabase
+import com.ble1st.connectias.core.database.dao.SecurityLogDao
 import com.ble1st.connectias.core.database.dao.SystemLogDao
 import com.ble1st.connectias.core.security.KeyManager
 import dagger.Module
@@ -103,5 +104,10 @@ object DatabaseModule {
     @Provides
     fun provideSystemLogDao(database: ConnectiasDatabase): SystemLogDao {
         return database.systemLogDao()
+    }
+
+    @Provides
+    fun provideSecurityLogDao(database: ConnectiasDatabase): SecurityLogDao {
+        return database.securityLogDao()
     }
 }

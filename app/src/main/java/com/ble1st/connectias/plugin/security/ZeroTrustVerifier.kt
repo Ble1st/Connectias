@@ -62,21 +62,34 @@ class ZeroTrustVerifier @Inject constructor(
      * Perform full verification checks
      */
     private suspend fun performFullVerification(pluginId: String): VerificationResult {
-        val checks = listOf(
-            ::verifySignature,
-            ::verifyIntegrity,
-            ::verifyCertificateChain,
-            ::verifyFilePermissions
-        )
-        
         val warnings = mutableListOf<String>()
         
-        for (check in checks) {
-            when (val result = check(pluginId)) {
-                is VerificationResult.Failed -> return result
-                is VerificationResult.Suspicious -> warnings.addAll(result.warnings)
-                is VerificationResult.Success -> continue
-            }
+        // Verify signature
+        when (val result = verifySignature(pluginId)) {
+            is VerificationResult.Failed -> return result
+            is VerificationResult.Suspicious -> warnings.addAll(result.warnings)
+            is VerificationResult.Success -> { /* continue */ }
+        }
+        
+        // Verify integrity (suspend function)
+        when (val result = verifyIntegrity(pluginId)) {
+            is VerificationResult.Failed -> return result
+            is VerificationResult.Suspicious -> warnings.addAll(result.warnings)
+            is VerificationResult.Success -> { /* continue */ }
+        }
+        
+        // Verify certificate chain
+        when (val result = verifyCertificateChain(pluginId)) {
+            is VerificationResult.Failed -> return result
+            is VerificationResult.Suspicious -> warnings.addAll(result.warnings)
+            is VerificationResult.Success -> { /* continue */ }
+        }
+        
+        // Verify file permissions
+        when (val result = verifyFilePermissions(pluginId)) {
+            is VerificationResult.Failed -> return result
+            is VerificationResult.Suspicious -> warnings.addAll(result.warnings)
+            is VerificationResult.Success -> { /* continue */ }
         }
         
         return if (warnings.isNotEmpty()) {
@@ -137,24 +150,55 @@ class ZeroTrustVerifier @Inject constructor(
     /**
      * Verify file integrity
      */
-    private fun verifyIntegrity(pluginId: String): VerificationResult {
-        try {
-            val pluginFile = getPluginFile(pluginId) ?: return VerificationResult.Failed("Plugin file not found")
-            
-            // Compute hash
-            val hash = computeFileHash(pluginFile)
-            
-            // TODO: Compare with known-good hash from store
-            // For now, just verify file is readable
-            if (hash.isEmpty()) {
-                return VerificationResult.Failed("Failed to compute file hash")
+    private suspend fun verifyIntegrity(pluginId: String): VerificationResult {
+        return withContext(Dispatchers.IO) {
+            try {
+                val pluginFile = getPluginFile(pluginId) ?: return@withContext VerificationResult.Failed("Plugin file not found")
+                
+                // Compute hash
+                val computedHash = computeFileHash(pluginFile)
+                
+                if (computedHash.isEmpty()) {
+                    return@withContext VerificationResult.Failed("Failed to compute file hash")
+                }
+                
+                // Try to get the known-good hash from the GitHub store
+                // First, we need to extract the version from the plugin metadata
+                val metadata = extractPluginMetadata(pluginFile)
+                if (metadata != null) {
+                    val knownGoodHashResult = gitHubStore.loadPluginHash(pluginId, metadata.version)
+                    
+                    knownGoodHashResult.onSuccess { knownGoodHash ->
+                        if (computedHash.equals(knownGoodHash, ignoreCase = true)) {
+                            Timber.d("Integrity verification passed for $pluginId (hash matches known-good: $computedHash)")
+                            return@withContext VerificationResult.Success()
+                        } else {
+                            Timber.w("Hash mismatch for $pluginId - computed: $computedHash, expected: $knownGoodHash")
+                            return@withContext VerificationResult.Failed(
+                                "Integrity check failed: hash mismatch",
+                                "Computed: $computedHash, Expected: $knownGoodHash"
+                            )
+                        }
+                    }.onFailure { error ->
+                        // Known-good hash not available - treat as warning rather than failure
+                        Timber.w(error, "Could not retrieve known-good hash for $pluginId, skipping hash comparison")
+                        return@withContext VerificationResult.Suspicious(
+                            listOf("Could not verify against known-good hash (hash: $computedHash)")
+                        )
+                    }
+                } else {
+                    // Cannot extract metadata, but file is readable
+                    Timber.w("Could not extract metadata from $pluginId for version lookup")
+                    return@withContext VerificationResult.Suspicious(
+                        listOf("Plugin metadata not available for hash verification (hash: $computedHash)")
+                    )
+                }
+                
+                VerificationResult.Success()
+                
+            } catch (e: Exception) {
+                VerificationResult.Failed("Integrity verification failed", e.message)
             }
-            
-            Timber.d("Integrity verification passed for $pluginId (hash: $hash)")
-            return VerificationResult.Success()
-            
-        } catch (e: Exception) {
-            return VerificationResult.Failed("Integrity verification failed", e.message)
         }
     }
     
@@ -300,6 +344,38 @@ class ZeroTrustVerifier @Inject constructor(
         
         return null
     }
+    
+    /**
+     * Extract plugin metadata from APK file
+     */
+    private fun extractPluginMetadata(pluginFile: File): PluginMetadata? {
+        return try {
+            java.util.zip.ZipFile(pluginFile).use { zip ->
+                val manifestEntry = zip.getEntry("plugin-manifest.json")
+                    ?: zip.getEntry("assets/plugin-manifest.json")
+                    ?: return null
+                
+                val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
+                val json = org.json.JSONObject(manifestJson)
+                
+                PluginMetadata(
+                    version = json.getString("version"),
+                    pluginId = json.getString("pluginId")
+                )
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to extract plugin metadata from ${pluginFile.name}")
+            null
+        }
+    }
+    
+    /**
+     * Simple metadata holder for version lookup
+     */
+    private data class PluginMetadata(
+        val version: String,
+        val pluginId: String
+    )
     
     /**
      * Clear verification cache

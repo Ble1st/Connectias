@@ -239,22 +239,8 @@ class PluginStreamingManager @Inject constructor(
             // Make read-only (Android security requirement)
             pluginFile.setReadOnly()
             
-            // Extract metadata (simplified - in real implementation would parse from file)
-            val metadata = com.ble1st.connectias.plugin.sdk.PluginMetadata(
-                pluginId = stream.pluginId,
-                pluginName = stream.pluginId,
-                version = stream.version,
-                author = "Unknown",
-                minApiLevel = 21,
-                maxApiLevel = 34,
-                minAppVersion = "1.0.0",
-                nativeLibraries = emptyList(),
-                fragmentClassName = null,
-                description = "Streamed plugin",
-                permissions = emptyList(),
-                category = com.ble1st.connectias.plugin.sdk.PluginCategory.UTILITY,
-                dependencies = emptyList()
-            )
+            // Extract metadata from the assembled plugin file
+            val metadata = extractMetadataFromApk(pluginFile)
             
             val pluginPackage = PluginPackage(
                 pluginFile = pluginFile,
@@ -351,6 +337,48 @@ class PluginStreamingManager @Inject constructor(
             Result.success(stream)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Extract plugin metadata from APK file
+     */
+    private fun extractMetadataFromApk(apkFile: File): com.ble1st.connectias.plugin.sdk.PluginMetadata {
+        return java.util.zip.ZipFile(apkFile).use { zip ->
+            val manifestEntry = zip.getEntry("plugin-manifest.json")
+                ?: zip.getEntry("assets/plugin-manifest.json")
+                ?: throw IllegalArgumentException("Plugin manifest not found in ${apkFile.name}")
+            
+            val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
+            val json = org.json.JSONObject(manifestJson)
+            
+            com.ble1st.connectias.plugin.sdk.PluginMetadata(
+                pluginId = json.getString("pluginId"),
+                pluginName = json.getString("pluginName"),
+                version = json.getString("version"),
+                author = json.optString("author", "Unknown"),
+                minApiLevel = json.optInt("minApiLevel", 21),
+                maxApiLevel = json.optInt("maxApiLevel", 34),
+                minAppVersion = json.optString("minAppVersion", "1.0.0"),
+                nativeLibraries = json.optJSONArray("nativeLibraries")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }
+                } ?: emptyList(),
+                fragmentClassName = json.optString("fragmentClassName", null),
+                description = json.optString("description", "No description available"),
+                permissions = json.optJSONArray("permissions")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }
+                } ?: emptyList(),
+                category = try {
+                    com.ble1st.connectias.plugin.sdk.PluginCategory.valueOf(
+                        json.optString("category", "UTILITY")
+                    )
+                } catch (e: Exception) {
+                    com.ble1st.connectias.plugin.sdk.PluginCategory.UTILITY
+                },
+                dependencies = json.optJSONArray("dependencies")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }
+                } ?: emptyList()
+            )
         }
     }
 }

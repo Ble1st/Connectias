@@ -3,6 +3,8 @@ package com.ble1st.connectias.core.di
 import android.content.Context
 import com.ble1st.connectias.core.security.debug.DebuggerDetector
 import com.ble1st.connectias.core.security.emulator.EmulatorDetector
+import com.ble1st.connectias.core.data.security.SecurityCheckProvider
+import com.ble1st.connectias.core.security.SecurityCheckProviderImpl
 import com.ble1st.connectias.core.security.root.RootDetector
 import com.ble1st.connectias.core.security.tamper.TamperDetector
 import com.ble1st.connectias.core.services.NetworkService
@@ -42,10 +44,20 @@ object CoreModule {
     
     @Provides
     @Singleton
-    fun provideNetworkService(): NetworkService = NetworkService()
+    fun provideNetworkService(
+        @ApplicationContext context: Context
+    ): NetworkService = NetworkService(context)
     
     @Provides
     @Singleton
-    fun provideSystemService(): SystemService = SystemService()
+    fun provideSystemService(
+        @ApplicationContext context: Context
+    ): SystemService = SystemService(context)
+
+    @Provides
+    @Singleton
+    fun provideSecurityCheckProvider(
+        impl: SecurityCheckProviderImpl
+    ): SecurityCheckProvider = impl
 }
 

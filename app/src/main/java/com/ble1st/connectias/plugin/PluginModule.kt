@@ -8,6 +8,7 @@ import com.ble1st.connectias.plugin.security.PluginThreadMonitor
 import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
 import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
+import com.ble1st.connectias.core.plugin.PluginDependencyResolverV2
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -99,5 +100,17 @@ object PluginModule {
         pluginManager: PluginManagerSandbox
     ): GitHubPluginStore {
         return GitHubPluginStore(context, pluginManager)
+    }
+    
+    @Provides
+    @Singleton
+    fun providePluginDependencyResolverV2(
+        pluginManager: PluginManagerSandbox,
+        gitHubPluginStore: GitHubPluginStore
+    ): PluginDependencyResolverV2 {
+        return PluginDependencyResolverV2(
+            pluginManager = pluginManager,
+            pluginStore = gitHubPluginStore
+        )
     }
 }

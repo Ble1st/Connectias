@@ -138,13 +138,33 @@ class GitHubPluginStore(
                 val installedVersion = installedPlugin?.metadata?.version
                 val canUpdate = isInstalled && isNewerVersion(version, installedVersion ?: "")
                 
+                // Try to get checksum from .sha256sum or sha256sum.txt file in release assets
+                val sha256Asset = release.assets.find { 
+                    it.name.endsWith(".sha256sum") || it.name.equals("sha256sum.txt", ignoreCase = true)
+                }
+                val checksum = if (sha256Asset != null) {
+                    try {
+                        val hashResponse = httpClient.newCall(
+                            Request.Builder().url(sha256Asset.browser_download_url).build()
+                        ).execute()
+                        if (hashResponse.isSuccessful) {
+                            val hashContent = hashResponse.body?.string() ?: ""
+                            // Parse hash file format: <hash>  <filename>
+                            hashContent.split(" ").firstOrNull()?.lowercase() ?: ""
+                        } else ""
+                    } catch (e: Exception) {
+                        Timber.w(e, "Failed to fetch checksum for $pluginId")
+                        ""
+                    }
+                } else ""
+                
                 StorePlugin(
                     id = pluginId,
                     name = release.name.removeSuffix(" v$version"),
                     description = extractDescription(release.body),
                     version = version,
                     downloadUrl = apkAsset.browser_download_url,
-                    checksum = "", // Will be filled during download
+                    checksum = checksum,
                     category = category,
                     releaseDate = release.published_at,
                     releaseNotes = release.body,
@@ -190,9 +210,22 @@ class GitHubPluginStore(
                 }
             }
             
-            // Calculate checksum
-            val checksum = calculateSHA256(tempFile)
-            Timber.d("Plugin checksum: $checksum")
+            // Calculate checksum and verify
+            val calculatedChecksum = calculateSHA256(tempFile)
+            Timber.d("Plugin checksum: $calculatedChecksum")
+            
+            // Verify checksum if available from store
+            if (storePlugin.checksum.isNotEmpty()) {
+                if (!calculatedChecksum.equals(storePlugin.checksum, ignoreCase = true)) {
+                    tempFile.delete()
+                    return@withContext Result.failure(
+                        IOException("Checksum verification failed: expected ${storePlugin.checksum}, got $calculatedChecksum")
+                    )
+                }
+                Timber.i("Checksum verification passed for ${storePlugin.name}")
+            } else {
+                Timber.w("No checksum available for ${storePlugin.name}, skipping verification")
+            }
             
             // Move to plugin directory
             val pluginDir = File(context.filesDir, "plugins")
@@ -324,8 +357,8 @@ class GitHubPluginStore(
             val responseBody = response.body?.string() ?: return@withContext Result.failure(IOException("Empty response"))
             val releases = json.decodeFromString<List<GitHubRelease>>(responseBody)
             
-            // Find the release for this plugin version
-            val release = releases.find { release ->
+            // Find the release for this plugin version (try exact version match first)
+            var release = releases.find { release ->
                 val releasePluginId = extractPluginId(release.name, release.tag_name)
                 if (releasePluginId == pluginId) {
                     // Extract version the same way as in getAvailablePlugins
@@ -336,9 +369,43 @@ class GitHubPluginStore(
                 }
             }
             
+            // Fallback: If exact version not found, try to find release by partial plugin ID match
+            // This handles cases where plugin manifest version differs from GitHub release tag version
+            if (release == null) {
+                Timber.d("Exact version $version not found for $pluginId, trying fallback to latest release")
+                
+                // Extract short plugin name from full plugin ID (e.g., "pingplugin" from "com.ble1st.connectias.pingplugin")
+                val shortPluginName = pluginId.substringAfterLast(".")
+                
+                // Normalize both names by removing hyphens for comparison
+                val normalizedShortName = shortPluginName.replace("-", "").lowercase()
+                
+                // Try to find a release where the tag matches (allowing for hyphen differences)
+                release = releases.find { release ->
+                    val extractedId = extractPluginId(release.name, release.tag_name)
+                    val normalizedExtractedId = extractedId?.replace("-", "")?.lowercase()
+                    
+                    // Match if either contains the other, or if they're equal after normalization
+                    normalizedExtractedId?.let { 
+                        it.contains(normalizedShortName) || normalizedShortName.contains(it)
+                    } == true
+                }
+                
+                // Last resort: Find ANY release that has a sha256sum file
+                // This assumes the repo is dedicated to this plugin or has very few plugins
+                if (release == null) {
+                    Timber.w("Plugin ID match failed, searching for any release with sha256sum file")
+                    release = releases.find { r ->
+                        r.assets.any { it.name.endsWith(".sha256sum") || it.name.equals("sha256sum.txt", ignoreCase = true) }
+                    }
+                }
+            }
+            
             if (release != null) {
-                // Look for .sha256sum file in assets
-                val sha256Asset = release.assets.find { it.name.endsWith(".sha256sum") }
+                // Look for .sha256sum or sha256sum.txt file in assets
+                val sha256Asset = release.assets.find { 
+                    it.name.endsWith(".sha256sum") || it.name.equals("sha256sum.txt", ignoreCase = true)
+                }
                 if (sha256Asset != null) {
                     // Download and parse the SHA256 file
                     val hashResponse = httpClient.newCall(
@@ -350,6 +417,7 @@ class GitHubPluginStore(
                         // Parse hash file format: <hash>  <filename>
                         val hash = hashContent.split(" ").firstOrNull()
                         if (!hash.isNullOrEmpty()) {
+                            Timber.i("Found SHA256 hash for $pluginId from release ${release.tag_name}")
                             return@withContext Result.success(hash.lowercase())
                         }
                     }
