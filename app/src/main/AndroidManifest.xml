@@ -100,6 +100,13 @@
             android:enabled="true"
             android:exported="false" />
         
+        <!-- Plugin Messaging Service - Provides message routing between plugins -->
+        <!-- Runs in main process as message broker -->
+        <service
+            android:name="com.ble1st.connectias.plugin.messaging.PluginMessagingService"
+            android:enabled="true"
+            android:exported="false" />
+        
         <!-- Plugin Sandbox Service - Runs in SEPARATE process for crash isolation -->
         <!-- isolatedProcess="true" = TRUE OS-Level isolation (no app permissions) -->
         <!-- Security: Hardware access controlled via Hardware Bridge + PermissionManager -->

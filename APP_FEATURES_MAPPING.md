@@ -89,15 +89,24 @@
 - **Behavior Analyzer** → `PluginBehaviorAnalyzer` @`app/src/main/java/com/ble1st/connectias/plugin/security/PluginBehaviorAnalyzer.kt`
 - **Resource Limiter** → `PluginResourceLimiter` @`app/src/main/java/com/ble1st/connectias/plugin/security/PluginResourceLimiter.kt`
 - **Thread Monitor** → `PluginThreadMonitor` @`app/src/main/java/com/ble1st/connectias/plugin/security/PluginThreadMonitor.kt`
+- **IPC Rate Limiter** → `IPCRateLimiter` @`app/src/main/java/com/ble1st/connectias/plugin/security/IPCRateLimiter.kt`
+- **Rate Limit Exception** → `RateLimitException` @`app/src/main/java/com/ble1st/connectias/plugin/security/RateLimitException.kt`
 - **Security DI** → `SecurityModule` @`app/src/main/java/com/ble1st/connectias/plugin/security/SecurityModule.kt`
 
 ## 15) Hardware & File Bridges (Sandbox Isolation)
 - **Hardware Bridge (Camera/Net/Printer/Bluetooth)** → `HardwareBridgeService` @`app/src/main/java/com/ble1st/connectias/hardware/HardwareBridgeService.kt`
 - **File System Bridge** → `FileSystemBridgeService` @`app/src/main/java/com/ble1st/connectias/core/plugin/FileSystemBridgeService.kt`
 
+## 16) Inter-Plugin Messaging
+- **Message Broker** → `PluginMessageBroker` @`app/src/main/java/com/ble1st/connectias/plugin/messaging/PluginMessageBroker.kt`
+- **Messaging Service** → `PluginMessagingService` @`app/src/main/java/com/ble1st/connectias/plugin/messaging/PluginMessagingService.kt`
+- **Messaging Proxy** → `PluginMessagingProxy` @`app/src/main/java/com/ble1st/connectias/plugin/messaging/PluginMessagingProxy.kt`
+- **Message Models** → `PluginMessage`, `MessageResponse` @`app/src/main/java/com/ble1st/connectias/plugin/messaging/*`
+- **AIDL Interface** → `IPluginMessaging.aidl` @`app/src/main/aidl/com/ble1st/connectias/plugin/messaging/IPluginMessaging.aidl`
+
 ---
 
-## 16) Visuelle Architektur (Mermaid)
+## 17) Visuelle Architektur (Mermaid)
 
 ```mermaid
 flowchart LR
@@ -160,6 +169,16 @@ flowchart LR
     subgraph BRIDGE[Bridges (Main Process)]
         HW[HardwareBridgeService]
         FS[FileSystemBridgeService]
+        MSG[PluginMessagingService]
+    end
+    
+    subgraph MSG_SYS[Messaging System]
+        MB[PluginMessageBroker]
+        MP[PluginMessagingProxy]
+    end
+    
+    subgraph RATE[Rate Limiting]
+        RL[IPCRateLimiter]
     end
 
     A --> DASH
@@ -182,10 +201,14 @@ flowchart LR
     PMS <--> PSS
     PSS --> HW
     PSS --> FS
+    PSS --> MP
+    MP --> MSG
+    MSG --> MB
     PMS --> PPERMGR
     PMS --> ZTV
     PMS --> RES
     PMS --> THR
+    PMS --> RL
 
     STORE --> PMS
     UPD --> PMS
@@ -206,6 +229,8 @@ flowchart LR
     PLUGIN --> SEC
     PLUGIN --> STREAM
     PLUGIN --> BRIDGE
+    PLUGIN --> MSG_SYS
+    PLUGIN --> RATE
 ```
 
 **Hinweis:** Dies ist ein codebasiertes Mapping. Keine externen Docs wurden verwendet.

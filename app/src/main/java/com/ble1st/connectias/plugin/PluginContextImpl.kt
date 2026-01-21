@@ -8,11 +8,18 @@ import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.sdk.PluginContext
 import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
 import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
+import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
+import com.ble1st.connectias.plugin.messaging.PluginMessage
+import com.ble1st.connectias.plugin.messaging.MessageResponse
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
 import timber.log.Timber
 import java.io.File
+import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 
@@ -25,16 +32,35 @@ class PluginContextImpl(
     private val pluginId: String,
     private val pluginDataDir: File,
     private val nativeLibraryManager: NativeLibraryManager,
-    private val permissionManager: PluginPermissionManager
+    private val permissionManager: PluginPermissionManager,
+    private val messagingProxy: PluginMessagingProxy? = null // Optional messaging proxy
 ) : PluginContext {
     
     // Hardware Bridge connection (lazy)
     private var hardwareBridge: IHardwareBridge? = null
     private var hardwareBridgeConnection: ServiceConnection? = null
     
+    // Messaging
+    private val messageHandlers = ConcurrentHashMap<String, suspend (PluginMessage) -> MessageResponse>()
+    private val messagingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    
     init {
         // Connect to HardwareBridge service
         connectToHardwareBridge()
+        
+        // Connect to messaging service if proxy provided
+        messagingProxy?.let { proxy ->
+            messagingScope.launch {
+                val connectResult = proxy.connect()
+                if (connectResult.isSuccess) {
+                    // Register plugin for messaging
+                    proxy.registerPlugin(pluginId)
+                    Timber.d("[$pluginId] Connected to messaging service")
+                } else {
+                    Timber.w(connectResult.exceptionOrNull(), "[$pluginId] Failed to connect to messaging service")
+                }
+            }
+        }
     }
     
     private val services = ConcurrentHashMap<String, Any>()
@@ -297,9 +323,118 @@ class PluginContextImpl(
         return nativeLibraryManager.loadLibrary(libraryPath)
     }
     
+    // ========================================
+    // Plugin Messaging APIs Implementation
+    // ========================================
+    
+    override suspend fun sendMessageToPlugin(
+        receiverId: String,
+        messageType: String,
+        payload: ByteArray
+    ): Result<MessageResponse> {
+        return try {
+            if (messagingProxy == null) {
+                return Result.failure(IllegalStateException("Messaging proxy not available"))
+            }
+            
+            val message = PluginMessage(
+                senderId = pluginId,
+                receiverId = receiverId,
+                messageType = messageType,
+                payload = payload,
+                requestId = UUID.randomUUID().toString(),
+                timestamp = System.currentTimeMillis()
+            )
+            
+            messagingProxy.sendMessage(message)
+        } catch (e: Exception) {
+            Timber.e(e, "[$pluginId] Failed to send message to plugin: $receiverId")
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun receiveMessages(): Flow<PluginMessage> {
+        return flow {
+            if (messagingProxy == null) {
+                Timber.w("[$pluginId] Messaging proxy not available, cannot receive messages")
+                return@flow
+            }
+            
+            while (true) {
+                try {
+                    val result = messagingProxy.receiveMessages(pluginId)
+                    result.onSuccess { messages ->
+                        messages.forEach { message ->
+                            emit(message)
+                        }
+                    }.onFailure { error ->
+                        Timber.e(error, "[$pluginId] Error receiving messages")
+                    }
+                    
+                    // Poll interval: check for new messages every 100ms
+                    delay(100)
+                } catch (e: Exception) {
+                    Timber.e(e, "[$pluginId] Error in receiveMessages flow")
+                    delay(1000) // Wait longer on error
+                }
+            }
+        }
+    }
+    
+    override fun registerMessageHandler(
+        messageType: String,
+        handler: suspend (PluginMessage) -> MessageResponse
+    ) {
+        messageHandlers[messageType] = handler
+        
+        // Start background coroutine to process messages
+        messagingScope.launch {
+            try {
+                receiveMessages().collect { message ->
+                    if (message.messageType == messageType) {
+                        val registeredHandler = messageHandlers[messageType]
+                        if (registeredHandler != null) {
+                            try {
+                                val response = registeredHandler(message)
+                                
+                                // Send response back to sender
+                                messagingProxy?.sendResponse(response)?.onFailure { error ->
+                                    Timber.e(error, "[$pluginId] Failed to send response for message: ${message.requestId}")
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "[$pluginId] Error in message handler for type: $messageType")
+                                
+                                // Send error response
+                                val errorResponse = MessageResponse.error(
+                                    message.requestId,
+                                    "Handler error: ${e.message}"
+                                )
+                                messagingProxy?.sendResponse(errorResponse)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[$pluginId] Error in message handler coroutine")
+            }
+        }
+        
+        Timber.d("[$pluginId] Registered message handler for type: $messageType")
+    }
+    
     fun cleanup() {
         // Clear services first to prevent further usage
         services.clear()
+        
+        // Cleanup messaging
+        messagingScope.cancel()
+        messageHandlers.clear()
+        messagingProxy?.let { proxy ->
+            messagingScope.launch {
+                proxy.unregisterPlugin(pluginId)
+                proxy.disconnect()
+            }
+        }
         
         hardwareBridgeConnection?.let { connection ->
             try {

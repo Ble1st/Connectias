@@ -19,8 +19,51 @@ Das Plugin SDK (`connectias-plugin-sdk`) definiert die Basis-Interfaces für all
 
 - `IPlugin` - Haupt-Interface für Plugins
 - `PluginMetadata` - Metadaten-Struktur
-- `PluginContext` - Context für Plugin-Zugriff
+- `PluginContext` - Context für Plugin-Zugriff (inkl. Messaging-APIs)
 - `INativeLibraryManager` - Native Library Loading
+
+### Inter-Plugin Messaging
+
+Plugins können über das Messaging-System miteinander kommunizieren:
+
+```kotlin
+class MyPlugin : IPlugin {
+    override fun onLoad(context: PluginContext): Boolean {
+        // Register message handler
+        context.registerMessageHandler("DATA_REQUEST") { message ->
+            // Process request and return response
+            val processed = processData(message.payload)
+            MessageResponse.success(message.requestId, processed)
+        }
+        return true
+    }
+    
+    override fun onEnable(): Boolean {
+        // Send message to another plugin
+        lifecycleScope.launch {
+            val response = context.sendMessageToPlugin(
+                receiverId = "other-plugin",
+                messageType = "DATA_REQUEST",
+                payload = "Request data".toByteArray()
+            )
+            response.onSuccess { 
+                // Handle response
+            }
+        }
+        return true
+    }
+}
+```
+
+### API Rate Limiting
+
+Alle IPC-Methoden sind durch Rate-Limiting geschützt:
+- `loadPlugin`: 1/sec, 10/min
+- `enablePlugin`: 2/sec, 20/min
+- `ping`: 60/sec, 600/min
+- `getLoadedPlugins`: 10/sec, 100/min
+
+Bei Überschreitung wird eine `RateLimitException` geworfen.
 
 ## Plugin erstellen
 

@@ -18,7 +18,7 @@
 | 7 | **Plugin-Templates** | ❌ | Nicht implementiert |
 | 8 | **Plugin-Sandkasten** | ✅ | `PluginSandboxService.kt`, `EnhancedSandbox.kt`, isolatedProcess |
 | 9 | **Plugin-Analytics** | ⚠️ | Nur Resource-Monitoring (`EnhancedPluginResourceLimiter.kt`) |
-| 10 | **Inter-Plugin-Messaging** | ❌ | Nicht implementiert |
+| 10 | **Inter-Plugin-Messaging** | ✅ | `PluginMessageBroker.kt`, `PluginMessagingService.kt`, `PluginMessagingProxy.kt` |
 | 11 | **Plugin-Prioritäten** | ❌ | Nicht implementiert |
 | 12 | **Plugin-Kategorien** | ✅ | `PluginCategory.kt`, im Metadata vorhanden |
 | 13 | **Plugin-Suche** | ⚠️ | Nur im Store, nicht lokal |
@@ -30,7 +30,7 @@
 | 19 | **Plugin-Deaktivierung** | ✅ | `PluginManagerSandbox.disablePlugin()` |
 | 20 | **Plugin-Autostart** | ❌ | Nicht implementiert |
 
-**Zusammenfassung:** 9/20 ✅ | 4/20 ⚠️ | 7/20 ❌
+**Zusammenfassung:** 11/20 ✅ | 3/20 ⚠️ | 6/20 ❌
 
 ---
 
@@ -46,7 +46,7 @@
 | 26 | **Zeitbasierte Berechtigungen** | ❌ | Nicht implementiert |
 | 27 | **Incognito-Modus** | ❌ | Nicht implementiert |
 | 28 | **Sandbox-Isolation** | ✅ | `PluginSandboxService.kt` (isolatedProcess="true") |
-| 29 | **API-Rate-Limiting** | ⚠️ | Nur Netzwerk (`NetworkUsageAggregator.kt`) |
+| 29 | **API-Rate-Limiting** | ✅ | `IPCRateLimiter.kt`, integriert in `PluginSandboxProxy.kt` |
 | 30 | **Datenverschlüsselung** | ❌ | Nicht implementiert |
 | 31 | **Biometrische Sperre** | ❌ | Nicht implementiert |
 | 32 | **Sicherheits-Scanner** | ⚠️ | `ZeroTrustVerifier.kt` (Hash-Check, keine Malware-Erkennung) |
@@ -59,7 +59,7 @@
 | 39 | **Audit-Logs** | ✅ | `SecurityAuditManager.kt` |
 | 40 | **Notfall-Deaktivierung** | ✅ | `EnhancedSandbox.handleAnomaly()` + Callback |
 
-**Zusammenfassung:** 11/20 ✅ | 5/20 ⚠️ | 4/20 ❌
+**Zusammenfassung:** 12/20 ✅ | 4/20 ⚠️ | 4/20 ❌
 
 ---
 
@@ -163,20 +163,20 @@
 
 | Kategorie | ✅ Vorhanden | ⚠️ Teilweise | ❌ Fehlt | Gesamt |
 |-----------|-------------|--------------|---------|--------|
-| Plugin-System Core | 9 | 4 | 7 | 20 |
-| Sicherheit | 11 | 5 | 4 | 20 |
+| Plugin-System Core | 11 | 3 | 6 | 20 |
+| Sicherheit | 12 | 4 | 4 | 20 |
 | UI/UX | 5 | 4 | 11 | 20 |
 | Performance | 7 | 5 | 3 | 15 |
 | Entwickler-Tools | 7 | 0 | 8 | 15 |
 | Plugin-Ideen | 0 | 4 | 6 | 10 |
-| **GESAMT** | **39** | **22** | **39** | **100** |
+| **GESAMT** | **41** | **21** | **38** | **100** |
 
 ## 📈 Implementierungsgrad
 
 ```
-Vollständig implementiert: 39%
-Teilweise implementiert:   22%
-Nicht implementiert:       39%
+Vollständig implementiert: 41%
+Teilweise implementiert:   21%
+Nicht implementiert:       38%
 ```
 
 ---
@@ -186,13 +186,11 @@ Nicht implementiert:       39%
 ### Hohe Priorität (Teilweise → Vollständig)
 1. **Plugin-Analytics** → Vollständige Nutzungsstatistiken
 2. **Privacy Dashboard** → DSGVO-konforme Übersicht
-3. **API-Rate-Limiting** → Alle APIs begrenzen
 
 ### Mittlere Priorität (Neue Features)
-4. **Hot-Reload** → Entwickler-Erfahrung verbessern
-5. **Inter-Plugin-Messaging** → Plugin-Ökosystem ermöglichen
-6. **Plugin-Widgets** → Home-Screen Integration
-7. **Daten-Export** → DSGVO-Compliance
+3. **Hot-Reload** → Entwickler-Erfahrung verbessern
+4. **Plugin-Widgets** → Home-Screen Integration
+5. **Daten-Export** → DSGVO-Compliance
 
 ### Niedrige Priorität
 8. Plugin-Bundles
@@ -203,9 +201,9 @@ Nicht implementiert:       39%
 
 ## 🏆 Stärken des aktuellen Systems
 
-1. **Sicherheit** (55% vollständig) - ZeroTrust, Sandbox, Audit-Logs
-2. **Performance** (47% vollständig) - Lazy Loading, Memory Management
-3. **Plugin-Verwaltung** (45% vollständig) - Store, Versioning, Import/Export
+1. **Sicherheit** (60% vollständig) - ZeroTrust, Sandbox, Audit-Logs, API-Rate-Limiting
+2. **Plugin-System** (55% vollständig) - Store, Versioning, Inter-Plugin-Messaging
+3. **Performance** (47% vollständig) - Lazy Loading, Memory Management
 
 ## ⚠️ Schwächen
 
@@ -215,4 +213,5 @@ Nicht implementiert:       39%
 
 ---
 
-*Generiert durch automatische Code-Analyse am 21.01.2026*
+*Generiert durch automatische Code-Analyse am 21.01.2026*  
+*Aktualisiert am: 21.01.2026 - Inter-Plugin-Messaging und API-Rate-Limiting hinzugefügt*

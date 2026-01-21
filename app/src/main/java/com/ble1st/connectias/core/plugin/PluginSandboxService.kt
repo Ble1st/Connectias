@@ -20,6 +20,7 @@ import com.ble1st.connectias.plugin.IPermissionCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
+import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
 import android.os.ParcelFileDescriptor
 import android.os.Binder
 import dalvik.system.DexClassLoader
@@ -34,6 +35,7 @@ import org.json.JSONObject
 import android.os.Debug
 import android.os.Process
 import java.util.zip.ZipFile
+import kotlinx.coroutines.*
 
 /**
  * Isolated service that runs plugins in a separate process
@@ -52,8 +54,14 @@ class PluginSandboxService : Service() {
     private var fileSystemBridge: IFileSystemBridge? = null
     private var permissionCallback: IPermissionCallback? = null
     
+    // Messaging proxy for inter-plugin communication
+    private lateinit var messagingProxy: PluginMessagingProxy
+    
     // Broadcast receiver for permission changes
     private var permissionBroadcastReceiver: BroadcastReceiver? = null
+    
+    // Coroutine scope for async messaging operations
+    private val messagingScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Memory monitoring
     private val memoryMonitor = PluginMemoryMonitor()
@@ -284,6 +292,19 @@ class PluginSandboxService : Service() {
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Plugin onUnload failed")
             }
+            
+            // Cleanup messaging
+            messagingScope.launch {
+                val unregisterResult = messagingProxy.unregisterPlugin(pluginId)
+                if (unregisterResult.isSuccess) {
+                    Timber.i("[SANDBOX] Plugin unregistered from messaging: $pluginId")
+                } else {
+                    Timber.w(unregisterResult.exceptionOrNull(), "[SANDBOX] Failed to unregister plugin from messaging: $pluginId")
+                }
+            }
+            
+            // Cleanup plugin context
+            pluginInfo.context.cleanup()
             
             // Cleanup
             classLoaders.remove(pluginId)
@@ -557,8 +578,19 @@ class PluginSandboxService : Service() {
                     pluginId,
                     permissionManager,
                     secureHardwareBridge, // Use secure wrapper
-                    secureFileSystemBridge // Use secure wrapper
+                    secureFileSystemBridge, // Use secure wrapper
+                    messagingProxy // Messaging proxy for inter-plugin communication
                 )
+                
+                // Step 8a: Register plugin for messaging
+                messagingScope.launch {
+                    val registerResult = messagingProxy.registerPlugin(pluginId)
+                    if (registerResult.isSuccess && registerResult.getOrNull() == true) {
+                        Timber.i("[SANDBOX] Plugin registered for messaging: $pluginId")
+                    } else {
+                        Timber.w("[SANDBOX] Failed to register plugin for messaging: $pluginId")
+                    }
+                }
                 
                 // Step 9: Initialize plugin with onLoad
                 val loadSuccess = try {
@@ -783,6 +815,17 @@ class PluginSandboxService : Service() {
         // Initialize permission manager for sandbox process
         permissionManager = PluginPermissionManager(applicationContext)
         
+        // Initialize messaging proxy
+        messagingProxy = PluginMessagingProxy(applicationContext)
+        messagingScope.launch {
+            val connectResult = messagingProxy.connect()
+            if (connectResult.isSuccess) {
+                Timber.i("[SANDBOX] Connected to messaging service")
+            } else {
+                Timber.w(connectResult.exceptionOrNull(), "[SANDBOX] Failed to connect to messaging service")
+            }
+        }
+        
         // Note: Broadcast receiver cannot be registered in isolated process
         // Permission changes will be handled via IPC through hardware bridge
         Timber.i("[SANDBOX] Skipping broadcast receiver registration (not allowed in isolated process)")
@@ -795,6 +838,10 @@ class PluginSandboxService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.i("[SANDBOX] Service destroyed")
+        
+        // Disconnect messaging proxy
+        messagingProxy.disconnect()
+        messagingScope.cancel()
         
         // Note: No broadcast receiver to unregister (isolated process restriction)
         

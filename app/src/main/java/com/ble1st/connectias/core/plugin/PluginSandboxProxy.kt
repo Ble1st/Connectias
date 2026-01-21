@@ -13,6 +13,9 @@ import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.core.plugin.FileSystemBridgeService
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.PluginResultParcel
+import com.ble1st.connectias.plugin.security.IPCRateLimiter
+import com.ble1st.connectias.plugin.security.RateLimitException
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import kotlinx.coroutines.*
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
@@ -23,7 +26,8 @@ import kotlin.coroutines.resumeWithException
  * Proxy for communicating with the plugin sandbox service via IPC
  */
 class PluginSandboxProxy(
-    private val context: Context
+    private val context: Context,
+    private val auditManager: SecurityAuditManager? = null
 ) {
     
     private var sandboxService: IPluginSandbox? = null
@@ -35,6 +39,7 @@ class PluginSandboxProxy(
     private val connectionLock = Any()
     private val hardwareBridgeLock = Any()
     private var bindJob: Job? = null
+    private val rateLimiter = IPCRateLimiter()
     
     companion object {
         private const val BIND_TIMEOUT_MS = 5000L
@@ -125,11 +130,18 @@ class PluginSandboxProxy(
                 return@withContext Result.failure(Exception("Sandbox connection timeout"))
             }
             
-            // Verify connection with ping
-            val pingSuccess = sandboxService?.ping() ?: false
-            if (!pingSuccess) {
+            // Verify connection with ping (rate limit check)
+            try {
+                rateLimiter.checkRateLimit("ping")
+                val pingSuccess = sandboxService?.ping() ?: false
+                if (!pingSuccess) {
+                    disconnect()
+                    return@withContext Result.failure(Exception("Sandbox ping failed"))
+                }
+            } catch (e: RateLimitException) {
+                Timber.w(e, "Rate limit exceeded for ping during connect")
                 disconnect()
-                return@withContext Result.failure(Exception("Sandbox ping failed"))
+                return@withContext Result.failure(e)
             }
             
             // Connect to Hardware Bridge Service
@@ -227,6 +239,14 @@ class PluginSandboxProxy(
      */
     fun getSandboxPid(): Int {
         return try {
+            // Rate limit check (synchronous method, so we check but don't throw in non-suspend context)
+            try {
+                rateLimiter.checkRateLimit("getSandboxPid")
+            } catch (e: RateLimitException) {
+                Timber.w(e, "Rate limit exceeded for getSandboxPid")
+                return 0
+            }
+            
             if (isConnected.get()) {
                 sandboxService?.getSandboxPid() ?: 0
             } else {
@@ -327,6 +347,9 @@ class PluginSandboxProxy(
      */
     suspend fun loadPlugin(pluginPath: String): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("loadPlugin")
+            
             ensureConnected()
             
             val result = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -339,6 +362,22 @@ class PluginSandboxProxy(
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for loadPlugin")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = null,
+                message = "Rate limit exceeded for method: loadPlugin",
+                details = mapOf(
+                    "method" to "loadPlugin",
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to load plugin via IPC")
             Result.failure(e)
@@ -351,6 +390,9 @@ class PluginSandboxProxy(
      */
     suspend fun loadPluginFromFile(pluginFile: java.io.File, pluginId: String): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("loadPluginFromDescriptor", pluginId)
+            
             ensureConnected()
             
             // Open file as ParcelFileDescriptor
@@ -375,6 +417,23 @@ class PluginSandboxProxy(
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for loadPluginFromDescriptor")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = pluginId,
+                message = "Rate limit exceeded for method: loadPluginFromDescriptor",
+                details = mapOf(
+                    "method" to "loadPluginFromDescriptor",
+                    "pluginId" to (pluginId ?: "unknown"),
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to load plugin from file via IPC")
             Result.failure(e)
@@ -386,6 +445,9 @@ class PluginSandboxProxy(
      */
     suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("enablePlugin", pluginId)
+            
             ensureConnected()
             
             val result = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -398,6 +460,23 @@ class PluginSandboxProxy(
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for enablePlugin")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = pluginId,
+                message = "Rate limit exceeded for method: enablePlugin",
+                details = mapOf(
+                    "method" to "enablePlugin",
+                    "pluginId" to pluginId,
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to enable plugin via IPC")
             Result.failure(e)
@@ -409,6 +488,9 @@ class PluginSandboxProxy(
      */
     suspend fun disablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("disablePlugin", pluginId)
+            
             ensureConnected()
             
             val result = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -421,6 +503,23 @@ class PluginSandboxProxy(
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for disablePlugin")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = pluginId,
+                message = "Rate limit exceeded for method: disablePlugin",
+                details = mapOf(
+                    "method" to "disablePlugin",
+                    "pluginId" to pluginId,
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to disable plugin via IPC")
             Result.failure(e)
@@ -432,6 +531,9 @@ class PluginSandboxProxy(
      */
     suspend fun unloadPlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("unloadPlugin", pluginId)
+            
             ensureConnected()
             
             val result = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -444,6 +546,23 @@ class PluginSandboxProxy(
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for unloadPlugin")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = pluginId,
+                message = "Rate limit exceeded for method: unloadPlugin",
+                details = mapOf(
+                    "method" to "unloadPlugin",
+                    "pluginId" to pluginId,
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to unload plugin via IPC")
             Result.failure(e)
@@ -455,6 +574,9 @@ class PluginSandboxProxy(
      */
     suspend fun getLoadedPlugins(): Result<List<String>> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("getLoadedPlugins")
+            
             ensureConnected()
             
             val plugins = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -463,6 +585,22 @@ class PluginSandboxProxy(
             
             Result.success(plugins)
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for getLoadedPlugins")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = null,
+                message = "Rate limit exceeded for method: getLoadedPlugins",
+                details = mapOf(
+                    "method" to "getLoadedPlugins",
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to get loaded plugins via IPC")
             Result.failure(e)
@@ -474,6 +612,9 @@ class PluginSandboxProxy(
      */
     suspend fun getPluginMetadata(pluginId: String): Result<PluginMetadata?> = withContext(Dispatchers.IO) {
         try {
+            // Rate limit check
+            rateLimiter.checkRateLimit("getPluginMetadata", pluginId)
+            
             ensureConnected()
             
             val metadata = withTimeoutOrNull(IPC_TIMEOUT_MS) {
@@ -482,6 +623,23 @@ class PluginSandboxProxy(
             
             Result.success(metadata?.toPluginMetadata())
             
+        } catch (e: RateLimitException) {
+            Timber.w(e, "Rate limit exceeded for getPluginMetadata")
+            // Log to security audit
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                pluginId = pluginId,
+                message = "Rate limit exceeded for method: getPluginMetadata",
+                details = mapOf(
+                    "method" to "getPluginMetadata",
+                    "pluginId" to pluginId,
+                    "retryAfterMs" to e.retryAfterMs.toString()
+                ),
+                exception = e
+            )
+            Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to get plugin metadata via IPC")
             Result.failure(e)

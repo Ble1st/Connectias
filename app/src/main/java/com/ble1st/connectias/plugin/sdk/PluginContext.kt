@@ -1,6 +1,9 @@
 package com.ble1st.connectias.plugin.sdk
 
 import android.content.Context
+import com.ble1st.connectias.plugin.messaging.PluginMessage
+import com.ble1st.connectias.plugin.messaging.MessageResponse
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 /**
@@ -132,6 +135,45 @@ interface PluginContext {
      * @return Hardware Bridge interface, or null if not available
      */
     fun getHardwareBridge(): Any? // Returns IHardwareBridge, using Any to avoid SDK dependency
+    
+    // ========================================
+    // Plugin Messaging APIs (v2.0)
+    // ========================================
+    
+    /**
+     * Send a message to another plugin and wait for response
+     * 
+     * @param receiverId Target plugin ID
+     * @param messageType Message type identifier (e.g., "DATA_REQUEST", "EVENT_NOTIFICATION")
+     * @param payload Message payload as ByteArray
+     * @return Response from receiver plugin, or error
+     */
+    suspend fun sendMessageToPlugin(
+        receiverId: String,
+        messageType: String,
+        payload: ByteArray
+    ): Result<MessageResponse>
+    
+    /**
+     * Receive pending messages for this plugin
+     * Returns a Flow that emits messages as they arrive
+     * 
+     * @return Flow of incoming messages
+     */
+    suspend fun receiveMessages(): Flow<PluginMessage>
+    
+    /**
+     * Register a message handler for specific message types
+     * When a message of the specified type is received, the handler is called
+     * and its response is sent back to the sender
+     * 
+     * @param messageType Message type to handle
+     * @param handler Handler function that processes message and returns response
+     */
+    fun registerMessageHandler(
+        messageType: String,
+        handler: suspend (PluginMessage) -> MessageResponse
+    )
 }
 
 /**

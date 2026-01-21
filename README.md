@@ -58,6 +58,10 @@ Connectias is a cutting-edge Android security framework designed for enterprise 
 - **Hardware Bridge**: Secure hardware access delegation
 - **AIDL-IPC**: Type-safe inter-process communication
 - **Dynamic Loading**: Runtime plugin installation and updates
+- **Inter-Plugin Messaging**: Direct plugin-to-plugin communication via message broker
+- **API Rate Limiting**: DoS protection with configurable limits per IPC method
+- **Inter-Plugin Messaging**: Direct plugin-to-plugin communication via message broker
+- **API Rate Limiting**: DoS protection with configurable rate limits per IPC method
 
 ### Development Features
 - **Clean Architecture**: 14 core modules with clear separation of concerns
@@ -151,6 +155,13 @@ interface IHardwareBridge {
     fun captureImage(pluginId: String): HardwareResponseParcel
     fun httpGet(pluginId: String, url: String): HardwareResponseParcel
 }
+
+// Inter-Plugin Messaging
+interface IPluginMessaging {
+    fun sendMessage(message: PluginMessage): MessageResponse
+    fun receiveMessages(pluginId: String): List<PluginMessage>
+    fun registerPlugin(pluginId: String): Boolean
+}
 ```
 
 ### Development
@@ -158,10 +169,32 @@ interface IHardwareBridge {
 class MyPlugin : IPlugin {
     override fun onLoad(context: PluginContext): Boolean {
         // Initialize plugin
+        
+        // Register message handler for inter-plugin communication
+        context.registerMessageHandler("DATA_REQUEST") { message ->
+            // Process message and return response
+            MessageResponse.success(message.requestId, processData(message.payload))
+        }
+        
+        return true
     }
     
     override fun onEnable(): Boolean {
         // Enable functionality
+        
+        // Send message to another plugin
+        lifecycleScope.launch {
+            val response = context.sendMessageToPlugin(
+                receiverId = "other-plugin",
+                messageType = "DATA_REQUEST",
+                payload = "Hello".toByteArray()
+            )
+            response.onSuccess { 
+                // Handle response
+            }
+        }
+        
+        return true
     }
 }
 ```
@@ -320,6 +353,35 @@ class PluginManagerSandbox {
 }
 ```
 
+#### Plugin Messaging
+```kotlin
+interface PluginContext {
+    suspend fun sendMessageToPlugin(
+        receiverId: String,
+        messageType: String,
+        payload: ByteArray
+    ): Result<MessageResponse>
+    
+    suspend fun receiveMessages(): Flow<PluginMessage>
+    
+    fun registerMessageHandler(
+        messageType: String,
+        handler: suspend (PluginMessage) -> MessageResponse
+    )
+}
+```
+
+#### API Rate Limiting
+```kotlin
+class IPCRateLimiter {
+    fun checkRateLimit(methodName: String, pluginId: String?)
+    // Configurable limits per method:
+    // - loadPlugin: 1/sec, 10/min
+    // - enablePlugin: 2/sec, 20/min
+    // - ping: 60/sec, 600/min
+}
+```
+
 #### Hardware Bridge
 ```kotlin
 interface IHardwareBridge {
@@ -329,11 +391,54 @@ interface IHardwareBridge {
 }
 ```
 
+#### Inter-Plugin Messaging
+```kotlin
+interface PluginContext {
+    suspend fun sendMessageToPlugin(
+        receiverId: String,
+        messageType: String,
+        payload: ByteArray
+    ): Result<MessageResponse>
+    
+    suspend fun receiveMessages(): Flow<PluginMessage>
+    
+    fun registerMessageHandler(
+        messageType: String,
+        handler: suspend (PluginMessage) -> MessageResponse
+    )
+}
+```
+
+**Features:**
+- Request/Response pattern with 5-second timeout
+- Message broker in Main Process for security
+- Rate limiting: 100 messages/sec per plugin
+- Payload limit: 1MB per message
+- Automatic plugin registration/unregistration
+
+#### API Rate Limiting
+```kotlin
+class IPCRateLimiter {
+    fun checkRateLimit(methodName: String, pluginId: String?)
+    // Throws RateLimitException if limit exceeded
+}
+```
+
+**Rate Limits:**
+- `loadPlugin`: 1/sec, 10/min, burst=2
+- `enablePlugin`: 2/sec, 20/min, burst=3
+- `ping`: 60/sec, 600/min, burst=100
+- `getLoadedPlugins`: 10/sec, 100/min, burst=20
+
+All violations are logged to SecurityAuditManager.
+
 ### Full Documentation
 
 - [Plugin Development Guide](docs/plugin-development.md)
 - [Security API Reference](docs/security-api.md)
 - [Hardware Access Guide](docs/hardware-access.md)
+- [Inter-Plugin Messaging Guide](docs/PLUGIN_MESSAGING.md)
+- [API Rate Limiting Guide](docs/API_RATE_LIMITING.md)
 
 ## 🤝 Contributing
 

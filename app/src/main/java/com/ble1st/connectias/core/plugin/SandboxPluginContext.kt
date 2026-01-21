@@ -12,12 +12,20 @@ import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
+import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
+import com.ble1st.connectias.plugin.messaging.PluginMessage
+import com.ble1st.connectias.plugin.messaging.MessageResponse
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.suspendCancellableCoroutine
 import timber.log.Timber
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.IOException
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
 
 /**
@@ -31,11 +39,18 @@ class SandboxPluginContext(
     private val pluginId: String,
     private val permissionManager: PluginPermissionManager,
     private val hardwareBridge: IHardwareBridge? = null, // Now accepts secure wrappers
-    private val fileSystemBridge: IFileSystemBridge? = null // Now accepts secure wrappers
+    private val fileSystemBridge: IFileSystemBridge? = null, // Now accepts secure wrappers
+    private val messagingProxy: PluginMessagingProxy? = null // Messaging proxy for inter-plugin communication
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
     private val nativeLibManager = pluginDir?.let { NativeLibraryManager(it) }
+    
+    // Message handlers registered by plugin
+    private val messageHandlers = ConcurrentHashMap<String, suspend (PluginMessage) -> MessageResponse>()
+    
+    // Background coroutine scope for message processing
+    private val messageScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     
     // Lazy-initialized secure context wrapper
     private val secureContext: Context by lazy {
@@ -369,5 +384,113 @@ class SandboxPluginContext(
             Timber.e(e, "[SANDBOX:$pluginId] Failed to get file size: $path")
             -1
         }
+    }
+    
+    // ========================================
+    // Plugin Messaging APIs Implementation
+    // ========================================
+    
+    override suspend fun sendMessageToPlugin(
+        receiverId: String,
+        messageType: String,
+        payload: ByteArray
+    ): Result<MessageResponse> {
+        return try {
+            if (messagingProxy == null) {
+                return Result.failure(IllegalStateException("Messaging proxy not available"))
+            }
+            
+            val message = PluginMessage(
+                senderId = pluginId,
+                receiverId = receiverId,
+                messageType = messageType,
+                payload = payload,
+                requestId = UUID.randomUUID().toString(),
+                timestamp = System.currentTimeMillis()
+            )
+            
+            val result = messagingProxy.sendMessage(message)
+            result
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to send message to plugin: $receiverId")
+            Result.failure(e)
+        }
+    }
+    
+    override suspend fun receiveMessages(): Flow<PluginMessage> {
+        return flow {
+            if (messagingProxy == null) {
+                Timber.w("[SANDBOX:$pluginId] Messaging proxy not available, cannot receive messages")
+                return@flow
+            }
+            
+            while (true) {
+                try {
+                    val result = messagingProxy.receiveMessages(pluginId)
+                    result.onSuccess { messages ->
+                        messages.forEach { message ->
+                            emit(message)
+                        }
+                    }.onFailure { error ->
+                        Timber.e(error, "[SANDBOX:$pluginId] Error receiving messages")
+                    }
+                    
+                    // Poll interval: check for new messages every 100ms
+                    delay(100)
+                } catch (e: Exception) {
+                    Timber.e(e, "[SANDBOX:$pluginId] Error in receiveMessages flow")
+                    delay(1000) // Wait longer on error
+                }
+            }
+        }
+    }
+    
+    override fun registerMessageHandler(
+        messageType: String,
+        handler: suspend (PluginMessage) -> MessageResponse
+    ) {
+        messageHandlers[messageType] = handler
+        
+        // Start background coroutine to process messages
+        messageScope.launch {
+            try {
+                receiveMessages().collect { message ->
+                    if (message.messageType == messageType) {
+                        val registeredHandler = messageHandlers[messageType]
+                        if (registeredHandler != null) {
+                            try {
+                                val response = registeredHandler(message)
+                                
+                                // Send response back to sender
+                                messagingProxy?.sendResponse(response)?.onFailure { error ->
+                                    Timber.e(error, "[SANDBOX:$pluginId] Failed to send response for message: ${message.requestId}")
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "[SANDBOX:$pluginId] Error in message handler for type: $messageType")
+                                
+                                // Send error response
+                                val errorResponse = MessageResponse.error(
+                                    message.requestId,
+                                    "Handler error: ${e.message}"
+                                )
+                                messagingProxy?.sendResponse(errorResponse)
+                            }
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX:$pluginId] Error in message handler coroutine")
+            }
+        }
+        
+        Timber.d("[SANDBOX:$pluginId] Registered message handler for type: $messageType")
+    }
+    
+    /**
+     * Cleanup messaging resources
+     */
+    fun cleanup() {
+        messageScope.cancel()
+        messageHandlers.clear()
     }
 }
