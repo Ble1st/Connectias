@@ -67,7 +67,9 @@ class PluginSandboxService : Service() {
         val classLoader: ClassLoader,
         val context: SandboxPluginContext,
         val state: PluginState,
-        var lastMemoryUsage: Long = 0L
+        var lastMemoryUsage: Long = 0L,
+        var lastMemoryCheck: Long = 0L,
+        var memoryTrend: Long = 0L // bytes/second growth rate
     )
     
     enum class PluginState {
@@ -157,9 +159,11 @@ class PluginSandboxService : Service() {
         }
         
         private fun estimatePluginMemory(pluginInfo: SandboxPluginInfo, totalPss: Long) {
-            // Better estimation based on plugin metadata and actual PSS distribution
+            val currentTime = System.currentTimeMillis()
             val pluginCount = loadedPlugins.size
-            val baseMemory = totalPss / pluginCount // Distribute PSS evenly
+            
+            // Base memory estimation with better distribution
+            val baseMemory = if (pluginCount > 0) totalPss / pluginCount else totalPss
             
             // Adjust based on plugin characteristics
             val adjustedMemory = when {
@@ -174,8 +178,24 @@ class PluginSandboxService : Service() {
                 else -> baseMemory
             }
             
-            // Update last known memory
+            // Calculate memory growth trend if we have previous data
+            if (pluginInfo.lastMemoryCheck > 0 && currentTime > pluginInfo.lastMemoryCheck) {
+                val timeDelta = (currentTime - pluginInfo.lastMemoryCheck) / 1000.0 // seconds
+                val memoryDelta = adjustedMemory - pluginInfo.lastMemoryUsage
+                
+                if (timeDelta > 0) {
+                    pluginInfo.memoryTrend = (memoryDelta / timeDelta).toLong()
+                    
+                    // Warn about rapid memory growth
+                    if (pluginInfo.memoryTrend > 1024 * 1024) { // >1MB/sec growth
+                        Timber.w("[SANDBOX] Plugin '${pluginInfo.pluginId}' rapid memory growth: ${formatBytes(pluginInfo.memoryTrend)}/sec")
+                    }
+                }
+            }
+            
+            // Update tracking data
             pluginInfo.lastMemoryUsage = adjustedMemory
+            pluginInfo.lastMemoryCheck = currentTime
             
             // Check limits
             when {
@@ -184,7 +204,7 @@ class PluginSandboxService : Service() {
                     performUnload(pluginInfo.pluginId)
                 }
                 adjustedMemory >= pluginWarningLimit -> {
-                    Timber.w("[SANDBOX] Plugin '${pluginInfo.pluginId}' WARNING memory: ${formatBytes(adjustedMemory)}")
+                    Timber.w("[SANDBOX] Plugin '${pluginInfo.pluginId}' WARNING memory: ${formatBytes(adjustedMemory)} (trend: ${formatBytes(pluginInfo.memoryTrend)}/sec)")
                 }
             }
         }
@@ -540,21 +560,38 @@ class PluginSandboxService : Service() {
                     secureFileSystemBridge // Use secure wrapper
                 )
                 
-                // Step 9: Store plugin info
+                // Step 9: Initialize plugin with onLoad
+                val loadSuccess = try {
+                    pluginInstance.onLoad(context)
+                } catch (e: Exception) {
+                    Timber.e(e, "[SANDBOX] Plugin onLoad failed")
+                    false
+                }
+                
+                if (!loadSuccess) {
+                    return PluginResultParcel.failure("Plugin onLoad() returned false or threw exception")
+                }
+                
+                // Step 10: Enable plugin
+                val enableSuccess = try {
+                    pluginInstance.onEnable()
+                } catch (e: Exception) {
+                    Timber.e(e, "[SANDBOX] Plugin onEnable failed")
+                    false
+                }
+                
+                // Step 11: Store plugin info with correct state based on enable result
+                val pluginState = if (enableSuccess) PluginState.ENABLED else PluginState.LOADED
                 val pluginInfo = SandboxPluginInfo(
                     pluginId = pluginId,
                     metadata = metadata,
                     instance = pluginInstance,
                     classLoader = classLoader,
                     context = context,
-                    state = PluginState.ENABLED
+                    state = pluginState
                 )
                 this@PluginSandboxService.loadedPlugins[pluginId] = pluginInfo
                 this@PluginSandboxService.classLoaders[pluginId] = classLoader
-                
-                // Step 10: Initialize plugin
-                pluginInstance.onLoad(context)
-                pluginInstance.onEnable()
                 
                 Timber.i("[SANDBOX] Plugin loaded successfully from memory: $pluginId")
                 

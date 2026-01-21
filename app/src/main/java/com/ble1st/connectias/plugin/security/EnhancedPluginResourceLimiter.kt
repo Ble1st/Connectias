@@ -61,6 +61,13 @@ class EnhancedPluginResourceLimiter @Inject constructor(
     private val pluginViolations = ConcurrentHashMap<String, AtomicLong>()
     private val throttledPlugins = ConcurrentHashMap<String, AtomicBoolean>()
     
+    // CPU tracking data
+    private data class CpuTrackingData(
+        var lastCpuTime: Long = 0L,
+        var lastCheckTime: Long = 0L
+    )
+    private val cpuTracking = ConcurrentHashMap<Int, CpuTrackingData>()
+    
     private val _resourceUsage = MutableStateFlow<Map<String, ResourceUsage>>(emptyMap())
     val resourceUsage: Flow<Map<String, ResourceUsage>> = _resourceUsage.asStateFlow()
     
@@ -102,10 +109,15 @@ class EnhancedPluginResourceLimiter @Inject constructor(
      * Unregister a plugin from resource monitoring
      */
     fun unregisterPlugin(pluginId: String) {
+        val pid = pluginPids.remove(pluginId)
         pluginLimits.remove(pluginId)
-        pluginPids.remove(pluginId)
         pluginViolations.remove(pluginId)
         throttledPlugins.remove(pluginId)
+        
+        // Cleanup CPU tracking
+        if (pid != null) {
+            cpuTracking.remove(pid)
+        }
         
         // Cleanup thread group
         pluginThreadGroups.remove(pluginId)?.interrupt()
@@ -221,11 +233,34 @@ class EnhancedPluginResourceLimiter @Inject constructor(
             
             val utime = statContent[13].toLongOrNull() ?: 0L
             val stime = statContent[14].toLongOrNull() ?: 0L
-            val totalTime = utime + stime
+            val totalCpuTime = utime + stime // in clock ticks
             
-            // Simple CPU percentage calculation (would need more sophisticated tracking for accuracy)
-            val cpuPercent = (totalTime % 10000) / 100f
-            minOf(cpuPercent, 100f)
+            val currentTime = System.currentTimeMillis()
+            
+            // Get or create tracking data
+            val tracking = cpuTracking.getOrPut(pid) { CpuTrackingData() }
+            
+            // Calculate delta-based CPU usage
+            val cpuPercent = if (tracking.lastCheckTime > 0 && currentTime > tracking.lastCheckTime) {
+                val timeDelta = (currentTime - tracking.lastCheckTime) / 1000.0 // seconds
+                val cpuDelta = totalCpuTime - tracking.lastCpuTime
+                
+                // CPU ticks per second (typically 100 Hz on Android)
+                val clockTicksPerSecond = 100.0
+                val cpuTimeUsed = cpuDelta / clockTicksPerSecond // seconds of CPU time
+                
+                // Calculate percentage
+                val percent = (cpuTimeUsed / timeDelta) * 100.0
+                minOf(percent.toFloat(), 100f)
+            } else {
+                0f // First measurement, can't calculate delta
+            }
+            
+            // Update tracking
+            tracking.lastCpuTime = totalCpuTime
+            tracking.lastCheckTime = currentTime
+            
+            cpuPercent
         } catch (e: Exception) {
             Timber.d(e, "[RESOURCE LIMITER] Could not read CPU usage for PID $pid")
             0f

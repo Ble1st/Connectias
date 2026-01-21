@@ -28,8 +28,10 @@ class PluginSandboxProxy(
     
     private var sandboxService: IPluginSandbox? = null
     private var hardwareBridgeService: IHardwareBridge? = null
+    private var fileSystemBridgeConnection: ServiceConnection? = null
     private val isConnected = AtomicBoolean(false)
     private val isHardwareBridgeConnected = AtomicBoolean(false)
+    private val isFileSystemBridgeConnected = AtomicBoolean(false)
     private val connectionLock = Any()
     private val hardwareBridgeLock = Any()
     private var bindJob: Job? = null
@@ -185,7 +187,12 @@ class PluginSandboxProxy(
             
             // Pass hardware bridge to sandbox
             try {
-                sandboxService?.setHardwareBridge(hardwareBridgeService?.asBinder()!!)
+                val bridgeBinder = hardwareBridgeService?.asBinder()
+                if (bridgeBinder == null) {
+                    Timber.e("Hardware bridge service binder is null")
+                    return@withContext false
+                }
+                sandboxService?.setHardwareBridge(bridgeBinder)
                 Timber.i("Hardware bridge set in sandbox")
             } catch (e: Exception) {
                 Timber.e(e, "Failed to set hardware bridge in sandbox")
@@ -233,32 +240,45 @@ class PluginSandboxProxy(
     
     suspend fun connectFileSystemBridge(): Boolean = withContext(Dispatchers.IO) {
         try {
+            if (isFileSystemBridgeConnected.get()) {
+                return@withContext true
+            }
+            
+            // Create reusable ServiceConnection
+            val connection = object : ServiceConnection {
+                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                    val fsBridge = IFileSystemBridge.Stub.asInterface(service)
+                    
+                    // Pass file system bridge to sandbox
+                    try {
+                        sandboxService?.setFileSystemBridge(fsBridge.asBinder())
+                        isFileSystemBridgeConnected.set(true)
+                        Timber.i("File system bridge set in sandbox")
+                    } catch (e: Exception) {
+                        Timber.e(e, "Failed to set file system bridge in sandbox")
+                        isFileSystemBridgeConnected.set(false)
+                    }
+                }
+                
+                override fun onServiceDisconnected(name: ComponentName?) {
+                    isFileSystemBridgeConnected.set(false)
+                    Timber.i("File system bridge disconnected")
+                }
+            }
+            
+            fileSystemBridgeConnection = connection
+            
             // Bind to file system bridge service
             val fsIntent = Intent(context, FileSystemBridgeService::class.java)
             val fsBound = context.bindService(
                 fsIntent,
-                object : ServiceConnection {
-                    override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-                        val fsBridge = IFileSystemBridge.Stub.asInterface(service)
-                        
-                        // Pass file system bridge to sandbox
-                        try {
-                            sandboxService?.setFileSystemBridge(fsBridge.asBinder())
-                            Timber.i("File system bridge set in sandbox")
-                        } catch (e: Exception) {
-                            Timber.e(e, "Failed to set file system bridge in sandbox")
-                        }
-                    }
-                    
-                    override fun onServiceDisconnected(name: ComponentName?) {
-                        Timber.i("File system bridge disconnected")
-                    }
-                },
+                connection,
                 Context.BIND_AUTO_CREATE
             )
             
             if (!fsBound) {
                 Timber.w("Failed to bind to file system bridge service")
+                fileSystemBridgeConnection = null
                 return@withContext false
             }
             
@@ -266,6 +286,7 @@ class PluginSandboxProxy(
             
         } catch (e: Exception) {
             Timber.e(e, "Failed to connect file system bridge")
+            fileSystemBridgeConnection = null
             false
         }
     }
@@ -288,6 +309,13 @@ class PluginSandboxProxy(
                 hardwareBridgeService = null
                 isHardwareBridgeConnected.set(false)
                 Timber.i("Disconnected from hardware bridge")
+            }
+            
+            if (isFileSystemBridgeConnected.get() && fileSystemBridgeConnection != null) {
+                context.unbindService(fileSystemBridgeConnection!!)
+                fileSystemBridgeConnection = null
+                isFileSystemBridgeConnected.set(false)
+                Timber.i("Disconnected from file system bridge")
             }
         } catch (e: Exception) {
             Timber.e(e, "Error disconnecting from sandbox")

@@ -298,14 +298,23 @@ class PluginContextImpl(
     }
     
     fun cleanup() {
-        hardwareBridgeConnection?.let {
+        // Clear services first to prevent further usage
+        services.clear()
+        
+        hardwareBridgeConnection?.let { connection ->
             try {
-                appContext.unbindService(it)
+                appContext.unbindService(connection)
+                Timber.d("[$pluginId] Hardware Bridge unbound successfully")
+            } catch (e: IllegalArgumentException) {
+                // Service was not registered or already unbound - this is expected in some cases
+                Timber.d("[$pluginId] Hardware Bridge was already unbound")
             } catch (e: Exception) {
                 Timber.e(e, "[$pluginId] Failed to unbind Hardware Bridge")
             }
         }
         hardwareBridge = null
         hardwareBridgeConnection = null
+        
+        Timber.i("[$pluginId] PluginContext cleanup completed")
     }
 }

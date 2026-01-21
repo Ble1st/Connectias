@@ -69,30 +69,73 @@ class PluginBehaviorAnalyzer @Inject constructor(
     
     private val baselines = ConcurrentHashMap<String, BehaviorBaseline>()
     private val currentBehavior = ConcurrentHashMap<String, BehaviorPattern>()
+    private val baselineSamples = ConcurrentHashMap<String, MutableList<BehaviorPattern>>()
     private val _anomalies = MutableSharedFlow<Anomaly>(replay = 50)
     val anomalies: Flow<Anomaly> = _anomalies.asSharedFlow()
     
+    companion object {
+        private const val BASELINE_SAMPLE_COUNT = 10 // Samples needed before establishing baseline
+    }
+    
     /**
      * Establish behavior baseline for a plugin
+     * Uses collected samples if available, otherwise creates initial baseline
      */
     suspend fun establishBaseline(pluginId: String): BehaviorBaseline = withContext(Dispatchers.Default) {
-        // Collect baseline data
+        val samples = baselineSamples[pluginId]
         val permStats = permissionMonitor.getPermissionStats(pluginId)
         
-        val baseline = BehaviorBaseline(
-            pluginId = pluginId,
-            apiCallPattern = emptyMap(), // Would be collected over time
-            fileAccessPattern = emptyList(),
-            networkEndpoints = emptySet(),
-            permissionUsage = permStats.recentPermissions,
-            averageMemoryMB = 50, // Default baseline
-            averageCpuPercent = 10f
-        )
+        val baseline = if (samples != null && samples.size >= BASELINE_SAMPLE_COUNT) {
+            // Calculate baseline from collected samples (dynamic)
+            val avgMemory = samples.map { it.memoryUsageMB }.average().toInt()
+            val avgCpu = samples.map { it.cpuUsagePercent.toDouble() }.average().toFloat()
+            val allApiCalls = samples.flatMap { it.apiCalls.entries }
+                .groupBy { it.key }
+                .mapValues { (_, entries) -> entries.sumOf { it.value } / samples.size }
+            val allNetworkEndpoints = samples.flatMap { it.networkConnections }.toSet()
+            val allFileAccesses = samples.flatMap { it.fileAccesses }.distinct()
+            
+            BehaviorBaseline(
+                pluginId = pluginId,
+                apiCallPattern = allApiCalls,
+                fileAccessPattern = allFileAccesses,
+                networkEndpoints = allNetworkEndpoints,
+                permissionUsage = permStats.recentPermissions,
+                averageMemoryMB = maxOf(avgMemory, 20), // Minimum 20MB baseline
+                averageCpuPercent = maxOf(avgCpu, 5f) // Minimum 5% baseline
+            )
+        } else {
+            // Initial baseline with conservative defaults
+            BehaviorBaseline(
+                pluginId = pluginId,
+                apiCallPattern = emptyMap(),
+                fileAccessPattern = emptyList(),
+                networkEndpoints = emptySet(),
+                permissionUsage = permStats.recentPermissions,
+                averageMemoryMB = 50, // Conservative default
+                averageCpuPercent = 10f
+            )
+        }
         
         baselines[pluginId] = baseline
-        Timber.d("Baseline established for $pluginId")
+        Timber.d("Baseline established for $pluginId (samples: ${samples?.size ?: 0})")
         
         return@withContext baseline
+    }
+    
+    /**
+     * Add a behavior sample for baseline calculation
+     */
+    fun addBaselineSample(pattern: BehaviorPattern) {
+        val samples = baselineSamples.getOrPut(pattern.pluginId) { mutableListOf() }
+        samples.add(pattern)
+        
+        // Keep only recent samples
+        while (samples.size > BASELINE_SAMPLE_COUNT * 2) {
+            samples.removeAt(0)
+        }
+        
+        Timber.d("Added baseline sample for ${pattern.pluginId} (total: ${samples.size})")
     }
     
     /**
@@ -267,5 +310,6 @@ class PluginBehaviorAnalyzer @Inject constructor(
     fun clearBaseline(pluginId: String) {
         baselines.remove(pluginId)
         currentBehavior.remove(pluginId)
+        baselineSamples.remove(pluginId)
     }
 }

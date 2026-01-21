@@ -4,10 +4,12 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,6 +29,18 @@ class EnhancedSandbox @Inject constructor(
 ) {
     
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val pluginMonitoringJobs = ConcurrentHashMap<String, Job>()
+    
+    // Callback for critical anomalies that require plugin termination
+    private var onCriticalAnomalyCallback: ((pluginId: String, reason: String) -> Unit)? = null
+    
+    /**
+     * Set callback for critical anomalies that require plugin termination
+     * This should be called by PluginManagerSandbox to handle plugin disabling
+     */
+    fun setOnCriticalAnomalyCallback(callback: (pluginId: String, reason: String) -> Unit) {
+        onCriticalAnomalyCallback = callback
+    }
     
     /**
      * Initialize enhanced sandbox for a plugin
@@ -83,16 +97,25 @@ class EnhancedSandbox @Inject constructor(
     }
     
     /**
-     * Start continuous monitoring
+     * Start continuous monitoring with proper job tracking for cleanup
      */
     private fun startMonitoring(pluginId: String, pid: Int) {
-        scope.launch {
+        // Cancel any existing monitoring job for this plugin
+        pluginMonitoringJobs[pluginId]?.cancel()
+        
+        val monitoringJob = scope.launch {
             // Monitor resource usage
             launch {
                 while (true) {
-                    resourceLimiter.monitorResourceUsage(pluginId, pid)
-                    val limits = resourceLimiter.getResourceLimits(pluginId)
-                    resourceLimiter.enforceMemoryLimits(pluginId, pid, limits)
+                    try {
+                        resourceLimiter.monitorResourceUsage(pluginId, pid)
+                        val limits = resourceLimiter.getResourceLimits(pluginId)
+                        resourceLimiter.enforceMemoryLimits(pluginId, pid, limits)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e // Propagate cancellation
+                    } catch (e: Exception) {
+                        Timber.w(e, "Resource monitoring error for $pluginId")
+                    }
                     kotlinx.coroutines.delay(5000) // Every 5 seconds
                 }
             }
@@ -100,7 +123,13 @@ class EnhancedSandbox @Inject constructor(
             // Monitor network usage
             launch {
                 while (true) {
-                    networkPolicy.monitorNetworkUsage(pluginId)
+                    try {
+                        networkPolicy.monitorNetworkUsage(pluginId)
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e // Propagate cancellation
+                    } catch (e: Exception) {
+                        Timber.w(e, "Network monitoring error for $pluginId")
+                    }
                     kotlinx.coroutines.delay(10000) // Every 10 seconds
                 }
             }
@@ -114,6 +143,17 @@ class EnhancedSandbox @Inject constructor(
                 }
             }
         }
+        
+        pluginMonitoringJobs[pluginId] = monitoringJob
+        Timber.d("Started monitoring for plugin: $pluginId")
+    }
+    
+    /**
+     * Stop monitoring for a specific plugin
+     */
+    private fun stopMonitoring(pluginId: String) {
+        pluginMonitoringJobs.remove(pluginId)?.cancel()
+        Timber.d("Stopped monitoring for plugin: $pluginId")
     }
     
     /**
@@ -124,9 +164,11 @@ class EnhancedSandbox @Inject constructor(
         
         when (anomaly.severity) {
             PluginBehaviorAnalyzer.Severity.CRITICAL -> {
-                // Take immediate action
-                Timber.e("CRITICAL anomaly detected - Plugin ${anomaly.pluginId} should be disabled")
-                // TODO: Disable plugin
+                // Take immediate action - disable plugin via callback
+                Timber.e("CRITICAL anomaly detected - Disabling plugin ${anomaly.pluginId}")
+                val reason = "Critical security anomaly: ${anomaly.description}"
+                onCriticalAnomalyCallback?.invoke(anomaly.pluginId, reason)
+                    ?: Timber.e("No critical anomaly callback registered - cannot disable plugin ${anomaly.pluginId}")
             }
             PluginBehaviorAnalyzer.Severity.HIGH -> {
                 // Alert and increase monitoring
@@ -187,6 +229,9 @@ class EnhancedSandbox @Inject constructor(
      * Cleanup resources for a plugin
      */
     fun cleanupPlugin(pluginId: String) {
+        // Stop monitoring coroutines first
+        stopMonitoring(pluginId)
+        
         resourceLimiter.clearPluginResources(pluginId)
         networkPolicy.clearPluginPolicy(pluginId)
         permissionMonitor.clearPluginHistory(pluginId)

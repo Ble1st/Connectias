@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -38,7 +39,12 @@ class PluginPermissionMonitor @Inject constructor(
     private val _permissionEvents = MutableSharedFlow<PermissionUsageEvent>(replay = 100)
     val permissionEvents: Flow<PermissionUsageEvent> = _permissionEvents.asSharedFlow()
     
-    private val permissionHistory = ConcurrentHashMap<String, MutableList<PermissionUsageEvent>>()
+    // Thread-safe list with size limit to prevent memory leaks
+    private val permissionHistory = ConcurrentHashMap<String, CopyOnWriteArrayList<PermissionUsageEvent>>()
+    
+    companion object {
+        private const val MAX_HISTORY_SIZE = 1000 // Maximum events per plugin
+    }
     
     /**
      * Track permission usage event
@@ -56,8 +62,14 @@ class PluginPermissionMonitor @Inject constructor(
             context = context
         )
         
-        // Add to history
-        permissionHistory.getOrPut(pluginId) { mutableListOf() }.add(event)
+        // Add to history with size limit (thread-safe)
+        val history = permissionHistory.getOrPut(pluginId) { CopyOnWriteArrayList() }
+        history.add(event)
+        
+        // Trim old events if exceeded limit
+        while (history.size > MAX_HISTORY_SIZE) {
+            history.removeAt(0)
+        }
         
         // Emit event
         _permissionEvents.emit(event)

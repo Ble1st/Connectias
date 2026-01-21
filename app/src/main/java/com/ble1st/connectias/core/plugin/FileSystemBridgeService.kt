@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import android.system.ErrnoException
 import android.system.Os
 import timber.log.Timber
@@ -218,10 +219,27 @@ class FileSystemBridgeService : Service() {
     
     /**
      * Validate plugin ID against known loaded plugins
+     * SECURITY: Verifies caller identity using PluginIdentitySession
      */
     private fun isValidPluginId(pluginId: String): Boolean {
-        // TODO: Check against actually loaded plugins
-        // For now, just validate format
-        return pluginId.matches(Regex("^[a-zA-Z0-9._-]+$"))
+        // 1. Format validation
+        if (!pluginId.matches(Regex("^[a-zA-Z0-9._-]+$"))) {
+            Timber.e("[FS_BRIDGE] Invalid plugin ID format: $pluginId")
+            return false
+        }
+        
+        // 2. Verify against PluginIdentitySession to prevent spoofing
+        val verifiedPluginId = PluginIdentitySession.verifyPluginIdentity()
+        if (verifiedPluginId == null) {
+            Timber.e("[FS_BRIDGE] No verified plugin identity for caller")
+            return false
+        }
+        
+        if (verifiedPluginId != pluginId) {
+            Timber.e("[FS_BRIDGE] SPOOFING ATTEMPT: claimed='$pluginId' verified='$verifiedPluginId'")
+            return false
+        }
+        
+        return true
     }
 }

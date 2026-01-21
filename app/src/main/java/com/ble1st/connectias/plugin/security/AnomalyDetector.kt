@@ -50,11 +50,12 @@ class AnomalyDetector @Inject constructor() {
     ): List<PluginBehaviorAnalyzer.Anomaly> {
         val anomalies = mutableListOf<PluginBehaviorAnalyzer.Anomaly>()
         
-        // Memory usage Z-score
+        // Memory usage Z-score with minimum stdDev to prevent division by zero
+        val memoryStdDev = maxOf(baseline.averageMemoryMB * 0.2f, 10f) // Min 10MB stdDev
         val memoryZScore = calculateZScore(
             current.memoryUsageMB.toFloat(),
             baseline.averageMemoryMB.toFloat(),
-            baseline.averageMemoryMB * 0.2f // Assume 20% std dev
+            memoryStdDev
         )
         
         if (memoryZScore > config.anomalyThreshold) {
@@ -68,11 +69,12 @@ class AnomalyDetector @Inject constructor() {
             )
         }
         
-        // CPU usage Z-score
+        // CPU usage Z-score with minimum stdDev to prevent division by zero
+        val cpuStdDev = maxOf(baseline.averageCpuPercent * 0.3f, 5f) // Min 5% stdDev
         val cpuZScore = calculateZScore(
             current.cpuUsagePercent,
             baseline.averageCpuPercent,
-            baseline.averageCpuPercent * 0.3f // Assume 30% std dev
+            cpuStdDev
         )
         
         if (cpuZScore > config.anomalyThreshold) {

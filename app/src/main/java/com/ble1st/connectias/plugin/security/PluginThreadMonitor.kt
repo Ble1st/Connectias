@@ -60,7 +60,8 @@ object PluginThreadMonitor {
     }
     
     /**
-     * Unregisters a plugin and forcefully terminates its threads
+     * Unregisters a plugin and attempts cooperative thread termination
+     * SECURITY: Uses interrupt() instead of deprecated stop() to prevent corrupt state
      */
     fun unregisterPlugin(pluginId: String) {
         val threads = pluginThreads.remove(pluginId) ?: return
@@ -68,7 +69,7 @@ object PluginThreadMonitor {
         
         Timber.i("[THREAD MONITOR] Cleaning up ${threads.size} threads for plugin: $pluginId")
         
-        // Attempt graceful shutdown first
+        // Send interrupt signal to all threads
         threads.forEach { thread ->
             if (thread.isAlive) {
                 try {
@@ -80,20 +81,25 @@ object PluginThreadMonitor {
             }
         }
         
-        // Wait for graceful shutdown
-        Thread.sleep(1000)
+        // Wait for cooperative shutdown with timeout
+        val shutdownStart = System.currentTimeMillis()
+        val shutdownTimeout = 3000L // 3 seconds
         
-        // Force stop remaining threads
-        threads.forEach { thread ->
-            if (thread.isAlive) {
-                try {
-                    @Suppress("DEPRECATION")
-                    thread.stop()
-                    Timber.w("[THREAD MONITOR] Force-stopped thread: ${thread.name}")
-                } catch (e: Exception) {
-                    Timber.e(e, "[THREAD MONITOR] Failed to force-stop thread: ${thread.name}")
-                }
+        while (threads.any { it.isAlive } && (System.currentTimeMillis() - shutdownStart) < shutdownTimeout) {
+            Thread.sleep(100)
+        }
+        
+        // Log remaining threads (they will be cleaned up by GC eventually)
+        val remainingThreads = threads.filter { it.isAlive }
+        if (remainingThreads.isNotEmpty()) {
+            Timber.w("[THREAD MONITOR] ${remainingThreads.size} threads did not terminate gracefully for plugin: $pluginId")
+            remainingThreads.forEach { thread ->
+                Timber.w("[THREAD MONITOR] Uncooperative thread: ${thread.name} (state: ${thread.state})")
             }
+            // Note: We don't force-stop threads as this can cause corrupt application state
+            // The threads will be garbage collected when the plugin ClassLoader is released
+        } else {
+            Timber.i("[THREAD MONITOR] All threads terminated gracefully for plugin: $pluginId")
         }
         
         Timber.i("[THREAD MONITOR] Plugin thread cleanup completed: $pluginId")

@@ -12,6 +12,7 @@ import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+import org.json.JSONObject
 
 /**
  * Zero-Trust verification engine for plugins
@@ -35,7 +36,15 @@ class ZeroTrustVerifier @Inject constructor(
         val timestamp: Long = System.currentTimeMillis()
     )
     
+    data class HashCache(
+        val pluginId: String,
+        val hash: String,
+        val fileLastModified: Long,
+        val timestamp: Long = System.currentTimeMillis()
+    )
+    
     private val verificationCache = ConcurrentHashMap<String, VerificationCache>()
+    private val hashCache = ConcurrentHashMap<String, HashCache>()
     private val cacheTTL = 5 * 60 * 1000L // 5 minutes
     
     /**
@@ -148,15 +157,26 @@ class ZeroTrustVerifier @Inject constructor(
     }
     
     /**
-     * Verify file integrity
+     * Verify file integrity with persistent hash caching
      */
     private suspend fun verifyIntegrity(pluginId: String): VerificationResult {
         return withContext(Dispatchers.IO) {
             try {
                 val pluginFile = getPluginFile(pluginId) ?: return@withContext VerificationResult.Failed("Plugin file not found")
                 
-                // Compute hash
-                val computedHash = computeFileHash(pluginFile)
+                // Check hash cache first (based on file modification time)
+                val fileLastModified = pluginFile.lastModified()
+                val cached = hashCache[pluginId]
+                val computedHash = if (cached != null && cached.fileLastModified == fileLastModified) {
+                    Timber.d("Using cached hash for $pluginId (file unchanged)")
+                    cached.hash
+                } else {
+                    // Compute hash and cache it
+                    val hash = computeFileHash(pluginFile)
+                    hashCache[pluginId] = HashCache(pluginId, hash, fileLastModified)
+                    Timber.d("Computed and cached hash for $pluginId")
+                    hash
+                }
                 
                 if (computedHash.isEmpty()) {
                     return@withContext VerificationResult.Failed("Failed to compute file hash")
@@ -383,8 +403,10 @@ class ZeroTrustVerifier @Inject constructor(
     fun clearCache(pluginId: String? = null) {
         if (pluginId != null) {
             verificationCache.remove(pluginId)
+            hashCache.remove(pluginId)
         } else {
             verificationCache.clear()
+            hashCache.clear()
         }
     }
     

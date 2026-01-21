@@ -4,6 +4,8 @@ import android.os.Binder
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 /**
  * Plugin Identity Session Manager
@@ -19,29 +21,43 @@ object PluginIdentitySession {
     private val binderToPluginId = ConcurrentHashMap<Int, String>()
     private val pluginIdToSessionToken = ConcurrentHashMap<String, Long>()
     private val sessionTokenToPluginId = ConcurrentHashMap<Long, String>()
+    private val registrationLock = ReentrantLock()
     
     /**
      * Registers a plugin with its Binder UID for identity verification
      * Call this when plugin is loaded in sandbox
+     * 
+     * SECURITY: Uses lock to prevent race conditions during registration
      */
     fun registerPluginSession(pluginId: String, callerUid: Int): Long {
-        val sessionToken = sessionTokenCounter.getAndIncrement()
-        
-        // Clean up any existing session for this plugin
-        unregisterPluginSession(pluginId)
-        
-        binderToPluginId[callerUid] = pluginId
-        pluginIdToSessionToken[pluginId] = sessionToken
-        sessionTokenToPluginId[sessionToken] = pluginId
-        
-        Timber.i("[SECURITY] Plugin session registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
-        return sessionToken
+        return registrationLock.withLock {
+            val sessionToken = sessionTokenCounter.getAndIncrement()
+            
+            // Clean up any existing session for this plugin (within lock)
+            unregisterPluginSessionUnsafe(pluginId)
+            
+            binderToPluginId[callerUid] = pluginId
+            pluginIdToSessionToken[pluginId] = sessionToken
+            sessionTokenToPluginId[sessionToken] = pluginId
+            
+            Timber.i("[SECURITY] Plugin session registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
+            sessionToken
+        }
     }
     
     /**
      * Unregisters a plugin session
      */
     fun unregisterPluginSession(pluginId: String) {
+        registrationLock.withLock {
+            unregisterPluginSessionUnsafe(pluginId)
+        }
+    }
+    
+    /**
+     * Internal unsafe unregister - must be called within lock
+     */
+    private fun unregisterPluginSessionUnsafe(pluginId: String) {
         val existingToken = pluginIdToSessionToken.remove(pluginId)
         if (existingToken != null) {
             sessionTokenToPluginId.remove(existingToken)

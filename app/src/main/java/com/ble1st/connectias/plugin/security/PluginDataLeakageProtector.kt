@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
@@ -30,8 +31,8 @@ object PluginDataLeakageProtector {
         "PASSWORD" to Pattern.compile("(?i)(password|passwd|pwd)[\"'\\s]*[:=][\"'\\s]*([^\\s\"']{8,})")
     )
     
-    // Plugin data access tracking
-    private val pluginDataAccess = ConcurrentHashMap<String, MutableList<DataAccessEvent>>()
+    // Plugin data access tracking (thread-safe)
+    private val pluginDataAccess = ConcurrentHashMap<String, CopyOnWriteArrayList<DataAccessEvent>>()
     private val pluginClipboardAccess = ConcurrentHashMap<String, AtomicLong>()
     
     // Thresholds
@@ -50,7 +51,7 @@ object PluginDataLeakageProtector {
      * Registers a plugin for data leakage monitoring
      */
     fun registerPlugin(pluginId: String) {
-        pluginDataAccess.putIfAbsent(pluginId, mutableListOf())
+        pluginDataAccess.putIfAbsent(pluginId, CopyOnWriteArrayList())
         pluginClipboardAccess.putIfAbsent(pluginId, AtomicLong(0))
         Timber.d("[DATA PROTECTOR] Plugin registered for monitoring: $pluginId")
     }
@@ -271,9 +272,14 @@ object PluginDataLeakageProtector {
         if (events != null) {
             events.add(event)
             
-            // Keep only last 100 events per plugin
-            if (events.size > 100) {
-                events.removeAt(0)
+            // Keep only last 100 events per plugin (thread-safe trim)
+            while (events.size > 100) {
+                try {
+                    events.removeAt(0)
+                } catch (e: IndexOutOfBoundsException) {
+                    // Another thread may have already removed - this is fine
+                    break
+                }
             }
         }
     }

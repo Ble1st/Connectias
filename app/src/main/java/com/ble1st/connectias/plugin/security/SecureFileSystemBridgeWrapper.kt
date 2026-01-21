@@ -14,7 +14,8 @@ import timber.log.Timber
  */
 class SecureFileSystemBridgeWrapper(
     private val actualBridge: IFileSystemBridge,
-    private val boundPluginId: String
+    private val boundPluginId: String,
+    private val auditManager: SecurityAuditManager? = null
 ) : IFileSystemBridge.Stub() {
     
     /**
@@ -46,6 +47,12 @@ class SecureFileSystemBridgeWrapper(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE FS BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureFileSystemBridgeWrapper.createFile"
+            )
             return null
         }
         
@@ -57,6 +64,12 @@ class SecureFileSystemBridgeWrapper(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE FS BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureFileSystemBridgeWrapper.openFile"
+            )
             return null
         }
         
@@ -68,6 +81,12 @@ class SecureFileSystemBridgeWrapper(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE FS BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureFileSystemBridgeWrapper.deleteFile"
+            )
             return false
         }
         

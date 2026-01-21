@@ -188,8 +188,7 @@ object PluginExceptionHandler {
             "Plugin exception in $pluginId.$operationName: [$exceptionType] ${exception.message}"
         )
         
-        // Log stack trace for debugging
-        Timber.d("Stack trace for plugin $pluginId.$operationName:")
-        exception.printStackTrace()
+        // Log stack trace for debugging via Timber (respects logging configuration)
+        Timber.d("Stack trace for plugin $pluginId.$operationName:\n${exception.stackTraceToString()}")
     }
 }

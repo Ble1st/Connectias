@@ -45,6 +45,12 @@ class SecureHardwareBridgeWrapper @Inject constructor(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureHardwareBridgeWrapper.requestPermission"
+            )
             return HardwareResponseParcel.failure("Identity verification failed")
         }
         
@@ -89,6 +95,12 @@ class SecureHardwareBridgeWrapper @Inject constructor(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureHardwareBridgeWrapper.httpGet"
+            )
             return HardwareResponseParcel.failure("Identity verification failed")
         }
         
@@ -100,6 +112,12 @@ class SecureHardwareBridgeWrapper @Inject constructor(
         
         if (pluginId != verifiedPluginId) {
             Timber.e("[SECURE BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureHardwareBridgeWrapper.httpPost"
+            )
             return HardwareResponseParcel.failure("Identity verification failed")
         }
         

@@ -570,6 +570,14 @@ class PluginManagerSandbox @Inject constructor(
                 // Don't fail plugin disable for network unregistration failure
             }
             
+            // Unregister plugin from resource limiter
+            try {
+                resourceLimiter.unregisterPlugin(pluginId)
+                Timber.i("[PLUGIN MANAGER] Plugin unregistered from resource limiter: $pluginId")
+            } catch (e: Exception) {
+                Timber.w(e, "[PLUGIN MANAGER] Failed to unregister plugin from resource limiter: $pluginId")
+            }
+            
             // Create new PluginInfo with DISABLED state to trigger Compose recomposition
             loadedPlugins[pluginId] = pluginInfo.copy(state = PluginState.DISABLED)
             updateFlow()
