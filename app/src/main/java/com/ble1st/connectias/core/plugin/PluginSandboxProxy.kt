@@ -11,6 +11,8 @@ import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.core.plugin.FileSystemBridgeService
+import com.ble1st.connectias.plugin.messaging.IPluginMessaging
+import com.ble1st.connectias.plugin.messaging.PluginMessagingService
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.security.IPCRateLimiter
@@ -32,12 +34,19 @@ class PluginSandboxProxy(
     
     private var sandboxService: IPluginSandbox? = null
     private var hardwareBridgeService: IHardwareBridge? = null
+    private var messagingBridgeService: IPluginMessaging? = null
+    // TODO Phase 3/4: Re-implement UI bridge for three-process architecture
+    // private var uiBridge: com.ble1st.connectias.core.plugin.ui.UIBridgeImpl? = null
     private var fileSystemBridgeConnection: ServiceConnection? = null
     private val isConnected = AtomicBoolean(false)
     private val isHardwareBridgeConnected = AtomicBoolean(false)
     private val isFileSystemBridgeConnected = AtomicBoolean(false)
+    private val isMessagingBridgeConnected = AtomicBoolean(false)
+    // TODO Phase 3/4: Re-enable UI bridge connection tracking
+    // private val isUIBridgeConnected = AtomicBoolean(false)
     private val connectionLock = Any()
     private val hardwareBridgeLock = Any()
+    private val messagingBridgeLock = Any()
     private var bindJob: Job? = null
     private val rateLimiter = IPCRateLimiter()
     
@@ -80,17 +89,41 @@ class PluginSandboxProxy(
                 (hardwareBridgeLock as java.lang.Object).notifyAll()
             }
         }
-        
+
         override fun onServiceDisconnected(name: ComponentName) {
             Timber.w("Disconnected from hardware bridge service")
             hardwareBridgeService = null
             isHardwareBridgeConnected.set(false)
         }
-        
+
         override fun onBindingDied(name: ComponentName) {
             Timber.e("Hardware bridge service binding died")
             hardwareBridgeService = null
             isHardwareBridgeConnected.set(false)
+        }
+    }
+
+    private val messagingBridgeConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            Timber.i("Connected to messaging bridge service")
+            messagingBridgeService = IPluginMessaging.Stub.asInterface(service)
+            isMessagingBridgeConnected.set(true)
+            synchronized(messagingBridgeLock) {
+                @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+                (messagingBridgeLock as java.lang.Object).notifyAll()
+            }
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            Timber.w("Disconnected from messaging bridge service")
+            messagingBridgeService = null
+            isMessagingBridgeConnected.set(false)
+        }
+
+        override fun onBindingDied(name: ComponentName) {
+            Timber.e("Messaging bridge service binding died")
+            messagingBridgeService = null
+            isMessagingBridgeConnected.set(false)
         }
     }
     
@@ -149,7 +182,22 @@ class PluginSandboxProxy(
             if (!bridgeConnected) {
                 Timber.w("Hardware bridge connection failed - plugins will have limited hardware access")
             }
-            
+
+            // Connect to Messaging Bridge Service
+            val messagingConnected = connectMessagingBridge()
+            if (!messagingConnected) {
+                Timber.w("Messaging bridge connection failed - plugins will have limited messaging capabilities")
+            }
+
+            // TODO Phase 3/4: Re-enable UI bridge setup for three-process architecture
+            /*
+            // Setup UI Bridge (runs in main process, no service binding needed)
+            val uiBridgeConnected = setupUIBridge()
+            if (!uiBridgeConnected) {
+                Timber.w("UI bridge setup failed - plugin UI isolation will not be available")
+            }
+            */
+
             Timber.i("Successfully connected to plugin sandbox")
             Result.success(Unit)
             
@@ -220,6 +268,115 @@ class PluginSandboxProxy(
     }
     
     /**
+     * Connects to Messaging Bridge Service
+     */
+    suspend fun connectMessagingBridge(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (isMessagingBridgeConnected.get()) {
+                return@withContext true
+            }
+
+            val intent = Intent(context, PluginMessagingService::class.java)
+            val bindSuccess = context.bindService(
+                intent,
+                messagingBridgeConnection,
+                Context.BIND_AUTO_CREATE
+            )
+
+            if (!bindSuccess) {
+                Timber.w("Failed to bind to messaging bridge service")
+                return@withContext false
+            }
+
+            // Wait for connection with timeout
+            val connected = withTimeoutOrNull(BIND_TIMEOUT_MS) {
+                synchronized(messagingBridgeLock) {
+                    while (!isMessagingBridgeConnected.get()) {
+                        @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
+                        (messagingBridgeLock as java.lang.Object).wait(100)
+                    }
+                }
+                true
+            } ?: false
+
+            if (!connected) {
+                context.unbindService(messagingBridgeConnection)
+                Timber.w("Messaging bridge connection timeout")
+                return@withContext false
+            }
+
+            // Pass messaging bridge to sandbox
+            try {
+                val bridgeBinder = messagingBridgeService?.asBinder()
+                if (bridgeBinder == null) {
+                    Timber.e("Messaging bridge service binder is null")
+                    return@withContext false
+                }
+                sandboxService?.setMessagingBridge(bridgeBinder)
+                Timber.i("Messaging bridge set in sandbox")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to set messaging bridge in sandbox")
+                return@withContext false
+            }
+
+            true
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to connect messaging bridge")
+            false
+        }
+    }
+
+    // TODO Phase 3/4: Re-implement UI bridge setup for three-process architecture
+    /*
+    /**
+     * Setup UI Bridge for isolated UI rendering
+     *
+     * Unlike other bridges, the UI bridge runs in the main process
+     * and doesn't require service binding.
+     */
+    suspend fun setupUIBridge(): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (isUIBridgeConnected.get()) {
+                return@withContext true
+            }
+
+            // Create UI bridge implementation
+            val bridge = com.ble1st.connectias.core.plugin.ui.UIBridgeImpl(context)
+            uiBridge = bridge
+
+            // Pass UI bridge to sandbox
+            try {
+                val bridgeBinder = bridge.asBinder()
+                sandboxService?.setUIBridge(bridgeBinder)
+                isUIBridgeConnected.set(true)
+                Timber.i("UI bridge set in sandbox")
+            } catch (e: Exception) {
+                Timber.e(e, "Failed to set UI bridge in sandbox")
+                return@withContext false
+            }
+
+            true
+
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to setup UI bridge")
+            false
+        }
+    }
+
+    /**
+     * Get UI bridge interface for direct method calls
+     */
+    fun getUIBridge(): com.ble1st.connectias.core.plugin.ui.UIBridgeImpl? {
+        return if (isUIBridgeConnected.get()) {
+            uiBridge
+        } else {
+            null
+        }
+    }
+    */
+
+    /**
      * Connects the file system bridge to the sandbox
      * @return True if connection was successful
      */
@@ -233,7 +390,18 @@ class PluginSandboxProxy(
             null
         }
     }
-    
+
+    /**
+     * Gets the sandbox service interface for direct method calls (e.g., UI rendering)
+     */
+    fun getSandboxService(): IPluginSandbox? {
+        return if (isConnected.get()) {
+            sandboxService
+        } else {
+            null
+        }
+    }
+
     /**
      * Gets the sandbox process PID for resource monitoring
      */
@@ -312,6 +480,44 @@ class PluginSandboxProxy(
     }
     
     /**
+     * Sets the UI Controller for Three-Process Architecture.
+     *
+     * Connects the Sandbox Process to the UI Process for state-based rendering.
+     * The UI Controller runs in the UI Process and receives UI state updates from sandbox.
+     *
+     * @param uiController IPluginUIController from UI Process
+     * @return True if successfully set
+     */
+    suspend fun setUIController(uiController: com.ble1st.connectias.plugin.ui.IPluginUIController): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!isConnected.get()) {
+                Timber.w("[MAIN] Cannot set UI controller - sandbox not connected")
+                return@withContext false
+            }
+
+            Timber.d("[MAIN] Setting UI controller in sandbox")
+
+            rateLimiter.checkRateLimit("setUIController")
+            sandboxService?.setUIController(uiController.asBinder())
+            Timber.i("[MAIN] UI controller set in sandbox process")
+
+            true
+        } catch (e: RateLimitException) {
+            Timber.w(e, "[MAIN] Rate limit exceeded for setUIController")
+            auditManager?.logSecurityEvent(
+                eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+                severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
+                source = "PluginSandboxProxy",
+                message = "setUIController rate limited"
+            )
+            false
+        } catch (e: Exception) {
+            Timber.e(e, "[MAIN] Failed to set UI controller in sandbox")
+            false
+        }
+    }
+
+    /**
      * Disconnects from the sandbox service
      */
     fun disconnect() {
@@ -337,6 +543,23 @@ class PluginSandboxProxy(
                 isFileSystemBridgeConnected.set(false)
                 Timber.i("Disconnected from file system bridge")
             }
+
+            if (isMessagingBridgeConnected.get()) {
+                context.unbindService(messagingBridgeConnection)
+                messagingBridgeService = null
+                isMessagingBridgeConnected.set(false)
+                Timber.i("Disconnected from messaging bridge")
+            }
+
+            // TODO Phase 3/4: Re-enable UI bridge cleanup for three-process architecture
+            /*
+            if (isUIBridgeConnected.get()) {
+                uiBridge?.cleanup()
+                uiBridge = null
+                isUIBridgeConnected.set(false)
+                Timber.i("Disconnected UI bridge")
+            }
+            */
         } catch (e: Exception) {
             Timber.e(e, "Error disconnecting from sandbox")
         }

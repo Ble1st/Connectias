@@ -115,6 +115,28 @@
             android:process=":plugin_sandbox"
             android:isolatedProcess="true"
             android:exported="false" />
+
+        <!-- Plugin UI Service - Runs in SEPARATE process for UI rendering -->
+        <!-- Three-Process Architecture: Main + Sandbox (isolated) + UI (non-isolated) -->
+        <!-- isolatedProcess="false" = Can access UI framework (VirtualDisplay, etc.) -->
+        <!-- Security: Only renders UI, no hardware access or business logic -->
+        <service
+            android:name="com.ble1st.connectias.core.plugin.ui.PluginUIService"
+            android:process=":plugin_ui"
+            android:isolatedProcess="false"
+            android:exported="false"
+            android:enabled="true" />
+
+        <!-- Plugin UI Activity - Hosts fragments in UI Process -->
+        <!-- Used for rendering plugin UI in isolated UI Process -->
+        <activity
+            android:name="com.ble1st.connectias.core.plugin.ui.PluginUIActivity"
+            android:process=":plugin_ui"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:excludeFromRecents="true" />
     </application>
 
 </manifest>

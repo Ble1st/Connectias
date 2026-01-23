@@ -12,7 +12,7 @@ import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
-import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
+import com.ble1st.connectias.plugin.messaging.IPluginMessaging
 import com.ble1st.connectias.plugin.messaging.PluginMessage
 import com.ble1st.connectias.plugin.messaging.MessageResponse
 import kotlinx.coroutines.*
@@ -40,7 +40,7 @@ class SandboxPluginContext(
     private val permissionManager: PluginPermissionManager,
     private val hardwareBridge: IHardwareBridge? = null, // Now accepts secure wrappers
     private val fileSystemBridge: IFileSystemBridge? = null, // Now accepts secure wrappers
-    private val messagingProxy: PluginMessagingProxy? = null // Messaging proxy for inter-plugin communication
+    private val messagingBridge: IPluginMessaging? = null // Messaging bridge for inter-plugin communication (via AIDL)
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
@@ -395,46 +395,47 @@ class SandboxPluginContext(
         messageType: String,
         payload: ByteArray
     ): Result<MessageResponse> {
-        return try {
-            if (messagingProxy == null) {
-                return Result.failure(IllegalStateException("Messaging proxy not available"))
+        return withContext(Dispatchers.IO) {
+            try {
+                if (messagingBridge == null) {
+                    return@withContext Result.failure(IllegalStateException("Messaging bridge not available"))
+                }
+
+                val message = PluginMessage(
+                    senderId = pluginId,
+                    receiverId = receiverId,
+                    messageType = messageType,
+                    payload = payload,
+                    requestId = UUID.randomUUID().toString(),
+                    timestamp = System.currentTimeMillis()
+                )
+
+                val response = messagingBridge.sendMessage(message)
+                Result.success(response)
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX:$pluginId] Failed to send message to plugin: $receiverId")
+                Result.failure(e)
             }
-            
-            val message = PluginMessage(
-                senderId = pluginId,
-                receiverId = receiverId,
-                messageType = messageType,
-                payload = payload,
-                requestId = UUID.randomUUID().toString(),
-                timestamp = System.currentTimeMillis()
-            )
-            
-            val result = messagingProxy.sendMessage(message)
-            result
-        } catch (e: Exception) {
-            Timber.e(e, "[SANDBOX:$pluginId] Failed to send message to plugin: $receiverId")
-            Result.failure(e)
         }
     }
     
     override suspend fun receiveMessages(): Flow<PluginMessage> {
         return flow {
-            if (messagingProxy == null) {
-                Timber.w("[SANDBOX:$pluginId] Messaging proxy not available, cannot receive messages")
+            if (messagingBridge == null) {
+                Timber.w("[SANDBOX:$pluginId] Messaging bridge not available, cannot receive messages")
                 return@flow
             }
-            
+
             while (true) {
                 try {
-                    val result = messagingProxy.receiveMessages(pluginId)
-                    result.onSuccess { messages ->
-                        messages.forEach { message ->
-                            emit(message)
-                        }
-                    }.onFailure { error ->
-                        Timber.e(error, "[SANDBOX:$pluginId] Error receiving messages")
+                    val messages = withContext(Dispatchers.IO) {
+                        messagingBridge.receiveMessages(pluginId)
                     }
-                    
+
+                    messages?.forEach { message ->
+                        emit(message)
+                    }
+
                     // Poll interval: check for new messages every 100ms
                     delay(100)
                 } catch (e: Exception) {
@@ -460,10 +461,14 @@ class SandboxPluginContext(
                         if (registeredHandler != null) {
                             try {
                                 val response = registeredHandler(message)
-                                
+
                                 // Send response back to sender
-                                messagingProxy?.sendResponse(response)?.onFailure { error ->
-                                    Timber.e(error, "[SANDBOX:$pluginId] Failed to send response for message: ${message.requestId}")
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        messagingBridge?.sendResponse(response)
+                                    }
+                                } catch (e: Exception) {
+                                    Timber.e(e, "[SANDBOX:$pluginId] Failed to send response for message: ${message.requestId}")
                                 }
                             } catch (e: Exception) {
                                 Timber.e(e, "[SANDBOX:$pluginId] Error in message handler for type: $messageType")
@@ -473,7 +478,13 @@ class SandboxPluginContext(
                                     message.requestId,
                                     "Handler error: ${e.message}"
                                 )
-                                messagingProxy?.sendResponse(errorResponse)
+                                try {
+                                    withContext(Dispatchers.IO) {
+                                        messagingBridge?.sendResponse(errorResponse)
+                                    }
+                                } catch (ex: Exception) {
+                                    Timber.e(ex, "[SANDBOX:$pluginId] Failed to send error response")
+                                }
                             }
                         }
                     }

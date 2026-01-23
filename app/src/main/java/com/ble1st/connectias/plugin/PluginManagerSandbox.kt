@@ -1,8 +1,11 @@
 package com.ble1st.connectias.plugin
 
 import android.content.Context
+import android.os.Bundle
+import android.widget.Toast
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
+import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
 import com.ble1st.connectias.plugin.PluginPermissionException
 import com.ble1st.connectias.plugin.PluginPermissionBroadcast
 import com.ble1st.connectias.plugin.security.PluginThreadMonitor
@@ -10,6 +13,7 @@ import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
 import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.sdk.IPlugin
+import com.ble1st.connectias.plugin.IsolatedPluginContextImpl
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dalvik.system.DexClassLoader
 import kotlinx.coroutines.*
@@ -27,13 +31,18 @@ import java.util.zip.ZipFile
 /**
  * PluginManager implementation that uses a separate sandbox process for plugin execution.
  * This provides crash isolation - plugin crashes do not affect the main app process.
- * 
- * Architecture:
- * - Plugin lifecycle (onLoad, onEnable, onDisable, onUnload) runs in sandbox process via IPC
- * - Fragments are created in main process (UI must run on main thread)
- * - Plugin instances run in sandbox process, fragments are just UI wrappers
- * - Permission enforcement via PluginPermissionManager
- * 
+ *
+ * Architecture (Three-Process):
+ * - Main Process: Orchestrates plugin lifecycle and process connections
+ * - Sandbox Process: Runs plugin business logic in isolation (isolatedProcess=true)
+ * - UI Process: Renders plugin UI based on state from sandbox (isolatedProcess=false)
+ *
+ * Process Communication:
+ * - Main → Sandbox: PluginSandboxProxy (lifecycle management)
+ * - Main → UI: PluginUIProcessProxy (UI lifecycle)
+ * - Sandbox → UI: IPluginUIController (state updates)
+ * - UI → Sandbox: IPluginUIBridge (user events)
+ *
  * This class implements the same API as PluginManager but delegates plugin lifecycle
  * operations to a separate sandbox process via IPC.
  */
@@ -52,11 +61,14 @@ class PluginManagerSandbox @Inject constructor(
     private val loadedPlugins = ConcurrentHashMap<String, PluginInfo>()
     private val _pluginsFlow = MutableStateFlow<List<PluginInfo>>(emptyList())
     val pluginsFlow: StateFlow<List<PluginInfo>> = _pluginsFlow.asStateFlow()
-    
+
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val dexOutputDir = File(context.cacheDir, "plugin_dex")
     private val nativeLibraryManager = NativeLibraryManager(pluginDirectory)
-    
+
+    // Three-Process Architecture: UI Process proxy
+    private val uiProcessProxy = PluginUIProcessProxy(context)
+
     init {
         dexOutputDir.mkdirs()
     }
@@ -86,28 +98,91 @@ class PluginManagerSandbox @Inject constructor(
     
     suspend fun initialize(): Result<List<PluginMetadata>> = withContext(Dispatchers.IO) {
         try {
-            Timber.i("[PLUGIN MANAGER] Initializing PluginManagerSandbox")
-            
+            Timber.i("[PLUGIN MANAGER] Initializing PluginManagerSandbox (Three-Process Architecture)")
+
             // Initialize thread monitoring for main process plugin UI security
             PluginThreadMonitor.startMonitoring()
-            
-            // Connect to sandbox
+
+            // ========== Connect to Sandbox Process ==========
             val result = sandboxProxy.connect()
             if (result.isFailure) {
                 Timber.e(result.exceptionOrNull(), "Failed to connect to sandbox")
                 throw result.exceptionOrNull() ?: Exception("Sandbox connection failed")
             }
-            
+
             // Connect hardware bridge
             val hardwareConnected = sandboxProxy.connectHardwareBridge()
             if (!hardwareConnected) {
                 Timber.w("Failed to connect hardware bridge - hardware access will be unavailable")
             }
-            
+
             // Connect file system bridge
             val fileSystemConnected = sandboxProxy.connectFileSystemBridge()
             if (!fileSystemConnected) {
                 Timber.w("Failed to connect file system bridge - file access will be unavailable")
+            }
+
+            // ========== Connect to UI Process (Three-Process Architecture) ==========
+            Timber.i("[PLUGIN MANAGER] Connecting to UI Process...")
+            val uiConnectResult = uiProcessProxy.connect()
+            if (uiConnectResult.isFailure) {
+                Timber.e(uiConnectResult.exceptionOrNull(), "Failed to connect to UI Process")
+                // Continue initialization without UI Process (degraded mode)
+            } else {
+                Timber.i("[PLUGIN MANAGER] UI Process connected successfully")
+
+                // ========== Link Sandbox ↔ UI Process ==========
+                try {
+                    // Get UI Controller from UI Process and set it in Sandbox
+                    // The Sandbox will use this to send UI state updates
+                    val uiHost = uiProcessProxy.getUIHost()
+                    if (uiHost != null) {
+                        // Get UI Controller IBinder from UI Process
+                        val uiControllerBinder = uiHost.getUIController()
+                        if (uiControllerBinder != null) {
+                            // Convert to IPluginUIController interface
+                            val uiController = com.ble1st.connectias.plugin.ui.IPluginUIController.Stub.asInterface(uiControllerBinder)
+                            
+                            // Set UI Controller in Sandbox Process
+                            val sandboxService = sandboxProxy.getSandboxService()
+                            if (sandboxService != null) {
+                                val setResult = sandboxProxy.setUIController(uiController)
+                                if (setResult) {
+                                    Timber.i("[PLUGIN MANAGER] Sandbox ↔ UI Process bridge connected successfully")
+                                    
+                                    // Get UI Bridge from Sandbox and register it with UI Process
+                                    // The UI Bridge receives user events from UI Process
+                                    val sandboxService = sandboxProxy.getSandboxService()
+                                    if (sandboxService != null) {
+                                        try {
+                                            val sandboxUIBridge = sandboxService.getUIBridge()
+                                            if (sandboxUIBridge != null) {
+                                                uiHost.registerUICallback(sandboxUIBridge)
+                                                Timber.i("[PLUGIN MANAGER] UI Bridge registered with UI Process")
+                                            } else {
+                                                Timber.w("[PLUGIN MANAGER] UI Bridge IBinder is null from Sandbox")
+                                            }
+                                        } catch (e: Exception) {
+                                            Timber.e(e, "[PLUGIN MANAGER] Failed to get UI Bridge from Sandbox")
+                                        }
+                                    } else {
+                                        Timber.w("[PLUGIN MANAGER] Sandbox service not available for UI Bridge registration")
+                                    }
+                                } else {
+                                    Timber.e("[PLUGIN MANAGER] Failed to set UI Controller in Sandbox")
+                                }
+                            } else {
+                                Timber.w("[PLUGIN MANAGER] Sandbox service not available for UI bridge setup")
+                            }
+                        } else {
+                            Timber.e("[PLUGIN MANAGER] UI Controller IBinder is null from UI Process")
+                        }
+                    } else {
+                        Timber.w("[PLUGIN MANAGER] UI Host not available from UI Process")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[PLUGIN MANAGER] Failed to link Sandbox ↔ UI Process")
+                }
             }
             
             if (!pluginDirectory.exists()) {
@@ -318,74 +393,119 @@ class PluginManagerSandbox @Inject constructor(
     }
     
     /**
-     * Creates a Fragment instance from a plugin.
-     * Fragments are created in the main process using local ClassLoader.
-     * The fragment is wrapped with PluginFragmentWrapper to catch exceptions.
-     * 
+     * Creates a Fragment instance from a plugin using Three-Process Architecture.
+     *
+     * All plugins must use the new UI API (onRenderUI()).
+     * The plugin UI renders in the UI Process and is displayed via PluginUIContainerFragment.
+     *
      * @param pluginId The plugin ID
-     * @param onCriticalError Callback invoked when plugin encounters critical error (navigate to dashboard)
+     * @param onCriticalError Callback invoked when plugin encounters critical error
      */
     fun createPluginFragment(
         pluginId: String,
         onCriticalError: (() -> Unit)? = null
     ): androidx.fragment.app.Fragment? {
-        val pluginInfo = loadedPlugins[pluginId] ?: return null
-        
-        val wrappedFragment = PluginExceptionHandler.safePluginFragmentCall(
-            pluginId,
-            "createFragment",
-            onError = { exception ->
-                // Create new PluginInfo with ERROR state to trigger Compose recomposition
-                loadedPlugins[pluginId]?.let { currentInfo ->
-                    loadedPlugins[pluginId] = currentInfo.copy(state = PluginState.ERROR)
-                    updateFlow()
-                }
-            }
-        ) {
-            val fragmentClassName = pluginInfo.metadata.fragmentClassName
-                ?: return null
-            
-            val fragmentClass = pluginInfo.classLoader.loadClass(fragmentClassName)
-            val fragmentInstance = fragmentClass.getDeclaredConstructor().newInstance() as? androidx.fragment.app.Fragment
-                ?: throw ClassCastException("Plugin class is not a Fragment")
-            
-            // CRITICAL: Initialize PluginContext for Fragment instance
-            // The Fragment runs in Main process and needs its own PluginContext
-            if (fragmentInstance is IPlugin) {
-                val pluginDir = File(context.filesDir, "plugins/${pluginInfo.metadata.pluginId}")
-                pluginDir.mkdirs()
-                val pluginContext = PluginContextImpl(
-                    appContext = context,
-                    pluginId = pluginInfo.metadata.pluginId,
-                    pluginDataDir = pluginDir,
-                    nativeLibraryManager = nativeLibraryManager,
-                    permissionManager = permissionManager ?: throw IllegalStateException("PermissionManager required for plugin fragments")
-                )
-                fragmentInstance.onLoad(pluginContext)
-                Timber.d("[PLUGIN MANAGER] Fragment instance initialized with PluginContext: $pluginId")
-            }
-            
-            fragmentInstance
-        } ?: return null
-        
-        // Wrap the fragment with PluginFragmentWrapper to catch exceptions in lifecycle methods
-        // and Compose event handlers (via UncaughtExceptionHandler)
-        // SECURITY: Pass required permissions and permission manager for pre-UI permission check
-        return PluginFragmentWrapper(
-            pluginId = pluginId,
-            wrappedFragment = wrappedFragment,
-            requiredPermissions = pluginInfo.metadata.permissions, // Pass required permissions
-            permissionManager = permissionManager, // Pass permission manager for checking
-            onError = { exception ->
-                // Create new PluginInfo with ERROR state to trigger Compose recomposition
-                loadedPlugins[pluginId]?.let { currentInfo ->
-                    loadedPlugins[pluginId] = currentInfo.copy(state = PluginState.ERROR)
-                    updateFlow()
-                }
-            },
-            onCriticalError = onCriticalError
-        )
+        return createIsolatedPluginFragment(pluginId, onCriticalError)
     }
+
+    /**
+     * Creates a Fragment instance from a plugin using Three-Process Architecture.
+     *
+     * All plugins must use the new UI API (onRenderUI()).
+     * The plugin UI renders in the UI Process and is displayed via PluginUIContainerFragment.
+     *
+     * @param pluginId The plugin ID
+     * @param onCriticalError Callback invoked when plugin encounters critical error
+     */
+    private fun createIsolatedPluginFragment(
+        pluginId: String,
+        onCriticalError: (() -> Unit)? = null
+    ): androidx.fragment.app.Fragment? {
+        val pluginInfo = loadedPlugins[pluginId] ?: run {
+            Timber.e("[PLUGIN MANAGER] Plugin not found: $pluginId")
+            return null
+        }
+
+        // Validate that plugin uses new UI API (no fragmentClassName)
+        if (!pluginInfo.metadata.fragmentClassName.isNullOrEmpty()) {
+            val errorMessage = "Legacy plugin detected: ${pluginInfo.metadata.pluginName}. Legacy plugins are no longer supported. Plugin must use onRenderUI() API."
+            Timber.e("[PLUGIN MANAGER] $errorMessage")
+            
+            // Show toast to user
+            android.os.Handler(android.os.Looper.getMainLooper()).post {
+                Toast.makeText(
+                    context,
+                    errorMessage,
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            
+            onCriticalError?.invoke()
+            return null
+        }
+
+        // Check if UI Process is available
+        if (!uiProcessProxy.isConnected()) {
+            Timber.e("[PLUGIN MANAGER] UI Process not connected - cannot create fragment for plugin: $pluginId")
+            return null
+        }
+
+        Timber.i("[PLUGIN MANAGER] Creating UI Process fragment for plugin: $pluginId")
+        // Use runBlocking to call suspend function from non-suspend context
+        return runBlocking {
+            createUIProcessFragment(pluginId, pluginInfo, onCriticalError)
+        }
+    }
+
+    /**
+     * Creates a fragment using UI Process (Three-Process Architecture).
+     *
+     * Initializes UI in UI Process and creates a container fragment in Main Process.
+     *
+     * @param pluginId Plugin identifier
+     * @param pluginInfo Plugin information
+     * @param onCriticalError Error callback
+     * @return Container fragment or null on error
+     */
+    private suspend fun createUIProcessFragment(
+        pluginId: String,
+        pluginInfo: PluginInfo,
+        onCriticalError: (() -> Unit)? = null
+    ): androidx.fragment.app.Fragment? = withContext(Dispatchers.IO) {
+        try {
+            Timber.i("[PLUGIN MANAGER] Creating UI Process fragment for plugin: $pluginId")
+
+            // Initialize UI in UI Process
+            val configuration = Bundle().apply {
+                putString("pluginId", pluginId)
+                // Add plugin-specific configuration
+            }
+
+            val containerId = uiProcessProxy.initializePluginUI(pluginId, configuration)
+            if (containerId == -1) {
+                Timber.e("[PLUGIN MANAGER] Failed to initialize UI in UI Process for plugin: $pluginId")
+                return@withContext null
+            }
+
+            Timber.i("[PLUGIN MANAGER] UI initialized in UI Process: $pluginId (containerId: $containerId)")
+
+            // Create container fragment in Main Process
+            val containerFragment = com.ble1st.connectias.core.plugin.ui.PluginUIContainerFragment.newInstance(
+                pluginId,
+                containerId
+            )
+
+            // Set UI Process proxy for Surface communication
+            containerFragment.setUIProcessProxy(uiProcessProxy)
+
+            Timber.i("[PLUGIN MANAGER] UI Process fragment created successfully: $pluginId")
+            containerFragment
+        } catch (e: Exception) {
+            Timber.e(e, "[PLUGIN MANAGER] Failed to create UI Process fragment for plugin: $pluginId")
+            null
+        }
+    }
+
     
     suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
@@ -703,6 +823,8 @@ class PluginManagerSandbox @Inject constructor(
     
     suspend fun shutdown() = withContext(Dispatchers.IO) {
         try {
+            Timber.i("[PLUGIN MANAGER] Shutting down PluginManagerSandbox (Three-Process Architecture)")
+
             // Disable all enabled plugins first
             val enabledPlugins = getEnabledPlugins()
             enabledPlugins.forEach { pluginInfo ->
@@ -712,17 +834,25 @@ class PluginManagerSandbox @Inject constructor(
                     Timber.e(e, "Failed to disable plugin during shutdown: ${pluginInfo.pluginId}")
                 }
             }
-            
+
             // Stop thread monitoring
             PluginThreadMonitor.stopMonitoring()
-            
+
+            // Disconnect from UI Process
+            try {
+                uiProcessProxy.disconnect()
+                Timber.i("[PLUGIN MANAGER] Disconnected from UI Process")
+            } catch (e: Exception) {
+                Timber.e(e, "[PLUGIN MANAGER] Error disconnecting from UI Process")
+            }
+
             // Disconnect from sandbox
             sandboxProxy.disconnect()
-            
+
             // Clear all loaded plugins
             loadedPlugins.clear()
             updateFlow()
-            
+
             Timber.i("[PLUGIN MANAGER] PluginManagerSandbox shutdown completed")
         } catch (e: Exception) {
             Timber.e(e, "Error during PluginManagerSandbox shutdown")

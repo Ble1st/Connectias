@@ -20,6 +20,8 @@ import com.ble1st.connectias.plugin.IPermissionCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
+import com.ble1st.connectias.core.plugin.security.FilteredParentClassLoader
+import com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
 import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
 import android.os.ParcelFileDescriptor
 import android.os.Binder
@@ -53,10 +55,17 @@ class PluginSandboxService : Service() {
     private var hardwareBridge: IHardwareBridge? = null
     private var fileSystemBridge: IFileSystemBridge? = null
     private var permissionCallback: IPermissionCallback? = null
-    
-    // Messaging proxy for inter-plugin communication
-    private lateinit var messagingProxy: PluginMessagingProxy
-    
+
+    // Messaging bridge for inter-plugin communication (via AIDL from main process)
+    private var messagingBridge: com.ble1st.connectias.plugin.messaging.IPluginMessaging? = null
+
+    // Three-Process Architecture UI components (Phase 3)
+    // UI Controller: Sends UI state updates from Sandbox to UI Process
+    private val uiController = PluginUIControllerImpl()
+
+    // UI Bridge: Receives user events from UI Process
+    private lateinit var uiBridge: PluginUIBridgeImpl
+
     // Broadcast receiver for permission changes
     private var permissionBroadcastReceiver: BroadcastReceiver? = null
     
@@ -293,13 +302,18 @@ class PluginSandboxService : Service() {
                 Timber.e(e, "[SANDBOX] Plugin onUnload failed")
             }
             
-            // Cleanup messaging
-            messagingScope.launch {
-                val unregisterResult = messagingProxy.unregisterPlugin(pluginId)
-                if (unregisterResult.isSuccess) {
-                    Timber.i("[SANDBOX] Plugin unregistered from messaging: $pluginId")
-                } else {
-                    Timber.w(unregisterResult.exceptionOrNull(), "[SANDBOX] Failed to unregister plugin from messaging: $pluginId")
+            // Cleanup messaging (if bridge is available)
+            val bridge = messagingBridge
+            if (bridge != null) {
+                messagingScope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            bridge.unregisterPlugin(pluginId)
+                        }
+                        Timber.i("[SANDBOX] Plugin unregistered from messaging: $pluginId")
+                    } catch (e: Exception) {
+                        Timber.w(e, "[SANDBOX] Failed to unregister plugin from messaging: $pluginId")
+                    }
                 }
             }
             
@@ -406,7 +420,9 @@ class PluginSandboxService : Service() {
                     pluginDir = pluginDir,
                     pluginId = metadata.pluginId,
                     permissionManager = permissionManager,
-                    hardwareBridge = hardwareBridge
+                    hardwareBridge = hardwareBridge,
+                    fileSystemBridge = fileSystemBridge,
+                    messagingBridge = messagingBridge
                 )
                 
                 // Call onLoad
@@ -544,10 +560,15 @@ class PluginSandboxService : Service() {
                 // Step 2: Extract plugin metadata from APK bytes
                 val metadata = extractPluginMetadataFromBytes(apkBytes)
                 
-                // Step 3: Extract ALL DEX files from APK for InMemoryDexClassLoader
+                // Step 3: Extract ALL DEX files from APK for RestrictedClassLoader
                 val dexBytesList = extractAllDexFromApk(apkBytes)
                 val dexBuffers = dexBytesList.map { java.nio.ByteBuffer.wrap(it) }.toTypedArray()
-                val classLoader = InMemoryDexClassLoader(dexBuffers, this@PluginSandboxService.classLoader)
+
+                // SECURITY: Use filtered parent classloader to block access to app internals
+                val filteredParent = FilteredParentClassLoader(this@PluginSandboxService.classLoader)
+                val classLoader = RestrictedClassLoader(dexBuffers, filteredParent, pluginId)
+
+                Timber.i("[SANDBOX] Created restricted classloader for plugin: $pluginId")
                 
                 // Step 4: Debug - Show metadata
                 Timber.d("[SANDBOX] Plugin metadata: fragmentClassName=${metadata.fragmentClassName}")
@@ -564,11 +585,11 @@ class PluginSandboxService : Service() {
                 Timber.i("[SANDBOX] Plugin identity registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
                 
                 // Step 7: Create secure bridge wrappers (no raw bridge access)
-                val secureHardwareBridge = hardwareBridge?.let { 
-                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, null)
+                val secureHardwareBridge = hardwareBridge?.let {
+                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, permissionManager, null)
                 }
                 val secureFileSystemBridge = fileSystemBridge?.let {
-                    SecureFileSystemBridgeWrapper(it, pluginId)
+                    SecureFileSystemBridgeWrapper(it, pluginId, permissionManager, null)
                 }
                 
                 // Step 8: Create plugin context (isolated process has no filesystem access)
@@ -579,17 +600,28 @@ class PluginSandboxService : Service() {
                     permissionManager,
                     secureHardwareBridge, // Use secure wrapper
                     secureFileSystemBridge, // Use secure wrapper
-                    messagingProxy // Messaging proxy for inter-plugin communication
+                    messagingBridge // Messaging bridge for inter-plugin communication (via AIDL)
                 )
                 
-                // Step 8a: Register plugin for messaging
-                messagingScope.launch {
-                    val registerResult = messagingProxy.registerPlugin(pluginId)
-                    if (registerResult.isSuccess && registerResult.getOrNull() == true) {
-                        Timber.i("[SANDBOX] Plugin registered for messaging: $pluginId")
-                    } else {
-                        Timber.w("[SANDBOX] Failed to register plugin for messaging: $pluginId")
+                // Step 8a: Register plugin for messaging (if bridge is available)
+                val bridge = messagingBridge
+                if (bridge != null) {
+                    messagingScope.launch {
+                        try {
+                            val registered = withContext(Dispatchers.IO) {
+                                bridge.registerPlugin(pluginId)
+                            }
+                            if (registered) {
+                                Timber.i("[SANDBOX] Plugin registered for messaging: $pluginId")
+                            } else {
+                                Timber.w("[SANDBOX] Failed to register plugin for messaging: $pluginId")
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "[SANDBOX] Error registering plugin for messaging: $pluginId")
+                        }
                     }
+                } else {
+                    Timber.d("[SANDBOX] Messaging bridge not available, skipping registration")
                 }
                 
                 // Step 9: Initialize plugin with onLoad
@@ -676,7 +708,121 @@ class PluginSandboxService : Service() {
                 Timber.e(e, "[SANDBOX] Failed to set permission callback")
             }
         }
-        
+
+        override fun setMessagingBridge(messagingBridge: IBinder) {
+            try {
+                this@PluginSandboxService.messagingBridge = com.ble1st.connectias.plugin.messaging.IPluginMessaging.Stub.asInterface(messagingBridge)
+                Timber.i("[SANDBOX] Messaging bridge set")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set messaging bridge")
+            }
+        }
+
+        override fun setUIBridge(uiBridge: IBinder) {
+            // DEPRECATED: Old VirtualDisplay system
+            Timber.w("[SANDBOX] setUIBridge called - this is deprecated, use setUIController instead")
+        }
+
+        override fun setUIController(uiController: IBinder) {
+            try {
+                val controller = com.ble1st.connectias.plugin.ui.IPluginUIController.Stub.asInterface(uiController)
+                this@PluginSandboxService.uiController.setRemoteController(controller)
+                Timber.i("[SANDBOX] UI Controller connected (Three-Process Architecture)")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set UI controller")
+            }
+        }
+
+        override fun getUIBridge(): IBinder {
+            Timber.d("[SANDBOX] Get UI Bridge")
+            return this@PluginSandboxService.uiBridge.asBinder()
+        }
+
+        override fun requestPluginUIRender(
+            pluginId: String,
+            width: Int,
+            height: Int,
+            density: Float,
+            densityDpi: Int
+        ): android.view.Surface? {
+            return try {
+                Timber.d("[SANDBOX] Requesting UI render for plugin: $pluginId (${width}x${height})")
+
+                // Get plugin info
+                val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
+                if (pluginInfo == null) {
+                    Timber.e("[SANDBOX] Plugin not found: $pluginId")
+                    return null
+                }
+
+                // Create UIRenderRequest
+                val request = com.ble1st.connectias.plugin.ui.UIRenderRequest().apply {
+                    this.pluginId = pluginId
+                    this.width = width
+                    this.height = height
+                    this.density = density
+                    this.densityDpi = densityDpi
+                    this.hardwareAccelerated = true
+                    this.fragmentArgs = null
+                    this.isCompose = false
+                }
+
+                // NOTE: Fragment rendering deaktiviert - VirtualDisplay funktioniert nicht im isolierten Prozess
+                // UI-Rendering erfolgt jetzt im Main Process mit IsolatedPluginContext
+                Timber.w("[SANDBOX] requestPluginUIRender() called but fragment renderer is disabled - UI rendering happens in Main Process")
+                null
+
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Error requesting UI render for plugin: $pluginId")
+                null
+            }
+        }
+
+        override fun destroyPluginUI(pluginId: String) {
+            try {
+                // NOTE: Fragment rendering deaktiviert - UI wird im Main Process verwaltet
+                Timber.d("[SANDBOX] destroyPluginUI() called but fragment renderer is disabled - UI cleanup happens in Main Process")
+                Timber.i("[SANDBOX] UI cleanup notification for plugin: $pluginId (handled in Main Process)")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Error in destroyPluginUI for plugin: $pluginId")
+            }
+        }
+
+        override fun dispatchPluginTouchEvent(
+            pluginId: String,
+            action: Int,
+            x: Float,
+            y: Float,
+            eventTime: Long
+        ): Boolean {
+            return try {
+                // Create MotionEventParcel
+                val event = com.ble1st.connectias.plugin.ui.MotionEventParcel().apply {
+                    this.action = action
+                    this.x = x
+                    this.y = y
+                    this.eventTime = eventTime
+                    this.downTime = eventTime
+                    this.pressure = 1.0f
+                    this.size = 1.0f
+                    this.metaState = 0
+                    this.buttonState = 0
+                    this.deviceId = 0
+                    this.edgeFlags = 0
+                    this.source = android.view.InputDevice.SOURCE_TOUCHSCREEN
+                    this.flags = 0
+                }
+
+                // NOTE: Fragment rendering deaktiviert - Touch-Events werden im Main Process verarbeitet
+                Timber.d("[SANDBOX] dispatchPluginTouchEvent() called but fragment renderer is disabled - touch events handled in Main Process")
+                false
+
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Error dispatching touch event for plugin: $pluginId")
+                false
+            }
+        }
+
         override fun requestPermissionAsync(pluginId: String, permission: String): Boolean {
             return try {
                 // Validate plugin exists
@@ -814,17 +960,17 @@ class PluginSandboxService : Service() {
 
         // Initialize permission manager for sandbox process
         permissionManager = PluginPermissionManager(applicationContext)
-        
-        // Initialize messaging proxy
-        messagingProxy = PluginMessagingProxy(applicationContext)
-        messagingScope.launch {
-            val connectResult = messagingProxy.connect()
-            if (connectResult.isSuccess) {
-                Timber.i("[SANDBOX] Connected to messaging service")
-            } else {
-                Timber.w(connectResult.exceptionOrNull(), "[SANDBOX] Failed to connect to messaging service")
-            }
-        }
+
+        // Initialize UI Bridge for Three-Process Architecture (Phase 3)
+        // This bridge receives user events from UI Process
+        uiBridge = PluginUIBridgeImpl(loadedPlugins as Map<String, Any>)
+        Timber.i("[SANDBOX] UI Bridge initialized (Three-Process Architecture)")
+
+        // Note: UI Controller will be connected to UI Process via setUIController() from Main Process
+        Timber.i("[SANDBOX] Waiting for UI Controller connection from Main Process")
+
+        // Note: Messaging bridge will be set via setMessagingBridge() from main process
+        Timber.i("[SANDBOX] Waiting for messaging bridge to be set from main process")
         
         // Note: Broadcast receiver cannot be registered in isolated process
         // Permission changes will be handled via IPC through hardware bridge
@@ -838,17 +984,39 @@ class PluginSandboxService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.i("[SANDBOX] Service destroyed")
-        
-        // Disconnect messaging proxy
-        messagingProxy.disconnect()
+
+        // Cancel messaging coroutine scope
         messagingScope.cancel()
-        
+
+        // Disconnect UI Controller
+        uiController.disconnect()
+
+        // Clear UI Bridge listeners
+        uiBridge.clearLifecycleListeners()
+
         // Note: No broadcast receiver to unregister (isolated process restriction)
-        
+        // Note: Messaging bridge cleanup is handled by main process
+
         // Stop memory monitoring
         memoryMonitor.stopMonitoring()
         memoryMonitor.logMemoryStats()
     }
+
+    /**
+     * Gets the UI Controller for sending UI state updates to UI Process.
+     * Used by plugins to update their UI.
+     *
+     * @return PluginUIControllerImpl instance
+     */
+    fun getUIController(): PluginUIControllerImpl = uiController
+
+    /**
+     * Gets the UI Bridge for receiving user events from UI Process.
+     * Used internally for lifecycle management.
+     *
+     * @return PluginUIBridgeImpl instance
+     */
+    fun getUIBridge(): PluginUIBridgeImpl = uiBridge
     
     private fun extractPluginMetadata(pluginFile: File): PluginMetadata {
         ZipFile(pluginFile).use { zip ->

@@ -13,6 +13,7 @@ import com.ble1st.connectias.plugin.messaging.PluginMessage
 import com.ble1st.connectias.plugin.messaging.MessageResponse
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
+import com.ble1st.connectias.core.plugin.ui.IsolatedPluginContext
 import timber.log.Timber
 import java.io.File
 import java.util.UUID
@@ -27,7 +28,7 @@ import kotlin.coroutines.resume
  * Plugin context implementation providing access to app resources
  * Uses SecureContextWrapper to enforce permission checks
  */
-class PluginContextImpl(
+open class PluginContextImpl(
     private val appContext: Context,
     private val pluginId: String,
     private val pluginDataDir: File,
@@ -451,5 +452,46 @@ class PluginContextImpl(
         hardwareBridgeConnection = null
         
         Timber.i("[$pluginId] PluginContext cleanup completed")
+    }
+}
+
+/**
+ * Isolated PluginContext implementation that uses IsolatedPluginContext for enhanced security.
+ * 
+ * This class extends PluginContextImpl and overrides getApplicationContext() to return
+ * an IsolatedPluginContext instead of the regular secure context wrapper.
+ * 
+ * Usage:
+ * ```kotlin
+ * val pluginContext = IsolatedPluginContextImpl(
+ *     appContext = context,
+ *     pluginId = pluginId,
+ *     pluginDataDir = pluginDir,
+ *     nativeLibraryManager = nativeLibraryManager,
+ *     permissionManager = permissionManager
+ * )
+ * ```
+ */
+class IsolatedPluginContextImpl(
+    appContext: Context,
+    pluginId: String,
+    pluginDataDir: File,
+    nativeLibraryManager: NativeLibraryManager,
+    permissionManager: PluginPermissionManager,
+    messagingProxy: PluginMessagingProxy? = null
+) : PluginContextImpl(
+    appContext,
+    pluginId,
+    pluginDataDir,
+    nativeLibraryManager,
+    permissionManager,
+    messagingProxy
+) {
+    
+    private val isolatedContext = IsolatedPluginContext(appContext, pluginId)
+    
+    override fun getApplicationContext(): Context {
+        // Return isolated context instead of secure context wrapper
+        return isolatedContext
     }
 }

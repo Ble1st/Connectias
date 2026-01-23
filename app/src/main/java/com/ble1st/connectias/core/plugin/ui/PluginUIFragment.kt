@@ -1,0 +1,350 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 Connectias
+
+package com.ble1st.connectias.core.plugin.ui
+
+import android.os.Bundle
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
+import androidx.fragment.app.Fragment
+import com.ble1st.connectias.plugin.ui.IPluginUIBridge
+import com.ble1st.connectias.plugin.ui.UIEventParcel
+import com.ble1st.connectias.plugin.ui.UIStateParcel
+import com.ble1st.connectias.plugin.ui.UserActionParcel
+import kotlinx.coroutines.launch
+import timber.log.Timber
+
+/**
+ * Fragment running in UI Process that renders plugin UI based on state.
+ *
+ * Three-Process Architecture:
+ * - Receives UIStateParcel from Sandbox Process via IPluginUIController
+ * - Renders UI using Jetpack Compose
+ * - Forwards user interactions to Sandbox via IPluginUIBridge
+ *
+ * This fragment does NOT contain business logic - it only renders state
+ * and forwards events. All logic resides in the Sandbox Process.
+ */
+class PluginUIFragment : Fragment() {
+
+    private lateinit var pluginId: String
+    private var configuration: Bundle? = null
+    private var uiBridge: IPluginUIBridge? = null
+
+    // UI state (updated by Sandbox via IPluginUIController)
+    private var uiState by mutableStateOf<UIStateParcel?>(null)
+    
+    // Dialog state
+    private var dialogState by mutableStateOf<DialogState?>(null)
+    
+    // Toast state
+    private var toastState by mutableStateOf<ToastState?>(null)
+    
+    // Loading state
+    private var loadingState by mutableStateOf<LoadingState?>(null)
+    
+    // Navigation state
+    private var navigationState by mutableStateOf<NavigationState?>(null)
+    
+    // UI Event handler
+    private var uiEventHandler: ((UIEventParcel) -> Unit)? = null
+    
+    /**
+     * Dialog state data class
+     */
+    data class DialogState(
+        val title: String,
+        val message: String,
+        val dialogType: Int // 0=INFO, 1=WARNING, 2=ERROR, 3=CONFIRM
+    )
+    
+    /**
+     * Toast state data class
+     */
+    data class ToastState(
+        val message: String,
+        val duration: Int // 0=SHORT, 1=LONG
+    )
+    
+    /**
+     * Loading state data class
+     */
+    data class LoadingState(
+        val loading: Boolean,
+        val message: String?
+    )
+    
+    /**
+     * Navigation state data class
+     */
+    data class NavigationState(
+        val screenId: String,
+        val args: Bundle?
+    )
+
+    companion object {
+        /**
+         * Creates a new instance of PluginUIFragment.
+         *
+         * @param pluginId Plugin identifier
+         * @param config UI configuration from Main Process
+         */
+        fun newInstance(pluginId: String, config: Bundle): PluginUIFragment {
+            return PluginUIFragment().apply {
+                arguments = Bundle().apply {
+                    putString("pluginId", pluginId)
+                    putBundle("config", config)
+                }
+            }
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        pluginId = arguments?.getString("pluginId")
+            ?: throw IllegalArgumentException("PluginUIFragment requires pluginId")
+        configuration = arguments?.getBundle("config")
+
+        Timber.i("[UI_PROCESS] Fragment created for plugin: $pluginId")
+    }
+
+    override fun onCreateView(
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
+    ): View {
+        Timber.d("[UI_PROCESS] onCreateView for plugin: $pluginId")
+
+        // Notify Sandbox: Fragment created
+        try {
+            uiBridge?.onLifecycleEvent(pluginId, "onCreate")
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to notify onCreate to sandbox")
+        }
+
+        return ComposeView(requireContext()).apply {
+            setContent {
+                val snackbarHostState = remember { SnackbarHostState() }
+                val scope = rememberCoroutineScope()
+                
+                // Observe toast state and show snackbar
+                LaunchedEffect(toastState) {
+                    toastState?.let { toast ->
+                        scope.launch {
+                            val duration = if (toast.duration == 1) 
+                                androidx.compose.material3.SnackbarDuration.Long 
+                            else 
+                                androidx.compose.material3.SnackbarDuration.Short
+                            
+                            snackbarHostState.showSnackbar(
+                                message = toast.message,
+                                duration = duration
+                            )
+                            // Clear toast state after showing
+                            toastState = null
+                        }
+                    }
+                }
+                
+                androidx.compose.material3.MaterialTheme {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        PluginUIComposable(
+                            pluginId = pluginId,
+                            uiState = uiState,
+                            dialogState = dialogState,
+                            loadingState = loadingState,
+                            onUserAction = { action ->
+                                handleUserAction(action)
+                            },
+                            onDismissDialog = {
+                                dialogState = null
+                            }
+                        )
+                        
+                        // Snackbar host for toasts
+                        SnackbarHost(
+                            hostState = snackbarHostState,
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Timber.d("[UI_PROCESS] onResume for plugin: $pluginId")
+
+        try {
+            uiBridge?.onLifecycleEvent(pluginId, "onResume")
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to notify onResume to sandbox")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Timber.d("[UI_PROCESS] onPause for plugin: $pluginId")
+
+        try {
+            uiBridge?.onLifecycleEvent(pluginId, "onPause")
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to notify onPause to sandbox")
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        Timber.d("[UI_PROCESS] onDestroy for plugin: $pluginId")
+
+        try {
+            uiBridge?.onLifecycleEvent(pluginId, "onDestroy")
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to notify onDestroy to sandbox")
+        }
+
+        // Cleanup
+        uiBridge = null
+        uiState = null
+    }
+
+    /**
+     * Updates UI state from Sandbox Process.
+     * Called by UI-Controller implementation.
+     *
+     * @param newState New UI state to render
+     */
+    fun updateState(newState: UIStateParcel) {
+        Timber.d("[UI_PROCESS] Update UI state for $pluginId: ${newState.screenId}")
+        uiState = newState
+        // Compose will automatically recompose when state changes
+    }
+
+    /**
+     * Sets UI bridge for communication with Sandbox Process.
+     *
+     * @param bridge IPluginUIBridge instance
+     */
+    fun setUIBridge(bridge: IPluginUIBridge) {
+        // pluginId might not be initialized yet if called before onCreate()
+        val currentPluginId = arguments?.getString("pluginId") ?: pluginId
+        Timber.d("[UI_PROCESS] Set UI bridge for plugin: $currentPluginId")
+        this.uiBridge = bridge
+    }
+
+    /**
+     * Handles user actions and forwards them to Sandbox.
+     *
+     * @param action User action data
+     */
+    private fun handleUserAction(action: UserActionParcel) {
+        Timber.d("[UI_PROCESS] User action: ${action.actionType} on ${action.targetId}")
+
+        try {
+            uiBridge?.onUserAction(pluginId, action)
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to send user action to sandbox")
+        }
+    }
+
+    /**
+     * Sets fragment visibility.
+     *
+     * @param visible true to show, false to hide
+     */
+    fun setVisibility(visible: Boolean) {
+        view?.visibility = if (visible) View.VISIBLE else View.GONE
+    }
+
+    /**
+     * Destroys fragment and cleans up resources.
+     */
+    fun destroy() {
+        Timber.d("[UI_PROCESS] Destroying fragment for plugin: $pluginId")
+
+        // Cleanup references
+        uiBridge = null
+        uiState = null
+        configuration = null
+    }
+
+    /**
+     * Gets current UI state (for debugging).
+     */
+    fun getCurrentState(): UIStateParcel? = uiState
+
+    /**
+     * Gets plugin ID.
+     */
+    fun getPluginId(): String = pluginId
+    
+    /**
+     * Shows a dialog.
+     */
+    fun showDialog(title: String, message: String, dialogType: Int) {
+        Timber.d("[UI_PROCESS] Show dialog: $title")
+        dialogState = DialogState(title, message, dialogType)
+    }
+    
+    /**
+     * Shows a toast.
+     */
+    fun showToast(message: String, duration: Int) {
+        Timber.d("[UI_PROCESS] Show toast: $message")
+        toastState = ToastState(message, duration)
+    }
+    
+    /**
+     * Sets loading state.
+     */
+    fun setLoading(loading: Boolean, message: String?) {
+        Timber.d("[UI_PROCESS] Set loading: $loading")
+        loadingState = if (loading) LoadingState(true, message) else null
+    }
+    
+    /**
+     * Navigates to a screen.
+     */
+    fun navigateToScreen(screenId: String, args: Bundle?) {
+        Timber.d("[UI_PROCESS] Navigate to: $screenId")
+        navigationState = NavigationState(screenId, args)
+        // Navigation is handled by updating UI state, so we just log it
+        // The sandbox should send a new UIStateParcel with the new screen
+    }
+    
+    /**
+     * Navigates back.
+     */
+    fun navigateBack() {
+        Timber.d("[UI_PROCESS] Navigate back")
+        // Back navigation is handled by updating UI state
+        // The sandbox should send a new UIStateParcel with the previous screen
+    }
+    
+    /**
+     * Handles UI events.
+     */
+    fun handleUIEvent(event: UIEventParcel) {
+        Timber.d("[UI_PROCESS] Handle UI event: ${event.eventType}")
+        uiEventHandler?.invoke(event)
+    }
+    
+    /**
+     * Sets UI event handler.
+     */
+    fun setUIEventHandler(handler: (UIEventParcel) -> Unit) {
+        uiEventHandler = handler
+    }
+}

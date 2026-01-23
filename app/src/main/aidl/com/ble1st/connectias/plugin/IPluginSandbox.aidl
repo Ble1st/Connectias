@@ -141,8 +141,76 @@ interface IPluginSandbox {
     /**
      * Set permission result callback interface
      * Must be called before requesting permissions asynchronously
-     * 
+     *
      * @param callback IBinder for permission result callbacks
      */
     void setPermissionCallback(IBinder callback);
+
+    /**
+     * Set messaging bridge interface for inter-plugin messaging
+     * Must be called before plugins try to send/receive messages
+     *
+     * @param messagingBridge IBinder from PluginMessagingService
+     */
+    void setMessagingBridge(IBinder messagingBridge);
+
+    /**
+     * Set UI bridge interface for isolated UI rendering (DEPRECATED - Old VirtualDisplay system)
+     * Enables plugin fragments to render in sandbox process via VirtualDisplay
+     * Output is transmitted to main process for display
+     *
+     * @param uiBridge IBinder from IPluginUIBridge implementation
+     * @deprecated Use setUIController for Three-Process Architecture
+     */
+    void setUIBridge(IBinder uiBridge);
+
+    /**
+     * Set UI Controller for Three-Process Architecture (Phase 3)
+     * Connects Sandbox Process to UI Process for state-based rendering
+     *
+     * @param uiController IBinder from IPluginUIController in UI Process
+     */
+    void setUIController(IBinder uiController);
+
+    /**
+     * Get UI Bridge IBinder for Three-Process Architecture
+     * Returns the UI Bridge that receives user events from UI Process
+     *
+     * @return IBinder for IPluginUIBridge in Sandbox Process
+     */
+    IBinder getUIBridge();
+
+    /**
+     * Request plugin UI rendering in sandbox process (UI-Isolation Phase 1) (DEPRECATED)
+     * Creates VirtualDisplay in sandbox and renders plugin fragment
+     *
+     * @param pluginId Plugin whose UI should be rendered
+     * @param width Display width in pixels
+     * @param height Display height in pixels
+     * @param density Display density
+     * @param densityDpi Display DPI
+     * @return Surface for rendered output, or null on error
+     * @deprecated Use Three-Process Architecture with state-based rendering
+     */
+    android.view.Surface requestPluginUIRender(String pluginId, int width, int height, float density, int densityDpi);
+
+    /**
+     * Destroy plugin UI rendering (DEPRECATED)
+     *
+     * @param pluginId Plugin ID
+     * @deprecated Use Three-Process Architecture
+     */
+    void destroyPluginUI(String pluginId);
+
+    /**
+     * Dispatch touch event to plugin UI in sandbox
+     *
+     * @param pluginId Plugin ID
+     * @param action MotionEvent action
+     * @param x X coordinate
+     * @param y Y coordinate
+     * @param eventTime Event timestamp
+     * @return true if consumed
+     */
+    boolean dispatchPluginTouchEvent(String pluginId, int action, float x, float y, long eventTime);
 }
