@@ -393,10 +393,11 @@ class PluginManagerSandbox @Inject constructor(
     }
     
     /**
-     * Creates a Fragment instance from a plugin using Three-Process Architecture.
+     * Creates a Fragment instance from a plugin.
      *
-     * All plugins must use the new UI API (onRenderUI()).
-     * The plugin UI renders in the UI Process and is displayed via PluginUIContainerFragment.
+     * Supports both:
+     * - Legacy plugins: Uses fragmentClassName to load Fragment directly from ClassLoader
+     * - New plugins: Uses Three-Process Architecture with onRenderUI() API
      *
      * @param pluginId The plugin ID
      * @param onCriticalError Callback invoked when plugin encounters critical error
@@ -409,10 +410,9 @@ class PluginManagerSandbox @Inject constructor(
     }
 
     /**
-     * Creates a Fragment instance from a plugin using Three-Process Architecture.
+     * Creates a Fragment instance from a plugin.
      *
-     * All plugins must use the new UI API (onRenderUI()).
-     * The plugin UI renders in the UI Process and is displayed via PluginUIContainerFragment.
+     * Supports both legacy plugins (fragmentClassName) and new plugins (onRenderUI()).
      *
      * @param pluginId The plugin ID
      * @param onCriticalError Callback invoked when plugin encounters critical error
@@ -426,25 +426,13 @@ class PluginManagerSandbox @Inject constructor(
             return null
         }
 
-        // Validate that plugin uses new UI API (no fragmentClassName)
+        // Support legacy plugins with fragmentClassName
         if (!pluginInfo.metadata.fragmentClassName.isNullOrEmpty()) {
-            val errorMessage = "Legacy plugin detected: ${pluginInfo.metadata.pluginName}. Legacy plugins are no longer supported. Plugin must use onRenderUI() API."
-            Timber.e("[PLUGIN MANAGER] $errorMessage")
-            
-            // Show toast to user
-            android.os.Handler(android.os.Looper.getMainLooper()).post {
-                Toast.makeText(
-                    context,
-                    errorMessage,
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            
-            onCriticalError?.invoke()
-            return null
+            Timber.i("[PLUGIN MANAGER] Legacy plugin detected: ${pluginInfo.metadata.pluginName}, using legacy fragment creation")
+            return createLegacyPluginFragment(pluginId, pluginInfo, onCriticalError)
         }
 
-        // Check if UI Process is available
+        // Check if UI Process is available for new UI API plugins
         if (!uiProcessProxy.isConnected()) {
             Timber.e("[PLUGIN MANAGER] UI Process not connected - cannot create fragment for plugin: $pluginId")
             return null
@@ -454,6 +442,33 @@ class PluginManagerSandbox @Inject constructor(
         // Use runBlocking to call suspend function from non-suspend context
         return runBlocking {
             createUIProcessFragment(pluginId, pluginInfo, onCriticalError)
+        }
+    }
+
+    /**
+     * Creates a Fragment instance from a legacy plugin (with fragmentClassName).
+     * The fragment class is loaded from the plugin's ClassLoader.
+     */
+    private fun createLegacyPluginFragment(
+        pluginId: String,
+        pluginInfo: PluginInfo,
+        onCriticalError: (() -> Unit)? = null
+    ): androidx.fragment.app.Fragment? {
+        return try {
+            val fragmentClassName = pluginInfo.metadata.fragmentClassName
+                ?: return null
+            
+            Timber.d("[PLUGIN MANAGER] Loading legacy fragment class: $fragmentClassName")
+            val fragmentClass = pluginInfo.classLoader.loadClass(fragmentClassName)
+            val fragment = fragmentClass.getDeclaredConstructor().newInstance() as? androidx.fragment.app.Fragment
+                ?: throw ClassCastException("Plugin class is not a Fragment")
+            
+            Timber.i("[PLUGIN MANAGER] Legacy fragment created successfully: $pluginId")
+            fragment
+        } catch (e: Exception) {
+            Timber.e(e, "[PLUGIN MANAGER] Failed to create legacy fragment for plugin: $pluginId")
+            onCriticalError?.invoke()
+            null
         }
     }
 
