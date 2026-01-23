@@ -40,6 +40,7 @@ class PluginUIContainerFragment : Fragment() {
     private var surfaceView: SurfaceView? = null
     private var uiProcessProxy: PluginUIProcessProxy? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    private var surfaceInitialized = false  // Track if surface was already sent
 
     /**
      * Sets the UI Process proxy for Surface communication.
@@ -87,8 +88,8 @@ class PluginUIContainerFragment : Fragment() {
         surfaceView = SurfaceView(requireContext()).apply {
             holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(holder: SurfaceHolder) {
-                    Timber.d("[MAIN] Surface created - requesting UI Surface from UI Process")
-                    requestUISurface()
+                    Timber.d("[MAIN] Surface created - waiting for surfaceChanged callback")
+                    // Don't call requestUISurface() here - wait for surfaceChanged with actual dimensions
                 }
 
                 override fun surfaceChanged(
@@ -98,14 +99,16 @@ class PluginUIContainerFragment : Fragment() {
                     height: Int
                 ) {
                     Timber.d("[MAIN] Surface changed: ${width}x${height}")
-                    // Surface size changed - update UI Process
-                    if (width > 0 && height > 0) {
+                    // Only send surface once when we have valid dimensions
+                    if (width > 0 && height > 0 && !surfaceInitialized) {
+                        surfaceInitialized = true
                         requestUISurface()
                     }
                 }
 
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     Timber.d("[MAIN] Surface destroyed")
+                    surfaceInitialized = false
                 }
             })
 
@@ -212,6 +215,7 @@ class PluginUIContainerFragment : Fragment() {
         super.onDestroyView()
         Timber.d("[MAIN] PluginUIContainerFragment onDestroyView for plugin: $pluginId")
         surfaceView = null
+        surfaceInitialized = false
     }
 
     /**

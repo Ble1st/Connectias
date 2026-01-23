@@ -150,12 +150,13 @@ class PluginUIHostImpl(
                 return false
             }
 
-            // Create VirtualDisplay using the Surface from Main Process
+            // Create VirtualDisplay using the Surface from Main Process and render fragment on it
             val virtualDisplay = virtualDisplayManager.createVirtualDisplayWithSurface(
                 pluginId,
                 surface,
                 width,
-                height
+                height,
+                fragment  // Pass fragment to render its Compose UI on VirtualDisplay
             )
 
             if (virtualDisplay == null) {

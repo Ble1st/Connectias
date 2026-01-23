@@ -4,8 +4,11 @@
 package com.ble1st.connectias.core.plugin.ui
 
 import android.app.Activity
+import android.app.Presentation
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.Display
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView

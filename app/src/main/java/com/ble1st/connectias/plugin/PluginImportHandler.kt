@@ -113,10 +113,10 @@ class PluginImportHandler(
                     return Result.failure(Exception("Invalid manifest: Missing version"))
                 }
                 
-                val fragmentClassName = json.optString("fragmentClassName")
-                if (fragmentClassName.isEmpty()) {
-                    return Result.failure(Exception("Invalid manifest: Missing fragmentClassName"))
-                }
+                // fragmentClassName is optional - required for legacy plugins, optional for new Three-Process UI plugins
+                // New plugins use onRenderUI() API and don't need fragmentClassName
+                val fragmentClassName = json.optString("fragmentClassName", null)
+                // No validation - can be null for new plugins
                 
                 // Extract and validate permissions
                 val permissionResult = manifestParser.extractPermissions(file)

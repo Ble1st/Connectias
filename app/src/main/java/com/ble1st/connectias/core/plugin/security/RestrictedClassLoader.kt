@@ -121,6 +121,34 @@ class RestrictedClassLoader(
     }
 
     /**
+     * Loads a class directly from plugin DEX without going through parent filtering.
+     * This is used for loading plugin's own classes (e.g., plugin main class).
+     * 
+     * @param name Class name to load
+     * @return Loaded class
+     * @throws ClassNotFoundException if class is not found in plugin DEX
+     */
+    fun loadClassFromDex(name: String): Class<*> {
+        // Create a temporary InMemoryDexClassLoader with null parent to bypass filtering
+        // This allows loading plugin's own classes directly from DEX
+        val directLoader = InMemoryDexClassLoader(dexBuffers, null)
+        
+        try {
+            val clazz = directLoader.loadClass(name)
+            
+            // Track loaded class
+            loadedClasses.add(name)
+            
+            Timber.d("[CLASSLOADER] Plugin '$pluginId' loaded class directly from DEX: $name")
+            
+            return clazz
+        } catch (e: ClassNotFoundException) {
+            Timber.v("[CLASSLOADER] Class not found in plugin DEX: $name")
+            throw e
+        }
+    }
+
+    /**
      * Clear tracking data when plugin is unloaded
      */
     fun cleanup() {

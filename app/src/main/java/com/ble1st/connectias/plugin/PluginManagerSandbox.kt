@@ -361,7 +361,11 @@ class PluginManagerSandbox @Inject constructor(
                     nativeLibraries = json.optJSONArray("nativeLibraries")?.let {
                         (0 until it.length()).map { i -> it.getString(i) }
                     } ?: emptyList(),
-                    fragmentClassName = json.getString("fragmentClassName"),
+                    // fragmentClassName is optional - new plugins use onRenderUI() API
+                    // Support pluginClassName as fallback for new plugins
+                    // Treat empty strings as null
+                    fragmentClassName = json.optString("fragmentClassName", null)?.takeIf { it.isNotBlank() }
+                        ?: json.optString("pluginClassName", null)?.takeIf { it.isNotBlank() },
                     description = json.optString("description", ""),
                     permissions = json.optJSONArray("permissions")?.let {
                         (0 until it.length()).map { i -> it.getString(i) }
@@ -426,10 +430,23 @@ class PluginManagerSandbox @Inject constructor(
             return null
         }
 
-        // Support legacy plugins with fragmentClassName
+        // Check if plugin has fragmentClassName and if it's actually a Fragment
         if (!pluginInfo.metadata.fragmentClassName.isNullOrEmpty()) {
-            Timber.i("[PLUGIN MANAGER] Legacy plugin detected: ${pluginInfo.metadata.pluginName}, using legacy fragment creation")
-            return createLegacyPluginFragment(pluginId, pluginInfo, onCriticalError)
+            val fragmentClassName = pluginInfo.metadata.fragmentClassName!!
+            try {
+                val fragmentClass = pluginInfo.classLoader.loadClass(fragmentClassName)
+                // Check if the class is actually a Fragment (legacy plugin)
+                if (androidx.fragment.app.Fragment::class.java.isAssignableFrom(fragmentClass)) {
+                    Timber.i("[PLUGIN MANAGER] Legacy plugin detected: ${pluginInfo.metadata.pluginName}, using legacy fragment creation")
+                    return createLegacyPluginFragment(pluginId, pluginInfo, onCriticalError)
+                } else {
+                    Timber.i("[PLUGIN MANAGER] Plugin has fragmentClassName but is not a Fragment: ${pluginInfo.metadata.pluginName}, using Three-Process UI")
+                    // Fall through to Three-Process UI creation
+                }
+            } catch (e: ClassNotFoundException) {
+                Timber.w(e, "[PLUGIN MANAGER] Fragment class not found: $fragmentClassName, falling back to Three-Process UI")
+                // Fall through to Three-Process UI creation
+            }
         }
 
         // Check if UI Process is available for new UI API plugins

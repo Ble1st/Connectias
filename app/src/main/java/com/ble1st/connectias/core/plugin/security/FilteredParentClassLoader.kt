@@ -45,9 +45,9 @@ class FilteredParentClassLoader(
             // Plugin SDK API - plugins can access this
             "com.ble1st.connectias.plugin.sdk.",
 
-            // AIDL parcelables that plugins need
-            "com.ble1st.connectias.plugin.messaging.PluginMessage",
-            "com.ble1st.connectias.plugin.messaging.MessageResponse",
+            // Legacy Plugin SDK API (entire plugin package, but specific classes are blocked below)
+            // This allows plugins to use both old and new SDK interfaces
+            "com.ble1st.connectias.plugin.",
 
             // Timber logging (read-only, safe)
             "timber.log.",
@@ -81,11 +81,39 @@ class FilteredParentClassLoader(
             // File system bridge internals
             "com.ble1st.connectias.plugin.IFileSystemBridge",
 
+            // Plugin Manager internals (not part of SDK)
+            "com.ble1st.connectias.plugin.PluginManager",
+            "com.ble1st.connectias.plugin.PluginManagerSandbox",
+            "com.ble1st.connectias.plugin.PluginImportHandler",
+            "com.ble1st.connectias.plugin.PluginPermissionManager",
+            "com.ble1st.connectias.plugin.PluginContextImpl",
+            "com.ble1st.connectias.plugin.PluginManifestParser",
+            "com.ble1st.connectias.plugin.PluginFragmentWrapper",
+            "com.ble1st.connectias.plugin.PluginNotificationManager",
+            "com.ble1st.connectias.plugin.PluginExceptionHandler",
+            "com.ble1st.connectias.plugin.PluginModule",
+            "com.ble1st.connectias.plugin.PluginResultParcel",
+            "com.ble1st.connectias.plugin.PluginMetadataParcel",
+            "com.ble1st.connectias.plugin.PluginPermissionBroadcast",
+            "com.ble1st.connectias.plugin.SecureContextWrapper",
+            "com.ble1st.connectias.plugin.NativeLibraryManager",
+            "com.ble1st.connectias.plugin.StreamingPluginManager",
+            "com.ble1st.connectias.plugin.PluginDependencyResolverV2",
+
             // Security internals (don't let plugins access security checks!)
             "com.ble1st.connectias.plugin.security.",
 
-            // Plugin manager internals
-            "com.ble1st.connectias.plugin.PluginManager"
+            // Plugin store internals
+            "com.ble1st.connectias.plugin.store.",
+
+            // Streaming internals
+            "com.ble1st.connectias.plugin.streaming.",
+
+            // Version management internals
+            "com.ble1st.connectias.plugin.version.",
+
+            // Dependency management (disabled feature)
+            "com.ble1st.connectias.plugin.dependency_disabled."
         )
     }
 
