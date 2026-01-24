@@ -77,6 +77,17 @@ class PluginUIService : Service() {
 
     override fun onUnbind(intent: Intent?): Boolean {
         Timber.i("[UI_PROCESS] PluginUIService unbound")
+        
+        // CRITICAL: Release VirtualDisplays when service is unbound
+        // This handles cases where the Main Process dies and unbinds the service
+        // Without this, VirtualDisplays remain active and cause SurfaceFlinger errors
+        try {
+            Timber.i("[UI_PROCESS] Releasing VirtualDisplays on service unbind")
+            virtualDisplayManager.releaseAll()
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Error releasing VirtualDisplays on unbind")
+        }
+        
         return super.onUnbind(intent)
     }
 
@@ -85,9 +96,22 @@ class PluginUIService : Service() {
         Timber.i("[UI_PROCESS] PluginUIService destroyed")
         instance = null
 
+        // CRITICAL: Release all VirtualDisplays first to prevent SurfaceFlinger errors
+        // This prevents "ANativeWindow::dequeueBuffer failed" errors when process dies
+        try {
+            Timber.i("[UI_PROCESS] Releasing all VirtualDisplays before service destruction")
+            virtualDisplayManager.releaseAll()
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Error releasing VirtualDisplays in onDestroy")
+        }
+
         // Cleanup all active fragments
         activeFragments.values.forEach { fragment ->
-            fragment.destroy()
+            try {
+                fragment.destroy()
+            } catch (e: Exception) {
+                Timber.e(e, "[UI_PROCESS] Error destroying fragment: ${fragment.getPluginId()}")
+            }
         }
         activeFragments.clear()
     }

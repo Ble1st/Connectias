@@ -66,6 +66,9 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.ViewCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
@@ -244,12 +247,65 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        // Add ComposeView as overlay to the CoordinatorLayout
+        // Add ComposeView directly to CoordinatorLayout
+        // ComposeView will handle touch events normally - no complex interception needed
+        // Compose's pointerInput/clickable modifiers will handle FAB clicks correctly
+        composeView.isClickable = false // Let Compose handle clicks internally
+        composeView.isFocusable = false
+        
+        // IMPORTANT: Set high elevation BEFORE adding to parent
+        // This ensures FAB appears above SurfaceView (which has setZOrderMediaOverlay(false))
+        composeView.elevation = 16f * resources.displayMetrics.density
+        composeView.z = Float.MAX_VALUE
+        // Set tag for easy retrieval later
+        composeView.tag = "fab_overlay"
+        
+        // CRITICAL: SurfaceView renders in its own hardware layer that can override normal z-order
+        // We need to ensure ComposeView is added AFTER SurfaceView and stays on top
+        // Add ComposeView to CoordinatorLayout as LAST child (after FragmentContainerView)
         val params = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         )
-        binding.root.addView(composeView, params)
+        // Add as last child to ensure it's on top
+        binding.root.addView(composeView, binding.root.childCount, params)
+        Timber.d("[FAB_OVERLAY] ComposeView added as child ${binding.root.childCount - 1} (last child)")
+        
+        // CRITICAL: Use a periodic check to ensure FAB stays on top
+        // SurfaceView's hardware layer can override z-order, so we need to continuously enforce it
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val checkZOrderRunnable = object : Runnable {
+            override fun run() {
+                // Ensure FAB is always on top
+                composeView.bringToFront()
+                composeView.z = Float.MAX_VALUE
+                composeView.elevation = 16f * resources.displayMetrics.density
+                
+                // Check again after a short delay
+                handler.postDelayed(this, 100) // Check every 100ms
+            }
+        }
+        
+        // Start periodic check after initial layout
+        binding.root.post {
+            composeView.bringToFront()
+            composeView.z = Float.MAX_VALUE
+            Timber.d("[FAB_OVERLAY] ComposeView brought to front with elevation: ${composeView.elevation}, z: ${composeView.z}")
+            
+            // Start periodic z-order enforcement
+            handler.postDelayed(checkZOrderRunnable, 200)
+        }
+        
+        // Stop periodic check when activity is destroyed
+        lifecycle.addObserver(object : LifecycleEventObserver {
+            override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
+                if (event == Lifecycle.Event.ON_DESTROY) {
+                    handler.removeCallbacks(checkZOrderRunnable)
+                }
+            }
+        })
+        
+        Timber.d("[FAB_OVERLAY] ComposeView added directly to CoordinatorLayout (simplified approach)")
     }
     
     private fun navigateToFeature(navId: Int) {
@@ -301,6 +357,27 @@ class MainActivity : AppCompatActivity() {
                 .replace(R.id.nav_host_fragment_content_main, fragment)
                 .addToBackStack("plugin_$pluginId")
                 .commit()
+            
+            // IMPORTANT: Ensure FAB stays on top after fragment is added
+            // Post to ensure it happens after fragment view is created
+            binding.root.post {
+                // Find ComposeView by tag or by type
+                var composeView: android.view.View? = null
+                for (i in 0 until binding.root.childCount) {
+                    val child = binding.root.getChildAt(i)
+                    if (child.tag == "fab_overlay" || 
+                        child.javaClass.simpleName == "ComposeView") {
+                        composeView = child
+                        break
+                    }
+                }
+                
+                composeView?.let {
+                    it.bringToFront()
+                    it.z = Float.MAX_VALUE
+                    Timber.d("[FAB_OVERLAY] FAB brought to front after plugin fragment added")
+                }
+            }
             
             Timber.i("Navigated to plugin: ${pluginInfo.metadata.pluginName}")
         } catch (e: Exception) {
@@ -436,6 +513,59 @@ class MainActivity : AppCompatActivity() {
      */
     fun navigateToDashboard(clearBackStack: Boolean = false) {
         try {
+            // CRITICAL: Destroy all active plugin UIs before navigating away
+            // This ensures VirtualDisplay, Fragment, and Activity are completely cleaned up
+            lifecycleScope.launch {
+                try {
+                    val activePluginIds = mutableSetOf<String>()
+                    
+                    // Find all plugin fragments in back stack
+                    val backStackEntryCount = supportFragmentManager.backStackEntryCount
+                    if (backStackEntryCount > 0) {
+                        for (i in 0 until backStackEntryCount) {
+                            val entry = supportFragmentManager.getBackStackEntryAt(i)
+                            val entryName = entry.name
+                            if (entryName?.startsWith("plugin_") == true) {
+                                val pluginId = entryName.removePrefix("plugin_")
+                                activePluginIds.add(pluginId)
+                                Timber.d("[MAIN] Found active plugin in back stack: $pluginId")
+                            }
+                        }
+                    }
+                    
+                    // Also check currently visible fragments
+                    val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as? NavHostFragment
+                    navHostFragment?.childFragmentManager?.fragments?.forEach { fragment ->
+                        if (fragment is com.ble1st.connectias.core.plugin.ui.PluginUIContainerFragment) {
+                            val pluginId = fragment.getPluginId()
+                            if (pluginId != null) {
+                                activePluginIds.add(pluginId)
+                                Timber.d("[MAIN] Found active plugin fragment: $pluginId")
+                            }
+                        }
+                    }
+                    
+                    // Destroy all active plugin UIs
+                    if (activePluginIds.isNotEmpty()) {
+                        Timber.i("[MAIN] Destroying ${activePluginIds.size} active plugin UIs before navigating to dashboard")
+                        activePluginIds.forEach { pluginId ->
+                            try {
+                                val destroyed = pluginManager.destroyPluginUI(pluginId)
+                                if (destroyed) {
+                                    Timber.i("[MAIN] Plugin UI destroyed: $pluginId")
+                                } else {
+                                    Timber.w("[MAIN] Failed to destroy plugin UI: $pluginId")
+                                }
+                            } catch (e: Exception) {
+                                Timber.e(e, "[MAIN] Error destroying plugin UI: $pluginId")
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[MAIN] Error during plugin UI cleanup")
+                }
+            }
+            
             // If a plugin fragment is active, remove it from the back stack first
             if (isPluginFragmentActive()) {
                 val backStackEntryCount = supportFragmentManager.backStackEntryCount
@@ -552,26 +682,50 @@ class MainActivity : AppCompatActivity() {
                 
                 initResult.onSuccess { loadedMetadata ->
                     Timber.i("Plugin system initialized with ${loadedMetadata.size} plugins")
-                    
+
+                    // DO NOT auto-enable plugins here - they should only be enabled
+                    // after user grants permissions via the Plugin Management UI
                     val loadedPlugins = pluginManager.getLoadedPlugins()
+                    val permissionManager = pluginManager.getPermissionManager()
+
                     loadedPlugins.forEach { pluginInfo ->
-                        val enableResult = pluginManager.enablePlugin(pluginInfo.pluginId)
-                        
-                        enableResult.onSuccess {
-                            Timber.i("Plugin enabled: ${pluginInfo.metadata.pluginName}")
-                            
+                        // Only try to enable if permissions are already granted
+                        val requiredPermissions = pluginInfo.metadata.permissions
+
+                        if (requiredPermissions.isEmpty() ||
+                            (permissionManager != null && permissionManager.hasUserConsent(pluginInfo.pluginId, requiredPermissions))) {
+                            // All permissions already granted - safe to enable
+                            val enableResult = pluginManager.enablePlugin(pluginInfo.pluginId)
+
+                            enableResult.onSuccess {
+                                Timber.i("Plugin enabled (permissions already granted): ${pluginInfo.metadata.pluginName}")
+
+                                withContext(Dispatchers.Main) {
+                                    val moduleInfo = com.ble1st.connectias.core.module.ModuleInfo(
+                                        id = pluginInfo.metadata.pluginId,
+                                        name = pluginInfo.metadata.pluginName,
+                                        version = pluginInfo.metadata.version,
+                                        isActive = true
+                                    )
+                                    moduleRegistry.registerModule(moduleInfo)
+                                }
+                            }
+                        } else {
+                            // Permissions not granted - leave plugin in LOADED state
+                            Timber.i("Plugin loaded but not enabled (permissions required): ${pluginInfo.metadata.pluginName}")
+
                             withContext(Dispatchers.Main) {
                                 val moduleInfo = com.ble1st.connectias.core.module.ModuleInfo(
                                     id = pluginInfo.metadata.pluginId,
                                     name = pluginInfo.metadata.pluginName,
                                     version = pluginInfo.metadata.version,
-                                    isActive = true
+                                    isActive = false  // NOT active - requires permissions
                                 )
                                 moduleRegistry.registerModule(moduleInfo)
                             }
                         }
                     }
-                    
+
                     Timber.i("Plugin system setup completed")
                 }.onFailure { error ->
                     Timber.e(error, "Failed to initialize plugin system")
@@ -654,6 +808,9 @@ fun FabWithBottomSheet(
             .windowInsetsPadding(WindowInsets.navigationBars),
         contentAlignment = Alignment.BottomCenter
     ) {
+        // IMPORTANT: Make the Box non-clickable outside FAB area
+        // This allows touch events to pass through to underlying views (SurfaceView)
+        // Only the FAB itself will be clickable
         // P1: FAB with animations and haptic feedback
         // Auto-hide: Hide when scrolling or bottom sheet open
         AnimatedVisibility(

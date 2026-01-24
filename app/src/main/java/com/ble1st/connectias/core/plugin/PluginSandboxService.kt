@@ -602,23 +602,21 @@ class PluginSandboxService : Service() {
                 val callerUid = Binder.getCallingUid()
                 val sessionToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
                 Timber.i("[SANDBOX] Plugin identity registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
-                
-                // Step 7: Create secure bridge wrappers (no raw bridge access)
-                val secureHardwareBridge = hardwareBridge?.let {
-                    SecureHardwareBridgeWrapper(it, this@PluginSandboxService, permissionManager, null)
-                }
-                val secureFileSystemBridge = fileSystemBridge?.let {
-                    SecureFileSystemBridgeWrapper(it, pluginId, permissionManager, null)
-                }
-                
+
+                // Step 7: IMPORTANT: Do NOT wrap bridges in sandbox process!
+                // The bridges are AIDL proxies that go to the main process via IPC.
+                // Security verification happens in the MAIN process, not here.
+                // Using security wrappers here causes Binder.getCallingUid() to return
+                // the sandbox process UID instead of the original caller UID.
+
                 // Step 8: Create plugin context (isolated process has no filesystem access)
                 val context = SandboxPluginContext(
                     applicationContext,
                     null, // No cache dir in isolated process
                     pluginId,
                     permissionManager,
-                    secureHardwareBridge, // Use secure wrapper
-                    secureFileSystemBridge, // Use secure wrapper
+                    hardwareBridge, // Use raw bridge (security happens in main process)
+                    fileSystemBridge, // Use raw bridge (security happens in main process)
                     messagingBridge // Messaging bridge for inter-plugin communication (via AIDL)
                 )
                 
@@ -982,7 +980,20 @@ class PluginSandboxService : Service() {
 
         // Initialize UI Bridge for Three-Process Architecture (Phase 3)
         // This bridge receives user events from UI Process
-        uiBridge = PluginUIBridgeImpl(loadedPlugins as Map<String, Any>)
+        // Pass a function that extracts IPlugin instances from loadedPlugins at runtime
+        // (loadedPlugins is empty at initialization, plugins are loaded later)
+        uiBridge = PluginUIBridgeImpl(
+            pluginProvider = { pluginId ->
+                val pluginInfo = loadedPlugins[pluginId]
+                if (pluginInfo != null) {
+                    pluginInfo.instance
+                } else {
+                    Timber.w("[SANDBOX] No SandboxPluginInfo found for $pluginId. Available plugins: ${loadedPlugins.keys.joinToString()}")
+                    null
+                }
+            },
+            uiController = uiController // Pass UI controller reference for resending cached state
+        )
         Timber.i("[SANDBOX] UI Bridge initialized (Three-Process Architecture)")
 
         // Note: UI Controller will be connected to UI Process via setUIController() from Main Process
@@ -1307,11 +1318,41 @@ class PluginSandboxService : Service() {
         
         override fun onUserAction(action: com.ble1st.connectias.plugin.ui.UserActionParcel) {
             try {
-                // Convert UserActionParcel to UserAction (SDK)
-                val sdkUserAction = convertUserActionParcelToSDK(action)
-                val method = sdkIPluginClass.getMethod("onUserAction", 
-                    Class.forName("com.ble1st.connectias.plugin.ui.UserAction"))
-                method.invoke(sdkPlugin, sdkUserAction)
+                // CRITICAL: Use plugin's classloader to load UserAction class
+                // This ensures we get the same class instance that the plugin expects
+                val pluginClassLoader = sdkPlugin.javaClass.classLoader
+                    ?: throw IllegalStateException("Plugin classloader is null")
+                
+                // Try to find onUserAction method with UserAction (SDK version)
+                val userActionClass = try {
+                    pluginClassLoader.loadClass("com.ble1st.connectias.plugin.ui.UserAction")
+                } catch (e: ClassNotFoundException) {
+                    null
+                }
+                
+                if (userActionClass != null) {
+                    // Plugin uses SDK version with UserAction - convert and call
+                    // CRITICAL: Pass pluginClassLoader to ensure UserAction is created from plugin's classloader
+                    val sdkUserAction = convertUserActionParcelToSDK(action, pluginClassLoader)
+                    val method = sdkIPluginClass.getMethod("onUserAction", userActionClass)
+                    method.invoke(sdkPlugin, sdkUserAction)
+                    Timber.v("[SANDBOX] Called onUserAction with UserAction (SDK version) from plugin classloader")
+                } else {
+                    // Plugin might use app version with UserActionParcel directly
+                    // Try calling with UserActionParcel
+                    try {
+                        val userActionParcelClass = try {
+                            pluginClassLoader.loadClass("com.ble1st.connectias.plugin.ui.UserActionParcel")
+                        } catch (e: ClassNotFoundException) {
+                            Class.forName("com.ble1st.connectias.plugin.ui.UserActionParcel")
+                        }
+                        val method = sdkIPluginClass.getMethod("onUserAction", userActionParcelClass)
+                        method.invoke(sdkPlugin, action)
+                        Timber.v("[SANDBOX] Called onUserAction with UserActionParcel (app version)")
+                    } catch (e: Exception) {
+                        Timber.e(e, "[SANDBOX] Failed to call onUserAction - neither UserAction nor UserActionParcel found")
+                    }
+                }
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Failed to call onUserAction on SDK plugin")
             }
@@ -1486,10 +1527,15 @@ class PluginSandboxService : Service() {
             }
         }
         
-        private fun convertUserActionParcelToSDK(action: com.ble1st.connectias.plugin.ui.UserActionParcel): Any {
+        private fun convertUserActionParcelToSDK(
+            action: com.ble1st.connectias.plugin.ui.UserActionParcel,
+            pluginClassLoader: ClassLoader
+        ): Any {
             // Create SDK UserAction object via reflection
+            // CRITICAL: Use plugin's classloader to load UserAction class
+            // This ensures we get the same class instance that the plugin expects
             return try {
-                val userActionClass = Class.forName("com.ble1st.connectias.plugin.ui.UserAction")
+                val userActionClass = pluginClassLoader.loadClass("com.ble1st.connectias.plugin.ui.UserAction")
                 val constructor = userActionClass.getConstructor(
                     String::class.java,  // actionType
                     String::class.java,  // targetId
@@ -1503,7 +1549,7 @@ class PluginSandboxService : Service() {
                     action.timestamp
                 )
             } catch (e: Exception) {
-                throw RuntimeException("Failed to create SDK UserAction", e)
+                throw RuntimeException("Failed to create SDK UserAction from plugin classloader", e)
             }
         }
         
@@ -1536,6 +1582,15 @@ class PluginSandboxService : Service() {
             override fun invoke(proxy: Any?, method: java.lang.reflect.Method?, args: Array<out Any>?): Any? {
                 val methodName = method?.name ?: return null
                 val argsArray = args ?: emptyArray()
+                
+                // Check if this is a suspend function (has Continuation as last parameter)
+                val isSuspendFunction = method?.parameterTypes?.isNotEmpty() == true && 
+                    method.parameterTypes.last().name == "kotlin.coroutines.Continuation"
+                
+                // Handle suspend functions
+                if (isSuspendFunction) {
+                    return handleSuspendFunction(methodName, argsArray, method)
+                }
                 
                 return when (methodName) {
                     "getApplicationContext" -> {
@@ -1685,6 +1740,92 @@ class PluginSandboxService : Service() {
                         Timber.w("[SANDBOX] Unknown method in SDK PluginContext: $methodName")
                         null
                     }
+                }
+            }
+            
+            /**
+             * Handles suspend functions by calling the corresponding method on appContext
+             * and resuming the continuation with the result.
+             *
+             * CRITICAL: We cannot pass the continuation directly across classloaders because
+             * the Kotlin coroutines machinery tries to cast types from different classloaders.
+             * Instead, we create a wrapper continuation in the app's classloader.
+             */
+            private fun handleSuspendFunction(
+                methodName: String,
+                args: Array<out Any>,
+                method: java.lang.reflect.Method
+            ): Any? {
+                return try {
+                    // Extract plugin's continuation (last parameter)
+                    val pluginContinuation = args.lastOrNull()
+                    if (pluginContinuation == null) {
+                        Timber.e("[SANDBOX] No continuation found for suspend function $methodName")
+                        return null
+                    }
+
+                    // Get the actual method parameters (without continuation)
+                    val actualArgs = args.dropLast(1).toTypedArray()
+
+                    // Find the corresponding suspend function in appContext
+                    val appContextClass = appContext.javaClass
+                    val appMethod = try {
+                        appContextClass.methods.find {
+                            it.name == methodName &&
+                            it.parameterCount == actualArgs.size + 1 && // +1 for continuation
+                            it.parameterTypes.lastOrNull()?.name == "kotlin.coroutines.Continuation"
+                        } ?: throw NoSuchMethodException("Suspend function $methodName not found in appContext")
+                    } catch (e: Exception) {
+                        Timber.e(e, "[SANDBOX] Could not find suspend function $methodName in appContext")
+                        resumePluginContinuation(pluginContinuation, Result.failure(e))
+                        return null
+                    }
+
+                    // Create a wrapper continuation in the app's classloader
+                    // that will forward the result to the plugin's continuation
+                    val wrapperContinuation = object : kotlin.coroutines.Continuation<Any?> {
+                        override val context: kotlin.coroutines.CoroutineContext
+                            get() = kotlin.coroutines.EmptyCoroutineContext
+
+                        override fun resumeWith(result: Result<Any?>) {
+                            // Forward the result to the plugin's continuation using reflection
+                            resumePluginContinuation(pluginContinuation, result)
+                        }
+                    }
+
+                    // Call the suspend function with the wrapper continuation
+                    try {
+                        val methodArgs = actualArgs + wrapperContinuation
+                        val result = appMethod.invoke(appContext, *methodArgs)
+                        // Return COROUTINE_SUSPENDED to indicate async operation
+                        result
+                    } catch (e: Exception) {
+                        Timber.e(e, "[SANDBOX] Error calling suspend function $methodName")
+                        resumePluginContinuation(pluginContinuation, Result.failure(e))
+                        null
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[SANDBOX] Failed to handle suspend function $methodName")
+                    null
+                }
+            }
+
+            /**
+             * Resumes a plugin's continuation using reflection (cross-classloader safe).
+             */
+            private fun resumePluginContinuation(continuation: Any, result: Result<Any?>) {
+                try {
+                    val resumeWithMethod = continuation.javaClass.methods.find {
+                        it.name == "resumeWith" && it.parameterCount == 1
+                    }
+                    if (resumeWithMethod != null) {
+                        resumeWithMethod.invoke(continuation, result)
+                        Timber.v("[SANDBOX] Successfully resumed plugin continuation")
+                    } else {
+                        Timber.e("[SANDBOX] Could not find resumeWith method on continuation")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[SANDBOX] Failed to resume plugin continuation")
                 }
             }
             

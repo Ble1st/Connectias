@@ -43,6 +43,11 @@ class PluginUIContainerFragment : Fragment() {
     private var surfaceInitialized = false  // Track if surface was already sent
 
     /**
+     * Gets the plugin ID for this fragment.
+     */
+    fun getPluginId(): String? = pluginId
+
+    /**
      * Sets the UI Process proxy for Surface communication.
      * This should be called before the fragment is displayed.
      */
@@ -85,7 +90,16 @@ class PluginUIContainerFragment : Fragment() {
         Timber.d("[MAIN] PluginUIContainerFragment onCreateView for plugin: $pluginId")
         
         // Create SurfaceView to display UI from UI Process
+        // IMPORTANT: Set Z-order so SurfaceView appears BELOW FAB overlay
+        // By default, SurfaceView renders in its own layer above other views
         surfaceView = SurfaceView(requireContext()).apply {
+            // Set Z-order to media overlay level (below normal views)
+            // This ensures FAB overlay from MainActivity appears above the SurfaceView
+            setZOrderMediaOverlay(false)
+            // Set low elevation to ensure it stays below FAB overlay
+            elevation = 0f
+            z = 0f
+            
             holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(holder: SurfaceHolder) {
                     Timber.d("[MAIN] Surface created - waiting for surfaceChanged callback")
@@ -103,6 +117,33 @@ class PluginUIContainerFragment : Fragment() {
                     if (width > 0 && height > 0 && !surfaceInitialized) {
                         surfaceInitialized = true
                         requestUISurface()
+                        
+                        // IMPORTANT: Ensure FAB stays on top after SurfaceView is created
+                        // Post to ensure it happens after SurfaceView is laid out
+                        view?.post {
+                            val activity = activity
+                            if (activity != null) {
+                                val root = activity.findViewById<android.view.ViewGroup>(android.R.id.content)
+                                root?.post {
+                                    // Find ComposeView by tag or by type
+                                    var composeView: android.view.View? = null
+                                    for (i in 0 until root.childCount) {
+                                        val child = root.getChildAt(i)
+                                        if (child.tag == "fab_overlay" || 
+                                            child.javaClass.simpleName == "ComposeView") {
+                                            composeView = child
+                                            break
+                                        }
+                                    }
+                                    
+                                    composeView?.let {
+                                        it.bringToFront()
+                                        it.z = Float.MAX_VALUE
+                                        Timber.d("[MAIN] FAB brought to front after SurfaceView created")
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -202,6 +243,27 @@ class PluginUIContainerFragment : Fragment() {
     override fun onDestroy() {
         super.onDestroy()
         Timber.d("[MAIN] PluginUIContainerFragment onDestroy for plugin: $pluginId")
+        
+        val currentPluginId = this.pluginId
+        val currentProxy = this.uiProcessProxy
+        
+        // CRITICAL: Completely destroy plugin UI in UI Process
+        // This ensures VirtualDisplay, Fragment, and Activity are all cleaned up
+        if (currentPluginId != null && currentProxy != null) {
+            scope.launch {
+                try {
+                    Timber.i("[MAIN] Completely destroying plugin UI: $currentPluginId")
+                    val destroyed = currentProxy.destroyPluginUI(currentPluginId)
+                    if (destroyed) {
+                        Timber.i("[MAIN] Plugin UI completely destroyed: $currentPluginId")
+                    } else {
+                        Timber.w("[MAIN] Failed to destroy plugin UI: $currentPluginId")
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "[MAIN] Error destroying plugin UI: $currentPluginId")
+                }
+            }
+        }
         
         // Notify UI Process about destruction
         notifyUILifecycle("onDestroy")

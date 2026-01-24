@@ -538,6 +538,38 @@ class PluginManagerSandbox @Inject constructor(
         }
     }
 
+    /**
+     * Completely destroys plugin UI in the UI Process.
+     * This ensures VirtualDisplay, Fragment, and Activity are all cleaned up.
+     * 
+     * According to THREE_PROCESS_UI_PLAN.md, when a plugin UI is left,
+     * it should be completely killed so that reopening works correctly.
+     *
+     * @param pluginId Plugin identifier
+     * @return True if destroyed successfully, false otherwise
+     */
+    suspend fun destroyPluginUI(pluginId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!uiProcessProxy.isConnected()) {
+                Timber.w("[PLUGIN MANAGER] UI Process not connected - cannot destroy UI for plugin: $pluginId")
+                return@withContext false
+            }
+
+            Timber.i("[PLUGIN MANAGER] Destroying plugin UI: $pluginId")
+            
+            val destroyed = uiProcessProxy.destroyPluginUI(pluginId)
+            if (destroyed) {
+                Timber.i("[PLUGIN MANAGER] Plugin UI destroyed successfully: $pluginId")
+            } else {
+                Timber.w("[PLUGIN MANAGER] Failed to destroy plugin UI: $pluginId")
+            }
+            
+            destroyed
+        } catch (e: Exception) {
+            Timber.e(e, "[PLUGIN MANAGER] Error destroying plugin UI: $pluginId")
+            false
+        }
+    }
     
     suspend fun enablePlugin(pluginId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
@@ -918,6 +950,12 @@ class PluginManagerSandbox @Inject constructor(
             Timber.e(e, "Failed to copy plugins from assets")
         }
     }
+
+    /**
+     * Gets the permission manager instance.
+     * @return PluginPermissionManager or null if not available
+     */
+    fun getPermissionManager(): PluginPermissionManager? = permissionManager
 }
 
 /**

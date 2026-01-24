@@ -163,8 +163,25 @@ class SandboxPluginContext(
             
             val response = hardwareBridge.captureImage(pluginId)
             if (response.success) {
-                val imageData = response.data ?: byteArrayOf()
-                continuation.resume(Result.success(imageData))
+                val bytes = when {
+                    response.fileDescriptor != null -> {
+                        // Read image data from file descriptor
+                        try {
+                            ParcelFileDescriptor.AutoCloseInputStream(response.fileDescriptor).use { 
+                                it.readBytes() 
+                            }
+                        } catch (e: Exception) {
+                            Timber.e(e, "[SANDBOX:$pluginId] Failed to read image from file descriptor")
+                            byteArrayOf()
+                        }
+                    }
+                    response.data != null -> response.data
+                    else -> {
+                        Timber.w("[SANDBOX:$pluginId] captureImage returned success but no data or fileDescriptor")
+                        byteArrayOf()
+                    }
+                }
+                continuation.resume(Result.success(bytes))
             } else {
                 continuation.resume(Result.failure(Exception(response.errorMessage ?: "Camera capture failed")))
             }

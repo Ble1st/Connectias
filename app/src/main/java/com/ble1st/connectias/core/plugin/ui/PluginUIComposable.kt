@@ -4,6 +4,11 @@
 package com.ble1st.connectias.core.plugin.ui
 
 import android.os.Bundle
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -13,6 +18,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.plugin.ui.UIComponentParcel
@@ -358,28 +365,167 @@ private fun RenderImage(
     component: UIComponentParcel,
     modifier: Modifier = Modifier
 ) {
-    val url = component.properties.getString("url") ?: ""
-    val contentDescription = component.properties.getString("contentDescription") ?: ""
+    val contentDescription = component.properties.getString("contentDescription") ?: "Image"
+    val contentScale = component.properties.getString("contentScale") ?: "FIT"
 
-    // Placeholder for image loading
-    // In real implementation, use Coil or Glide
-    Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(200.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "Image: $url",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+    // Log all available properties for debugging
+    Timber.d("[UI_PROCESS] RenderImage properties: ${component.properties.keySet().joinToString()}")
+
+    // Try to get image data - check both String and ByteArray formats
+    val imageBytes = remember(component.properties) {
+        // CRITICAL: Try String first to avoid ClassCastException warnings from Bundle
+        // Bundle.getByteArray() logs a warning before throwing ClassCastException
+        // So we check for String first, then try ByteArray
+        
+        // First, try to get as Base64 string (most common format via IPC)
+        val base64String = component.properties.getString("base64Data")
+            ?: component.properties.getString("data")
+            ?: component.properties.getString("base64")
+            ?: component.properties.getString("imageData")
+            ?: component.properties.getString("image")
+            ?: component.properties.getString("url")
+            ?: component.properties.getString("src")
+
+        if (!base64String.isNullOrEmpty()) {
+            try {
+                // Remove data URI prefix if present
+                val cleanBase64 = if (base64String.startsWith("data:")) {
+                    base64String.substringAfter("base64,")
+                } else {
+                    base64String
+                }
+                Base64.decode(cleanBase64, Base64.DEFAULT)
+            } catch (e: Exception) {
+                Timber.e(e, "[UI_PROCESS] Failed to decode Base64 string")
+                null
+            }
+        } else {
+            // Fallback: try to get as byte array (if stored as ByteArray)
+            // Use try-catch because Bundle.getByteArray() throws ClassCastException if value is String
+            try {
+                component.properties.getByteArray("base64Data")
+            } catch (e: ClassCastException) {
+                null // Value is stored as String, already tried above
+            } ?: try {
+                component.properties.getByteArray("data")
+            } catch (e: ClassCastException) {
+                null
+            } ?: try {
+                component.properties.getByteArray("imageData")
+            } catch (e: ClassCastException) {
+                null
+            } ?: try {
+                component.properties.getByteArray("image")
+            } catch (e: ClassCastException) {
+                null
+            } ?: null
+        }
+    }
+
+    if (imageBytes == null || imageBytes.isEmpty()) {
+        // No image data provided
+        Timber.w("[UI_PROCESS] No image data found in component properties")
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
             )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No image data",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        return
+    }
+
+    Timber.d("[UI_PROCESS] Image data found: ${imageBytes.size} bytes")
+
+    // Decode byte array to bitmap and rotate 90 degrees clockwise
+    val bitmap = remember(imageBytes) {
+        try {
+            val originalBitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            if (originalBitmap != null) {
+                // Rotate 90 degrees clockwise
+                val matrix = Matrix().apply {
+                    postRotate(90f)
+                }
+                Bitmap.createBitmap(
+                    originalBitmap,
+                    0,
+                    0,
+                    originalBitmap.width,
+                    originalBitmap.height,
+                    matrix,
+                    true
+                ).also {
+                    // Recycle original bitmap to free memory
+                    if (it != originalBitmap) {
+                        originalBitmap.recycle()
+                    }
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to decode image bytes")
+            null
+        }
+    }
+
+    if (bitmap != null) {
+        // Successfully decoded image - display it
+        val scale = when (contentScale) {
+            "FILL" -> ContentScale.FillBounds
+            "FIT" -> ContentScale.Fit
+            "CROP" -> ContentScale.Crop
+            "INSIDE" -> ContentScale.Inside
+            else -> ContentScale.Fit
+        }
+
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = contentDescription,
+                contentScale = scale,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    } else {
+        // Failed to decode image
+        Card(
+            modifier = modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Failed to load image",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
         }
     }
 }

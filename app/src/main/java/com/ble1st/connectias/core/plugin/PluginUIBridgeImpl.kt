@@ -20,10 +20,12 @@ import timber.log.Timber
  * This bridge receives user actions from the UI Process and dispatches them
  * to the appropriate plugins in the sandbox.
  *
- * @param pluginRegistry Map of plugin ID to plugin instance (IPlugin)
+ * @param pluginProvider Function that provides IPlugin instance for a given pluginId
+ *                       This allows lazy access to plugins that are loaded after initialization
  */
 class PluginUIBridgeImpl(
-    private val pluginRegistry: Map<String, Any> // IPlugin instances
+    private val pluginProvider: (String) -> IPlugin?, // Function to get plugin instance at runtime
+    private val uiController: PluginUIControllerImpl? = null // Reference to UI controller for resending cached state
 ) : IPluginUIBridge.Stub() {
 
     // Lifecycle event listeners (plugin ID -> listener)
@@ -34,6 +36,26 @@ class PluginUIBridgeImpl(
      */
     interface PluginLifecycleListener {
         fun onUILifecycle(event: String)
+    }
+
+    /**
+     * Gets IPlugin instance for the given pluginId.
+     * Uses the pluginProvider function to get the plugin at runtime.
+     *
+     * @param pluginId Plugin identifier
+     * @return IPlugin instance or null if not found
+     */
+    private fun getPluginInstance(pluginId: String): IPlugin? {
+        return try {
+            val plugin = pluginProvider(pluginId)
+            if (plugin == null) {
+                Timber.w("[SANDBOX] Plugin not found in registry: $pluginId (pluginProvider returned null)")
+            }
+            plugin
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX] Error retrieving plugin instance for $pluginId: ${e.message}")
+            null
+        }
     }
 
     /**
@@ -60,8 +82,8 @@ class PluginUIBridgeImpl(
     override fun onButtonClick(pluginId: String, buttonId: String, extras: Bundle) {
         Timber.d("[SANDBOX] Button clicked: $pluginId -> $buttonId")
 
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 val action = UserActionParcel().apply {
                     actionType = "click"
@@ -82,8 +104,8 @@ class PluginUIBridgeImpl(
     override fun onTextChanged(pluginId: String, fieldId: String, value: String) {
         Timber.d("[SANDBOX] Text changed: $pluginId -> $fieldId = $value")
 
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 val action = UserActionParcel().apply {
                     actionType = "text_changed"
@@ -109,8 +131,8 @@ class PluginUIBridgeImpl(
     ) {
         Timber.d("[SANDBOX] Item selected: $pluginId -> $listId[$position]")
 
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 val action = UserActionParcel().apply {
                     actionType = "item_selected"
@@ -134,6 +156,17 @@ class PluginUIBridgeImpl(
     override fun onLifecycleEvent(pluginId: String, event: String) {
         Timber.d("[SANDBOX] Lifecycle event: $pluginId -> $event")
 
+        // CRITICAL: When fragment is recreated (onCreate), resend cached UI state
+        // This ensures the UI is displayed even if the plugin doesn't send state again
+        if (event == "onCreate") {
+            if (uiController == null) {
+                Timber.w("[SANDBOX] UI Controller is null - cannot resend cached state for plugin: $pluginId")
+            } else {
+                Timber.d("[SANDBOX] Resending cached UI state for plugin: $pluginId (onCreate event)")
+                uiController.resendCachedState(pluginId)
+            }
+        }
+
         // Dispatch to registered lifecycle listener
         lifecycleListeners[pluginId]?.let { listener ->
             try {
@@ -146,8 +179,8 @@ class PluginUIBridgeImpl(
         }
 
         // Dispatch to plugin's onUILifecycle method
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 plugin.onUILifecycle(event)
                 Timber.v("[SANDBOX] Dispatched lifecycle event to plugin: $pluginId -> $event")
@@ -167,8 +200,8 @@ class PluginUIBridgeImpl(
     override fun onUserAction(pluginId: String, action: UserActionParcel) {
         Timber.d("[SANDBOX] User action: $pluginId -> ${action.actionType} on ${action.targetId}")
 
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 plugin.onUserAction(action)
                 Timber.v("[SANDBOX] Dispatched user action to plugin: $pluginId (${action.actionType})")
@@ -187,8 +220,8 @@ class PluginUIBridgeImpl(
     ) {
         Timber.d("[SANDBOX] Permission result: $pluginId -> $permission = $granted")
 
-        val plugin = pluginRegistry[pluginId]
-        if (plugin != null && plugin is IPlugin) {
+        val plugin = getPluginInstance(pluginId)
+        if (plugin != null) {
             try {
                 // Create user action for permission result
                 val action = UserActionParcel().apply {
@@ -209,13 +242,19 @@ class PluginUIBridgeImpl(
 
     /**
      * Gets the number of registered plugins.
+     * Note: This is an estimate since we use a provider function.
      */
-    fun getPluginCount(): Int = pluginRegistry.size
+    fun getPluginCount(): Int {
+        // Cannot determine count from provider function
+        return -1
+    }
 
     /**
      * Checks if a plugin is registered.
      */
-    fun hasPlugin(pluginId: String): Boolean = pluginRegistry.containsKey(pluginId)
+    fun hasPlugin(pluginId: String): Boolean {
+        return getPluginInstance(pluginId) != null
+    }
 
     /**
      * Clears all lifecycle listeners.

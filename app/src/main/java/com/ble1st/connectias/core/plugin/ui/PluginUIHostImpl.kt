@@ -32,13 +32,33 @@ class PluginUIHostImpl(
     ): Int {
         Timber.i("[UI_PROCESS] Initialize UI for plugin: $pluginId")
 
-        // Check if already initialized
-        if (initialized.contains(pluginId)) {
-            Timber.w("[UI_PROCESS] Plugin UI already initialized: $pluginId")
-            return pluginId.hashCode()
-        }
-
         try {
+            // Check if already initialized - if so, clean up and reinitialize
+            val existingFragment = fragmentRegistry[pluginId]
+            if (initialized.contains(pluginId) || existingFragment != null) {
+                Timber.i("[UI_PROCESS] Plugin UI already initialized: $pluginId - cleaning up and reinitializing")
+
+                // Clean up old state completely
+                try {
+                    // Release VirtualDisplay first
+                    virtualDisplayManager.releaseVirtualDisplay(pluginId)
+
+                    // Destroy fragment (this will also finish the Activity)
+                    existingFragment?.destroy()
+
+                    // Remove from registries
+                    fragmentRegistry.remove(pluginId)
+                    initialized.remove(pluginId)
+
+                    // Wait a bit for Activity to finish and resources to be released
+                    Thread.sleep(100)
+
+                    Timber.d("[UI_PROCESS] Old plugin UI state cleaned up for: $pluginId")
+                } catch (e: Exception) {
+                    Timber.e(e, "[UI_PROCESS] Error cleaning up old plugin UI state: $pluginId")
+                }
+            }
+
             // Create new fragment for plugin
             val fragment = PluginUIFragment.newInstance(pluginId, configuration)
             fragmentRegistry[pluginId] = fragment
@@ -54,6 +74,9 @@ class PluginUIHostImpl(
                     Timber.e(e, "[UI_PROCESS] Failed to set UI Bridge for fragment: $pluginId")
                 }
             }
+
+            // Apply any pending UI state that arrived before fragment creation
+            uiController.applyPendingState(pluginId, fragment)
 
             // Start Activity to host the fragment
             // Note: Activity will be started in background and fragment will be added there
@@ -84,6 +107,15 @@ class PluginUIHostImpl(
 
         fragmentRegistry.remove(pluginId)?.let { fragment ->
             try {
+                // IMPORTANT: Save current UI state before destroying fragment
+                // This allows re-initialization to use the last known state
+                val currentState = fragment.getCurrentState()
+                if (currentState != null) {
+                    // State will be cached in PluginUIControllerUIProcess.lastUIStates
+                    // via updateUIState calls, so we don't need to do anything here
+                    Timber.d("[UI_PROCESS] Fragment has current state - will be available for re-initialization: $pluginId")
+                }
+                
                 fragment.destroy()
                 initialized.remove(pluginId)
                 Timber.d("[UI_PROCESS] Plugin UI destroyed: $pluginId")

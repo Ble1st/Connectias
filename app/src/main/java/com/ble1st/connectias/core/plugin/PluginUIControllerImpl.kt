@@ -175,4 +175,27 @@ class PluginUIControllerImpl : IPluginUIController.Stub() {
      * Checks if remote controller is connected.
      */
     fun isConnected(): Boolean = remoteUIController != null
+
+    /**
+     * Resends cached UI state for a plugin.
+     * This is useful when a fragment is recreated after being destroyed.
+     * Forces update even if state hasn't changed (bypasses state diffing).
+     *
+     * @param pluginId Plugin identifier
+     */
+    fun resendCachedState(pluginId: String) {
+        val cachedState = stateCache[pluginId]
+        if (cachedState != null) {
+            Timber.d("[SANDBOX] Resending cached UI state for plugin: $pluginId -> ${cachedState.screenId}")
+            try {
+                // Force send cached state (bypass state diffing)
+                remoteUIController?.updateUIState(pluginId, cachedState)
+                    ?: Timber.w("[SANDBOX] Remote UI controller not connected - cached state resend dropped")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to resend cached UI state for $pluginId")
+            }
+        } else {
+            Timber.d("[SANDBOX] No cached state found for plugin: $pluginId - cannot resend")
+        }
+    }
 }

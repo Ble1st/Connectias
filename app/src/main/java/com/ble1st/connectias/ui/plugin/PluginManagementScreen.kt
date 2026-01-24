@@ -1,5 +1,7 @@
 package com.ble1st.connectias.ui.plugin
 
+import android.app.Activity
+import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -16,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.ble1st.connectias.core.module.ModuleInfo
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.plugin.PluginImportHandler
@@ -57,7 +61,54 @@ fun PluginManagementScreen(
     var permissionDialogPlugin by remember { mutableStateOf<PluginManagerSandbox.PluginInfo?>(null) }
     var permissionDialogPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
     
+    // Android system permission request state
+    var pendingAndroidPermissionPlugin by remember { mutableStateOf<PluginManagerSandbox.PluginInfo?>(null) }
+    var pendingAndroidPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pendingCustomPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
+    
     val scope = rememberCoroutineScope()
+    
+    // Launcher for Android system permission requests
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions: Map<String, Boolean> ->
+        val plugin = pendingAndroidPermissionPlugin
+        if (plugin != null) {
+            val grantedPermissions = permissions.filter { it.value }.keys.toList()
+            val deniedPermissions = permissions.filter { !it.value }.keys.toList()
+            
+            Timber.i("Android permission request result for ${plugin.pluginId}:")
+            Timber.i("  Granted: $grantedPermissions")
+            Timber.i("  Denied: $deniedPermissions")
+            
+            // Grant user consent for granted Android permissions
+            if (grantedPermissions.isNotEmpty()) {
+                permissionManager.grantUserConsent(plugin.pluginId, grantedPermissions)
+            }
+            
+            // Also grant custom permissions (they don't need Android runtime request)
+            if (pendingCustomPermissions.isNotEmpty()) {
+                permissionManager.grantUserConsent(plugin.pluginId, pendingCustomPermissions)
+            }
+            
+            // Try enabling plugin if at least some permissions were granted
+            if (grantedPermissions.isNotEmpty() || pendingCustomPermissions.isNotEmpty()) {
+                scope.launch {
+                    val result = pluginManager.enablePlugin(plugin.pluginId)
+                    result.onSuccess {
+                        Timber.i("Plugin enabled after permission grant: ${plugin.pluginId}")
+                    }.onFailure { error ->
+                        Timber.e(error, "Failed to enable plugin after permission grant: ${plugin.pluginId}")
+                    }
+                }
+            }
+            
+            // Clear pending state
+            pendingAndroidPermissionPlugin = null
+            pendingAndroidPermissions = emptyList()
+            pendingCustomPermissions = emptyList()
+        }
+    }
     
     val pluginImportHandler = remember {
         PluginImportHandler(
@@ -200,11 +251,57 @@ fun PluginManagementScreen(
                                     result.onFailure { error ->
                                         // Check if it's a permission error
                                         if (error is PluginPermissionException) {
-                                            // Show permission dialog
-                                            permissionDialogPlugin = plugin
-                                            permissionDialogPermissions = error.requiredPermissions
-                                            showPermissionDialog = true
-                                            Timber.i("Plugin requires permissions: ${error.requiredPermissions}")
+                                            val requiredPermissions = error.requiredPermissions
+                                            Timber.i("Plugin requires permissions: $requiredPermissions")
+                                            
+                                            // Separate Android system permissions from custom permissions
+                                            val androidPermissions = requiredPermissions.filter { permission ->
+                                                isAndroidSystemPermission(permission)
+                                            }
+                                            val customPermissions = requiredPermissions.filter { permission ->
+                                                !isAndroidSystemPermission(permission)
+                                            }
+                                            
+                                            if (androidPermissions.isNotEmpty()) {
+                                                // Request Android system permissions via native dialog
+                                                val activity = context as? Activity
+                                                if (activity != null) {
+                                                    // Check which permissions are not yet granted
+                                                    val permissionsToRequest = androidPermissions.filter { permission ->
+                                                        ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED
+                                                    }
+                                                    
+                                                    if (permissionsToRequest.isNotEmpty()) {
+                                                        // Store pending state
+                                                        pendingAndroidPermissionPlugin = plugin
+                                                        pendingAndroidPermissions = permissionsToRequest
+                                                        pendingCustomPermissions = customPermissions
+                                                        
+                                                        // Request via native Android dialog
+                                                        permissionLauncher.launch(permissionsToRequest.toTypedArray())
+                                                    } else {
+                                                        // All Android permissions already granted, just grant custom permissions
+                                                        if (customPermissions.isNotEmpty()) {
+                                                            permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
+                                                        }
+                                                        // Try enabling again
+                                                        scope.launch {
+                                                            pluginManager.enablePlugin(plugin.pluginId)
+                                                        }
+                                                    }
+                                                } else {
+                                                    Timber.e("Context is not an Activity, cannot request Android permissions")
+                                                    // Fallback to custom dialog
+                                                    permissionDialogPlugin = plugin
+                                                    permissionDialogPermissions = requiredPermissions
+                                                    showPermissionDialog = true
+                                                }
+                                            } else {
+                                                // No Android system permissions, use custom dialog
+                                                permissionDialogPlugin = plugin
+                                                permissionDialogPermissions = requiredPermissions
+                                                showPermissionDialog = true
+                                            }
                                         } else {
                                             // Other error - log it
                                             Timber.e(error, "Failed to enable plugin: ${plugin.pluginId}")
@@ -323,4 +420,34 @@ fun EmptyPluginState(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
         )
     }
+}
+
+/**
+ * Checks if a permission is an Android system permission that requires runtime request.
+ * These are permissions that must be requested via ActivityCompat.requestPermissions().
+ */
+private fun isAndroidSystemPermission(permission: String): Boolean {
+    // Android system permissions that require runtime request (dangerous permissions)
+    val androidSystemPermissions = setOf(
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_CONTACTS",
+        "android.permission.WRITE_CONTACTS",
+        "android.permission.READ_PHONE_STATE",
+        "android.permission.CALL_PHONE",
+        "android.permission.READ_CALL_LOG",
+        "android.permission.WRITE_CALL_LOG",
+        "android.permission.READ_SMS",
+        "android.permission.SEND_SMS",
+        "android.permission.RECEIVE_SMS",
+        "android.permission.BODY_SENSORS",
+        "android.permission.BODY_SENSORS_BACKGROUND"
+    )
+    
+    return permission in androidSystemPermissions
 }

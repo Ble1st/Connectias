@@ -110,7 +110,15 @@ class PluginUIFragment : Fragment() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Only call super.onCreate() if fragment is attached to a FragmentManager
+        // When used in Presentation context, there's no FragmentManager
+        try {
+            super.onCreate(savedInstanceState)
+        } catch (e: Exception) {
+            // FragmentManager not available (e.g., in Presentation context)
+            // This is expected and we can continue without it
+            Timber.d("[UI_PROCESS] Fragment.onCreate() called without FragmentManager (expected in Presentation context)")
+        }
 
         pluginId = arguments?.getString("pluginId")
             ?: throw IllegalArgumentException("PluginUIFragment requires pluginId")
@@ -227,7 +235,17 @@ class PluginUIFragment : Fragment() {
      * @param newState New UI state to render
      */
     fun updateState(newState: UIStateParcel) {
-        Timber.d("[UI_PROCESS] Update UI state for $pluginId: ${newState.screenId}")
+        // Get pluginId from arguments if not yet initialized (may be called before onCreate)
+        val currentPluginId = if (::pluginId.isInitialized) {
+            pluginId
+        } else {
+            arguments?.getString("pluginId") ?: run {
+                Timber.e("[UI_PROCESS] Cannot update state - pluginId not available")
+                return
+            }
+        }
+        
+        Timber.d("[UI_PROCESS] Update UI state for $currentPluginId: ${newState.screenId}")
         uiState = newState
         // Compose will automatically recompose when state changes
     }
@@ -273,6 +291,30 @@ class PluginUIFragment : Fragment() {
      */
     fun destroy() {
         Timber.d("[UI_PROCESS] Destroying fragment for plugin: $pluginId")
+
+        // Finish the hosting Activity if it exists
+        try {
+            val activity = activity
+            if (activity != null && activity is com.ble1st.connectias.core.plugin.ui.PluginUIActivity) {
+                if (!activity.isFinishing && !activity.isDestroyed) {
+                    Timber.d("[UI_PROCESS] Finishing PluginUIActivity for plugin: $pluginId")
+                    activity.finish()
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "[UI_PROCESS] Could not finish Activity for plugin: $pluginId")
+        }
+
+        // Remove fragment from FragmentManager if attached
+        try {
+            if (isAdded && fragmentManager != null) {
+                fragmentManager?.beginTransaction()
+                    ?.remove(this)
+                    ?.commitAllowingStateLoss()
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "[UI_PROCESS] Could not remove fragment from FragmentManager for plugin: $pluginId")
+        }
 
         // Cleanup references
         uiBridge = null

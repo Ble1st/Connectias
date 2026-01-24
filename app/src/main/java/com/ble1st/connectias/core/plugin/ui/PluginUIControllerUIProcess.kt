@@ -24,19 +24,55 @@ class PluginUIControllerUIProcess(
     private val fragmentRegistry: MutableMap<String, PluginUIFragment>
 ) : IPluginUIController.Stub() {
 
+    // Cache UI state for plugins that haven't created their fragment yet
+    private val pendingUIStates = mutableMapOf<String, UIStateParcel>()
+    
+    // Cache last UI state for each plugin (for re-initialization after destroy)
+    private val lastUIStates = mutableMapOf<String, UIStateParcel>()
+
     override fun updateUIState(pluginId: String, state: UIStateParcel) {
         Timber.d("[UI_PROCESS] Update UI state: $pluginId -> ${state.screenId}")
 
         try {
+            // Always cache the last state (for re-initialization after destroy)
+            lastUIStates[pluginId] = state
+            
             val fragment = fragmentRegistry[pluginId]
             if (fragment != null) {
                 fragment.updateState(state)
+                // Clear pending state if fragment now exists
+                pendingUIStates.remove(pluginId)
                 Timber.v("[UI_PROCESS] UI state updated for plugin: $pluginId")
             } else {
-                Timber.w("[UI_PROCESS] Fragment not found for plugin: $pluginId - state update dropped")
+                // Fragment not created yet - cache the state
+                pendingUIStates[pluginId] = state
+                Timber.d("[UI_PROCESS] Fragment not found for plugin: $pluginId - state cached (will apply when fragment is created)")
             }
         } catch (e: Exception) {
             Timber.e(e, "[UI_PROCESS] Failed to update UI state for plugin: $pluginId")
+        }
+    }
+
+    /**
+     * Applies any pending UI state when a fragment is created.
+     * Called by PluginUIHostImpl after fragment creation.
+     * 
+     * If no pending state exists, tries to use the last known state (for re-initialization).
+     */
+    fun applyPendingState(pluginId: String, fragment: PluginUIFragment) {
+        // First try pending state (state that arrived before fragment creation)
+        pendingUIStates.remove(pluginId)?.let { pendingState ->
+            Timber.d("[UI_PROCESS] Applying pending UI state for plugin: $pluginId -> ${pendingState.screenId}")
+            fragment.updateState(pendingState)
+            return
+        }
+        
+        // If no pending state, try last known state (for re-initialization after destroy)
+        lastUIStates[pluginId]?.let { lastState ->
+            Timber.d("[UI_PROCESS] Applying last known UI state for plugin: $pluginId -> ${lastState.screenId} (re-initialization)")
+            fragment.updateState(lastState)
+        } ?: run {
+            Timber.w("[UI_PROCESS] No pending or last state found for plugin: $pluginId - fragment will show loading state")
         }
     }
 

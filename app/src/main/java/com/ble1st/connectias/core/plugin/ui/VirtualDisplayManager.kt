@@ -52,11 +52,40 @@ class VirtualDisplayManager(private val context: Context) {
     ) {
         fun release() {
             try {
-                presentation?.dismiss()
-                imageReader?.close()  // Nullable - only close if present
-                virtualDisplay.release()
+                // CRITICAL: Release order matters - dismiss presentation first
+                presentation?.let { pres ->
+                    try {
+                        Timber.d("[UI_PROCESS] Dismissing Presentation for VirtualDisplay")
+                        pres.dismiss()
+                        // Small delay to ensure presentation is fully dismissed
+                        Thread.sleep(50)
+                    } catch (e: Exception) {
+                        Timber.w(e, "[UI_PROCESS] Error dismissing Presentation")
+                    }
+                }
+                
+                // Close ImageReader if present
+                imageReader?.let { reader ->
+                    try {
+                        Timber.d("[UI_PROCESS] Closing ImageReader")
+                        reader.close()
+                    } catch (e: Exception) {
+                        Timber.w(e, "[UI_PROCESS] Error closing ImageReader")
+                    }
+                }
+                
+                // Release VirtualDisplay - this is critical to prevent SurfaceFlinger errors
+                try {
+                    Timber.d("[UI_PROCESS] Releasing VirtualDisplay")
+                    virtualDisplay.release()
+                } catch (e: Exception) {
+                    Timber.e(e, "[UI_PROCESS] Error releasing VirtualDisplay")
+                }
+                
                 // Don't release external Surface - it's owned by Main Process
                 // surface.release()
+                
+                Timber.d("[UI_PROCESS] VirtualDisplay resources released successfully")
             } catch (e: Exception) {
                 Timber.e(e, "[UI_PROCESS] Error releasing VirtualDisplay resources")
             }
@@ -101,9 +130,8 @@ class VirtualDisplayManager(private val context: Context) {
                 height,
                 densityDpi,
                 surface,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY,
                 null,  // Callback
                 handler
             )
@@ -191,11 +219,34 @@ class VirtualDisplayManager(private val context: Context) {
 
     /**
      * Releases all VirtualDisplays.
+     * 
+     * CRITICAL: This must be called when the UI Process is destroyed to prevent
+     * SurfaceFlinger errors (ANativeWindow::dequeueBuffer failed with error: -32).
+     * 
+     * When a process dies, VirtualDisplays are not automatically released by Android,
+     * causing SurfaceFlinger to continuously attempt to access invalid displays.
      */
     fun releaseAll() {
-        Timber.i("[UI_PROCESS] Releasing all VirtualDisplays (${virtualDisplays.size} active)")
-        virtualDisplays.values.forEach { it.release() }
+        val count = virtualDisplays.size
+        if (count == 0) {
+            Timber.d("[UI_PROCESS] No VirtualDisplays to release")
+            return
+        }
+        
+        Timber.i("[UI_PROCESS] Releasing all VirtualDisplays ($count active)")
+        
+        // Release each VirtualDisplay with error handling
+        virtualDisplays.values.forEachIndexed { index, info ->
+            try {
+                Timber.d("[UI_PROCESS] Releasing VirtualDisplay ${index + 1}/$count")
+                info.release()
+            } catch (e: Exception) {
+                Timber.e(e, "[UI_PROCESS] Error releasing VirtualDisplay ${index + 1}/$count")
+            }
+        }
+        
         virtualDisplays.clear()
+        Timber.i("[UI_PROCESS] All VirtualDisplays released ($count -> 0)")
     }
 
     /**
@@ -216,11 +267,22 @@ class VirtualDisplayManager(private val context: Context) {
         fragment: PluginUIFragment? = null
     ): VirtualDisplay? {
         return try {
-            // Check if VirtualDisplay already exists
+            // Check if VirtualDisplay already exists and release it properly
             virtualDisplays[pluginId]?.let { existing ->
                 Timber.w("[UI_PROCESS] VirtualDisplay already exists for plugin: $pluginId - releasing old one")
+                try {
+                    // Dismiss presentation first
+                    existing.presentation?.dismiss()
+                    // Wait a bit for presentation to fully dismiss
+                    Thread.sleep(100)
+                } catch (e: Exception) {
+                    Timber.w(e, "[UI_PROCESS] Error dismissing old presentation")
+                }
+                // Release all resources
                 existing.release()
                 virtualDisplays.remove(pluginId)
+                // Wait a bit more to ensure VirtualDisplay is fully released
+                Thread.sleep(50)
             }
 
             // Get display metrics
@@ -235,9 +297,8 @@ class VirtualDisplayManager(private val context: Context) {
                 height,
                 densityDpi,
                 surface,  // Use Surface from Main Process
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC or
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION or
+                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY,
                 null,  // Callback
                 handler
             )
@@ -260,10 +321,11 @@ class VirtualDisplayManager(private val context: Context) {
                     Thread {
                         try {
                             // Wait for display to be ready with retry mechanism
-                            var delay = 100L
+                            var delay = 50L
                             var readyDisplay: Display? = null
-                            
-                            repeat(20) { attempt -> // Up to 20 attempts
+                            var displayReady = false
+
+                            for (attempt in 0 until 20) {
                                 val display = virtualDisplay.display
                                 if (display != null && display.displayId != Display.INVALID_DISPLAY) {
                                     // Verify display is actually accessible by checking its state
@@ -272,13 +334,14 @@ class VirtualDisplayManager(private val context: Context) {
                                         if (state == Display.STATE_ON || state == Display.STATE_UNKNOWN) {
                                             // Try to actually use the display by checking if WindowManager can see it
                                             try {
-                                                val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
-                                                val displays = displayManager.displays
+                                                val dm = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+                                                val displays = dm.displays
                                                 val foundDisplay = displays.find { it.displayId == display.displayId }
                                                 if (foundDisplay != null) {
                                                     readyDisplay = display
+                                                    displayReady = true
                                                     Timber.d("[UI_PROCESS] VirtualDisplay ready after ${attempt + 1} attempts (delay: ${delay}ms)")
-                                                    return@repeat
+                                                    break  // Exit loop when display is ready
                                                 }
                                             } catch (e: Exception) {
                                                 Timber.w(e, "[UI_PROCESS] Error checking display in WindowManager, retrying...")
@@ -288,20 +351,22 @@ class VirtualDisplayManager(private val context: Context) {
                                         Timber.w(e, "[UI_PROCESS] Error checking display state, retrying...")
                                     }
                                 }
-                                
-                                if (attempt < 19) {
+
+                                if (!displayReady && attempt < 19) {
                                     Thread.sleep(delay)
-                                    delay = (delay * 1.2).toLong().coerceAtMost(500) // Exponential backoff, max 500ms
+                                    delay = (delay * 1.5).toLong().coerceAtMost(500) // Exponential backoff, max 500ms
                                 }
                             }
-                            
+
                             // Post back to main thread to create and show Presentation
-                            handler.post {
+                            // Add small delay to ensure VirtualDisplay is fully initialized
+                            handler.postDelayed({
                                 try {
                                     if (readyDisplay != null) {
                                         presentation = PluginComposePresentation(context, readyDisplay, pluginId, fragment)
+                                        Timber.i("[UI_PROCESS] ComposePresentation created for plugin: $pluginId")
                                         presentation?.show()
-                                        Timber.i("[UI_PROCESS] ComposePresentation created and shown for plugin: $pluginId")
+                                        Timber.i("[UI_PROCESS] ComposePresentation shown for plugin: $pluginId")
                                     } else {
                                         Timber.e("[UI_PROCESS] VirtualDisplay not ready for Presentation for plugin: $pluginId after 20 attempts")
                                     }
@@ -310,7 +375,7 @@ class VirtualDisplayManager(private val context: Context) {
                                 } finally {
                                     latch.countDown()
                                 }
-                            }
+                            }, 100) // 100ms delay to ensure display is fully ready
                         } catch (e: Exception) {
                             Timber.e(e, "[UI_PROCESS] Error in display wait thread for plugin: $pluginId")
                             latch.countDown()
