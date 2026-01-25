@@ -10,7 +10,11 @@ import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.fragment.app.Fragment
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
 import com.ble1st.connectias.plugin.ui.MotionEventParcel
 import kotlinx.coroutines.CoroutineScope
@@ -38,9 +42,11 @@ class PluginUIContainerFragment : Fragment() {
     private var pluginId: String? = null
     private var containerId: Int = -1
     private var surfaceView: SurfaceView? = null
+    private var rootContainer: FrameLayout? = null
     private var uiProcessProxy: PluginUIProcessProxy? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
-    private var surfaceInitialized = false  // Track if surface was already sent
+    private var lastSentWidth: Int = -1
+    private var lastSentHeight: Int = -1
 
     /**
      * Gets the plugin ID for this fragment.
@@ -88,7 +94,24 @@ class PluginUIContainerFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         Timber.d("[MAIN] PluginUIContainerFragment onCreateView for plugin: $pluginId")
-        
+
+        // Edge-to-edge: MainActivity consumes insets at root.
+        // This fragment must apply its own insets so the SurfaceView matches the visible viewport
+        // (otherwise content can render under status/navigation bars and look "too big").
+        rootContainer = FrameLayout(requireContext()).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        ViewCompat.setOnApplyWindowInsetsListener(rootContainer!!) { v, insets ->
+            // Plugin UI should be truly fullscreen (immersive): do NOT reserve space for system bars.
+            // System bars can appear transiently (swipe); they will overlay content.
+            v.setPadding(0, 0, 0, 0)
+            insets
+        }
+
         // Create SurfaceView to display UI from UI Process
         // IMPORTANT: Set Z-order so SurfaceView appears BELOW FAB overlay
         // By default, SurfaceView renders in its own layer above other views
@@ -112,11 +135,24 @@ class PluginUIContainerFragment : Fragment() {
                     width: Int,
                     height: Int
                 ) {
-                    Timber.d("[MAIN] Surface changed: ${width}x${height}")
-                    // Only send surface once when we have valid dimensions
-                    if (width > 0 && height > 0 && !surfaceInitialized) {
-                        surfaceInitialized = true
-                        requestUISurface()
+                    val viewWidth = this@apply.width
+                    val viewHeight = this@apply.height
+
+                    Timber.d("[MAIN] Surface changed: buffer=${width}x${height}, view=${viewWidth}x${viewHeight}")
+
+                    // Ensure Surface buffer matches the actual view size to avoid scaling/cropping.
+                    // If buffer differs, request a fixed size and wait for next surfaceChanged.
+                    if (viewWidth > 0 && viewHeight > 0 && (width != viewWidth || height != viewHeight)) {
+                        Timber.d("[MAIN] Adjusting Surface buffer size to match view: ${viewWidth}x${viewHeight}")
+                        holder.setFixedSize(viewWidth, viewHeight)
+                        return
+                    }
+
+                    // Send surface when we have valid dimensions (and whenever size changes).
+                    if (width > 0 && height > 0 && (width != lastSentWidth || height != lastSentHeight)) {
+                        lastSentWidth = width
+                        lastSentHeight = height
+                        requestUISurface(width, height)
                         
                         // IMPORTANT: Ensure FAB stays on top after SurfaceView is created
                         // Post to ensure it happens after SurfaceView is laid out
@@ -149,7 +185,8 @@ class PluginUIContainerFragment : Fragment() {
 
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     Timber.d("[MAIN] Surface destroyed")
-                    surfaceInitialized = false
+                    lastSentWidth = -1
+                    lastSentHeight = -1
                 }
             })
 
@@ -158,15 +195,29 @@ class PluginUIContainerFragment : Fragment() {
                 handleTouchEvent(event)
             }
         }
-        
-        return surfaceView
+
+        rootContainer?.addView(
+            surfaceView,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        return rootContainer
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        // Ensure insets dispatch happens after the view is attached.
+        rootContainer?.let { ViewCompat.requestApplyInsets(it) }
     }
 
     /**
      * Requests UI Surface from UI Process and displays it.
      * Sends the SurfaceView's Surface to UI Process for VirtualDisplay rendering.
      */
-    private fun requestUISurface() {
+    private fun requestUISurface(surfaceWidth: Int, surfaceHeight: Int) {
         val pluginId = this.pluginId ?: return
         val surface = surfaceView?.holder?.surface ?: return
         val proxy = uiProcessProxy ?: run {
@@ -177,13 +228,9 @@ class PluginUIContainerFragment : Fragment() {
         scope.launch {
             try {
                 Timber.d("[MAIN] Sending Surface to UI Process for plugin: $pluginId")
-                
-                // Get Surface dimensions
-                val width = surfaceView?.width ?: 1080
-                val height = surfaceView?.height ?: 1920
 
                 // Send Surface to UI Process
-                val success = proxy.setUISurface(pluginId, surface, width, height)
+                val success = proxy.setUISurface(pluginId, surface, surfaceWidth, surfaceHeight)
                 
                 if (success) {
                     Timber.i("[MAIN] Surface sent to UI Process successfully for plugin: $pluginId")
@@ -199,6 +246,12 @@ class PluginUIContainerFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         Timber.d("[MAIN] PluginUIContainerFragment onResume for plugin: $pluginId")
+
+        // Immersive fullscreen for plugin UI (hide status + navigation bars).
+        ViewCompat.getWindowInsetsController(requireActivity().window.decorView)?.let { controller ->
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         
         // Notify UI Process about lifecycle
         notifyUILifecycle("onResume")
@@ -207,6 +260,9 @@ class PluginUIContainerFragment : Fragment() {
     override fun onPause() {
         super.onPause()
         Timber.d("[MAIN] PluginUIContainerFragment onPause for plugin: $pluginId")
+
+        // Restore system bars when leaving plugin UI.
+        ViewCompat.getWindowInsetsController(requireActivity().window.decorView)?.show(WindowInsetsCompat.Type.systemBars())
         
         // Notify UI Process about lifecycle
         notifyUILifecycle("onPause")
@@ -277,7 +333,9 @@ class PluginUIContainerFragment : Fragment() {
         super.onDestroyView()
         Timber.d("[MAIN] PluginUIContainerFragment onDestroyView for plugin: $pluginId")
         surfaceView = null
-        surfaceInitialized = false
+        rootContainer = null
+        lastSentWidth = -1
+        lastSentHeight = -1
     }
 
     /**

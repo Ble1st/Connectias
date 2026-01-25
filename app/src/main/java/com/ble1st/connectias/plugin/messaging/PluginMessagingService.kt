@@ -52,8 +52,10 @@ class PluginMessagingService : Service() {
         
         override fun receiveMessages(pluginId: String): MutableList<PluginMessage> {
             return try {
-                Timber.d("[MESSAGING SERVICE] Receiving messages for plugin: $pluginId")
                 val messages = messageBroker.receiveMessages(pluginId)
+                if (messages.isNotEmpty()) {
+                    Timber.d("[MESSAGING SERVICE] Delivered ${messages.size} message(s) to plugin: $pluginId")
+                }
                 messages.toMutableList()
             } catch (e: Exception) {
                 Timber.e(e, "[MESSAGING SERVICE] Error receiving messages for plugin: $pluginId")

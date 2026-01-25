@@ -68,11 +68,22 @@
 
     <style name="Theme.Connectias" parent="Base.Theme.Connectias" />
 
+    <!-- Fullscreen Theme: Hide status bar (notification bar) -->
+    <style name="Theme.Connectias.Fullscreen" parent="Theme.Connectias">
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
     <!-- Splash Screen Theme -->
     <style name="Theme.App.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/md_theme_light_surface</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.Connectias</item>
+    </style>
+
+    <!-- Splash + Fullscreen (keeps status bar hidden after splash as well) -->
+    <style name="Theme.App.Starting.Fullscreen" parent="Theme.App.Starting">
+        <item name="android:windowFullscreen">true</item>
+        <item name="postSplashScreenTheme">@style/Theme.Connectias.Fullscreen</item>
     </style>
     
     <!-- Expressive Typography Styles -->

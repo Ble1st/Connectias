@@ -196,6 +196,26 @@ class SecureHardwareBridgeWrapper @Inject constructor(
 
         return actualBridge.openSocket(verifiedPluginId, host, port)
     }
+
+    @RequiresPluginPermission("INTERNET")
+    override fun tcpPing(pluginId: String, host: String, port: Int, timeoutMs: Int): HardwareResponseParcel {
+        val verifiedPluginId = verifyCallerIdentity()
+
+        if (pluginId != verifiedPluginId) {
+            Timber.e("[SECURE BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            return HardwareResponseParcel.failure("Identity verification failed")
+        }
+
+        // Phase 5: Permission pre-check
+        try {
+            permissionPreChecker.preCheck(verifiedPluginId, "tcpPing")
+        } catch (e: SecurityException) {
+            Timber.e("[SECURE BRIDGE] Permission denied: ${e.message}")
+            return HardwareResponseParcel.failure(e.message ?: "Permission denied")
+        }
+
+        return actualBridge.tcpPing(verifiedPluginId, host, port, timeoutMs)
+    }
     
     @RequiresPluginPermission("PRINTER")
     override fun getAvailablePrinters(pluginId: String): List<String> {

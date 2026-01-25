@@ -23,7 +23,19 @@ interface IPluginSandbox {
      * @param pluginId Plugin identifier for tracking
      * @return PluginResultParcel with success/failure and metadata
      */
-    PluginResultParcel loadPluginFromDescriptor(in ParcelFileDescriptor pluginFd, String pluginId);
+    PluginResultParcel loadPluginFromDescriptor(in ParcelFileDescriptor pluginFd, String pluginId, long sessionToken);
+
+    /**
+     * Loads a declarative plugin package (".cplug") in the sandbox process.
+     *
+     * Declarative plugins contain no DEX/bytecode. The sandbox runs a host-provided runtime
+     * that interprets UI/flows from the package.
+     *
+     * @param packageFd ParcelFileDescriptor for .cplug file (MODE_READ_ONLY)
+     * @param pluginId Plugin identifier for tracking
+     * @return PluginResultParcel with success/failure and metadata
+     */
+    PluginResultParcel loadDeclarativePluginFromDescriptor(in ParcelFileDescriptor packageFd, String pluginId, long sessionToken);
     
     /**
      * Loads a plugin in the sandbox process (legacy, for backward compatibility)

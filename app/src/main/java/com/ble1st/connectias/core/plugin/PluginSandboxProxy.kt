@@ -11,6 +11,7 @@ import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.core.plugin.FileSystemBridgeService
+import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import com.ble1st.connectias.plugin.messaging.IPluginMessaging
 import com.ble1st.connectias.plugin.messaging.PluginMessagingService
 import com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
@@ -626,8 +627,13 @@ class PluginSandboxProxy(
      */
     suspend fun loadPluginFromFile(pluginFile: java.io.File, pluginId: String): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
+            val isDeclarative = pluginFile.extension.equals("cplug", ignoreCase = true)
+
             // Rate limit check
-            rateLimiter.checkRateLimit("loadPluginFromDescriptor", pluginId)
+            rateLimiter.checkRateLimit(
+                if (isDeclarative) "loadDeclarativePluginFromDescriptor" else "loadPluginFromDescriptor",
+                pluginId
+            )
             
             ensureConnected()
             
@@ -636,34 +642,49 @@ class PluginSandboxProxy(
                 pluginFile,
                 ParcelFileDescriptor.MODE_READ_ONLY
             )
+
+            // Create a session token in MAIN process to authenticate subsequent IPC calls (e.g. FS bridge)
+            val sessionToken = PluginIdentitySession.createSessionToken(pluginId)
             
             val result = withTimeoutOrNull(IPC_TIMEOUT_MS) {
-                sandboxService?.loadPluginFromDescriptor(pfd, pluginId)
+                if (isDeclarative) {
+                    sandboxService?.loadDeclarativePluginFromDescriptor(pfd, pluginId, sessionToken)
+                } else {
+                    sandboxService?.loadPluginFromDescriptor(pfd, pluginId, sessionToken)
+                }
             }
             
             pfd.close()
             
             if (result == null) {
-                return@withContext Result.failure(Exception("IPC timeout during loadPluginFromDescriptor"))
+                PluginIdentitySession.unregisterPluginSession(pluginId)
+                return@withContext Result.failure(
+                    Exception(
+                        if (isDeclarative) "IPC timeout during loadDeclarativePluginFromDescriptor"
+                        else "IPC timeout during loadPluginFromDescriptor"
+                    )
+                )
             }
             
             if (result.success && result.metadata != null) {
                 Result.success(result.metadata.toPluginMetadata())
             } else {
+                // Cleanup token on load failure
+                PluginIdentitySession.unregisterPluginSession(pluginId)
                 Result.failure(Exception(result.errorMessage ?: "Unknown error"))
             }
             
         } catch (e: RateLimitException) {
-            Timber.w(e, "Rate limit exceeded for loadPluginFromDescriptor")
+            Timber.w(e, "Rate limit exceeded for loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor")
             // Log to security audit
             auditManager?.logSecurityEvent(
                 eventType = SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
                 severity = SecurityAuditManager.SecuritySeverity.MEDIUM,
                 source = "PluginSandboxProxy",
                 pluginId = pluginId,
-                message = "Rate limit exceeded for method: loadPluginFromDescriptor",
+                message = "Rate limit exceeded for method: loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
                 details = mapOf(
-                    "method" to "loadPluginFromDescriptor",
+                    "method" to "loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
                     "pluginId" to (pluginId ?: "unknown"),
                     "retryAfterMs" to e.retryAfterMs.toString()
                 ),
@@ -672,6 +693,8 @@ class PluginSandboxProxy(
             Result.failure(e)
         } catch (e: Exception) {
             Timber.e(e, "Failed to load plugin from file via IPC")
+            // Best-effort cleanup in case token was created earlier
+            PluginIdentitySession.unregisterPluginSession(pluginId)
             Result.failure(e)
         }
     }

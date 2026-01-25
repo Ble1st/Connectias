@@ -41,6 +41,15 @@
         <action
             android:id="@+id/action_pluginManagement_to_securityAudit"
             app:destination="@id/nav_security_audit_dashboard" />
+        <action
+            android:id="@+id/action_pluginManagement_to_declarativeBuilder"
+            app:destination="@id/nav_declarative_plugin_builder" />
+        <action
+            android:id="@+id/action_pluginManagement_to_developerKeys"
+            app:destination="@id/nav_developer_keys" />
+        <action
+            android:id="@+id/action_pluginManagement_to_declarativeRuns"
+            app:destination="@id/nav_declarative_flow_runs" />
     </fragment>
     
     <!-- Plugin Store -->
@@ -98,5 +107,23 @@
         android:id="@+id/nav_plugin_analytics_dashboard"
         android:name="com.ble1st.connectias.ui.plugin.analytics.PluginAnalyticsDashboardFragment"
         android:label="Plugin Analytics" />
+
+    <!-- Declarative Plugin Builder (MVP) -->
+    <fragment
+        android:id="@+id/nav_declarative_plugin_builder"
+        android:name="com.ble1st.connectias.ui.plugin.builder.DeclarativePluginBuilderFragment"
+        android:label="Declarative Plugin Builder" />
+
+    <!-- Declarative Developer Key Truststore -->
+    <fragment
+        android:id="@+id/nav_developer_keys"
+        android:name="com.ble1st.connectias.ui.plugin.builder.DeveloperKeysFragment"
+        android:label="Developer Keys" />
+
+    <!-- Declarative Flow Run Viewer -->
+    <fragment
+        android:id="@+id/nav_declarative_flow_runs"
+        android:name="com.ble1st.connectias.ui.plugin.declruns.DeclarativeFlowRunViewerFragment"
+        android:label="Declarative Flow Runs" />
 
 </navigation>

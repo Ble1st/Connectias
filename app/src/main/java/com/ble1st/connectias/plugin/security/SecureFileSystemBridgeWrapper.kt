@@ -19,6 +19,7 @@ import timber.log.Timber
 class SecureFileSystemBridgeWrapper(
     private val actualBridge: IFileSystemBridge,
     private val boundPluginId: String,
+    private val sessionToken: Long,
     private val permissionManager: PluginPermissionManager,
     private val auditManager: SecurityAuditManager? = null
 ) : IFileSystemBridge.Stub() {
@@ -51,7 +52,7 @@ class SecureFileSystemBridgeWrapper(
     // ════════════════════════════════════════════════════════
     
     @RequiresPluginPermission("FILE_WRITE")
-    override fun createFile(pluginId: String, path: String, mode: Int): ParcelFileDescriptor? {
+    override fun createFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -73,11 +74,11 @@ class SecureFileSystemBridgeWrapper(
             return null
         }
 
-        return actualBridge.createFile(verifiedPluginId, path, mode)
+        return actualBridge.createFile(verifiedPluginId, this.sessionToken, path, mode)
     }
 
     @RequiresPluginPermission("FILE_READ")
-    override fun openFile(pluginId: String, path: String, mode: Int): ParcelFileDescriptor? {
+    override fun openFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -99,11 +100,11 @@ class SecureFileSystemBridgeWrapper(
             return null
         }
 
-        return actualBridge.openFile(verifiedPluginId, path, mode)
+        return actualBridge.openFile(verifiedPluginId, this.sessionToken, path, mode)
     }
 
     @RequiresPluginPermission("FILE_WRITE")
-    override fun deleteFile(pluginId: String, path: String): Boolean {
+    override fun deleteFile(pluginId: String, sessionToken: Long, path: String): Boolean {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -125,11 +126,11 @@ class SecureFileSystemBridgeWrapper(
             return false
         }
 
-        return actualBridge.deleteFile(verifiedPluginId, path)
+        return actualBridge.deleteFile(verifiedPluginId, this.sessionToken, path)
     }
     
     @RequiresPluginPermission("FILE_READ")
-    override fun fileExists(pluginId: String, path: String): Boolean {
+    override fun fileExists(pluginId: String, sessionToken: Long, path: String): Boolean {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -145,11 +146,11 @@ class SecureFileSystemBridgeWrapper(
             return false
         }
 
-        return actualBridge.fileExists(verifiedPluginId, path)
+        return actualBridge.fileExists(verifiedPluginId, this.sessionToken, path)
     }
 
     @RequiresPluginPermission("FILE_READ")
-    override fun listFiles(pluginId: String, path: String): Array<String> {
+    override fun listFiles(pluginId: String, sessionToken: Long, path: String): Array<String> {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -165,11 +166,11 @@ class SecureFileSystemBridgeWrapper(
             return emptyArray()
         }
 
-        return actualBridge.listFiles(verifiedPluginId, path)
+        return actualBridge.listFiles(verifiedPluginId, this.sessionToken, path)
     }
 
     @RequiresPluginPermission("FILE_READ")
-    override fun getFileSize(pluginId: String, path: String): Long {
+    override fun getFileSize(pluginId: String, sessionToken: Long, path: String): Long {
         val verifiedPluginId = verifyCallerIdentity()
 
         if (pluginId != verifiedPluginId) {
@@ -185,6 +186,6 @@ class SecureFileSystemBridgeWrapper(
             return -1
         }
 
-        return actualBridge.getFileSize(verifiedPluginId, path)
+        return actualBridge.getFileSize(verifiedPluginId, this.sessionToken, path)
     }
 }

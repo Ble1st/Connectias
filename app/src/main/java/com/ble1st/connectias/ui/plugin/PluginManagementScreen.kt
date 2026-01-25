@@ -46,7 +46,10 @@ fun PluginManagementScreen(
     onNavigateToStore: () -> Unit = {},
     onNavigateToSecurityDashboard: () -> Unit = {},
     onNavigateToPrivacyDashboard: () -> Unit = {},
-    onNavigateToAnalyticsDashboard: () -> Unit = {}
+    onNavigateToAnalyticsDashboard: () -> Unit = {},
+    onNavigateToDeclarativeBuilder: () -> Unit = {},
+    onNavigateToDeveloperKeys: () -> Unit = {},
+    onNavigateToDeclarativeRuns: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val plugins by pluginManager.pluginsFlow.collectAsStateWithLifecycle()
@@ -84,19 +87,21 @@ fun PluginManagementScreen(
             Timber.i("Android permission request result for ${plugin.pluginId}:")
             Timber.i("  Granted: $grantedPermissions")
             Timber.i("  Denied: $deniedPermissions")
-            
+
             // Grant user consent for granted Android permissions
             if (grantedPermissions.isNotEmpty()) {
                 permissionManager.grantUserConsent(plugin.pluginId, grantedPermissions)
             }
-            
+
             // Also grant custom permissions (they don't need Android runtime request)
             if (pendingCustomPermissions.isNotEmpty()) {
                 permissionManager.grantUserConsent(plugin.pluginId, pendingCustomPermissions)
             }
-            
-            // Try enabling plugin if at least some permissions were granted
-            if (grantedPermissions.isNotEmpty() || pendingCustomPermissions.isNotEmpty()) {
+
+            // FIXED: Only try enabling plugin if ALL requested permissions were granted
+            // This prevents endless permission request loop when user denies some permissions
+            if (deniedPermissions.isEmpty()) {
+                // All permissions granted - try to enable plugin
                 scope.launch {
                     val result = pluginManager.enablePlugin(plugin.pluginId)
                     result.onSuccess {
@@ -105,6 +110,10 @@ fun PluginManagementScreen(
                         Timber.e(error, "Failed to enable plugin after permission grant: ${plugin.pluginId}")
                     }
                 }
+            } else {
+                // Some permissions denied - show message to user
+                Timber.w("Plugin ${plugin.pluginId} cannot be enabled - user denied permissions: $deniedPermissions")
+                // The plugin remains in LOADED state and can be toggled later if user changes their mind
             }
             
             // Clear pending state
@@ -137,28 +146,32 @@ fun PluginManagementScreen(
                     importMessage = "Plugin imported successfully: $pluginId"
                     importError = false
                     showImportDialog = true
-                    
-                    // Load and enable the newly imported plugin immediately
+
+                    // FIXED: Only load the plugin, don't enable it automatically
+                    // This prevents endless permission request loop if user denies permissions
+                    // User can enable the plugin manually via the toggle button in the UI
+                    // NOTE: Despite the name, loadAndEnablePlugin() only LOADS new plugins (doesn't enable)
+                    //       See PluginManagerSandbox.kt:916 - "Plugin is loaded but not enabled"
                     val loadResult = pluginManager.loadAndEnablePlugin(pluginId)
                     loadResult.onSuccess { metadata ->
-                        importMessage = "Plugin imported, loaded and enabled: $pluginId"
-                        
-                        // Register plugin in module registry so it appears in navigation
+                        importMessage = "Plugin imported and loaded: $pluginId\nYou can enable it by toggling the switch."
+
+                        // Register plugin in module registry (inactive) so it appears in the list
                         withContext(Dispatchers.Main) {
                             val moduleInfo = ModuleInfo(
                                 id = metadata.pluginId,
                                 name = metadata.pluginName,
                                 version = metadata.version,
-                                isActive = true
+                                isActive = false  // Inactive - user must enable manually
                             )
                             moduleRegistry.registerModule(moduleInfo)
-                            Timber.i("Plugin registered in module registry: ${metadata.pluginName}")
+                            Timber.i("Plugin registered in module registry (inactive): ${metadata.pluginName}")
                         }
                     }.onFailure { loadError ->
                         Timber.e(loadError, "Failed to load plugin after import")
                         importMessage = "Plugin imported but failed to load: ${loadError.message}"
                     }
-                    
+
                     // No need to manually refresh - StateFlow updates automatically
                 }.onFailure { error ->
                     importMessage = "Import failed: ${error.message}"
@@ -252,12 +265,6 @@ fun PluginManagementScreen(
                     Text("Importing plugin...")
                 }
             }
-        } else if (plugins.isEmpty()) {
-            EmptyPluginState(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            )
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -266,99 +273,138 @@ fun PluginManagementScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(plugins) { plugin ->
-                    PluginListItem(
-                        plugin = plugin,
-                        onShowPermissions = {
-                            onNavigateToPermissions(plugin.pluginId)
-                        },
-                        onShowSecurity = {
-                            onNavigateToSecurity(plugin.pluginId)
-                        },
-                        onShowNetworkPolicy = {
-                            onNavigateToNetworkPolicy(plugin.pluginId)
-                        },
-                        onShowSecurityAudit = {
-                            onNavigateToSecurityAudit(plugin.pluginId)
-                        },
-                        onToggleEnabled = {
-                            scope.launch {
-                                if (plugin.state == PluginManagerSandbox.PluginState.ENABLED) {
-                                    pluginManager.disablePlugin(plugin.pluginId)
-                                } else {
-                                    // Try to enable plugin
-                                    val result = pluginManager.enablePlugin(plugin.pluginId)
-                                    result.onFailure { error ->
-                                        // Check if it's a permission error
-                                        if (error is PluginPermissionException) {
-                                            val requiredPermissions = error.requiredPermissions
-                                            Timber.i("Plugin requires permissions: $requiredPermissions")
-                                            
-                                            // Separate Android system permissions from custom permissions
-                                            val androidPermissions = requiredPermissions.filter { permission ->
-                                                isAndroidSystemPermission(permission)
-                                            }
-                                            val customPermissions = requiredPermissions.filter { permission ->
-                                                !isAndroidSystemPermission(permission)
-                                            }
-                                            
-                                            if (androidPermissions.isNotEmpty()) {
-                                                // Request Android system permissions via native dialog
-                                                // NOTE: LocalContext.current is often a ContextThemeWrapper, not an Activity.
-                                                // We do not need an Activity here: the ActivityResult API will route the request
-                                                // through the host Activity automatically, and checkSelfPermission works with Context.
-
-                                                // Check which permissions are not yet granted
-                                                val permissionsToRequest = androidPermissions.filter { permission ->
-                                                    ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
-                                                }
-
-                                                if (permissionsToRequest.isNotEmpty()) {
-                                                    // Store pending state
-                                                    pendingAndroidPermissionPlugin = plugin
-                                                    pendingAndroidPermissions = permissionsToRequest
-                                                    pendingCustomPermissions = customPermissions
-
-                                                    // Request via native Android dialog
-                                                    permissionLauncher.launch(permissionsToRequest.toTypedArray())
-                                                } else {
-                                                    // All Android permissions already granted, just grant custom permissions
-                                                    if (customPermissions.isNotEmpty()) {
-                                                        permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
-                                                    }
-                                                    // Try enabling again
-                                                    scope.launch {
-                                                        pluginManager.enablePlugin(plugin.pluginId)
-                                                    }
-                                                }
-                                            } else {
-                                                // No Android system permissions, use custom dialog
-                                                permissionDialogPlugin = plugin
-                                                permissionDialogPermissions = requiredPermissions
-                                                showPermissionDialog = true
-                                            }
-                                        } else {
-                                            // Other error - log it
-                                            Timber.e(error, "Failed to enable plugin: ${plugin.pluginId}")
-                                        }
-                                    }
+                item {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Declarative Plugins (Beta)", fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Erstelle einfache UI+Workflows direkt am Gerät und exportiere als signiertes .cplug.",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                                Button(onClick = onNavigateToDeclarativeBuilder, modifier = Modifier.weight(1f)) {
+                                    Text("Builder")
                                 }
-                                // No need to manually refresh - StateFlow updates automatically
-                                // ModuleRegistry is automatically updated in PluginManagerSandbox
+                                OutlinedButton(onClick = onNavigateToDeveloperKeys, modifier = Modifier.weight(1f)) {
+                                    Text("Developer Keys")
+                                }
                             }
-                        },
-                        onShowDetails = {
-                            selectedPlugin = plugin
-                            showDetailDialog = true
-                        },
-                        onUninstall = {
-                            scope.launch {
-                                pluginManager.unloadPlugin(plugin.pluginId)
-                                // No need to manually refresh - StateFlow updates automatically
-                                // ModuleRegistry is automatically updated in PluginManagerSandbox
+                            Spacer(modifier = Modifier.height(4.dp))
+                            OutlinedButton(onClick = onNavigateToDeclarativeRuns, modifier = Modifier.fillMaxWidth()) {
+                                Text("Flow Runs (Viewer)")
                             }
                         }
-                    )
+                    }
+                }
+
+                if (plugins.isEmpty()) {
+                    item {
+                        EmptyPluginState(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        )
+                    }
+                } else {
+                    items(plugins) { plugin ->
+                        PluginListItem(
+                            plugin = plugin,
+                            onShowPermissions = {
+                                onNavigateToPermissions(plugin.pluginId)
+                            },
+                            onShowSecurity = {
+                                onNavigateToSecurity(plugin.pluginId)
+                            },
+                            onShowNetworkPolicy = {
+                                onNavigateToNetworkPolicy(plugin.pluginId)
+                            },
+                            onShowSecurityAudit = {
+                                onNavigateToSecurityAudit(plugin.pluginId)
+                            },
+                            onToggleEnabled = {
+                                scope.launch {
+                                    if (plugin.state == PluginManagerSandbox.PluginState.ENABLED) {
+                                        pluginManager.disablePlugin(plugin.pluginId)
+                                    } else {
+                                        // Try to enable plugin
+                                        val result = pluginManager.enablePlugin(plugin.pluginId)
+                                        result.onFailure { error ->
+                                            // Check if it's a permission error
+                                            if (error is PluginPermissionException) {
+                                                val requiredPermissions = error.requiredPermissions
+                                                Timber.i("Plugin requires permissions: $requiredPermissions")
+
+                                                // Separate Android system permissions from custom permissions
+                                                val androidPermissions = requiredPermissions.filter { permission ->
+                                                    isAndroidSystemPermission(permission)
+                                                }
+                                                val customPermissions = requiredPermissions.filter { permission ->
+                                                    !isAndroidSystemPermission(permission)
+                                                }
+
+                                                if (androidPermissions.isNotEmpty()) {
+                                                    // Request Android system permissions via native dialog
+                                                    // NOTE: LocalContext.current is often a ContextThemeWrapper, not an Activity.
+                                                    // We do not need an Activity here: the ActivityResult API will route the request
+                                                    // through the host Activity automatically, and checkSelfPermission works with Context.
+
+                                                    // Check which permissions are not yet granted
+                                                    val permissionsToRequest = androidPermissions.filter { permission ->
+                                                        ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
+                                                    }
+
+                                                    if (permissionsToRequest.isNotEmpty()) {
+                                                        // Store pending state
+                                                        pendingAndroidPermissionPlugin = plugin
+                                                        pendingAndroidPermissions = permissionsToRequest
+                                                        pendingCustomPermissions = customPermissions
+
+                                                        // Request via native Android dialog
+                                                        permissionLauncher.launch(permissionsToRequest.toTypedArray())
+                                                    } else {
+                                                        // All Android permissions already granted at the OS level.
+                                                        // IMPORTANT: We still need to store plugin-level consent for these permissions,
+                                                        // otherwise enablePlugin() will keep failing with PluginPermissionException.
+                                                        permissionManager.grantUserConsent(plugin.pluginId, androidPermissions)
+
+                                                        // Also grant custom permissions (they don't need Android runtime request)
+                                                        if (customPermissions.isNotEmpty()) {
+                                                            permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
+                                                        }
+                                                        // Try enabling again
+                                                        scope.launch {
+                                                            pluginManager.enablePlugin(plugin.pluginId)
+                                                        }
+                                                    }
+                                                } else {
+                                                    // No Android system permissions, use custom dialog
+                                                    permissionDialogPlugin = plugin
+                                                    permissionDialogPermissions = requiredPermissions
+                                                    showPermissionDialog = true
+                                                }
+                                            } else {
+                                                // Other error - log it
+                                                Timber.e(error, "Failed to enable plugin: ${plugin.pluginId}")
+                                            }
+                                        }
+                                    }
+                                    // No need to manually refresh - StateFlow updates automatically
+                                    // ModuleRegistry is automatically updated in PluginManagerSandbox
+                                }
+                            },
+                            onShowDetails = {
+                                selectedPlugin = plugin
+                                showDetailDialog = true
+                            },
+                            onUninstall = {
+                                scope.launch {
+                                    pluginManager.unloadPlugin(plugin.pluginId)
+                                    // No need to manually refresh - StateFlow updates automatically
+                                    // ModuleRegistry is automatically updated in PluginManagerSandbox
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }

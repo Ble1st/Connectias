@@ -78,20 +78,28 @@ class PluginUIHostImpl(
             // Apply any pending UI state that arrived before fragment creation
             uiController.applyPendingState(pluginId, fragment)
 
-            // Start Activity to host the fragment
-            // Note: Activity will be started in background and fragment will be added there
-            val activityIntent = PluginUIActivity.createIntent(
-                pluginId = pluginId,
-                containerId = pluginId.hashCode(),
-                createSurface = false
-            )
-            activityIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(activityIntent)
+            // IMPORTANT:
+            // We render plugin UI via VirtualDisplay + Presentation (off-screen) and show it in Main Process
+            // through a SurfaceView. Starting a real Activity here would render the same fragment on the
+            // physical display as well and can lead to double rendering / lifecycle conflicts.
+            //
+            // Keep Activity hosting only as an explicit opt-in for debugging.
+            val startActivityHost = configuration.getBoolean("debug_startActivityHost", false)
+            if (startActivityHost) {
+                val activityIntent = PluginUIActivity.createIntent(
+                    pluginId = pluginId,
+                    containerId = pluginId.hashCode(),
+                    createSurface = false
+                )
+                activityIntent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(activityIntent)
+                Timber.w("[UI_PROCESS] Debug mode: Activity host started for plugin: $pluginId")
+            }
 
-            // Generate unique fragment container ID
+            // Generate unique container ID (used by Main Process for bookkeeping)
             val containerId = pluginId.hashCode()
 
-            Timber.d("[UI_PROCESS] Plugin UI initialized: $pluginId -> containerId=$containerId (Activity started)")
+            Timber.d("[UI_PROCESS] Plugin UI initialized: $pluginId -> containerId=$containerId")
             return containerId
         } catch (e: Exception) {
             Timber.e(e, "[UI_PROCESS] Failed to initialize plugin UI: $pluginId")
@@ -228,6 +236,13 @@ class PluginUIHostImpl(
         Timber.d("[UI_PROCESS] Dispatch touch event for plugin: $pluginId (action: ${motionEvent.action})")
 
         return try {
+            // Preferred path: inject MotionEvent into Presentation/ComposeView so Compose can resolve clicks.
+            // If this works, the PluginUIFragment will emit semantic actions (e.g., button clicks) to sandbox.
+            if (virtualDisplayManager.dispatchTouchEventToPresentation(pluginId, motionEvent)) {
+                Timber.v("[UI_PROCESS] Touch event injected into Presentation for plugin: $pluginId")
+                return true
+            }
+
             // Forward touch event to Sandbox Process via UI Bridge
             val uiBridge = uiCallback?.let {
                 try {

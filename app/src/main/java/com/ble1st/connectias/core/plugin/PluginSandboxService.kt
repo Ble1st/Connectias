@@ -436,6 +436,7 @@ class PluginSandboxService : Service() {
                     appContext = applicationContext,
                     pluginDir = pluginDir,
                     pluginId = metadata.pluginId,
+                    sessionToken = 0L,
                     permissionManager = permissionManager,
                     hardwareBridge = hardwareBridge,
                     fileSystemBridge = fileSystemBridge,
@@ -568,7 +569,11 @@ class PluginSandboxService : Service() {
             }
         }
         
-        override fun loadPluginFromDescriptor(pluginFd: ParcelFileDescriptor, pluginId: String): PluginResultParcel {
+        override fun loadPluginFromDescriptor(
+            pluginFd: ParcelFileDescriptor,
+            pluginId: String,
+            sessionToken: Long
+        ): PluginResultParcel {
             return try {
                 Timber.i("[SANDBOX] Loading plugin from descriptor: $pluginId")
                 
@@ -611,10 +616,17 @@ class PluginSandboxService : Service() {
                 // Create plugin instance - support both IPlugin versions
                 val pluginInstance = createPluginInstance(pluginClass)
                 
-                // Step 6: Register plugin identity session for security
+                // Step 6: Register sandbox-local identity (debug/audit only).
+                // NOTE: The per-plugin sessionToken used for IPC must be created in the main process
+                // and passed into this method (parameter `sessionToken`) so main-process bridges can validate it.
                 val callerUid = Binder.getCallingUid()
-                val sessionToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
-                Timber.i("[SANDBOX] Plugin identity registered: $pluginId -> UID:$callerUid, Token:$sessionToken")
+                val sandboxIdentityToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
+                Timber.i(
+                    "[SANDBOX] Plugin identity registered (sandbox-local): $pluginId -> UID:$callerUid, Token:$sandboxIdentityToken"
+                )
+
+                // Register main-process session token for UI/FileSystem IPC from sandbox.
+                uiController.registerPluginSession(pluginId, sessionToken)
 
                 // Step 7: IMPORTANT: Do NOT wrap bridges in sandbox process!
                 // The bridges are AIDL proxies that go to the main process via IPC.
@@ -627,6 +639,7 @@ class PluginSandboxService : Service() {
                     applicationContext,
                     null, // No cache dir in isolated process
                     pluginId,
+                    sessionToken,
                     permissionManager,
                     hardwareBridge, // Use raw bridge (security happens in main process)
                     fileSystemBridge, // Use raw bridge (security happens in main process)
@@ -715,6 +728,22 @@ class PluginSandboxService : Service() {
                 PluginResultParcel.failure(e.message ?: "Unknown error")
             }
         }
+
+        override fun loadDeclarativePluginFromDescriptor(
+            packageFd: ParcelFileDescriptor,
+            pluginId: String,
+            sessionToken: Long
+        ): PluginResultParcel {
+            return try {
+                Timber.i("[SANDBOX] Loading declarative plugin from descriptor: $pluginId")
+                val bytes = java.io.FileInputStream(packageFd.fileDescriptor).use { it.readBytes() }
+                packageFd.close()
+                loadDeclarativePluginFromBytes(bytes, pluginId, sessionToken)
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to load declarative plugin from descriptor")
+                PluginResultParcel.failure(e.message ?: "Unknown error")
+            }
+        }
         
         override fun setHardwareBridge(hardwareBridge: IBinder) {
             try {
@@ -728,6 +757,9 @@ class PluginSandboxService : Service() {
         override fun setFileSystemBridge(fileSystemBridge: IBinder) {
             try {
                 this@PluginSandboxService.fileSystemBridge = IFileSystemBridge.Stub.asInterface(fileSystemBridge)
+                this@PluginSandboxService.uiController.setFileSystemBridge(
+                    this@PluginSandboxService.fileSystemBridge
+                )
                 Timber.i("[SANDBOX] File system bridge set")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Failed to set file system bridge")
@@ -1170,6 +1202,117 @@ class PluginSandboxService : Service() {
                     (0 until it.length()).map { i -> it.getString(i) }
                 } ?: emptyList()
             )
+        }
+    }
+
+    /**
+     * Loads a declarative plugin package (".cplug") from in-memory bytes.
+     *
+     * Full implementation is provided by the sandbox declarative runtime.
+     * This method is intentionally isolated so we can keep binder code minimal.
+     */
+    private fun loadDeclarativePluginFromBytes(
+        cplugBytes: ByteArray,
+        pluginId: String,
+        sessionToken: Long
+    ): PluginResultParcel {
+        return try {
+            val pkg = com.ble1st.connectias.core.plugin.declarative.DeclarativePackageReader.read(cplugBytes)
+            val manifest = pkg.manifest
+
+            if (manifest.pluginId != pluginId) {
+                Timber.w("[SANDBOX] Declarative pluginId mismatch: arg=$pluginId, manifest=${manifest.pluginId}")
+            }
+
+            // Register plugin identity session for security (best-effort)
+            try {
+                val callerUid = Binder.getCallingUid()
+                val sandboxIdentityToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
+                Timber.i(
+                    "[SANDBOX] Plugin identity registered (sandbox-local, declarative): $pluginId -> UID:$callerUid, Token:$sandboxIdentityToken"
+                )
+            } catch (e: Exception) {
+                Timber.w(e, "[SANDBOX] Failed to register identity session for declarative plugin: $pluginId")
+            }
+
+            // Register main-process session token for UI/FileSystem IPC from sandbox.
+            uiController.registerPluginSession(pluginId, sessionToken)
+
+            val metadata = com.ble1st.connectias.plugin.sdk.PluginMetadata(
+                pluginId = manifest.pluginId,
+                pluginName = manifest.pluginName,
+                version = manifest.versionName,
+                versionCode = manifest.versionCode,
+                author = manifest.developerId,
+                minApiLevel = 33,
+                maxApiLevel = 36,
+                minAppVersion = "1.0.0",
+                nativeLibraries = emptyList(),
+                fragmentClassName = null,
+                description = manifest.description ?: "",
+                permissions = emptyList(),
+                category = com.ble1st.connectias.plugin.sdk.PluginCategory.DEVELOPMENT,
+                dependencies = emptyList()
+            )
+
+            // Create plugin context (isolated process has no filesystem access, but bridge can provide access)
+            val context = SandboxPluginContext(
+                applicationContext,
+                null,
+                pluginId,
+                sessionToken,
+                permissionManager,
+                hardwareBridge,
+                fileSystemBridge,
+                messagingBridge
+            )
+
+            val pluginInstance = com.ble1st.connectias.core.plugin.declarative.DeclarativePluginAdapter(
+                metadata = metadata,
+                uiController = uiController,
+                sandboxContext = context,
+                pkg = pkg
+            )
+
+            val loadSuccess = try {
+                PluginExecutionContext.withPlugin(pluginId) {
+                    pluginInstance.onLoad(context)
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Declarative plugin onLoad failed: $pluginId")
+                false
+            }
+
+            if (!loadSuccess) {
+                return PluginResultParcel.failure("Declarative plugin onLoad() returned false")
+            }
+
+            val enableSuccess = try {
+                PluginExecutionContext.withPlugin(pluginId) {
+                    pluginInstance.onEnable()
+                }
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Declarative plugin onEnable failed: $pluginId")
+                false
+            }
+
+            val pluginState = if (enableSuccess) PluginState.ENABLED else PluginState.LOADED
+            val pluginInfo = SandboxPluginInfo(
+                pluginId = pluginId,
+                metadata = metadata,
+                instance = pluginInstance,
+                classLoader = this@PluginSandboxService.classLoader,
+                context = context,
+                state = pluginState
+            )
+            this@PluginSandboxService.loadedPlugins[pluginId] = pluginInfo
+            this@PluginSandboxService.classLoaders[pluginId] = this@PluginSandboxService.classLoader
+
+            Timber.i("[SANDBOX] Declarative plugin loaded: $pluginId")
+            PluginResultParcel.success(PluginMetadataParcel.fromPluginMetadata(metadata))
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX] Failed to load declarative plugin from bytes")
+            PluginResultParcel.failure(e.message ?: "Unknown error")
         }
     }
     

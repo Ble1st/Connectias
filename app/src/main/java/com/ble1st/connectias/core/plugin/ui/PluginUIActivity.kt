@@ -12,6 +12,11 @@ import android.view.Display
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import android.view.WindowManager
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.fragment.app.FragmentActivity
 import timber.log.Timber
 
@@ -62,12 +67,30 @@ class PluginUIActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
+        // FULLSCREEN MODE (THREE_PROCESS_UI_PLAN.md):
+        // - Enable edge-to-edge rendering for immersive plugin UI
+        // - Hide system bars (status bar and navigation bar) for true fullscreen
+        // - Allow plugins to use the entire screen
+        enableEdgeToEdge()
+
+        // Hide system bars for immersive fullscreen experience
+        val windowInsetsController = ViewCompat.getWindowInsetsController(window.decorView)
+        windowInsetsController?.let {
+            // Hide both system bars (status bar and navigation bar)
+            it.hide(WindowInsetsCompat.Type.systemBars())
+            // Configure behavior when user swipes to reveal bars
+            it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
+        // Keep screen on while plugin is active
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         pluginId = intent.getStringExtra(EXTRA_PLUGIN_ID)
         containerId = intent.getIntExtra(EXTRA_CONTAINER_ID, -1)
         val createSurface = intent.getBooleanExtra(EXTRA_CREATE_SURFACE, false)
 
-        Timber.i("[UI_PROCESS] PluginUIActivity created for plugin: $pluginId (containerId: $containerId)")
+        Timber.i("[UI_PROCESS] PluginUIActivity created for plugin: $pluginId (containerId: $containerId) - FULLSCREEN MODE")
 
         if (pluginId == null || containerId == -1) {
             Timber.e("[UI_PROCESS] Invalid arguments - missing pluginId or containerId")

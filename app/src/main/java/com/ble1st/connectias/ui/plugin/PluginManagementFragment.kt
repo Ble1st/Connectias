@@ -80,6 +80,15 @@ class PluginManagementFragment : Fragment() {
                         },
                         onNavigateToAnalyticsDashboard = {
                             findNavController().navigate(R.id.nav_plugin_analytics_dashboard)
+                        },
+                        onNavigateToDeclarativeBuilder = {
+                            findNavController().navigate(R.id.action_pluginManagement_to_declarativeBuilder)
+                        },
+                        onNavigateToDeveloperKeys = {
+                            findNavController().navigate(R.id.action_pluginManagement_to_developerKeys)
+                        },
+                        onNavigateToDeclarativeRuns = {
+                            findNavController().navigate(R.id.action_pluginManagement_to_declarativeRuns)
                         }
                     )
                 }

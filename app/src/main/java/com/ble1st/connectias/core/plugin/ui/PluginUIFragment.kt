@@ -166,7 +166,7 @@ class PluginUIFragment : Fragment() {
                     }
                 }
                 
-                androidx.compose.material3.MaterialTheme {
+                ConnectiasPluginUiTheme {
                     Box(modifier = Modifier.fillMaxSize()) {
                         PluginUIComposable(
                             pluginId = pluginId,

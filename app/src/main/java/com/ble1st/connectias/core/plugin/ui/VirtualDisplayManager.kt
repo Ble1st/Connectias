@@ -12,10 +12,13 @@ import android.view.Display
 import android.os.Handler
 import android.os.Looper
 import android.util.DisplayMetrics
+import android.view.MotionEvent
 import android.view.Surface
 import android.view.WindowManager
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * Manages VirtualDisplay instances for plugin UI rendering in UI Process.
@@ -35,6 +38,8 @@ class VirtualDisplayManager(private val context: Context) {
     
     // Map: pluginId -> VirtualDisplayInfo
     private val virtualDisplays = ConcurrentHashMap<String, VirtualDisplayInfo>()
+    // Prevent concurrent create/recreate for same pluginId (Surface/Insets can trigger rapid callbacks).
+    private val creationLocks = ConcurrentHashMap<String, Any>()
     
     private val handler = Handler(Looper.getMainLooper())
 
@@ -215,6 +220,7 @@ class VirtualDisplayManager(private val context: Context) {
             Timber.i("[UI_PROCESS] Releasing VirtualDisplay for plugin: $pluginId")
             info.release()
         }
+        creationLocks.remove(pluginId)
     }
 
     /**
@@ -246,6 +252,7 @@ class VirtualDisplayManager(private val context: Context) {
         }
         
         virtualDisplays.clear()
+        creationLocks.clear()
         Timber.i("[UI_PROCESS] All VirtualDisplays released ($count -> 0)")
     }
 
@@ -266,7 +273,18 @@ class VirtualDisplayManager(private val context: Context) {
         height: Int,
         fragment: PluginUIFragment? = null
     ): VirtualDisplay? {
-        return try {
+        val lock = creationLocks.getOrPut(pluginId) { Any() }
+        synchronized(lock) {
+            return try {
+                // If we already have an active VirtualDisplay that matches this request, keep it.
+                // This avoids double-rendering caused by rapid repeated setUISurface() calls.
+                virtualDisplays[pluginId]?.let { existing ->
+                    if (existing.surface == surface && existing.width == width && existing.height == height) {
+                        Timber.d("[UI_PROCESS] VirtualDisplay already matches request for plugin: $pluginId (${width}x${height})")
+                        return existing.virtualDisplay
+                    }
+                }
+
             // Check if VirtualDisplay already exists and release it properly
             virtualDisplays[pluginId]?.let { existing ->
                 Timber.w("[UI_PROCESS] VirtualDisplay already exists for plugin: $pluginId - releasing old one")
@@ -413,9 +431,10 @@ class VirtualDisplayManager(private val context: Context) {
 
             Timber.i("[UI_PROCESS] VirtualDisplay created with external Surface for plugin: $pluginId (${width}x${height}, ${densityDpi}dpi)")
             virtualDisplay
-        } catch (e: Exception) {
-            Timber.e(e, "[UI_PROCESS] Failed to create VirtualDisplay with Surface for plugin: $pluginId")
-            null
+            } catch (e: Exception) {
+                Timber.e(e, "[UI_PROCESS] Failed to create VirtualDisplay with Surface for plugin: $pluginId")
+                null
+            }
         }
     }
 
@@ -428,4 +447,85 @@ class VirtualDisplayManager(private val context: Context) {
      * Checks if a VirtualDisplay exists for a plugin.
      */
     fun hasVirtualDisplay(pluginId: String): Boolean = virtualDisplays.containsKey(pluginId)
+
+    /**
+     * Injects a touch event into the Presentation (VirtualDisplay) so Compose can handle clicks.
+     *
+     * IMPORTANT:
+     * - The user touches the SurfaceView in the Main Process.
+     * - To make Compose click handlers work, we must dispatch MotionEvents into the UI Process
+     *   Presentation/ComposeView. Forwarding "touch_down" to the sandbox is not sufficient.
+     */
+    fun dispatchTouchEventToPresentation(pluginId: String, motionEvent: com.ble1st.connectias.plugin.ui.MotionEventParcel): Boolean {
+        val info = virtualDisplays[pluginId]
+        val presentation = info?.presentation ?: return false
+
+        // Always dispatch on the main thread.
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return dispatchOnMainThread(pluginId, presentation, motionEvent)
+        }
+
+        var handled = false
+        val latch = CountDownLatch(1)
+        handler.post {
+            try {
+                handled = dispatchOnMainThread(pluginId, presentation, motionEvent)
+            } finally {
+                latch.countDown()
+            }
+        }
+
+        // Best-effort: don't block IPC for long. We still dispatch even if timeout happens.
+        latch.await(50, TimeUnit.MILLISECONDS)
+        return handled
+    }
+
+    private fun dispatchOnMainThread(
+        pluginId: String,
+        presentation: PluginComposePresentation,
+        motionEvent: com.ble1st.connectias.plugin.ui.MotionEventParcel
+    ): Boolean {
+        return try {
+            val decor = presentation.window?.decorView ?: return false
+
+            // Create a single-pointer MotionEvent.
+            // Note: Multi-touch is not supported by MotionEventParcel.
+            val properties = arrayOf(MotionEvent.PointerProperties().apply {
+                id = 0
+                toolType = MotionEvent.TOOL_TYPE_FINGER
+            })
+            val coords = arrayOf(MotionEvent.PointerCoords().apply {
+                x = motionEvent.x
+                y = motionEvent.y
+                pressure = motionEvent.pressure
+                size = motionEvent.size
+            })
+
+            val event = MotionEvent.obtain(
+                motionEvent.downTime,
+                motionEvent.eventTime,
+                motionEvent.action,
+                1, // pointerCount
+                properties,
+                coords,
+                motionEvent.metaState,
+                motionEvent.buttonState,
+                1f, // xPrecision
+                1f, // yPrecision
+                motionEvent.deviceId,
+                motionEvent.edgeFlags,
+                motionEvent.source,
+                motionEvent.flags
+            )
+
+            try {
+                decor.dispatchTouchEvent(event)
+            } finally {
+                event.recycle()
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "[UI_PROCESS] Failed to inject touch into Presentation for plugin: $pluginId")
+            false
+        }
+    }
 }

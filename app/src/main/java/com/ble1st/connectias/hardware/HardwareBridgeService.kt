@@ -290,6 +290,46 @@ class HardwareBridgeService : Service() {
                 HardwareResponseParcel.failure(e)
             }
         }
+
+        override fun tcpPing(
+            pluginId: String,
+            host: String,
+            port: Int,
+            timeoutMs: Int
+        ): HardwareResponseParcel {
+            return try {
+                if (!checkPermission(pluginId, android.Manifest.permission.INTERNET)) {
+                    return HardwareResponseParcel.failure("Permission denied: INTERNET")
+                }
+
+                val socketUrl = "tcp://$host:$port"
+
+                // Enhanced network policy check (high risk: socket connect)
+                val policyResult = enhancedNetworkPolicy.isRequestAllowed(pluginId, socketUrl, isTelemetry = false)
+                if (!policyResult.allowed) {
+                    Timber.w("[HARDWARE BRIDGE] TCP ping blocked by policy: $pluginId -> $host:$port (${policyResult.reason})")
+                    return HardwareResponseParcel.failure("Request blocked by network policy: ${policyResult.reason}")
+                }
+
+                // Track as a network request (lightweight)
+                PluginNetworkTracker.trackNetworkRequest(pluginId, socketUrl, "TCP_PING")
+
+                Timber.i("[HARDWARE BRIDGE] TCP ping $host:$port by $pluginId (timeout=${timeoutMs}ms)")
+                val response = networkBridge.tcpPing(host, port, timeoutMs)
+
+                if (response.success) {
+                    NetworkUsageAggregator.recordExplicitUsage(pluginId, domain = host)
+                } else {
+                    PluginNetworkTracker.trackConnectionFailure(pluginId, "$host:$port", response.errorMessage ?: "ping_failed")
+                }
+
+                response
+            } catch (e: Exception) {
+                PluginNetworkTracker.trackConnectionFailure(pluginId, "$host:$port", e.message ?: "Unknown error")
+                Timber.e(e, "[HARDWARE BRIDGE] TCP ping failed for $pluginId")
+                HardwareResponseParcel.failure(e)
+            }
+        }
         
         // ════════════════════════════════════════════════════════
         // PRINTER BRIDGE

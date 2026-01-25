@@ -3,6 +3,7 @@
 
 package com.ble1st.connectias.plugin.security
 
+import android.Manifest
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import timber.log.Timber
 
@@ -41,27 +42,30 @@ class PermissionPreChecker(
          */
         private val API_PERMISSION_MAP = mapOf(
             // Camera APIs
-            "captureImage" to listOf("CAMERA"),
-            "startCameraPreview" to listOf("CAMERA"),
-            "stopCameraPreview" to listOf("CAMERA"),
+            "captureImage" to listOf(Manifest.permission.CAMERA),
+            "startCameraPreview" to listOf(Manifest.permission.CAMERA),
+            "stopCameraPreview" to listOf(Manifest.permission.CAMERA),
 
             // Network APIs
-            "httpGet" to listOf("INTERNET"),
-            "httpPost" to listOf("INTERNET"),
-            "openSocket" to listOf("INTERNET"),
+            "httpGet" to listOf(Manifest.permission.INTERNET),
+            "httpPost" to listOf(Manifest.permission.INTERNET),
+            "openSocket" to listOf(Manifest.permission.INTERNET),
+            "tcpPing" to listOf(Manifest.permission.INTERNET),
 
             // Location APIs
-            "getLocation" to listOf("ACCESS_FINE_LOCATION"),
-            "getLastKnownLocation" to listOf("ACCESS_FINE_LOCATION"),
-            "requestLocationUpdates" to listOf("ACCESS_FINE_LOCATION"),
+            "getLocation" to listOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            "getLastKnownLocation" to listOf(Manifest.permission.ACCESS_FINE_LOCATION),
+            "requestLocationUpdates" to listOf(Manifest.permission.ACCESS_FINE_LOCATION),
 
             // Bluetooth APIs
-            "getPairedBluetoothDevices" to listOf("BLUETOOTH"),
-            "connectBluetoothDevice" to listOf("BLUETOOTH", "BLUETOOTH_CONNECT"),
-            "disconnectBluetoothDevice" to listOf("BLUETOOTH", "BLUETOOTH_CONNECT"),
-            "scanBluetoothDevices" to listOf("BLUETOOTH", "BLUETOOTH_SCAN"),
+            "getPairedBluetoothDevices" to listOf(Manifest.permission.BLUETOOTH),
+            "connectBluetoothDevice" to listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_CONNECT),
+            "disconnectBluetoothDevice" to listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_CONNECT),
+            "scanBluetoothDevices" to listOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_SCAN),
 
             // File System APIs
+            // NOTE: File bridge permissions are host-defined. Keep as-is until the custom permission
+            // scheme is finalized and documented.
             "createFile" to listOf("FILE_WRITE"),
             "openFile" to listOf("FILE_READ"),
             "openFileForWrite" to listOf("FILE_WRITE"),

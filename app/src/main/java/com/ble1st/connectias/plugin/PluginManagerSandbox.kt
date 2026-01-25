@@ -14,6 +14,8 @@ import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.sdk.IPlugin
 import com.ble1st.connectias.plugin.IsolatedPluginContextImpl
+import com.ble1st.connectias.plugin.declarative.model.DeclarativeJson
+import com.ble1st.connectias.plugin.declarative.model.DeclarativePluginValidator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dalvik.system.DexClassLoader
 import kotlinx.coroutines.*
@@ -82,7 +84,7 @@ class PluginManagerSandbox @Inject constructor(
         val metadata: PluginMetadata,
         val pluginFile: File,
         val instance: IPlugin, // Dummy instance for compatibility - actual plugin runs in sandbox
-        val classLoader: DexClassLoader,
+        val classLoader: ClassLoader,
         val context: PluginContextImpl,
         var state: PluginState,
         val loadedAt: Long,
@@ -193,7 +195,7 @@ class PluginManagerSandbox @Inject constructor(
             copyPluginsFromAssets()
             
             val pluginFiles = pluginDirectory.listFiles { file ->
-                file.extension in listOf("apk", "jar")
+                file.extension.lowercase() in listOf("apk", "jar", "cplug")
             } ?: emptyArray()
             
             Timber.d("Found ${pluginFiles.size} plugin files")
@@ -222,14 +224,16 @@ class PluginManagerSandbox @Inject constructor(
         }
     }
     
-    private suspend fun loadPlugin(pluginFile: File): Result<PluginMetadata> = withContext(Dispatchers.IO) {
+    suspend fun loadPlugin(pluginFile: File): Result<PluginMetadata> = withContext(Dispatchers.IO) {
         try {
+            val isDeclarative = pluginFile.extension.equals("cplug", ignoreCase = true)
+
             // Extract metadata locally first
             var metadata = extractMetadata(pluginFile)
                 ?: return@withContext Result.failure(Exception("Failed to extract metadata"))
             
-            // Extract and validate permissions from APK + JSON
-            val permissionInfo = manifestParser?.extractPermissions(pluginFile)?.getOrNull()
+            // Extract and validate permissions from APK + JSON (declarative plugins have no Android permissions)
+            val permissionInfo = if (isDeclarative) null else manifestParser?.extractPermissions(pluginFile)?.getOrNull()
             
             if (permissionInfo != null) {
                 // Block plugins with critical permissions
@@ -260,20 +264,24 @@ class PluginManagerSandbox @Inject constructor(
             }
             
             // Extract native libraries if any (for fragment creation in main process)
-            if (metadata.nativeLibraries.isNotEmpty()) {
+            if (!isDeclarative && metadata.nativeLibraries.isNotEmpty()) {
                 nativeLibraryManager.extractNativeLibraries(pluginFile, metadata.pluginId)
             }
             
             // Create local ClassLoader for fragment creation (fragments must run in main process)
-            val pluginDexDir = File(dexOutputDir, metadata.pluginId)
-            pluginDexDir.mkdirs()
-            
-            val classLoader = DexClassLoader(
-                pluginFile.absolutePath,
-                pluginDexDir.absolutePath,
-                null,
+            // Declarative plugins do not ship code, so we just use host classloader.
+            val classLoader: ClassLoader = if (isDeclarative) {
                 context.classLoader
-            )
+            } else {
+                val pluginDexDir = File(dexOutputDir, metadata.pluginId)
+                pluginDexDir.mkdirs()
+                DexClassLoader(
+                    pluginFile.absolutePath,
+                    pluginDexDir.absolutePath,
+                    null,
+                    context.classLoader
+                )
+            }
             
             // Create plugin context with permission manager
             val pluginDataDir = File(pluginDirectory, "data/${metadata.pluginId}")
@@ -349,6 +357,33 @@ class PluginManagerSandbox @Inject constructor(
                 val json = JSONObject(jsonString)
                 
                 val requirements = json.optJSONObject("requirements") ?: JSONObject()
+
+                // Declarative plugins use a different manifest schema.
+                // We map it to PluginMetadata for UI/management compatibility.
+                if (json.optString("pluginType", "") == "declarative" || pluginFile.extension.equals("cplug", ignoreCase = true)) {
+                    val manifest = DeclarativeJson.parseManifest(json)
+                    val validation = DeclarativePluginValidator.validateManifest(manifest)
+                    if (!validation.ok) {
+                        Timber.e("[PLUGIN MANAGER] Invalid declarative manifest in ${pluginFile.name}: ${validation.errors.joinToString()}")
+                        return null
+                    }
+                    return PluginMetadata(
+                        pluginId = manifest.pluginId,
+                        pluginName = manifest.pluginName,
+                        version = manifest.versionName,
+                        versionCode = manifest.versionCode,
+                        author = manifest.developerId,
+                        minApiLevel = requirements.optInt("minApiLevel", 33),
+                        maxApiLevel = requirements.optInt("maxApiLevel", 36),
+                        minAppVersion = requirements.optString("minAppVersion", "1.0.0"),
+                        nativeLibraries = emptyList(),
+                        fragmentClassName = null, // Declarative plugins always use state-based UI
+                        description = manifest.description ?: "",
+                        permissions = manifest.permissions,
+                        category = com.ble1st.connectias.plugin.sdk.PluginCategory.DEVELOPMENT,
+                        dependencies = emptyList()
+                    )
+                }
                 
                 PluginMetadata(
                     pluginId = json.getString("pluginId"),
@@ -851,21 +886,24 @@ class PluginManagerSandbox @Inject constructor(
             }
             
             // Find plugin file
-            val exactMatchFile = File(pluginDirectory, "$pluginId.apk")
-            val pluginFile = if (exactMatchFile.exists() && exactMatchFile.extension in listOf("apk", "jar")) {
-                exactMatchFile
-            } else {
-                pluginDirectory.listFiles { file ->
-                    file.extension in listOf("apk", "jar")
-                }?.firstOrNull { file ->
-                    try {
-                        val metadata = extractMetadata(file)
-                        metadata?.pluginId == pluginId
-                    } catch (e: Exception) {
-                        false
-                    }
+            val exactApk = File(pluginDirectory, "$pluginId.apk")
+            val exactCplug = File(pluginDirectory, "$pluginId.cplug")
+            val pluginFile =
+                when {
+                    exactApk.exists() && exactApk.extension.lowercase() in listOf("apk", "jar") -> exactApk
+                    exactCplug.exists() && exactCplug.extension.lowercase() == "cplug" -> exactCplug
+                    else -> null
                 }
-            }
+                    ?: pluginDirectory.listFiles { file ->
+                        file.extension.lowercase() in listOf("apk", "jar", "cplug")
+                    }?.firstOrNull { file ->
+                        try {
+                            val metadata = extractMetadata(file)
+                            metadata?.pluginId == pluginId
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
             
             if (pluginFile == null) {
                 return@withContext Result.failure(Exception("Plugin file not found for ID: $pluginId"))

@@ -44,6 +44,29 @@ object PluginIdentitySession {
             sessionToken
         }
     }
+
+    /**
+     * Creates a session token for a plugin without binding it to a Binder UID.
+     *
+     * This is required when requests originate from an isolated process UID (e.g. sandbox),
+     * where Binder.getCallingUid() is not stable per plugin (multiple plugins share one isolated UID).
+     *
+     * SECURITY: The token becomes the primary identity proof for IPC requests.
+     */
+    fun createSessionToken(pluginId: String): Long {
+        return registrationLock.withLock {
+            val sessionToken = sessionTokenCounter.getAndIncrement()
+
+            // Clean up any existing session for this plugin (within lock)
+            unregisterPluginSessionUnsafe(pluginId)
+
+            pluginIdToSessionToken[pluginId] = sessionToken
+            sessionTokenToPluginId[sessionToken] = pluginId
+
+            Timber.i("[SECURITY] Plugin session token created: $pluginId -> Token:$sessionToken")
+            sessionToken
+        }
+    }
     
     /**
      * Unregisters a plugin session
@@ -121,6 +144,15 @@ object PluginIdentitySession {
      */
     fun validateSessionToken(sessionToken: Long): String? {
         return sessionTokenToPluginId[sessionToken]
+    }
+
+    /**
+     * Validates that the provided token matches the claimed pluginId.
+     * Returns true if valid, false otherwise.
+     */
+    fun validatePluginToken(claimedPluginId: String, sessionToken: Long): Boolean {
+        val actual = validateSessionToken(sessionToken) ?: return false
+        return actual == claimedPluginId
     }
     
     /**

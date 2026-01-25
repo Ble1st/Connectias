@@ -87,6 +87,21 @@ interface IHardwareBridge {
      * @return HardwareResponseParcel with socket as ParcelFileDescriptor or error
      */
     HardwareResponseParcel openSocket(String pluginId, String host, int port);
+
+    /**
+     * Perform a TCP "ping" by attempting to connect to host:port with a timeout.
+     *
+     * Notes:
+     * - This is NOT ICMP ping (no raw sockets in app sandbox).
+     * - Intended for reachability/latency checks in a controlled manner.
+     *
+     * @param pluginId Plugin requesting access
+     * @param host Remote host address
+     * @param port Remote port
+     * @param timeoutMs Connect timeout in milliseconds (clamped by host implementation)
+     * @return HardwareResponseParcel with metadata: latencyMs, host, port
+     */
+    HardwareResponseParcel tcpPing(String pluginId, String host, int port, int timeoutMs);
     
     // ════════════════════════════════════════════════════════
     // PRINTER BRIDGE

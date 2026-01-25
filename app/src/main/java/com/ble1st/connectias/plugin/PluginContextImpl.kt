@@ -361,7 +361,7 @@ open class PluginContextImpl(
                 return@flow
             }
             
-            while (true) {
+            while (currentCoroutineContext().isActive) {
                 try {
                     val result = messagingProxy.receiveMessages(pluginId)
                     result.onSuccess { messages ->
@@ -374,6 +374,10 @@ open class PluginContextImpl(
                     
                     // Poll interval: check for new messages every 100ms
                     delay(100)
+                } catch (e: CancellationException) {
+                    // Expected during plugin unload / scope cancellation.
+                    Timber.d("[$pluginId] receiveMessages flow cancelled")
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "[$pluginId] Error in receiveMessages flow")
                     delay(1000) // Wait longer on error
@@ -415,6 +419,9 @@ open class PluginContextImpl(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                // Expected during plugin unload / scope cancellation.
+                Timber.d("[$pluginId] Message handler coroutine cancelled")
             } catch (e: Exception) {
                 Timber.e(e, "[$pluginId] Error in message handler coroutine")
             }

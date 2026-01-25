@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
@@ -25,7 +26,10 @@ import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.plugin.ui.UIComponentParcel
 import com.ble1st.connectias.plugin.ui.UIStateParcel
 import com.ble1st.connectias.plugin.ui.UserActionParcel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 
@@ -40,6 +44,11 @@ import timber.log.Timber
  * This is a state-based renderer - it receives UIStateParcel and renders
  * the UI declaratively. User interactions generate UserActionParcel objects
  * that are sent back to the Sandbox Process.
+ *
+ * FULLSCREEN MODE (THREE_PROCESS_UI_PLAN.md):
+ * - No TopAppBar - plugins control the entire screen
+ * - No padding - full edge-to-edge rendering
+ * - Plugins are responsible for their own layout and spacing
  *
  * @param pluginId Plugin identifier
  * @param uiState Current UI state from sandbox, or null if loading
@@ -60,7 +69,7 @@ fun PluginUIComposable(
 ) {
     // Show loading indicator if explicitly set or if UI state is null
     val showLoading = loadingState?.loading == true || uiState == null
-    
+
     if (showLoading) {
         Box(
             modifier = modifier.fillMaxSize(),
@@ -78,7 +87,7 @@ fun PluginUIComposable(
                 )
             }
         }
-        
+
         // Show dialog on top of loading if present
         dialogState?.let { dialog ->
             RenderDialog(
@@ -88,7 +97,7 @@ fun PluginUIComposable(
         }
         return
     }
-    
+
     // Show dialog if present
     dialogState?.let { dialog ->
         RenderDialog(
@@ -97,30 +106,19 @@ fun PluginUIComposable(
         )
     }
 
-    Scaffold(
-        topBar = {
-            if (uiState.title.isNotEmpty()) {
-                TopAppBar(
-                    title = { Text(uiState.title) },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                )
-            }
-        },
-        modifier = modifier
-    ) { paddingValues ->
+    // FULLSCREEN MODE: No Scaffold, no TopAppBar, no padding
+    // Plugin UI renders directly in full screen
+    Box(
+        modifier = modifier.fillMaxSize()
+    ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Top
         ) {
-            // Render all UI components
+            // Render all UI components without any padding or container
             uiState.components.forEach { component ->
                 RenderComponent(
+                    pluginId = pluginId,
                     component = component,
                     onUserAction = onUserAction
                 )
@@ -134,6 +132,7 @@ fun PluginUIComposable(
  */
 @Composable
 private fun RenderComponent(
+    pluginId: String,
     component: UIComponentParcel,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
@@ -143,10 +142,10 @@ private fun RenderComponent(
         "TEXT_FIELD" -> RenderTextField(component, onUserAction, modifier)
         "TEXT_VIEW" -> RenderTextView(component, modifier)
         "LIST" -> RenderList(component, onUserAction, modifier)
-        "IMAGE" -> RenderImage(component, modifier)
+        "IMAGE" -> RenderImage(pluginId, component, modifier)
         "CHECKBOX" -> RenderCheckbox(component, onUserAction, modifier)
-        "COLUMN" -> RenderColumn(component, onUserAction, modifier)
-        "ROW" -> RenderRow(component, onUserAction, modifier)
+        "COLUMN" -> RenderColumn(pluginId, component, onUserAction, modifier)
+        "ROW" -> RenderRow(pluginId, component, onUserAction, modifier)
         "SPACER" -> RenderSpacer(component, modifier)
         else -> {
             Timber.w("[UI_PROCESS] Unknown component type: ${component.type}")
@@ -362,17 +361,48 @@ private fun RenderList(
 
 @Composable
 private fun RenderImage(
+    pluginId: String,
     component: UIComponentParcel,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val contentDescription = component.properties.getString("contentDescription") ?: "Image"
     val contentScale = component.properties.getString("contentScale") ?: "FIT"
 
     // Log all available properties for debugging
     Timber.d("[UI_PROCESS] RenderImage properties: ${component.properties.keySet().joinToString()}")
 
-    // Try to get image data - check both String and ByteArray formats
-    val imageBytes = remember(component.properties) {
+    // Prefer file-based image references (offloaded in sandbox to avoid Binder TransactionTooLargeException).
+    val filePath = component.properties.getString("filePath")
+    val fileBytes by produceState<ByteArray?>(initialValue = null, key1 = pluginId, key2 = filePath) {
+        if (filePath.isNullOrBlank()) {
+            value = null
+            return@produceState
+        }
+
+        value = withContext(Dispatchers.IO) {
+            try {
+                val pluginRoot = File(context.filesDir, "plugin_files/$pluginId")
+                val file = File(pluginRoot, filePath)
+
+                // Defensive: ensure file is within plugin root.
+                if (!file.canonicalPath.startsWith(pluginRoot.canonicalPath)) {
+                    Timber.w("[UI_PROCESS] Image file path traversal blocked: $filePath")
+                    return@withContext null
+                }
+
+                if (!file.exists()) return@withContext null
+                file.readBytes()
+            } catch (e: Exception) {
+                Timber.w(e, "[UI_PROCESS] Failed to read image file for plugin=$pluginId path=$filePath")
+                null
+            }
+        }
+    }
+
+    // Fallback: inline image payload (Base64/ByteArray) inside Bundle properties.
+    // NOTE: Keep this call unconditional to preserve Compose call order across recompositions.
+    val inlineBytes = remember(component.properties) {
         // CRITICAL: Try String first to avoid ClassCastException warnings from Bundle
         // Bundle.getByteArray() logs a warning before throwing ClassCastException
         // So we check for String first, then try ByteArray
@@ -422,9 +452,16 @@ private fun RenderImage(
         }
     }
 
+    // Prefer file-based payloads when present (offloaded by sandbox).
+    val imageBytes: ByteArray? = fileBytes ?: inlineBytes
+
     if (imageBytes == null || imageBytes.isEmpty()) {
-        // No image data provided
-        Timber.w("[UI_PROCESS] No image data found in component properties")
+        // No image data provided (or still loading file)
+        if (!filePath.isNullOrBlank()) {
+            Timber.d("[UI_PROCESS] Image is loading from filePath=$filePath")
+        } else {
+            Timber.w("[UI_PROCESS] No image data found in component properties")
+        }
         Card(
             modifier = modifier
                 .fillMaxWidth()
@@ -438,7 +475,7 @@ private fun RenderImage(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No image data",
+                    text = if (!filePath.isNullOrBlank()) "Loading image…" else "No image data",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -570,16 +607,33 @@ private fun RenderCheckbox(
 
 @Composable
 private fun RenderColumn(
+    pluginId: String,
     component: UIComponentParcel,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Allow plugins to control spacing via properties
+    val spacing = component.properties.getInt("spacing", 0).dp
+    val fillMaxWidth = component.properties.getBoolean("fillMaxWidth", true)
+    val fillMaxHeight = component.properties.getBoolean("fillMaxHeight", false)
+
+    val columnModifier = if (fillMaxWidth && fillMaxHeight) {
+        modifier.fillMaxSize()
+    } else if (fillMaxWidth) {
+        modifier.fillMaxWidth()
+    } else if (fillMaxHeight) {
+        modifier.fillMaxHeight()
+    } else {
+        modifier
+    }
+
     Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = columnModifier,
+        verticalArrangement = if (spacing.value > 0) Arrangement.spacedBy(spacing) else Arrangement.Top
     ) {
         component.children.forEach { child ->
             RenderComponent(
+                pluginId = pluginId,
                 component = child,
                 onUserAction = onUserAction
             )
@@ -589,19 +643,38 @@ private fun RenderColumn(
 
 @Composable
 private fun RenderRow(
+    pluginId: String,
     component: UIComponentParcel,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Allow plugins to control spacing via properties
+    val spacing = component.properties.getInt("spacing", 0).dp
+    val fillMaxWidth = component.properties.getBoolean("fillMaxWidth", true)
+    val fillMaxHeight = component.properties.getBoolean("fillMaxHeight", false)
+
+    val rowModifier = if (fillMaxWidth && fillMaxHeight) {
+        modifier.fillMaxSize()
+    } else if (fillMaxWidth) {
+        modifier.fillMaxWidth()
+    } else if (fillMaxHeight) {
+        modifier.fillMaxHeight()
+    } else {
+        modifier
+    }
+
     Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = rowModifier,
+        horizontalArrangement = if (spacing.value > 0) Arrangement.spacedBy(spacing) else Arrangement.Start
     ) {
         component.children.forEach { child ->
+            // Allow children to specify weight via properties
+            val weight = component.properties.getFloat("weight", 1f)
             RenderComponent(
+                pluginId = pluginId,
                 component = child,
                 onUserAction = onUserAction,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(weight)
             )
         }
     }

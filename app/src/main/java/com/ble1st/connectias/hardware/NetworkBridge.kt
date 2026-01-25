@@ -10,6 +10,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.net.Socket
+import java.net.InetSocketAddress
 import java.util.concurrent.TimeUnit
 
 /**
@@ -208,6 +209,58 @@ class NetworkBridge(private val context: Context) {
             
         } catch (e: Exception) {
             Timber.e(e, "[NETWORK BRIDGE] Socket failed: $host:$port")
+            HardwareResponseParcel.failure(e)
+        }
+    }
+
+    /**
+     * TCP "ping" (connect latency) with connect timeout.
+     *
+     * SECURITY:
+     * - Host/port validation
+     * - Blocks localhost/private ranges (same as openSocket)
+     *
+     * @param host Remote host
+     * @param port Remote port
+     * @param timeoutMs Connect timeout in milliseconds
+     */
+    fun tcpPing(host: String, port: Int, timeoutMs: Int): HardwareResponseParcel {
+        return try {
+            if (!isValidHost(host)) {
+                return HardwareResponseParcel.failure("Invalid host: $host")
+            }
+            if (port < 1 || port > 65535) {
+                return HardwareResponseParcel.failure("Invalid port: $port")
+            }
+
+            val timeoutSafe = timeoutMs.coerceIn(100, 10_000)
+            Timber.d("[NETWORK BRIDGE] TCP ping: $host:$port (timeout=${timeoutSafe}ms)")
+
+            val startNs = System.nanoTime()
+            val socket = Socket()
+            try {
+                socket.connect(InetSocketAddress(host, port), timeoutSafe)
+                val latencyMs = ((System.nanoTime() - startNs) / 1_000_000L).coerceAtLeast(0L)
+                Timber.i("[NETWORK BRIDGE] TCP ping success: $host:$port latencyMs=$latencyMs")
+                HardwareResponseParcel.success(
+                    data = null,
+                    fileDescriptor = null,
+                    metadata = mapOf(
+                        "host" to host,
+                        "port" to port.toString(),
+                        "latencyMs" to latencyMs.toString(),
+                        "type" to "tcp_ping"
+                    )
+                )
+            } finally {
+                try {
+                    socket.close()
+                } catch (_: Exception) {
+                    // Ignore close errors
+                }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[NETWORK BRIDGE] TCP ping failed: $host:$port")
             HardwareResponseParcel.failure(e)
         }
     }

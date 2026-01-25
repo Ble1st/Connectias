@@ -5,6 +5,7 @@ import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.net.URI
 import java.net.URL
 import java.util.regex.Pattern
 
@@ -123,9 +124,7 @@ class EnhancedPluginNetworkPolicy {
         }
         
         try {
-            val parsedUrl = URL(url)
-            val domain = parsedUrl.host.lowercase()
-            val port = if (parsedUrl.port != -1) parsedUrl.port else parsedUrl.defaultPort
+            val (domain, port) = parseEndpoint(url)
             
             // Check if plugin is in telemetry-only mode
             val isTelemetryOnlyPlugin = pluginTelemetryMode[pluginId] == true
@@ -313,6 +312,53 @@ class EnhancedPluginNetworkPolicy {
         }
         
         return NetworkPolicyResult.ALLOWED("Security checks passed")
+    }
+
+    /**
+     * Parse request endpoint for both http(s) URLs and pseudo-schemes like tcp://host:port.
+     *
+     * SECURITY NOTE:
+     * We intentionally support tcp:// for socket-like operations (e.g., tcpPing/openSocket).
+     * java.net.URL does not know the "tcp" scheme, so we use URI for scheme-aware parsing.
+     */
+    private fun parseEndpoint(raw: String): Pair<String, Int> {
+        val uri = try {
+            URI(raw)
+        } catch (_: Exception) {
+            // Fallback to URL for legacy callers; will throw if invalid
+            val u = URL(raw)
+            val host = u.host?.lowercase()?.trim().orEmpty()
+            val port = if (u.port != -1) u.port else u.defaultPort
+            if (host.isBlank()) throw IllegalArgumentException("Missing host")
+            return host to port
+        }
+
+        val scheme = (uri.scheme ?: "").lowercase()
+        val host = uri.host?.lowercase()?.trim()
+
+        // URI("tcp://example.com:443") has host+port populated.
+        if (!host.isNullOrBlank()) {
+            val port = when {
+                uri.port != -1 -> uri.port
+                scheme == "https" -> 443
+                scheme == "http" -> 80
+                scheme == "tcp" -> 443 // default for TCP reachability checks
+                else -> -1
+            }
+            if (port <= 0) throw IllegalArgumentException("Missing port")
+            return host to port
+        }
+
+        // Handle cases like "example.com:443" (no scheme, treated as host:port).
+        val s = raw.trim()
+        val hostPort = s.removePrefix("tcp://").removePrefix("http://").removePrefix("https://")
+        val idx = hostPort.lastIndexOf(':')
+        if (idx <= 0 || idx == hostPort.length - 1) {
+            throw IllegalArgumentException("Invalid endpoint (expected host:port)")
+        }
+        val h = hostPort.substring(0, idx).lowercase()
+        val p = hostPort.substring(idx + 1).toIntOrNull() ?: throw IllegalArgumentException("Invalid port")
+        return h to p
     }
     
     /**

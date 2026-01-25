@@ -37,6 +37,7 @@ class SandboxPluginContext(
     private val appContext: Context,
     private val pluginDir: File?, // Nullable for isolated process
     private val pluginId: String,
+    private val sessionToken: Long,
     private val permissionManager: PluginPermissionManager,
     private val hardwareBridge: IHardwareBridge? = null, // Now accepts secure wrappers
     private val fileSystemBridge: IFileSystemBridge? = null, // Now accepts secure wrappers
@@ -222,6 +223,64 @@ class SandboxPluginContext(
             continuation.resume(Result.failure(e))
         }
     }
+
+    /**
+     * Host-only helper for declarative runtime: HTTP GET with metadata.
+     *
+     * This bypasses the simplified SDK method shape (String-only) and keeps
+     * status/contentType available for low-code nodes.
+     */
+    internal fun httpGetWithInfo(url: String): Result<HttpResult> {
+        return try {
+            val bridge = hardwareBridge
+                ?: return Result.failure(IllegalStateException("Hardware Bridge not available"))
+
+            val response = bridge.httpGet(pluginId, url)
+            if (!response.success) {
+                return Result.failure(Exception(response.errorMessage ?: "HTTP GET failed"))
+            }
+
+            val meta = response.metadata ?: emptyMap()
+            val status = meta["status"]?.toIntOrNull() ?: 200
+            val contentType = meta["contentType"]
+            val bodyString = String(response.data ?: byteArrayOf())
+
+            Result.success(HttpResult(statusCode = status, contentType = contentType, body = bodyString))
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] httpGetWithInfo failed")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Host-only helper for declarative runtime: TCP ping (connect latency).
+     */
+    internal fun tcpPing(host: String, port: Int, timeoutMs: Int): Result<Long> {
+        return try {
+            val bridge = hardwareBridge
+                ?: return Result.failure(IllegalStateException("Hardware Bridge not available"))
+
+            val response = bridge.tcpPing(pluginId, host, port, timeoutMs)
+            if (!response.success) {
+                return Result.failure(Exception(response.errorMessage ?: "TCP ping failed"))
+            }
+
+            val meta = response.metadata ?: emptyMap()
+            val latencyMs = meta["latencyMs"]?.toLongOrNull()
+                ?: return Result.failure(Exception("Missing latencyMs"))
+
+            Result.success(latencyMs)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] tcpPing failed")
+            Result.failure(e)
+        }
+    }
+
+    internal data class HttpResult(
+        val statusCode: Int,
+        val contentType: String?,
+        val body: String,
+    )
     
     override suspend fun printDocument(
         data: ByteArray,
@@ -292,6 +351,60 @@ class SandboxPluginContext(
     }
     
     // File System Methods - Uses FileSystemBridge for secure access
+
+    /**
+     * Host-runtime-only local filesystem access.
+     *
+     * Declarative plugins are executed by host code (no arbitrary Kotlin/Java from third parties),
+     * so we can safely persist host-managed runtime state in the sandbox process without IPC.
+     *
+     * This also avoids identity ambiguity when multiple plugins share the same isolated process UID.
+     */
+    internal fun openLocalFile(path: String): FileInputStream? {
+        return try {
+            // In an isolated process the app-private filesystem dir may be unavailable.
+            // Only use local storage when pluginDir is explicitly provided.
+            val root = pluginDir ?: return null
+            val pluginRoot = File(root, "local/$pluginId")
+            val file = File(pluginRoot, path)
+
+            // Security check: Ensure file is within plugin directory
+            if (!file.canonicalPath.startsWith(pluginRoot.canonicalPath)) {
+                Timber.e("[SANDBOX:$pluginId] Path traversal attempt (local): $path")
+                return null
+            }
+
+            if (!file.exists()) return null
+            FileInputStream(file)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to open local file: $path")
+            null
+        }
+    }
+
+    internal fun openLocalFileForWrite(path: String): FileOutputStream? {
+        return try {
+            // In an isolated process the app-private filesystem dir may be unavailable.
+            // Only use local storage when pluginDir is explicitly provided.
+            val root = pluginDir ?: return null
+            val pluginRoot = File(root, "local/$pluginId")
+            if (!pluginRoot.exists()) pluginRoot.mkdirs()
+
+            val file = File(pluginRoot, path)
+
+            // Security check: Ensure file is within plugin directory
+            if (!file.canonicalPath.startsWith(pluginRoot.canonicalPath)) {
+                Timber.e("[SANDBOX:$pluginId] Path traversal attempt (local): $path")
+                return null
+            }
+
+            file.parentFile?.mkdirs()
+            FileOutputStream(file)
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to open local file for write: $path")
+            null
+        }
+    }
     
     fun createFile(path: String, mode: Int = 384): File? {
         return try {
@@ -299,7 +412,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            val pfd = fileSystemBridge.createFile(pluginId, path, mode)
+            val pfd = fileSystemBridge.createFile(pluginId, sessionToken, path, mode)
             if (pfd != null) {
                 // Convert ParcelFileDescriptor to File object
                 val fd = pfd.fd
@@ -321,7 +434,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            val pfd = fileSystemBridge.openFile(pluginId, path, mode)
+            val pfd = fileSystemBridge.openFile(pluginId, sessionToken, path, mode)
             if (pfd != null) {
                 FileInputStream(pfd.fileDescriptor)
             } else {
@@ -333,13 +446,18 @@ class SandboxPluginContext(
         }
     }
     
-    fun openFileForWrite(path: String, mode: Int = ParcelFileDescriptor.MODE_WRITE_ONLY): FileOutputStream? {
+    fun openFileForWrite(
+        path: String,
+        mode: Int = ParcelFileDescriptor.MODE_CREATE or
+            ParcelFileDescriptor.MODE_TRUNCATE or
+            ParcelFileDescriptor.MODE_WRITE_ONLY
+    ): FileOutputStream? {
         return try {
             if (fileSystemBridge == null) {
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            val pfd = fileSystemBridge.openFile(pluginId, path, mode)
+            val pfd = fileSystemBridge.openFile(pluginId, sessionToken, path, mode)
             if (pfd != null) {
                 FileOutputStream(pfd.fileDescriptor)
             } else {
@@ -357,7 +475,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            fileSystemBridge.deleteFile(pluginId, path)
+            fileSystemBridge.deleteFile(pluginId, sessionToken, path)
         } catch (e: Exception) {
             Timber.e(e, "[SANDBOX:$pluginId] Failed to delete file: $path")
             false
@@ -370,7 +488,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            fileSystemBridge.fileExists(pluginId, path)
+            fileSystemBridge.fileExists(pluginId, sessionToken, path)
         } catch (e: Exception) {
             Timber.e(e, "[SANDBOX:$pluginId] Failed to check file existence: $path")
             false
@@ -383,7 +501,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            fileSystemBridge.listFiles(pluginId, path)
+            fileSystemBridge.listFiles(pluginId, sessionToken, path)
         } catch (e: Exception) {
             Timber.e(e, "[SANDBOX:$pluginId] Failed to list files: $path")
             emptyArray()
@@ -396,7 +514,7 @@ class SandboxPluginContext(
                 throw UnsupportedOperationException("File system bridge not available")
             }
             
-            fileSystemBridge.getFileSize(pluginId, path)
+            fileSystemBridge.getFileSize(pluginId, sessionToken, path)
         } catch (e: Exception) {
             Timber.e(e, "[SANDBOX:$pluginId] Failed to get file size: $path")
             -1
@@ -443,7 +561,7 @@ class SandboxPluginContext(
                 return@flow
             }
 
-            while (true) {
+            while (currentCoroutineContext().isActive) {
                 try {
                     val messages = withContext(Dispatchers.IO) {
                         messagingBridge.receiveMessages(pluginId)
@@ -455,6 +573,10 @@ class SandboxPluginContext(
 
                     // Poll interval: check for new messages every 100ms
                     delay(100)
+                } catch (e: CancellationException) {
+                    // Expected during plugin unload / scope cancellation.
+                    Timber.d("[SANDBOX:$pluginId] receiveMessages flow cancelled")
+                    throw e
                 } catch (e: Exception) {
                     Timber.e(e, "[SANDBOX:$pluginId] Error in receiveMessages flow")
                     delay(1000) // Wait longer on error
@@ -506,6 +628,9 @@ class SandboxPluginContext(
                         }
                     }
                 }
+            } catch (e: CancellationException) {
+                // Expected during plugin unload / scope cancellation.
+                Timber.d("[SANDBOX:$pluginId] Message handler coroutine cancelled")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX:$pluginId] Error in message handler coroutine")
             }

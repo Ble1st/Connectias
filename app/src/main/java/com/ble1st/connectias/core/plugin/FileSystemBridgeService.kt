@@ -21,10 +21,10 @@ class FileSystemBridgeService : Service() {
     
     private val binder = object : IFileSystemBridge.Stub() {
         
-        override fun createFile(pluginId: String, path: String, mode: Int): ParcelFileDescriptor? {
+        override fun createFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return null
                 }
@@ -43,11 +43,21 @@ class FileSystemBridgeService : Service() {
                     return null
                 }
                 
+                // Ensure parent directories exist (e.g. "declarative/state.json")
+                file.parentFile?.mkdirs()
+
                 // Create file with specified mode
                 val fd = ParcelFileDescriptor.open(
                     file,
                     ParcelFileDescriptor.MODE_CREATE or ParcelFileDescriptor.MODE_WRITE_ONLY
                 )
+
+                // Apply file mode best-effort (for private storage hardening)
+                try {
+                    Os.chmod(file.absolutePath, mode)
+                } catch (e: ErrnoException) {
+                    Timber.w(e, "[FS_BRIDGE] chmod failed for plugin $pluginId: $path (mode=$mode)")
+                }
                 
                 Timber.d("[FS_BRIDGE] Created file for plugin $pluginId: $path")
                 fd
@@ -57,10 +67,10 @@ class FileSystemBridgeService : Service() {
             }
         }
         
-        override fun openFile(pluginId: String, path: String, mode: Int): ParcelFileDescriptor? {
+        override fun openFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return null
                 }
@@ -75,9 +85,15 @@ class FileSystemBridgeService : Service() {
                     return null
                 }
                 
-                // Check if file exists
-                if (!file.exists()) {
+                // If the file doesn't exist and caller didn't request creation, deny.
+                val wantsCreate = (mode and ParcelFileDescriptor.MODE_CREATE) != 0
+                if (!file.exists() && !wantsCreate) {
                     return null
+                }
+
+                // If creation is requested, ensure parent dirs exist.
+                if (wantsCreate) {
+                    file.parentFile?.mkdirs()
                 }
                 
                 // Open file
@@ -94,10 +110,10 @@ class FileSystemBridgeService : Service() {
             }
         }
         
-        override fun deleteFile(pluginId: String, path: String): Boolean {
+        override fun deleteFile(pluginId: String, sessionToken: Long, path: String): Boolean {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return false
                 }
@@ -128,10 +144,10 @@ class FileSystemBridgeService : Service() {
             }
         }
         
-        override fun fileExists(pluginId: String, path: String): Boolean {
+        override fun fileExists(pluginId: String, sessionToken: Long, path: String): Boolean {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return false
                 }
@@ -153,10 +169,10 @@ class FileSystemBridgeService : Service() {
             }
         }
         
-        override fun listFiles(pluginId: String, path: String): Array<String> {
+        override fun listFiles(pluginId: String, sessionToken: Long, path: String): Array<String> {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return emptyArray()
                 }
@@ -183,10 +199,10 @@ class FileSystemBridgeService : Service() {
             }
         }
         
-        override fun getFileSize(pluginId: String, path: String): Long {
+        override fun getFileSize(pluginId: String, sessionToken: Long, path: String): Long {
             return try {
                 // Validate plugin ID
-                if (!isValidPluginId(pluginId)) {
+                if (!isValidPluginId(pluginId, sessionToken)) {
                     Timber.e("[FS_BRIDGE] Invalid plugin ID: $pluginId")
                     return -1
                 }
@@ -219,24 +235,24 @@ class FileSystemBridgeService : Service() {
     
     /**
      * Validate plugin ID against known loaded plugins
-     * SECURITY: Verifies caller identity using PluginIdentitySession
+     * SECURITY: Verifies caller identity using sessionToken (prevents pluginId spoofing)
      */
-    private fun isValidPluginId(pluginId: String): Boolean {
+    private fun isValidPluginId(pluginId: String, sessionToken: Long): Boolean {
         // 1. Format validation
         if (!pluginId.matches(Regex("^[a-zA-Z0-9._-]+$"))) {
             Timber.e("[FS_BRIDGE] Invalid plugin ID format: $pluginId")
             return false
         }
         
-        // 2. Verify against PluginIdentitySession to prevent spoofing
-        val verifiedPluginId = PluginIdentitySession.verifyPluginIdentity()
+        // 2. Verify against PluginIdentitySession token map to prevent spoofing
+        val verifiedPluginId = PluginIdentitySession.validateSessionToken(sessionToken)
         if (verifiedPluginId == null) {
-            Timber.e("[FS_BRIDGE] No verified plugin identity for caller")
+            Timber.e("[FS_BRIDGE] No verified plugin identity for token")
             return false
         }
-        
+
         if (verifiedPluginId != pluginId) {
-            Timber.e("[FS_BRIDGE] SPOOFING ATTEMPT: claimed='$pluginId' verified='$verifiedPluginId'")
+            Timber.e("[FS_BRIDGE] SPOOFING ATTEMPT: claimed='$pluginId' verified='$verifiedPluginId' (token=$sessionToken)")
             return false
         }
         

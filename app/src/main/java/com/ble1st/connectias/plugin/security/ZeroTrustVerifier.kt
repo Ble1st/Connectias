@@ -21,7 +21,8 @@ import org.json.JSONObject
 @Singleton
 class ZeroTrustVerifier @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val gitHubStore: com.ble1st.connectias.plugin.store.GitHubPluginStore
+    private val gitHubStore: com.ble1st.connectias.plugin.store.GitHubPluginStore,
+    private val declarativeSignatureVerifier: DeclarativePluginSignatureVerifier
 ) {
     
     sealed class VerificationResult {
@@ -120,6 +121,18 @@ class ZeroTrustVerifier @Inject constructor(
                 Timber.w("Plugin file not found for $pluginId")
                 return VerificationResult.Suspicious(listOf("Plugin APK file not found"))
             }
+
+            // Declarative plugins: strict signature + truststore enforcement
+            if (pluginFile.extension.equals("cplug", ignoreCase = true)) {
+                return when (val r = declarativeSignatureVerifier.verifyPackage(pluginFile)) {
+                    is DeclarativePluginSignatureVerifier.Result.Ok -> VerificationResult.Success()
+                    is DeclarativePluginSignatureVerifier.Result.Suspicious -> VerificationResult.Suspicious(r.warnings)
+                    is DeclarativePluginSignatureVerifier.Result.Failed -> VerificationResult.Failed(
+                        reason = "Declarative signature verification failed",
+                        details = r.reason
+                    )
+                }
+            }
             
             val packageInfo = context.packageManager.getPackageArchiveInfo(
                 pluginFile.absolutePath,
@@ -163,6 +176,11 @@ class ZeroTrustVerifier @Inject constructor(
         return withContext(Dispatchers.IO) {
             try {
                 val pluginFile = getPluginFile(pluginId) ?: return@withContext VerificationResult.Failed("Plugin file not found")
+
+                // Declarative plugins: integrity is covered by signature (contentDigest)
+                if (pluginFile.extension.equals("cplug", ignoreCase = true)) {
+                    return@withContext VerificationResult.Success()
+                }
                 
                 // Check hash cache first (based on file modification time)
                 val fileLastModified = pluginFile.lastModified()
@@ -228,7 +246,13 @@ class ZeroTrustVerifier @Inject constructor(
      */
     private fun verifyCertificateChain(pluginId: String): VerificationResult {
         try {
-            val pluginFile = File(context.filesDir, "plugins/$pluginId.apk")
+            val pluginFile = getPluginFile(pluginId)
+                ?: return VerificationResult.Suspicious(listOf("Plugin file not found"))
+
+            // Declarative plugins: certificate chain is not applicable
+            if (pluginFile.extension.equals("cplug", ignoreCase = true)) {
+                return VerificationResult.Success()
+            }
             
             if (!pluginFile.exists()) {
                 return VerificationResult.Suspicious(listOf("Plugin APK not found"))
@@ -339,13 +363,27 @@ class ZeroTrustVerifier @Inject constructor(
         if (exactMatchFile.exists()) {
             return exactMatchFile
         }
+
+        val exactMatchCplug = File(pluginDir, "$pluginId.cplug")
+        if (exactMatchCplug.exists()) {
+            return exactMatchCplug
+        }
         
         // Fallback: search all plugin files and match by metadata
         // This handles plugins downloaded from GitHub that use different naming
         pluginDir.listFiles { file ->
-            file.extension in listOf("apk", "jar")
+            file.extension.lowercase() in listOf("apk", "jar", "cplug")
         }?.firstOrNull { file ->
             try {
+                if (file.extension.equals("cplug", ignoreCase = true)) {
+                    java.util.zip.ZipFile(file).use { zip ->
+                        val manifestEntry = zip.getEntry("plugin-manifest.json") ?: return@firstOrNull false
+                        val text = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
+                        val json = JSONObject(text)
+                        val pid = json.optString("pluginId", null)
+                        return@firstOrNull pid == pluginId
+                    }
+                }
                 val pm = context.packageManager
                 val packageInfo = pm.getPackageArchiveInfo(
                     file.absolutePath,
