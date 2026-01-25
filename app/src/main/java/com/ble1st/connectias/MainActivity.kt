@@ -2,6 +2,7 @@ package com.ble1st.connectias
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
@@ -99,6 +100,12 @@ class MainActivity : AppCompatActivity() {
     private var isMainUIInitialized = false
     private var lastHandledNavigateTo: String? = null
 
+    // Compose FAB overlay sits above plugin SurfaceView; when plugin UI is active we must hide it,
+    // otherwise it may consume gestures (e.g., scroll/drag) intended for the plugin SurfaceView.
+    private var fabOverlayComposeView: ComposeView? = null
+    private var fabOverlayZOrderHandler: android.os.Handler? = null
+    private var fabOverlayZOrderRunnable: Runnable? = null
+
     @Inject
     lateinit var moduleRegistry: ModuleRegistry
 
@@ -181,6 +188,7 @@ class MainActivity : AppCompatActivity() {
             
             // Add FAB overlay as ComposeView
             addFabOverlay()
+            setupFabOverlayVisibilityTracking()
 
             // Module Discovery
             setupModuleDiscovery()
@@ -304,8 +312,53 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        // Store references so we can temporarily disable overlay (e.g., during plugin SurfaceView UI).
+        fabOverlayComposeView = composeView
+        fabOverlayZOrderHandler = handler
+        fabOverlayZOrderRunnable = checkZOrderRunnable
         
         Timber.d("[FAB_OVERLAY] ComposeView added directly to CoordinatorLayout (simplified approach)")
+    }
+
+    private fun setupFabOverlayVisibilityTracking() {
+        // Keep FAB overlay available for normal screens, but hide it while plugin UI is active.
+        // Otherwise the full-screen ComposeView can intercept drag/scroll gestures intended for
+        // the plugin SurfaceView beneath it.
+        try {
+            supportFragmentManager.addOnBackStackChangedListener {
+                updateFabOverlayVisibility()
+            }
+            updateFabOverlayVisibility()
+        } catch (e: Exception) {
+            Timber.w(e, "Failed to setup FAB overlay visibility tracking")
+        }
+    }
+
+    private fun updateFabOverlayVisibility() {
+        val overlay = fabOverlayComposeView ?: return
+
+        val shouldShow = !isPluginFragmentActive()
+        overlay.visibility = if (shouldShow) View.VISIBLE else View.GONE
+
+        val handler = fabOverlayZOrderHandler
+        val runnable = fabOverlayZOrderRunnable
+        if (!shouldShow) {
+            if (handler != null && runnable != null) {
+                handler.removeCallbacks(runnable)
+            }
+            return
+        }
+
+        // Ensure overlay is on top (when visible).
+        overlay.bringToFront()
+        overlay.z = Float.MAX_VALUE
+        overlay.elevation = 16f * resources.displayMetrics.density
+        if (handler != null && runnable != null) {
+            // Re-start enforcement (idempotent-ish; remove then post).
+            handler.removeCallbacks(runnable)
+            handler.postDelayed(runnable, 200)
+        }
     }
     
     private fun navigateToFeature(navId: Int) {

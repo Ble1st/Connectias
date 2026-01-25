@@ -221,6 +221,7 @@ dependencies {
     // Core Modules (always included)
     // Note: Still using :core alongside new submodules during migration
     implementation(project(":core"))
+    implementation(project(":plugin-sdk"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))
     implementation(project(":core:domain"))
@@ -231,7 +232,7 @@ dependencies {
     
     // Optional Modules (included based on gradle.properties)
     // Note: All optional feature modules have been removed and migrated to plugin system
-    // Features are now loaded dynamically via the plugin-sdk-temp directory
+    // Features are now loaded dynamically via plugin packages
 
     // Room Database + SQLCipher (for DatabaseModule)
     implementation(libs.androidx.room.runtime)

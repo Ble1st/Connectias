@@ -233,15 +233,18 @@ class PluginUIHostImpl(
     }
 
     override fun dispatchTouchEvent(pluginId: String, motionEvent: MotionEventParcel): Boolean {
+        // Note: Throttle noisy MOVE logging in VirtualDisplayManager; keep this as high-level routing trace.
         Timber.d("[UI_PROCESS] Dispatch touch event for plugin: $pluginId (action: ${motionEvent.action})")
 
         return try {
             // Preferred path: inject MotionEvent into Presentation/ComposeView so Compose can resolve clicks.
             // If this works, the PluginUIFragment will emit semantic actions (e.g., button clicks) to sandbox.
-            if (virtualDisplayManager.dispatchTouchEventToPresentation(pluginId, motionEvent)) {
+            val injected = virtualDisplayManager.dispatchTouchEventToPresentation(pluginId, motionEvent)
+            if (injected) {
                 Timber.v("[UI_PROCESS] Touch event injected into Presentation for plugin: $pluginId")
                 return true
             }
+            Timber.d("[UI_PROCESS] [TOUCH_TRACE] Presentation injection returned false for plugin: $pluginId (action: ${motionEvent.action})")
 
             // Forward touch event to Sandbox Process via UI Bridge
             val uiBridge = uiCallback?.let {

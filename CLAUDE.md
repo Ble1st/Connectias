@@ -55,12 +55,8 @@ find core/src/main/jniLibs -name "*.so"
 ### Plugin Development
 
 ```bash
-# Build plugin SDK
-cd plugin-sdk-temp
-./gradlew :connectias-plugin-sdk:assembleRelease
-
-# Build example plugin
-./gradlew :connectias-plugin-barcode-example:assembleRelease
+# Build plugin SDK (integrated module)
+./gradlew :plugin-sdk:assembleRelease
 ```
 
 ### Performance & Benchmarks
@@ -204,7 +200,7 @@ Connectias/
 ├─ common/                  # Shared UI logic
 ├─ feature-settings/        # Settings feature module
 ├─ benchmark/               # Performance benchmarks
-└─ plugin-sdk-temp/         # Plugin SDK for third-party developers
+└─ plugin-sdk/              # Plugin SDK for third-party developers (Gradle module)
 ```
 
 **Dependency Injection:** Hilt/Dagger throughout
@@ -346,8 +342,7 @@ HardwareResponseParcel returned via IPC
 
 ### Plugin Development
 
-- **SDK Location:** `plugin-sdk-temp/connectias-plugin-sdk/`
-- **Example Plugin:** `plugin-sdk-temp/connectias-plugin-barcode-example/`
+- **SDK Location:** `plugin-sdk/`
 - **Plugin Manifest:** JSON file with pluginId, version, permissions, fragmentClassName
 - **Sandboxing:** Plugins run in isolated process with NO default permissions
 

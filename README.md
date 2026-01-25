@@ -85,7 +85,7 @@ Connectias/
 │   └── security/          # RASP implementation
 ├── common/                # Shared UI components and utilities
 ├── feature-settings/      # Settings module
-├── plugin-sdk-temp/       # Plugin development kit
+├── plugin-sdk/            # Plugin SDK (buildable Gradle module)
 └── benchmark/             # Performance benchmarks
 ```
 

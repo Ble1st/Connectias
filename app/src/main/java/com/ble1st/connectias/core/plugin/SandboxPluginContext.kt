@@ -41,7 +41,8 @@ class SandboxPluginContext(
     private val permissionManager: PluginPermissionManager,
     private val hardwareBridge: IHardwareBridge? = null, // Now accepts secure wrappers
     private val fileSystemBridge: IFileSystemBridge? = null, // Now accepts secure wrappers
-    private val messagingBridge: IPluginMessaging? = null // Messaging bridge for inter-plugin communication (via AIDL)
+    private val messagingBridge: IPluginMessaging? = null, // Messaging bridge for inter-plugin communication (via AIDL)
+    private val uiController: com.ble1st.connectias.plugin.ui.IPluginUIController? = null // Sandbox UI controller (Three-Process UI)
 ) : PluginContext {
     
     private val serviceRegistry = mutableMapOf<String, Any>()
@@ -105,6 +106,39 @@ class SandboxPluginContext(
             Timber.tag("[SANDBOX:$pluginId]").e(throwable, message)
         } else {
             Timber.tag("[SANDBOX:$pluginId]").e(message)
+        }
+    }
+
+    override fun getUIController(): com.ble1st.connectias.plugin.sdk.PluginUIController? {
+        val controller = uiController ?: return null
+        return object : com.ble1st.connectias.plugin.sdk.PluginUIController {
+            override fun updateUIState(state: com.ble1st.connectias.plugin.ui.UIStateParcel) {
+                controller.updateUIState(pluginId, state)
+            }
+
+            override fun showDialog(title: String, message: String, dialogType: Int) {
+                controller.showDialog(pluginId, title, message, dialogType)
+            }
+
+            override fun showToast(message: String, duration: Int) {
+                controller.showToast(pluginId, message, duration)
+            }
+
+            override fun navigateToScreen(screenId: String, args: android.os.Bundle) {
+                controller.navigateToScreen(pluginId, screenId, args)
+            }
+
+            override fun navigateBack() {
+                controller.navigateBack(pluginId)
+            }
+
+            override fun setLoading(loading: Boolean, message: String) {
+                controller.setLoading(pluginId, loading, message)
+            }
+
+            override fun sendUIEvent(event: com.ble1st.connectias.plugin.ui.UIEventParcel) {
+                controller.sendUIEvent(pluginId, event)
+            }
         }
     }
     

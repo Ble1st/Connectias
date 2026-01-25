@@ -76,7 +76,7 @@ object ModuleCatalog {
     /**
      * Optional modules that may be compiled into the app.
      * Note: All optional feature modules have been removed and migrated to plugin system.
-     * Features are now loaded dynamically via the plugin-sdk-temp directory.
+     * Features are now loaded dynamically via plugin packages.
      */
     val OPTIONAL_MODULES = listOf(
         ModuleMetadata(

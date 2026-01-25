@@ -9,9 +9,9 @@ import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.util.Base64
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -111,8 +111,14 @@ fun PluginUIComposable(
     Box(
         modifier = modifier.fillMaxSize()
     ) {
+        val scrollState = rememberScrollState()
         Column(
-            modifier = Modifier.fillMaxSize(),
+            // IMPORTANT: Make the whole plugin UI scrollable by default.
+            // Otherwise drag gestures are often not handled (handled=false) and we fall back to
+            // sandbox "touch_move" events, which cannot perform scrolling.
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState),
             verticalArrangement = Arrangement.Top
         ) {
             // Render all UI components without any padding or container
@@ -314,44 +320,47 @@ private fun RenderList(
         return
     }
 
-    LazyColumn(
+    // NOTE: We intentionally render list items in a simple Column because the root plugin UI is
+    // already scrollable. This avoids nested scroll conflicts (LazyColumn inside another scroll
+    // container) and improves gesture reliability for the VirtualDisplay touch injection.
+    Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        itemsIndexed(titles.toList()) { index, title ->
-            if (index < itemCount) {
-                val subtitle = subtitles.getOrNull(index) ?: ""
-                val itemId = itemIds.getOrNull(index) ?: index.toString()
+        val count = minOf(itemCount, titles.size)
+        for (index in 0 until count) {
+            val title = titles[index]
+            val subtitle = subtitles.getOrNull(index) ?: ""
+            val itemId = itemIds.getOrNull(index) ?: index.toString()
 
-                Card(
-                    onClick = {
-                        val action = UserActionParcel().apply {
-                            actionType = "item_selected"
-                            targetId = component.id
-                            data = Bundle().apply {
-                                putInt("position", index)
-                                putString("itemId", itemId)
-                            }
-                            timestamp = System.currentTimeMillis()
+            Card(
+                onClick = {
+                    val action = UserActionParcel().apply {
+                        actionType = "item_selected"
+                        targetId = component.id
+                        data = Bundle().apply {
+                            putInt("position", index)
+                            putString("itemId", itemId)
                         }
-                        onUserAction(action)
-                    },
-                    modifier = Modifier.fillMaxWidth()
+                        timestamp = System.currentTimeMillis()
+                    }
+                    onUserAction(action)
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (subtitle.isNotEmpty()) {
                         Text(
-                            text = title,
-                            style = MaterialTheme.typography.bodyLarge
+                            text = subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        if (subtitle.isNotEmpty()) {
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
                 }
             }

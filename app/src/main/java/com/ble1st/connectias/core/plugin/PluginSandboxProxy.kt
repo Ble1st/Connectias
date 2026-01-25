@@ -38,15 +38,11 @@ class PluginSandboxProxy(
     private var sandboxService: IPluginSandbox? = null
     private var hardwareBridgeService: IHardwareBridge? = null
     private var messagingBridgeService: IPluginMessaging? = null
-    // TODO Phase 3/4: Re-implement UI bridge for three-process architecture
-    // private var uiBridge: com.ble1st.connectias.core.plugin.ui.UIBridgeImpl? = null
     private var fileSystemBridgeConnection: ServiceConnection? = null
     private val isConnected = AtomicBoolean(false)
     private val isHardwareBridgeConnected = AtomicBoolean(false)
     private val isFileSystemBridgeConnected = AtomicBoolean(false)
     private val isMessagingBridgeConnected = AtomicBoolean(false)
-    // TODO Phase 3/4: Re-enable UI bridge connection tracking
-    // private val isUIBridgeConnected = AtomicBoolean(false)
     private val connectionLock = Any()
     private val hardwareBridgeLock = Any()
     private val messagingBridgeLock = Any()
@@ -203,15 +199,6 @@ class PluginSandboxProxy(
                 Timber.w("Messaging bridge connection failed - plugins will have limited messaging capabilities")
             }
 
-            // TODO Phase 3/4: Re-enable UI bridge setup for three-process architecture
-            /*
-            // Setup UI Bridge (runs in main process, no service binding needed)
-            val uiBridgeConnected = setupUIBridge()
-            if (!uiBridgeConnected) {
-                Timber.w("UI bridge setup failed - plugin UI isolation will not be available")
-            }
-            */
-
             Timber.i("Successfully connected to plugin sandbox")
             Result.success(Unit)
             
@@ -340,55 +327,6 @@ class PluginSandboxProxy(
             false
         }
     }
-
-    // TODO Phase 3/4: Re-implement UI bridge setup for three-process architecture
-    /*
-    /**
-     * Setup UI Bridge for isolated UI rendering
-     *
-     * Unlike other bridges, the UI bridge runs in the main process
-     * and doesn't require service binding.
-     */
-    suspend fun setupUIBridge(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            if (isUIBridgeConnected.get()) {
-                return@withContext true
-            }
-
-            // Create UI bridge implementation
-            val bridge = com.ble1st.connectias.core.plugin.ui.UIBridgeImpl(context)
-            uiBridge = bridge
-
-            // Pass UI bridge to sandbox
-            try {
-                val bridgeBinder = bridge.asBinder()
-                sandboxService?.setUIBridge(bridgeBinder)
-                isUIBridgeConnected.set(true)
-                Timber.i("UI bridge set in sandbox")
-            } catch (e: Exception) {
-                Timber.e(e, "Failed to set UI bridge in sandbox")
-                return@withContext false
-            }
-
-            true
-
-        } catch (e: Exception) {
-            Timber.e(e, "Failed to setup UI bridge")
-            false
-        }
-    }
-
-    /**
-     * Get UI bridge interface for direct method calls
-     */
-    fun getUIBridge(): com.ble1st.connectias.core.plugin.ui.UIBridgeImpl? {
-        return if (isUIBridgeConnected.get()) {
-            uiBridge
-        } else {
-            null
-        }
-    }
-    */
 
     /**
      * Connects the file system bridge to the sandbox
@@ -564,16 +502,6 @@ class PluginSandboxProxy(
                 isMessagingBridgeConnected.set(false)
                 Timber.i("Disconnected from messaging bridge")
             }
-
-            // TODO Phase 3/4: Re-enable UI bridge cleanup for three-process architecture
-            /*
-            if (isUIBridgeConnected.get()) {
-                uiBridge?.cleanup()
-                uiBridge = null
-                isUIBridgeConnected.set(false)
-                Timber.i("Disconnected UI bridge")
-            }
-            */
         } catch (e: Exception) {
             Timber.e(e, "Error disconnecting from sandbox")
         }

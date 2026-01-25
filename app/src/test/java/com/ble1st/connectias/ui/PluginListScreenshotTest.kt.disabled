@@ -114,7 +114,7 @@ private fun PluginListScreenPreview() {
     androidx.compose.material3.Surface {
         androidx.compose.foundation.layout.Column {
             androidx.compose.material3.Text("Plugin Liste - Platzhalter")
-            androidx.compose.material3.Text("Implementiere echte UI in plugin-sdk-temp")
+            androidx.compose.material3.Text("Implementiere echte UI im integrierten plugin-sdk")
         }
     }
 }

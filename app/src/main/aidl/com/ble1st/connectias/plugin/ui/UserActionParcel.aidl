@@ -4,17 +4,9 @@
 package com.ble1st.connectias.plugin.ui;
 
 /**
- * Describes a user action from the UI Process.
+ * AIDL stub for transitive Parcelable type.
  *
- * Three-Process Architecture:
- * - UI Process captures user input (click, swipe, text input, etc.)
- * - Serialized into UserActionParcel
- * - Sent to Sandbox via IPluginUIBridge.onUserAction()
- * - Sandbox processes action and updates state
+ * The concrete Parcelable implementation is provided by the :plugin-sdk module.
  */
-parcelable UserActionParcel {
-    String actionType;         // Action type: "click", "longpress", "swipe", etc.
-    String targetId;           // ID of the target component
-    android.os.Bundle data;    // Action-specific data
-    long timestamp;            // Timestamp of action
-}
+parcelable UserActionParcel;
+

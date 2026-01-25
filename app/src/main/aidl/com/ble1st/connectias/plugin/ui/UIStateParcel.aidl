@@ -3,16 +3,10 @@
 
 package com.ble1st.connectias.plugin.ui;
 
-import com.ble1st.connectias.plugin.ui.UIComponentParcel;
-
 /**
- * Describes the complete UI state of a plugin screen.
- * Sent from Sandbox Process to UI Process.
+ * AIDL stub for transitive Parcelable type.
+ *
+ * The concrete Parcelable implementation is provided by the :plugin-sdk module.
  */
-parcelable UIStateParcel {
-    String screenId;
-    String title;
-    android.os.Bundle data;
-    UIComponentParcel[] components;
-    long timestamp;
-}
+parcelable UIStateParcel;
+

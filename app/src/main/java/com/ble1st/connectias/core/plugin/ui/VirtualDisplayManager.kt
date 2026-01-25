@@ -42,6 +42,7 @@ class VirtualDisplayManager(private val context: Context) {
     private val creationLocks = ConcurrentHashMap<String, Any>()
     
     private val handler = Handler(Looper.getMainLooper())
+    private val debugTouchCounter = ConcurrentHashMap<String, Int>()
 
     /**
      * Information about a VirtualDisplay for a plugin.
@@ -460,6 +461,28 @@ class VirtualDisplayManager(private val context: Context) {
         val info = virtualDisplays[pluginId]
         val presentation = info?.presentation ?: return false
 
+        // Lightweight, throttled tracing for scroll/drag debugging.
+        // Scroll requires correct DOWN->MOVE sequencing; this helps confirm injection is happening.
+        try {
+            val count = (debugTouchCounter[pluginId] ?: 0) + 1
+            debugTouchCounter[pluginId] = count
+            val action = motionEvent.action
+            val isMove = action == MotionEvent.ACTION_MOVE
+            if (!isMove || count % 20 == 0) {
+                Timber.d(
+                    "[UI_PROCESS] [TOUCH_TRACE] plugin=%s action=%d x=%.1f y=%.1f t=%d down=%d",
+                    pluginId,
+                    action,
+                    motionEvent.x,
+                    motionEvent.y,
+                    motionEvent.eventTime,
+                    motionEvent.downTime
+                )
+            }
+        } catch (_: Exception) {
+            // Never break touch dispatch due to debug logging.
+        }
+
         // Always dispatch on the main thread.
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return dispatchOnMainThread(pluginId, presentation, motionEvent)
@@ -519,7 +542,19 @@ class VirtualDisplayManager(private val context: Context) {
             )
 
             try {
-                decor.dispatchTouchEvent(event)
+                val handled = decor.dispatchTouchEvent(event)
+                val action = motionEvent.action
+                val isMove = action == MotionEvent.ACTION_MOVE
+                val count = debugTouchCounter[pluginId] ?: 0
+                if (!isMove || count % 20 == 0) {
+                    Timber.d(
+                        "[UI_PROCESS] [TOUCH_TRACE] injected handled=%s plugin=%s action=%d",
+                        handled,
+                        pluginId,
+                        action
+                    )
+                }
+                handled
             } finally {
                 event.recycle()
             }

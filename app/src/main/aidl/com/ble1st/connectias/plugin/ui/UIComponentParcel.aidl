@@ -3,19 +3,10 @@
 
 package com.ble1st.connectias.plugin.ui;
 
-import com.ble1st.connectias.plugin.ui.UIComponentParcel;
-
 /**
- * Describes a single UI component (button, text field, list, etc.).
+ * AIDL stub for transitive Parcelable type.
  *
- * Three-Process Architecture:
- * - Sandbox defines components via PluginUIBuilder DSL
- * - Serialized into UIComponentParcel
- * - UI Process renders components with Jetpack Compose
+ * The concrete Parcelable implementation is provided by the :plugin-sdk module.
  */
-parcelable UIComponentParcel {
-    String id;                 // Unique component ID
-    String type;               // Component type: "button", "textfield", "list", etc.
-    android.os.Bundle properties;  // Component-specific properties
-    UIComponentParcel[] children;  // Nested components (for layout containers)
-}
+parcelable UIComponentParcel;
+

@@ -43,12 +43,12 @@
 - ✅ `app/src/main/java/com/ble1st/connectias/core/plugin/PluginUIProcessProxy.kt`
 - ✅ `app/src/main/java/com/ble1st/connectias/core/plugin/PluginSandboxProxy.kt` (added setUIController method)
 - ✅ `app/src/main/java/com/ble1st/connectias/plugin/PluginManagerSandbox.kt` (Three-Process integration)
-- ✅ `plugin-sdk-temp/connectias-plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/ui/PluginUIBuilder.kt`
-- ✅ `plugin-sdk-temp/connectias-plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/ui/UserAction.kt`
-- ✅ `plugin-sdk-temp/connectias-plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/IPlugin.kt` (extended with UI methods)
+- ✅ `plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/ui/PluginUIBuilder.kt`
+- ✅ `plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/ui/UILifecycleEvent.kt`
+- ✅ `plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/sdk/IPlugin.kt` (extended with UI methods)
 - ✅ `app/src/main/java/com/ble1st/connectias/plugin/sdk/IPlugin.kt` (extended with UI methods)
 - ✅ `app/src/main/java/com/ble1st/connectias/core/plugin/ui/PluginUIComposable.kt` (Complete Compose Renderer)
-- ✅ `plugin-sdk-temp/connectias-plugin-test-ui/src/main/kotlin/com/ble1st/connectias/plugin/test/TestUIPlugin.kt`
+// Note: Example test plugin was removed from repo (sdk is integrated).
 - ✅ `app/src/test/java/com/ble1st/connectias/core/plugin/ui/PluginUIStateTest.kt`
 - ✅ `app/src/androidTest/java/com/ble1st/connectias/core/plugin/ui/ThreeProcessUIIntegrationTest.kt`
 - ✅ `app/src/main/java/com/ble1st/connectias/core/plugin/ui/UIStateDiffer.kt` (State diffing with 60-80% IPC reduction)
@@ -1100,7 +1100,7 @@ Erweitere Plugin SDK um UI-Builder-API.
 
 ### 5.1 PluginUIBuilder.kt
 
-**Datei:** `plugin-sdk-temp/connectias-plugin-sdk/src/main/java/com/ble1st/connectias/plugin/sdk/ui/PluginUIBuilder.kt`
+**Datei:** `plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/ui/PluginUIBuilder.kt`
 
 ```kotlin
 package com.ble1st.connectias.plugin.sdk.ui
@@ -1267,7 +1267,7 @@ fun buildPluginUI(screenId: String, builder: PluginUIBuilder.() -> Unit): UIStat
 
 ### 5.2 Plugin Interface Erweiterung
 
-**Datei:** `plugin-sdk-temp/connectias-plugin-sdk/src/main/java/com/ble1st/connectias/plugin/sdk/IPlugin.kt`
+**Datei:** `plugin-sdk/src/main/kotlin/com/ble1st/connectias/plugin/sdk/IPlugin.kt`
 
 **Änderungen:**
 
@@ -1503,7 +1503,7 @@ Teste die Drei-Prozess-Architektur mit echten Plugins.
 
 ### 7.1 Test-Plugin erstellen
 
-**Datei:** `plugin-sdk-temp/test-three-process-plugin/TestUIPlugin.kt`
+**Datei:** `(removed) test-three-process-plugin/TestUIPlugin.kt`
 
 ```kotlin
 class TestUIPlugin : IPlugin {

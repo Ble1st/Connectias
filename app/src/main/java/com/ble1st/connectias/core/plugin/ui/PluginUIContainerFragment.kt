@@ -20,6 +20,7 @@ import com.ble1st.connectias.plugin.ui.MotionEventParcel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -47,6 +48,13 @@ class PluginUIContainerFragment : Fragment() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastSentWidth: Int = -1
     private var lastSentHeight: Int = -1
+
+    /**
+     * Touch events must be forwarded in-order. Dispatching via coroutines that hop to IO can
+     * reorder events and break gestures like scroll/drag in Compose.
+     */
+    private val touchEventQueue = Channel<MotionEventParcel>(capacity = Channel.BUFFERED)
+    private var touchDispatchJob: kotlinx.coroutines.Job? = null
 
     /**
      * Gets the plugin ID for this fragment.
@@ -86,6 +94,22 @@ class PluginUIContainerFragment : Fragment() {
         pluginId = arguments?.getString(ARG_PLUGIN_ID)
         containerId = arguments?.getInt(ARG_CONTAINER_ID, -1) ?: -1
         Timber.i("[MAIN] PluginUIContainerFragment created for plugin: $pluginId (containerId: $containerId)")
+
+        // Start a single consumer that forwards touch events sequentially.
+        // This prevents gesture breakage caused by concurrent IPC calls.
+        touchDispatchJob = scope.launch {
+            for (event in touchEventQueue) {
+                val currentPluginId = this@PluginUIContainerFragment.pluginId
+                val proxy = this@PluginUIContainerFragment.uiProcessProxy
+                if (currentPluginId == null || proxy == null) continue
+
+                try {
+                    proxy.dispatchTouchEvent(currentPluginId, event)
+                } catch (e: Exception) {
+                    Timber.e(e, "[MAIN] Failed to dispatch touch event for plugin: $currentPluginId")
+                }
+            }
+        }
     }
 
     override fun onCreateView(
@@ -323,6 +347,14 @@ class PluginUIContainerFragment : Fragment() {
         
         // Notify UI Process about destruction
         notifyUILifecycle("onDestroy")
+
+        // Stop touch forwarding.
+        try {
+            touchEventQueue.close()
+            touchDispatchJob?.cancel()
+        } catch (e: Exception) {
+            Timber.w(e, "[MAIN] Failed to stop touch dispatch job cleanly")
+        }
         
         // Cleanup
         surfaceView = null
@@ -345,12 +377,13 @@ class PluginUIContainerFragment : Fragment() {
      * @return True if event was handled
      */
     private fun handleTouchEvent(event: MotionEvent): Boolean {
-        val pluginId = this.pluginId ?: return false
-        val proxy = uiProcessProxy ?: return false
+        // We always "handle" the event for the SurfaceView, and forward it to UI Process.
+        // If proxy/pluginId are not ready yet, we still consume to prevent unexpected propagation.
 
         // Convert MotionEvent to MotionEventParcel
         val motionEventParcel = MotionEventParcel().apply {
-            action = event.action
+            // Use actionMasked to avoid pointer index bits corrupting ACTION_* values.
+            action = event.actionMasked
             x = event.x
             y = event.y
             eventTime = event.eventTime
@@ -365,15 +398,34 @@ class PluginUIContainerFragment : Fragment() {
             flags = event.flags
         }
 
-        // Forward to UI Process asynchronously
-        scope.launch {
-            try {
-                val consumed = proxy.dispatchTouchEvent(pluginId, motionEventParcel)
-                if (consumed) {
-                    Timber.v("[MAIN] Touch event consumed by plugin: $pluginId")
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "[MAIN] Failed to dispatch touch event for plugin: $pluginId")
+        // Debug trace (throttled): confirm we actually receive MOVE events in main process.
+        try {
+            val action = motionEventParcel.action
+            if (action != MotionEvent.ACTION_MOVE || (motionEventParcel.eventTime % 100L) == 0L) {
+                Timber.d(
+                    "[MAIN] [TOUCH_TRACE] plugin=%s action=%d x=%.1f y=%.1f t=%d",
+                    pluginId,
+                    action,
+                    motionEventParcel.x,
+                    motionEventParcel.y,
+                    motionEventParcel.eventTime
+                )
+            }
+        } catch (_: Exception) {
+            // Never block touch due to debug logging.
+        }
+
+        // Enqueue for sequential forwarding. If the buffer is full, drop MOVE events (best effort),
+        // but never block the UI thread.
+        val offered = touchEventQueue.trySend(motionEventParcel)
+        if (offered.isFailure) {
+            if (motionEventParcel.action == MotionEvent.ACTION_MOVE) {
+                // Drop noisy MOVE events under pressure; gestures still work with subsequent moves.
+                return true
+            }
+            scope.launch {
+                // For DOWN/UP/CANCEL ensure delivery.
+                touchEventQueue.send(motionEventParcel)
             }
         }
 

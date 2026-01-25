@@ -33,6 +33,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 // Core Modules (always included)
 // ============================================================================ 
 include(":app")
+include(":plugin-sdk")
 include(":common")
 include(":core")
 include(":core:model")
@@ -52,7 +53,7 @@ include(":benchmark")
 // Optional Modules (included based on gradle.properties)
 // ============================================================================ 
 // Note: All optional feature modules have been migrated to the plugin system.
-// Features are now loaded dynamically via the plugin-sdk-temp directory.
+// Features are now loaded dynamically via plugin packages.
 // The following conditional includes are kept for reference but disabled:
 
 // val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
@@ -65,5 +66,4 @@ include(":benchmark")
 // ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
 // ============================================================================
-// Note: The test plugin has been replaced by the plugin-sdk-temp structure
-// Build plugins in plugin-sdk-temp/connectias-plugin-sdk instead
+// Note: The test plugin has been replaced by the integrated :plugin-sdk module.

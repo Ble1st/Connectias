@@ -32,7 +32,8 @@ class RestrictedClassLoader(
 ) : ClassLoader(filteredParent) {
 
     // Delegate to InMemoryDexClassLoader for actual DEX loading
-    private val delegate = InMemoryDexClassLoader(dexBuffers, filteredParent)
+    private val filteredParentRef: FilteredParentClassLoader = filteredParent
+    private val delegate = InMemoryDexClassLoader(dexBuffers, filteredParentRef)
 
     // Track loaded classes for security auditing
     private val loadedClasses = mutableSetOf<String>()
@@ -129,9 +130,12 @@ class RestrictedClassLoader(
      * @throws ClassNotFoundException if class is not found in plugin DEX
      */
     fun loadClassFromDex(name: String): Class<*> {
-        // Create a temporary InMemoryDexClassLoader with null parent to bypass filtering
-        // This allows loading plugin's own classes directly from DEX
-        val directLoader = InMemoryDexClassLoader(dexBuffers, null)
+        // Load plugin classes directly from DEX, but keep the filtered parent so that
+        // SDK dependencies (e.g., com.ble1st.connectias.plugin.sdk.IPlugin) can be resolved.
+        //
+        // IMPORTANT: Using a null parent breaks dependency resolution and can surface as
+        // ClassNotFoundException/NoClassDefFoundError while verifying the plugin class.
+        val directLoader = InMemoryDexClassLoader(dexBuffers, filteredParentRef)
         
         try {
             val clazz = directLoader.loadClass(name)
