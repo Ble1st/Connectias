@@ -5,9 +5,6 @@ import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import org.junit.Test
 import org.junit.Assert.*
 import org.mockito.Mockito.*
-import org.mockito.kotlin.any
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.times
 
 /**
  * Integration tests for rate limiting in PluginSandboxProxy
@@ -46,13 +43,13 @@ class PluginSandboxProxyRateLimitTest {
         )
         
         verify(auditManager, times(1)).logSecurityEvent(
-            any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            any(),
-            any()
+            SecurityAuditManager.SecurityEventType.API_RATE_LIMITING,
+            SecurityAuditManager.SecuritySeverity.MEDIUM,
+            "PluginSandboxProxy",
+            "test-plugin",
+            "Rate limit exceeded",
+            emptyMap(),
+            null
         )
     }
 }

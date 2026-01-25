@@ -5,6 +5,7 @@ package com.ble1st.connectias
 
 import android.app.Application
 import android.os.Looper
+import com.ble1st.connectias.analytics.collector.PluginAnalyticsCollector
 import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
 import com.ble1st.connectias.performance.StrictModeConfig
 import com.ble1st.connectias.plugin.PluginManagerSandbox
@@ -32,14 +33,16 @@ class ConnectiasApplication : Application() {
     }
     
     private fun getCurrentProcessName(): String {
+        // IMPORTANT: Use Application.getProcessName() which is reliable for multi-process apps.
         return try {
-            val pid = android.os.Process.myPid()
-            val manager = getSystemService(android.app.ActivityManager::class.java)
-            manager?.runningAppProcesses
-                ?.find { it.pid == pid }
-                ?.processName ?: ""
-        } catch (e: Exception) {
-            ""
+            Application.getProcessName()
+        } catch (_: Exception) {
+            // Fallback: /proc/self/cmdline (best-effort).
+            try {
+                java.io.File("/proc/self/cmdline").readText().trim()
+            } catch (_: Exception) {
+                ""
+            }
         }
     }
     
@@ -80,6 +83,16 @@ class ConnectiasApplication : Application() {
         
         // Set up global uncaught exception handler for plugin threads
         setupPluginExceptionHandler()
+
+        // Start analytics collector (main process only).
+        try {
+            EntryPointAccessors.fromApplication(
+                this,
+                AnalyticsEntryPoint::class.java
+            ).pluginAnalyticsCollector().start()
+        } catch (e: Exception) {
+            Timber.w(e, "[ANALYTICS] Failed to start analytics collector")
+        }
         
         Timber.d("ConnectiasApplication initialized")
     }
@@ -91,6 +104,15 @@ class ConnectiasApplication : Application() {
     @InstallIn(SingletonComponent::class)
     interface PluginManagerEntryPoint {
         fun pluginManager(): PluginManagerSandbox
+    }
+
+    /**
+     * Hilt EntryPoint for starting the analytics collector.
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AnalyticsEntryPoint {
+        fun pluginAnalyticsCollector(): PluginAnalyticsCollector
     }
     
     /**

@@ -33,13 +33,9 @@ class SandboxApplication : Application() {
     
     private fun getCurrentProcessName(): String {
         return try {
-            val pid = android.os.Process.myPid()
-            val manager = getSystemService(android.app.ActivityManager::class.java)
-            manager?.runningAppProcesses
-                ?.find { it.pid == pid }
-                ?.processName ?: "unknown"
-        } catch (e: Exception) {
-            "unknown (${e.message})"
+            Application.getProcessName()
+        } catch (_: Exception) {
+            "unknown"
         }
     }
 }

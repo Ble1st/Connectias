@@ -121,6 +121,14 @@ interface IPluginSandbox {
      * @param fileSystemBridge IBinder from FileSystemBridgeService
      */
     void setFileSystemBridge(IBinder fileSystemBridge);
+
+    /**
+     * Set logging bridge interface for plugin debugging.
+     * Sandbox/UI processes can send logs to main process for DB persistence + Logcat.
+     *
+     * @param loggingBridge IBinder from IPluginLogBridge implementation (main process)
+     */
+    void setLoggingBridge(IBinder loggingBridge);
     
     /**
      * Request permission asynchronously for a plugin

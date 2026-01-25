@@ -2,6 +2,9 @@ package com.ble1st.connectias.plugin.messaging
 
 import org.junit.Test
 import org.junit.Assert.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
 
@@ -64,26 +67,28 @@ class PluginMessageBrokerTest {
             payload = "Hello".toByteArray(),
             requestId = UUID.randomUUID().toString()
         )
-        
-        // Send message in background
-        val responseDeferred = kotlinx.coroutines.GlobalScope.async {
-            broker.sendMessage(message)
+
+        runBlocking {
+            // Send message in background
+            val responseDeferred = async {
+                broker.sendMessage(message)
+            }
+
+            // Receive message
+            val receivedMessages = broker.receiveMessages("receiver")
+            assertEquals(1, receivedMessages.size)
+            assertEquals(message.requestId, receivedMessages[0].requestId)
+
+            // Send response
+            val response = MessageResponse.success(message.requestId, "Response".toByteArray())
+            val responseSent = broker.sendResponse(response)
+            assertTrue(responseSent)
+
+            // Wait for response
+            val finalResponse = responseDeferred.await()
+            assertTrue(finalResponse.success)
+            assertEquals("Response", String(finalResponse.payload))
         }
-        
-        // Receive message
-        val receivedMessages = broker.receiveMessages("receiver")
-        assertEquals(1, receivedMessages.size)
-        assertEquals(message.requestId, receivedMessages[0].requestId)
-        
-        // Send response
-        val response = MessageResponse.success(message.requestId, "Response".toByteArray())
-        val responseSent = broker.sendResponse(response)
-        assertTrue(responseSent)
-        
-        // Wait for response
-        val finalResponse = runBlocking { responseDeferred.await() }
-        assertTrue(finalResponse.success)
-        assertEquals("Response", String(finalResponse.payload))
     }
     
     @Test
@@ -188,19 +193,25 @@ class PluginMessageBrokerTest {
                 requestId = UUID.randomUUID().toString()
             )
         }
-        
-        messages.forEach { message ->
-            kotlinx.coroutines.GlobalScope.launch {
-                broker.sendMessage(message)
+
+        runBlocking {
+            val jobs = messages.map { message ->
+                launch {
+                    // This will enqueue first, then wait for timeout (no response in this test).
+                    broker.sendMessage(message)
+                }
             }
+
+            // Wait a bit for messages to be queued
+            delay(100)
+
+            // Receive all messages
+            val received = broker.receiveMessages("receiver")
+            assertEquals(5, received.size)
+
+            // Cleanup
+            jobs.forEach { it.cancel() }
         }
-        
-        // Wait a bit for messages to be queued
-        Thread.sleep(100)
-        
-        // Receive all messages
-        val received = broker.receiveMessages("receiver")
-        assertEquals(5, received.size)
     }
     
     @Test

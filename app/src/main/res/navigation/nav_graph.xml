@@ -81,4 +81,22 @@
         android:name="com.ble1st.connectias.ui.plugin.security.SecurityAuditDashboardFragment"
         android:label="Security Audit Dashboard" />
 
+    <!-- Central Security Dashboard (All Plugins) -->
+    <fragment
+        android:id="@+id/nav_security_dashboard"
+        android:name="com.ble1st.connectias.ui.plugin.security.SecurityDashboardFragment"
+        android:label="Security Dashboard" />
+
+    <!-- Central Privacy Dashboard (All Plugins) -->
+    <fragment
+        android:id="@+id/nav_privacy_dashboard"
+        android:name="com.ble1st.connectias.ui.plugin.privacy.PrivacyDashboardFragment"
+        android:label="Privacy Dashboard" />
+
+    <!-- Central Plugin Analytics Dashboard (All Plugins) -->
+    <fragment
+        android:id="@+id/nav_plugin_analytics_dashboard"
+        android:name="com.ble1st.connectias.ui.plugin.analytics.PluginAnalyticsDashboardFragment"
+        android:label="Plugin Analytics" />
+
 </navigation>

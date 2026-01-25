@@ -57,9 +57,14 @@ object NetworkPolicyModule {
     @Singleton
     fun providePluginSandboxProxy(
         @dagger.hilt.android.qualifiers.ApplicationContext context: Context,
-        auditManager: SecurityAuditManager
+        auditManager: SecurityAuditManager,
+        pluginLogBridge: com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
     ): com.ble1st.connectias.core.plugin.PluginSandboxProxy {
-        return com.ble1st.connectias.core.plugin.PluginSandboxProxy(context, auditManager)
+        return com.ble1st.connectias.core.plugin.PluginSandboxProxy(
+            context = context,
+            auditManager = auditManager,
+            pluginLogBridge = pluginLogBridge
+        )
     }
     
     @Provides

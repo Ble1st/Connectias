@@ -6,6 +6,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -36,12 +38,8 @@ class SecurityAuditManager @Inject constructor(
     
     private fun getCurrentProcessName(): String {
         return try {
-            val pid = android.os.Process.myPid()
-            val manager = context.getSystemService(android.app.ActivityManager::class.java)
-            manager?.runningAppProcesses
-                ?.find { it.pid == pid }
-                ?.processName ?: ""
-        } catch (e: Exception) {
+            android.app.Application.getProcessName()
+        } catch (_: Exception) {
             ""
         }
     }
@@ -142,6 +140,17 @@ class SecurityAuditManager @Inject constructor(
     private val _recentEvents = MutableStateFlow<List<SecurityAuditEvent>>(emptyList())
     val recentEvents: Flow<List<SecurityAuditEvent>> = _recentEvents.asStateFlow()
     
+    private val _eventStream = MutableSharedFlow<SecurityAuditEvent>(
+        replay = 0,
+        extraBufferCapacity = 256
+    )
+    /**
+     * Stream of newly logged security events (main process only).
+     *
+     * Intended for analytics collectors; events are emitted best-effort.
+     */
+    val eventStream: Flow<SecurityAuditEvent> = _eventStream.asSharedFlow()
+
     private val _securityStats = MutableStateFlow(SecurityStatistics())
     val securityStats: Flow<SecurityStatistics> = _securityStats.asStateFlow()
     
@@ -244,6 +253,9 @@ class SecurityAuditManager @Inject constructor(
         
         eventQueue.offer(event)
         eventCounter.incrementAndGet()
+
+        // Best-effort emit for analytics collectors.
+        _eventStream.tryEmit(event)
         
         // Log to Timber based on severity
         when (severity) {

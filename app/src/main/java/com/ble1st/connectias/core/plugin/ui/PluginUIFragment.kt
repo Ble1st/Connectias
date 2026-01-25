@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
+import com.ble1st.connectias.analytics.ui.PluginUiActionLogger
 import com.ble1st.connectias.plugin.ui.IPluginUIBridge
 import com.ble1st.connectias.plugin.ui.UIEventParcel
 import com.ble1st.connectias.plugin.ui.UIStateParcel
@@ -271,6 +272,13 @@ class PluginUIFragment : Fragment() {
         Timber.d("[UI_PROCESS] User action: ${action.actionType} on ${action.targetId}")
 
         try {
+            // Record for admin analytics (best-effort).
+            PluginUiActionLogger.record(
+                context = requireContext(),
+                pluginId = pluginId,
+                actionType = action.actionType ?: "unknown",
+                targetId = action.targetId ?: "unknown"
+            )
             uiBridge?.onUserAction(pluginId, action)
         } catch (e: Exception) {
             Timber.e(e, "[UI_PROCESS] Failed to send user action to sandbox")

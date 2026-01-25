@@ -283,6 +283,37 @@ object PluginDataLeakageProtector {
             }
         }
     }
+
+    /**
+     * Returns a snapshot list of data access events for a plugin.
+     *
+     * This is intended for admin dashboards and export functionality.
+     */
+    fun getDataAccessHistory(pluginId: String): List<DataAccessEvent> {
+        return pluginDataAccess[pluginId]?.toList() ?: emptyList()
+    }
+
+    /**
+     * Returns a snapshot list of all data access events across all plugins.
+     */
+    fun getAllDataAccessHistory(): Map<String, List<DataAccessEvent>> {
+        return pluginDataAccess.mapValues { (_, events) -> events.toList() }
+    }
+
+    /**
+     * Returns a snapshot list of all data access events within a time window across all plugins.
+     */
+    fun getDataAccessInTimeRange(startTimeMillis: Long, endTimeMillis: Long): List<Pair<String, DataAccessEvent>> {
+        val result = mutableListOf<Pair<String, DataAccessEvent>>()
+        pluginDataAccess.forEach { (pluginId, events) ->
+            events.forEach { event ->
+                if (event.timestamp in startTimeMillis..endTimeMillis) {
+                    result.add(pluginId to event)
+                }
+            }
+        }
+        return result
+    }
     
     private fun isExternalDomain(url: String): Boolean {
         return !url.contains("localhost") && 

@@ -22,6 +22,9 @@ import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
 import com.ble1st.connectias.core.plugin.security.FilteredParentClassLoader
 import com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
+import com.ble1st.connectias.core.plugin.logging.PluginDebugLoggingTree
+import com.ble1st.connectias.core.plugin.logging.PluginExecutionContext
+import com.ble1st.connectias.core.plugin.logging.PluginLogBridgeHolder
 import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
 import android.os.ParcelFileDescriptor
 import android.os.Binder
@@ -29,6 +32,7 @@ import dalvik.system.DexClassLoader
 import dalvik.system.DexFile
 import dalvik.system.InMemoryDexClassLoader
 import timber.log.Timber
+import com.ble1st.connectias.plugin.logging.IPluginLogBridge
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import com.ble1st.connectias.plugin.sdk.IPlugin
@@ -55,6 +59,7 @@ class PluginSandboxService : Service() {
     private var hardwareBridge: IHardwareBridge? = null
     private var fileSystemBridge: IFileSystemBridge? = null
     private var permissionCallback: IPermissionCallback? = null
+    private var loggingBridge: IPluginLogBridge? = null
 
     // Messaging bridge for inter-plugin communication (via AIDL from main process)
     private var messagingBridge: com.ble1st.connectias.plugin.messaging.IPluginMessaging? = null
@@ -297,7 +302,9 @@ class PluginSandboxService : Service() {
             
             // Call onUnload
             try {
-                pluginInfo.instance.onUnload()
+                PluginExecutionContext.withPlugin(pluginId) {
+                    pluginInfo.instance.onUnload()
+                }
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Plugin onUnload failed")
             }
@@ -360,7 +367,9 @@ class PluginSandboxService : Service() {
                 ?: return PluginResultParcel.failure("Plugin not found: $pluginId")
             
             val disableSuccess = try {
-                pluginInfo.instance.onDisable()
+                PluginExecutionContext.withPlugin(pluginId) {
+                    pluginInfo.instance.onDisable()
+                }
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Plugin onDisable failed")
                 false
@@ -435,7 +444,9 @@ class PluginSandboxService : Service() {
                 
                 // Call onLoad
                 val loadSuccess = try {
-                    pluginInstance.onLoad(pluginContext)
+                    PluginExecutionContext.withPlugin(metadata.pluginId) {
+                        pluginInstance.onLoad(pluginContext)
+                    }
                 } catch (e: Exception) {
                     Timber.e(e, "[SANDBOX] Plugin onLoad failed")
                     false
@@ -476,7 +487,9 @@ class PluginSandboxService : Service() {
                     ?: return PluginResultParcel.failure("Plugin not found: $pluginId")
                 
                 val enableSuccess = try {
-                    pluginInfo.instance.onEnable()
+                    PluginExecutionContext.withPlugin(pluginId) {
+                        pluginInfo.instance.onEnable()
+                    }
                 } catch (e: Exception) {
                     Timber.e(e, "[SANDBOX] Plugin onEnable failed")
                     false
@@ -643,7 +656,9 @@ class PluginSandboxService : Service() {
                 
                 // Step 9: Initialize plugin with onLoad
                 val loadSuccess = try {
-                    pluginInstance.onLoad(context)
+                    PluginExecutionContext.withPlugin(pluginId) {
+                        pluginInstance.onLoad(context)
+                    }
                 } catch (e: Exception) {
                     Timber.e(e, "[SANDBOX] Plugin onLoad failed")
                     false
@@ -655,7 +670,9 @@ class PluginSandboxService : Service() {
                 
                 // Step 10: Enable plugin
                 val enableSuccess = try {
-                    pluginInstance.onEnable()
+                    PluginExecutionContext.withPlugin(pluginId) {
+                        pluginInstance.onEnable()
+                    }
                 } catch (e: Exception) {
                     Timber.e(e, "[SANDBOX] Plugin onEnable failed")
                     false
@@ -714,6 +731,23 @@ class PluginSandboxService : Service() {
                 Timber.i("[SANDBOX] File system bridge set")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Failed to set file system bridge")
+            }
+        }
+
+        override fun setLoggingBridge(loggingBridge: IBinder) {
+            try {
+                val bridge = IPluginLogBridge.Stub.asInterface(loggingBridge)
+                this@PluginSandboxService.loggingBridge = bridge
+                PluginLogBridgeHolder.bridge = bridge
+
+                if (PluginLogBridgeHolder.isTreeInstalled.compareAndSet(false, true)) {
+                    Timber.plant(PluginDebugLoggingTree())
+                    Timber.i("[SANDBOX] Plugin debug logging tree installed")
+                }
+
+                Timber.i("[SANDBOX] Logging bridge set")
+            } catch (e: Exception) {
+                Timber.e(e, "[SANDBOX] Failed to set logging bridge")
             }
         }
         

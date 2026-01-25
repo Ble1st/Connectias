@@ -4,6 +4,7 @@
 package com.ble1st.connectias.core.plugin
 
 import android.os.Bundle
+import com.ble1st.connectias.core.plugin.logging.PluginExecutionContext
 import com.ble1st.connectias.plugin.sdk.IPlugin
 import com.ble1st.connectias.plugin.ui.IPluginUIBridge
 import com.ble1st.connectias.plugin.ui.UserActionParcel
@@ -91,7 +92,9 @@ class PluginUIBridgeImpl(
                     data = extras
                     timestamp = System.currentTimeMillis()
                 }
-                plugin.onUserAction(action)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUserAction(action)
+                }
                 Timber.v("[SANDBOX] Dispatched button click to plugin: $pluginId")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Error dispatching button click to plugin: $pluginId")
@@ -113,7 +116,9 @@ class PluginUIBridgeImpl(
                     data = Bundle().apply { putString("value", value) }
                     timestamp = System.currentTimeMillis()
                 }
-                plugin.onUserAction(action)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUserAction(action)
+                }
                 Timber.v("[SANDBOX] Dispatched text change to plugin: $pluginId")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Error dispatching text change to plugin: $pluginId")
@@ -143,7 +148,9 @@ class PluginUIBridgeImpl(
                     }
                     timestamp = System.currentTimeMillis()
                 }
-                plugin.onUserAction(action)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUserAction(action)
+                }
                 Timber.v("[SANDBOX] Dispatched item selection to plugin: $pluginId")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Error dispatching item selection to plugin: $pluginId")
@@ -182,7 +189,9 @@ class PluginUIBridgeImpl(
         val plugin = getPluginInstance(pluginId)
         if (plugin != null) {
             try {
-                plugin.onUILifecycle(event)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUILifecycle(event)
+                }
                 Timber.v("[SANDBOX] Dispatched lifecycle event to plugin: $pluginId -> $event")
 
                 // Cleanup on destroy
@@ -203,7 +212,9 @@ class PluginUIBridgeImpl(
         val plugin = getPluginInstance(pluginId)
         if (plugin != null) {
             try {
-                plugin.onUserAction(action)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUserAction(action)
+                }
                 Timber.v("[SANDBOX] Dispatched user action to plugin: $pluginId (${action.actionType})")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Error dispatching user action to plugin: $pluginId")
@@ -230,7 +241,9 @@ class PluginUIBridgeImpl(
                     data = Bundle().apply { putBoolean("granted", granted) }
                     timestamp = System.currentTimeMillis()
                 }
-                plugin.onUserAction(action)
+                PluginExecutionContext.withPlugin(pluginId) {
+                    plugin.onUserAction(action)
+                }
                 Timber.v("[SANDBOX] Dispatched permission result to plugin: $pluginId")
             } catch (e: Exception) {
                 Timber.e(e, "[SANDBOX] Error dispatching permission result to plugin: $pluginId")

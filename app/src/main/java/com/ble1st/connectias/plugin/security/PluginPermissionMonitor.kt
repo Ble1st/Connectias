@@ -168,4 +168,39 @@ class PluginPermissionMonitor @Inject constructor(
     fun monitorPermissionUsage(pluginId: String): Flow<PermissionUsageEvent> {
         return permissionEvents
     }
+
+    /**
+     * Returns a snapshot list of all permission usage events for a plugin.
+     *
+     * This is intended for admin dashboards and export functionality.
+     */
+    fun getPermissionUsageHistory(pluginId: String): List<PermissionUsageEvent> {
+        return permissionHistory[pluginId]?.toList() ?: emptyList()
+    }
+
+    /**
+     * Returns a snapshot list of all permission usage events across all plugins.
+     *
+     * Note: This may be expensive for very large histories; callers should filter by time window.
+     */
+    fun getAllPermissionUsageHistory(): List<PermissionUsageEvent> {
+        return permissionHistory.values.flatMap { it.toList() }
+    }
+
+    /**
+     * Returns a snapshot list of permission usage events within a time window across all plugins.
+     */
+    fun getPermissionUsageInTimeRange(startTimeMillis: Long, endTimeMillis: Long): List<PermissionUsageEvent> {
+        return getAllPermissionUsageHistory()
+            .asSequence()
+            .filter { it.timestamp in startTimeMillis..endTimeMillis }
+            .toList()
+    }
+
+    /**
+     * Returns the set of plugin IDs that have recorded permission usage events.
+     */
+    fun getTrackedPluginIds(): Set<String> {
+        return permissionHistory.keys
+    }
 }

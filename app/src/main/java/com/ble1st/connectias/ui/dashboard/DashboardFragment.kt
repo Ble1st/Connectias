@@ -89,6 +89,9 @@ class DashboardFragment : Fragment() {
                     
                     DashboardScreen(
                         onNavigateToSettings = { findNavController().navigate(R.id.nav_settings) },
+                        onNavigateToSecurityDashboard = { findNavController().navigate(R.id.nav_security_dashboard) },
+                        onNavigateToPrivacyDashboard = { findNavController().navigate(R.id.nav_privacy_dashboard) },
+                        onNavigateToAnalyticsDashboard = { findNavController().navigate(R.id.nav_plugin_analytics_dashboard) },
                         pluginItems = pluginModules
                     )
                 }

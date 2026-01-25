@@ -13,6 +13,7 @@ import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.core.plugin.FileSystemBridgeService
 import com.ble1st.connectias.plugin.messaging.IPluginMessaging
 import com.ble1st.connectias.plugin.messaging.PluginMessagingService
+import com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.security.IPCRateLimiter
@@ -29,7 +30,8 @@ import kotlin.coroutines.resumeWithException
  */
 class PluginSandboxProxy(
     private val context: Context,
-    private val auditManager: SecurityAuditManager? = null
+    private val auditManager: SecurityAuditManager? = null,
+    private val pluginLogBridge: PluginLogBridgeImpl? = null
 ) {
     
     private var sandboxService: IPluginSandbox? = null
@@ -175,6 +177,17 @@ class PluginSandboxProxy(
                 Timber.w(e, "Rate limit exceeded for ping during connect")
                 disconnect()
                 return@withContext Result.failure(e)
+            }
+
+            // Set logging bridge (best-effort) for plugin debugging logs.
+            try {
+                val bridgeBinder = pluginLogBridge?.asBinder()
+                if (bridgeBinder != null) {
+                    sandboxService?.setLoggingBridge(bridgeBinder)
+                    Timber.i("Logging bridge set in sandbox")
+                }
+            } catch (e: Exception) {
+                Timber.w(e, "Failed to set logging bridge in sandbox")
             }
             
             // Connect to Hardware Bridge Service

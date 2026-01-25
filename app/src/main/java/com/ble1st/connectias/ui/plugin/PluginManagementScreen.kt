@@ -1,6 +1,5 @@
 package com.ble1st.connectias.ui.plugin
 
-import android.app.Activity
 import android.content.pm.PackageManager
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -18,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.ble1st.connectias.core.module.ModuleInfo
 import com.ble1st.connectias.core.module.ModuleRegistry
@@ -45,7 +43,10 @@ fun PluginManagementScreen(
     onNavigateToSecurity: (String) -> Unit = {},
     onNavigateToNetworkPolicy: (String) -> Unit = {},
     onNavigateToSecurityAudit: (String) -> Unit = {},
-    onNavigateToStore: () -> Unit = {}
+    onNavigateToStore: () -> Unit = {},
+    onNavigateToSecurityDashboard: () -> Unit = {},
+    onNavigateToPrivacyDashboard: () -> Unit = {},
+    onNavigateToAnalyticsDashboard: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val plugins by pluginManager.pluginsFlow.collectAsStateWithLifecycle()
@@ -65,6 +66,9 @@ fun PluginManagementScreen(
     var pendingAndroidPermissionPlugin by remember { mutableStateOf<PluginManagerSandbox.PluginInfo?>(null) }
     var pendingAndroidPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
     var pendingCustomPermissions by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // Main FAB menu state (dashboards + store + import)
+    var showFabMenu by remember { mutableStateOf(false) }
     
     val scope = rememberCoroutineScope()
     
@@ -179,22 +183,58 @@ fun PluginManagementScreen(
             )
         },
         floatingActionButton = {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                 FloatingActionButton(
-                    onClick = onNavigateToStore,
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    onClick = { showFabMenu = true },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer
                 ) {
-                    Icon(Icons.Default.ShoppingCart, "Store")
+                    Icon(Icons.Default.Menu, "Menu")
                 }
-                FloatingActionButton(
-                    onClick = {
-                        filePickerLauncher.launch("*/*")
-                    }
+
+                DropdownMenu(
+                    expanded = showFabMenu,
+                    onDismissRequest = { showFabMenu = false }
                 ) {
-                    Icon(Icons.Default.Add, "Add Plugin")
+                    // Dashboards (only these three)
+                    DropdownMenuItem(
+                        text = { Text("Security Dashboard") },
+                        onClick = {
+                            showFabMenu = false
+                            onNavigateToSecurityDashboard()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Privacy Dashboard") },
+                        onClick = {
+                            showFabMenu = false
+                            onNavigateToPrivacyDashboard()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Plugin Analytics") },
+                        onClick = {
+                            showFabMenu = false
+                            onNavigateToAnalyticsDashboard()
+                        }
+                    )
+
+                    Divider()
+
+                    // Keep store + import
+                    DropdownMenuItem(
+                        text = { Text("Plugin Store") },
+                        onClick = {
+                            showFabMenu = false
+                            onNavigateToStore()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Import Plugin") },
+                        onClick = {
+                            showFabMenu = false
+                            filePickerLauncher.launch("*/*")
+                        }
+                    )
                 }
             }
         }
@@ -264,37 +304,32 @@ fun PluginManagementScreen(
                                             
                                             if (androidPermissions.isNotEmpty()) {
                                                 // Request Android system permissions via native dialog
-                                                val activity = context as? Activity
-                                                if (activity != null) {
-                                                    // Check which permissions are not yet granted
-                                                    val permissionsToRequest = androidPermissions.filter { permission ->
-                                                        ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED
-                                                    }
-                                                    
-                                                    if (permissionsToRequest.isNotEmpty()) {
-                                                        // Store pending state
-                                                        pendingAndroidPermissionPlugin = plugin
-                                                        pendingAndroidPermissions = permissionsToRequest
-                                                        pendingCustomPermissions = customPermissions
-                                                        
-                                                        // Request via native Android dialog
-                                                        permissionLauncher.launch(permissionsToRequest.toTypedArray())
-                                                    } else {
-                                                        // All Android permissions already granted, just grant custom permissions
-                                                        if (customPermissions.isNotEmpty()) {
-                                                            permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
-                                                        }
-                                                        // Try enabling again
-                                                        scope.launch {
-                                                            pluginManager.enablePlugin(plugin.pluginId)
-                                                        }
-                                                    }
+                                                // NOTE: LocalContext.current is often a ContextThemeWrapper, not an Activity.
+                                                // We do not need an Activity here: the ActivityResult API will route the request
+                                                // through the host Activity automatically, and checkSelfPermission works with Context.
+
+                                                // Check which permissions are not yet granted
+                                                val permissionsToRequest = androidPermissions.filter { permission ->
+                                                    ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
+                                                }
+
+                                                if (permissionsToRequest.isNotEmpty()) {
+                                                    // Store pending state
+                                                    pendingAndroidPermissionPlugin = plugin
+                                                    pendingAndroidPermissions = permissionsToRequest
+                                                    pendingCustomPermissions = customPermissions
+
+                                                    // Request via native Android dialog
+                                                    permissionLauncher.launch(permissionsToRequest.toTypedArray())
                                                 } else {
-                                                    Timber.e("Context is not an Activity, cannot request Android permissions")
-                                                    // Fallback to custom dialog
-                                                    permissionDialogPlugin = plugin
-                                                    permissionDialogPermissions = requiredPermissions
-                                                    showPermissionDialog = true
+                                                    // All Android permissions already granted, just grant custom permissions
+                                                    if (customPermissions.isNotEmpty()) {
+                                                        permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
+                                                    }
+                                                    // Try enabling again
+                                                    scope.launch {
+                                                        pluginManager.enablePlugin(plugin.pluginId)
+                                                    }
                                                 }
                                             } else {
                                                 // No Android system permissions, use custom dialog
@@ -424,7 +459,7 @@ fun EmptyPluginState(modifier: Modifier = Modifier) {
 
 /**
  * Checks if a permission is an Android system permission that requires runtime request.
- * These are permissions that must be requested via ActivityCompat.requestPermissions().
+ * These are permissions that must be requested via the Android runtime permission dialog.
  */
 private fun isAndroidSystemPermission(permission: String): Boolean {
     // Android system permissions that require runtime request (dangerous permissions)
