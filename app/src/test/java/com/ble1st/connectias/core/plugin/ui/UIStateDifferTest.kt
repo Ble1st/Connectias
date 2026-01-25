@@ -8,12 +8,15 @@ import com.ble1st.connectias.plugin.ui.UIComponentParcel
 import com.ble1st.connectias.plugin.ui.UIStateParcel
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Unit tests for UIStateDiffer.
  *
  * Tests state diffing logic and performance optimization.
  */
+@RunWith(RobolectricTestRunner::class)
 class UIStateDifferTest {
 
     @Test

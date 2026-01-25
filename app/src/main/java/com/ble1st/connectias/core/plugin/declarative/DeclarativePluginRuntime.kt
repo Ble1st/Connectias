@@ -75,9 +75,15 @@ class DeclarativePluginRuntime(
 
     fun onUserAction(action: UserActionParcel) {
         val currentScreenId = getCurrentScreenId()
+        val actionData = bundleToMap(action.data)
         val triggerCtx = DeclarativeFlowEngine.TriggerContext(
             actionTargetId = action.targetId,
-            actionData = bundleToMap(action.data)
+            actionData = actionData,
+            items = mutableListOf(
+                LinkedHashMap<String, Any?>().apply {
+                    if (actionData != null) putAll(actionData)
+                }
+            )
         )
 
         pkg.flowsById.values.forEach { flow ->
@@ -135,12 +141,20 @@ class DeclarativePluginRuntime(
         byType.forEach { (messageType, items) ->
             sandboxContext.registerMessageHandler(messageType) { msg: PluginMessage ->
                 try {
+                    val item = linkedMapOf<String, Any?>(
+                        "senderId" to msg.senderId,
+                        "receiverId" to msg.receiverId,
+                        "messageType" to msg.messageType,
+                        "requestId" to msg.requestId,
+                        "timestamp" to msg.timestamp,
+                    )
                     val triggerCtx = DeclarativeFlowEngine.TriggerContext(
                         actionTargetId = msg.messageType,
                         actionData = mapOf(
                             "senderId" to msg.senderId,
                             "messageType" to msg.messageType
-                        )
+                        ),
+                        items = mutableListOf(item)
                     )
                     items.forEach { (flow, trigger) ->
                         engine.runFlow(flow, trigger, triggerCtx)
@@ -164,7 +178,11 @@ class DeclarativePluginRuntime(
                         while (true) {
                             delay(trigger.everyMs)
                             try {
-                                engine.runFlow(flow, trigger, DeclarativeFlowEngine.TriggerContext())
+                                engine.runFlow(
+                                    flow,
+                                    trigger,
+                                    DeclarativeFlowEngine.TriggerContext(items = mutableListOf(LinkedHashMap()))
+                                )
                                 pushCurrentState()
                             } catch (e: Exception) {
                                 Timber.e(e, "[SANDBOX][DECL:$pluginId] Timer flow failed")

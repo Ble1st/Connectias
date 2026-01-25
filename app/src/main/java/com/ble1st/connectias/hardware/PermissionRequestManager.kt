@@ -72,10 +72,12 @@ class PermissionRequestManager {
         
         // Request on main thread
         activity.runOnUiThread {
+            // Android requires requestCode >= 0. hashCode() can be negative.
+            val requestCode = requestKey.hashCode() and 0x7FFFFFFF
             ActivityCompat.requestPermissions(
                 activity,
                 arrayOf(permission),
-                requestKey.hashCode()
+                requestCode
             )
         }
         
@@ -111,7 +113,7 @@ class PermissionRequestManager {
         
         // Find matching request
         val matchingEntry = pendingRequests.entries.find { 
-            it.key.hashCode() == requestCode 
+            (it.key.hashCode() and 0x7FFFFFFF) == requestCode
         }
         
         if (matchingEntry != null) {

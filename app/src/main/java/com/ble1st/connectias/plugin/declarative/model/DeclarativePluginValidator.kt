@@ -1,5 +1,7 @@
 package com.ble1st.connectias.plugin.declarative.model
 
+import com.ble1st.connectias.core.plugin.declarative.NodeRegistry
+
 /**
  * Validation utilities for declarative plugin packages.
  *
@@ -136,6 +138,15 @@ object DeclarativePluginValidator {
                 if (n.nextTrue == null || n.nextFalse == null) {
                     errors += "IfElse requires nextTrue and nextFalse: ${n.id}"
                 }
+            }
+
+            // Node registry validation (type + parameter schema)
+            val vr = NodeRegistry.validateNode(n)
+            if (!vr.ok) {
+                errors += vr.errors.map { "node(${n.id}:${n.type}): $it" }
+            }
+            if (vr.warnings.isNotEmpty()) {
+                warnings += vr.warnings.map { "node(${n.id}:${n.type}): $it" }
             }
         }
 

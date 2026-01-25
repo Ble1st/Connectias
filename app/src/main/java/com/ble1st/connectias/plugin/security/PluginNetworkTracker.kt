@@ -113,6 +113,33 @@ object PluginNetworkTracker {
      */
     fun trackNetworkRequest(pluginId: String, url: String, method: String = "GET") {
         try {
+            // Support non-URL schemes used by internal bridges (e.g. tcp ping).
+            // Keep it best-effort and avoid noisy warnings for valid non-HTTP operations.
+            if (url.startsWith("tcp://", ignoreCase = true)) {
+                val rest = url.removePrefix("tcp://")
+                val host = rest.substringBefore(":").ifBlank { "unknown" }
+                val port = rest.substringAfter(":", "").toIntOrNull() ?: 0
+
+                val stats = pluginNetworkUsage[pluginId]
+                if (stats != null) {
+                    stats.domainsAccessed.add(host)
+                    if (port > 0) stats.portsUsed.add(port)
+                    stats.connectionsOpened.incrementAndGet()
+                    stats.lastActivity = System.currentTimeMillis()
+
+                    val connectionKey = "${pluginId}-${host}-${port}-${System.currentTimeMillis()}"
+                    activeConnections[connectionKey] = NetworkConnection(
+                        pluginId = pluginId,
+                        remoteHost = host,
+                        remotePort = port,
+                        protocol = "tcp",
+                        timestamp = System.currentTimeMillis()
+                    )
+                    Timber.d("[NETWORK TRACKER] Request tracked: $pluginId -> $method tcp $host:$port")
+                }
+                return
+            }
+
             val parsedUrl = URL(url)
             val host = parsedUrl.host
             val port = if (parsedUrl.port != -1) parsedUrl.port else parsedUrl.defaultPort

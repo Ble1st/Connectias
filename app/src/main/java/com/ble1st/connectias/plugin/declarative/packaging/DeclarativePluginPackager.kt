@@ -41,6 +41,9 @@ class DeclarativePluginPackager(
         val permissions: List<String> = emptyList(),
         val startScreenId: String,
         val uiMainJson: String,
+        // Optional additional UI screens (path -> json). Example: "ui/image.json" -> "{...}".
+        // When present, the manifest screens list will include ui/main.json plus these entries.
+        val uiExtraScreens: Map<String, String> = emptyMap(),
         val flowMainJson: String,
         val description: String? = null,
         val assets: Map<String, ByteArray> = emptyMap(), // relative paths under assets/
@@ -60,6 +63,14 @@ class DeclarativePluginPackager(
             val entries = LinkedHashMap<String, ByteArray>()
             entries["plugin-manifest.json"] = buildManifestJson(spec).toByteArray(Charsets.UTF_8)
             entries["ui/main.json"] = spec.uiMainJson.toByteArray(Charsets.UTF_8)
+            spec.uiExtraScreens.forEach { (path, json) ->
+                val normalized = path.removePrefix("/").replace('\\', '/')
+                if (!normalized.startsWith("ui/") || normalized.contains("..")) {
+                    return Result.failure(IllegalArgumentException("Invalid ui screen path"))
+                }
+                if (normalized == "ui/main.json") return@forEach
+                entries[normalized] = json.toByteArray(Charsets.UTF_8)
+            }
             entries["flows/main.json"] = spec.flowMainJson.toByteArray(Charsets.UTF_8)
 
             spec.assets.forEach { (relativePath, bytes) ->
@@ -105,7 +116,17 @@ class DeclarativePluginPackager(
     private fun buildManifestJson(spec: BuildSpec): String {
         val entrypoints = JSONObject().apply {
             put("startScreenId", spec.startScreenId)
-            put("screens", JSONArray().apply { put("ui/main.json") })
+            put(
+                "screens",
+                JSONArray().apply {
+                    put("ui/main.json")
+                    spec.uiExtraScreens.keys
+                        .map { it.removePrefix("/").replace('\\', '/') }
+                        .filter { it.startsWith("ui/") && it != "ui/main.json" && !it.contains("..") }
+                        .sorted()
+                        .forEach { put(it) }
+                }
+            )
             put("flows", JSONArray().apply { put("flows/main.json") })
         }
         return JSONObject().apply {

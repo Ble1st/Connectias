@@ -231,6 +231,17 @@ class SandboxPluginContext(
      * status/contentType available for low-code nodes.
      */
     internal fun httpGetWithInfo(url: String): Result<HttpResult> {
+        // Default cap to keep low-code surface safe (avoid massive strings in state).
+        return httpGetWithInfo(url = url, maxBytes = 512_000)
+    }
+
+    /**
+     * Host-only helper for declarative runtime: HTTP GET with metadata and size cap.
+     *
+     * SECURITY:
+     * - Applies a maxBytes cap before converting to String to reduce memory risk.
+     */
+    internal fun httpGetWithInfo(url: String, maxBytes: Int): Result<HttpResult> {
         return try {
             val bridge = hardwareBridge
                 ?: return Result.failure(IllegalStateException("Hardware Bridge not available"))
@@ -243,7 +254,10 @@ class SandboxPluginContext(
             val meta = response.metadata ?: emptyMap()
             val status = meta["status"]?.toIntOrNull() ?: 200
             val contentType = meta["contentType"]
-            val bodyString = String(response.data ?: byteArrayOf())
+            val bytes = response.data ?: byteArrayOf()
+            val cap = maxBytes.coerceIn(1_024, 5_000_000)
+            val limited = if (bytes.size > cap) bytes.copyOf(cap) else bytes
+            val bodyString = String(limited)
 
             Result.success(HttpResult(statusCode = status, contentType = contentType, body = bodyString))
         } catch (e: Exception) {

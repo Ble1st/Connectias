@@ -74,8 +74,14 @@ class PluginMessageBrokerTest {
                 broker.sendMessage(message)
             }
 
-            // Receive message
-            val receivedMessages = broker.receiveMessages("receiver")
+            // Wait until the message is enqueued (avoid race with async scheduling)
+            var receivedMessages = emptyList<PluginMessage>()
+            for (i in 0 until 50) {
+                receivedMessages = broker.receiveMessages("receiver")
+                if (receivedMessages.isNotEmpty()) break
+                delay(10)
+            }
+
             assertEquals(1, receivedMessages.size)
             assertEquals(message.requestId, receivedMessages[0].requestId)
 

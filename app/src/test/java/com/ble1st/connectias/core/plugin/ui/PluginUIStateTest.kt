@@ -10,6 +10,8 @@ import com.ble1st.connectias.plugin.ui.UIStateParcel
 import com.ble1st.connectias.plugin.ui.UserActionParcel
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
 /**
  * Unit tests for UI State Parcels.
@@ -17,6 +19,7 @@ import org.junit.Test
  * Tests serialization, deserialization, and data integrity of Parcelable objects
  * used in the Three-Process UI Architecture.
  */
+@RunWith(RobolectricTestRunner::class)
 class PluginUIStateTest {
 
     /**
