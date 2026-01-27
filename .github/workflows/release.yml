@@ -11,6 +11,7 @@ jobs:
     permissions:
       contents: write
     runs-on: ubuntu-latest
+    timeout-minutes: 60  # P0: Prevent infinite builds (default is 6 hours)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -237,7 +238,12 @@ jobs:
 
       - name: Run lint and unit tests
         continue-on-error: false  # P0: Fail fast on test failures
-        run: ./gradlew lint test
+        env:
+          # P0: Reduce memory for CI (GitHub Actions has ~7GB total RAM)
+          # Local builds can use 4GB, but CI needs less to avoid OOM
+          GRADLE_OPTS: "-Xmx2g -Xms1g -XX:MaxMetaspaceSize=512m"
+          KOTLIN_DAEMON_OPTS: "-Xmx2g -Xms1g"
+        run: ./gradlew lint test --no-daemon --max-workers=2
 
       - name: Generate Jacoco coverage report
         continue-on-error: true  # Don't fail release if coverage report generation fails
