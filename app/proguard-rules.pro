@@ -1242,3 +1242,260 @@
 # Keep Hilt modules for security features
 -keep @dagger.Module class com.ble1st.connectias.di.SecurityPolicyModule { *; }
 -keep @dagger.Module class com.ble1st.connectias.di.NetworkPolicyModule { *; }
+
+# ------------------------------------------------------------------------------
+# Three-Process UI Architecture - CRITICAL for Release Builds
+# ------------------------------------------------------------------------------
+# These rules ensure IPC communication between Main, Sandbox, and UI processes
+# works correctly after R8 obfuscation.
+
+# ------------------------------------------------------------------------------
+# AIDL Interfaces - Three-Process UI Communication
+# ------------------------------------------------------------------------------
+
+# Keep IPluginUIController - Sandbox → UI Process communication
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIController { *; }
+-keep interface com.ble1st.connectias.plugin.ui.IPluginUIController { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIController$* { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIController$Stub { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIController$Stub$Proxy { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.ui.IPluginUIController {
+    *;
+}
+
+# Keep IPluginUIBridge - UI → Sandbox Process communication
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIBridge { *; }
+-keep interface com.ble1st.connectias.plugin.ui.IPluginUIBridge { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIBridge$* { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIBridge$Stub { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIBridge$Stub$Proxy { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.ui.IPluginUIBridge {
+    *;
+}
+
+# Keep IPluginUIHost - Main → UI Process communication
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIHost { *; }
+-keep interface com.ble1st.connectias.plugin.ui.IPluginUIHost { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIHost$* { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIHost$Stub { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIHost$Stub$Proxy { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.ui.IPluginUIHost {
+    *;
+}
+
+# ------------------------------------------------------------------------------
+# AIDL Parcelables - Three-Process UI Data Transfer
+# ------------------------------------------------------------------------------
+
+# Keep UIStateParcel - Complete UI state sent from Sandbox to UI Process
+-keep class com.ble1st.connectias.plugin.ui.UIStateParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.ui.UIStateParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep UIComponentParcel - Individual UI component description
+-keep class com.ble1st.connectias.plugin.ui.UIComponentParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.ui.UIComponentParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep UserActionParcel - User action from UI Process to Sandbox
+-keep class com.ble1st.connectias.plugin.ui.UserActionParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.ui.UserActionParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep UIEventParcel - UI event from Sandbox to UI Process
+-keep class com.ble1st.connectias.plugin.ui.UIEventParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.ui.UIEventParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# Keep MotionEventParcel - Touch event data for UI Process
+-keep class com.ble1st.connectias.plugin.ui.MotionEventParcel { *; }
+-keepclassmembers class com.ble1st.connectias.plugin.ui.MotionEventParcel {
+    <init>(...);
+    void writeToParcel(...);
+    *** createFromParcel(...);
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# ------------------------------------------------------------------------------
+# Three-Process UI Service Classes
+# ------------------------------------------------------------------------------
+
+# Keep PluginUIService - Service running in UI Process (:plugin_ui)
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIService { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIService {
+    *;
+}
+
+# Keep PluginUIHostImpl - Implementation of IPluginUIHost in UI Process
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIHostImpl { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIHostImpl {
+    *;
+}
+
+# Keep PluginUIControllerImpl - Implementation in Sandbox Process
+-keep class com.ble1st.connectias.core.plugin.PluginUIControllerImpl { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginUIControllerImpl {
+    *;
+}
+
+# Keep PluginUIControllerUIProcess - Implementation in UI Process
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIControllerUIProcess { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIControllerUIProcess {
+    *;
+}
+
+# Keep PluginUIBridgeImpl - Bridge implementation in Sandbox Process
+-keep class com.ble1st.connectias.core.plugin.PluginUIBridgeImpl { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginUIBridgeImpl {
+    *;
+}
+
+# Keep PluginUIProcessProxy - Proxy for Main Process → UI Process communication
+-keep class com.ble1st.connectias.core.plugin.PluginUIProcessProxy { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginUIProcessProxy {
+    *;
+}
+
+# Keep VirtualDisplayManager - Manages VirtualDisplay for UI rendering
+-keep class com.ble1st.connectias.core.plugin.ui.VirtualDisplayManager { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.VirtualDisplayManager {
+    *;
+}
+
+# Keep UIStateDiffer - State diffing for performance optimization
+-keep class com.ble1st.connectias.core.plugin.ui.UIStateDiffer { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.UIStateDiffer {
+    *;
+}
+
+# ------------------------------------------------------------------------------
+# Three-Process UI Fragment and Compose Components
+# ------------------------------------------------------------------------------
+
+# Keep PluginUIFragment - Fragment in UI Process for plugin UI rendering
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIFragment { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIFragment {
+    *;
+}
+
+# Keep PluginUIComposable - Compose UI renderer in UI Process
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIComposable { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIComposable {
+    @androidx.compose.runtime.Composable <methods>;
+}
+
+# Keep all @Composable functions in plugin UI package
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.** {
+    @androidx.compose.runtime.Composable <methods>;
+}
+
+# Keep component renderers (RenderButton, RenderTextField, etc.)
+-keep class com.ble1st.connectias.core.plugin.ui.Render* { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.Render* {
+    @androidx.compose.runtime.Composable <methods>;
+}
+
+# ------------------------------------------------------------------------------
+# Three-Process UI Enums and Data Classes
+# ------------------------------------------------------------------------------
+
+# Keep ComponentType enum - Used in UIComponentParcel
+-keep enum com.ble1st.connectias.core.plugin.ui.ComponentType { *; }
+-keepclassmembers enum com.ble1st.connectias.core.plugin.ui.ComponentType {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Keep ActionType enum - Used in UserActionParcel
+-keep enum com.ble1st.connectias.core.plugin.ui.ActionType { *; }
+-keepclassmembers enum com.ble1st.connectias.core.plugin.ui.ActionType {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Keep EventType enum - Used in UIEventParcel
+-keep enum com.ble1st.connectias.core.plugin.ui.EventType { *; }
+-keepclassmembers enum com.ble1st.connectias.core.plugin.ui.EventType {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}
+
+# Keep Kotlin Parcelize data classes for UI models
+-keep class com.ble1st.connectias.core.plugin.ui.UIStateParcel { *; }
+-keep class com.ble1st.connectias.core.plugin.ui.UIComponentParcel { *; }
+-keep class com.ble1st.connectias.core.plugin.ui.UserActionParcel { *; }
+-keep class com.ble1st.connectias.core.plugin.ui.UIEventParcel { *; }
+
+# Keep Parcelize CREATOR for Kotlin Parcelable classes
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.UIStateParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.UIComponentParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.UserActionParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.UIEventParcel {
+    public static final android.os.Parcelable$Creator CREATOR;
+}
+
+# ------------------------------------------------------------------------------
+# Three-Process UI Integration Classes
+# ------------------------------------------------------------------------------
+
+# Keep PluginManagerSandbox integration methods for Three-Process UI
+-keepclassmembers class com.ble1st.connectias.plugin.PluginManagerSandbox {
+    *** createPluginFragmentIsolated(...);
+    *** setupUIBridge(...);
+    *** connectUIProcess(...);
+}
+
+# Keep PluginSandboxProxy methods for UI controller setup
+-keepclassmembers class com.ble1st.connectias.core.plugin.PluginSandboxProxy {
+    *** setUIController(...);
+    *** getUIController(...);
+}
+
+# Keep Surface classes for VirtualDisplay rendering
+-keep class android.view.Surface { *; }
+-keepclassmembers class android.view.Surface {
+    *** isValid();
+    *** release();
+}
+
+# Keep VirtualDisplay for UI Process rendering
+-keep class android.hardware.display.VirtualDisplay { *; }
+-keepclassmembers class android.hardware.display.VirtualDisplay {
+    *** getSurface();
+    *** release();
+}
+
+# Keep DisplayManager for VirtualDisplay creation
+-keep class android.hardware.display.DisplayManager { *; }
+-keepclassmembers class android.hardware.display.DisplayManager {
+    *** createVirtualDisplay(...);
+}
+
+# Keep ServiceConnection for UI Process binding
+-keep interface android.content.ServiceConnection { *; }
+-keepclassmembers interface android.content.ServiceConnection {
+    void onServiceConnected(...);
+    void onServiceDisconnected(...);
+}

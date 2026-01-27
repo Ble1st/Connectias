@@ -133,12 +133,17 @@ class IPCRateLimiterTest {
     fun `test get token count`() {
         val limiter = IPCRateLimiter()
         
-        val initialTokens = limiter.getTokenCount("enablePlugin", "test-plugin")
-        assertTrue(initialTokens >= 0)
-        
+        // First call creates bucket with burst tokens (3)
         limiter.checkRateLimit("enablePlugin", "test-plugin")
+        
+        // Now get token count (should be burst - 1 = 2)
         val afterConsume = limiter.getTokenCount("enablePlugin", "test-plugin")
-        assertTrue(afterConsume < initialTokens)
+        assertTrue("Token count should be 2 (burst=3, consumed 1)", afterConsume >= 1.5 && afterConsume <= 2.5)
+        
+        // Consume another token
+        limiter.checkRateLimit("enablePlugin", "test-plugin")
+        val afterSecondConsume = limiter.getTokenCount("enablePlugin", "test-plugin")
+        assertTrue("Token count should decrease after second consume", afterSecondConsume < afterConsume)
     }
     
     @Test
@@ -170,7 +175,7 @@ class IPCRateLimiterTest {
     fun `test different methods have different limits`() {
         val limiter = IPCRateLimiter()
         
-        // ping has higher limit (60/sec)
+        // ping has higher limit (60/sec, burst=100)
         repeat(50) {
             limiter.checkRateLimit("ping")
         }
@@ -178,10 +183,13 @@ class IPCRateLimiterTest {
         // Should not throw (within limit)
         assertTrue(true)
         
-        // enablePlugin has lower limit (2/sec)
+        // enablePlugin has lower limit (2/sec, burst=3)
+        // Should allow 3 calls (burst limit), then fail on 4th
+        limiter.checkRateLimit("enablePlugin", "test-plugin")
         limiter.checkRateLimit("enablePlugin", "test-plugin")
         limiter.checkRateLimit("enablePlugin", "test-plugin")
         
+        // Fourth call should fail (burst exceeded, and per-second limit also exceeded)
         try {
             limiter.checkRateLimit("enablePlugin", "test-plugin")
             fail("Expected RateLimitException")
