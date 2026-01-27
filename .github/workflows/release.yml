@@ -172,17 +172,21 @@ jobs:
 
       - name: Calculate version and APK name
         id: version
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           # Extract repository name (owner/repo-name -> repo-name)
           REPO_NAME=$(echo "${{ github.repository }}" | awk -F'/' '{print $NF}')
           echo "repo_name=${REPO_NAME}" >> "$GITHUB_OUTPUT"
           
           # P1: Extract version from commit message or use semantic versioning
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          # Use only first line of commit message to avoid shell interpretation issues with multi-line content
+          # Use printf with %s to safely handle special characters
+          COMMIT_MSG_FIRST_LINE=$(printf '%s\n' "$COMMIT_MSG" | head -n1)
           
           # Try to extract version from commit message (format: releasebuild v1.2.3)
-          if echo "$COMMIT_MSG" | grep -qE 'v?[0-9]+\.[0-9]+\.[0-9]+'; then
-            VERSION=$(echo "$COMMIT_MSG" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | sed 's/^v//')
+          if printf '%s\n' "$COMMIT_MSG_FIRST_LINE" | grep -qE 'v?[0-9]+\.[0-9]+\.[0-9]+'; then
+            VERSION=$(printf '%s\n' "$COMMIT_MSG_FIRST_LINE" | grep -oE 'v?[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | sed 's/^v//')
             VERSION_CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
           else
             # Fallback: Use run number for versioning
@@ -427,7 +431,8 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           # P1: Extract release name from commit message (first line, remove 'releasebuild' prefix)
-          RELEASE_NAME=$(echo "$COMMIT_MSG" | sed -n '1p' | sed 's/^releasebuild[[:space:]]*//i' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+          # Use printf with %s to safely handle special characters
+          RELEASE_NAME=$(printf '%s\n' "$COMMIT_MSG" | sed -n '1p' | sed 's/^releasebuild[[:space:]]*//i' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
           
           # Fallback to version if no name provided
           if [ -z "$RELEASE_NAME" ] || [ "$RELEASE_NAME" = "" ]; then
@@ -435,11 +440,12 @@ jobs:
           fi
           
           # Extract release notes (everything after first line)
-          RELEASE_NOTES=$(echo "$COMMIT_MSG" | sed -n '2,$p' | sed '/^$/d')
+          # Use printf to safely handle multi-line content
+          RELEASE_NOTES=$(printf '%s\n' "$COMMIT_MSG" | sed -n '2,$p' | sed '/^$/d')
           
           echo "release_name=${RELEASE_NAME}" >> "$GITHUB_OUTPUT"
           echo "release_notes<<EOF" >> "$GITHUB_OUTPUT"
-          echo "${RELEASE_NOTES}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "${RELEASE_NOTES}" >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
           
           echo "Release name: ${RELEASE_NAME}"
