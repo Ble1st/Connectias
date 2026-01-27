@@ -2,7 +2,7 @@
 
 **Stand:** Dezember 2024  
 **Autor:** Technische Analyse  
-**Projekt:** Connectias - FOSS Android Security & Network Tools
+**Projekt:** Connectias - FOSS Android Security & Network Tols
 
 ---
 
