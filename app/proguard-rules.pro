@@ -330,6 +330,22 @@
 -keep interface okhttp3.** { *; }
 -keepnames class okhttp3.internal.publicsuffix.PublicSuffixDatabase
 
+# OkHttp Android Platform - Uses reflection to access ViewTreeSavedStateRegistryOwner
+# Keep all internal platform classes and methods that use reflection
+-keep class okhttp3.internal.platform.android.** { *; }
+-keepclassmembers class okhttp3.internal.platform.android.** {
+    *;
+}
+# Keep the specific method that accesses ViewTreeSavedStateRegistryOwner
+-keepclassmembers class okhttp3.internal.platform.android.AndroidPlatform {
+    *** findPlatform(...);
+    *** get(...);
+}
+# Keep all methods that might use reflection for ViewTree access
+-keepclassmembers class okhttp3.internal.platform.Platform {
+    *** findPlatform(...);
+}
+
 # Timber
 -dontwarn org.jetbrains.annotations.**
 -keep class timber.log.Timber { *; }
@@ -688,6 +704,20 @@
     android.os.ParcelFileDescriptor$Dup dup();
     java.io.FileInputStream getFileInputStream();
     java.io.FileOutputStream getFileOutputStream();
+    static *** fromFd(...);
+    static *** adoptFd(...);
+    static *** dup(...);
+    java.io.FileDescriptor getFileDescriptor();
+    boolean canDetectErrors();
+    void close();
+}
+
+# Keep FileDescriptor - Used in BluetoothBridge and CameraBridge
+-keep class java.io.FileDescriptor { *; }
+-keepclassmembers class java.io.FileDescriptor {
+    int getInt$();
+    void setInt$(int);
+    boolean valid();
 }
 
 # Keep InputStream/ByteArray conversions for plugin loading
@@ -1491,6 +1521,73 @@
 -keep class android.hardware.display.DisplayManager { *; }
 -keepclassmembers class android.hardware.display.DisplayManager {
     *** createVirtualDisplay(...);
+    android.view.Display[] getDisplays();
+    android.view.Display getDisplay(int);
+}
+
+# Keep Display and DisplayMetrics - Used in VirtualDisplayManager
+-keep class android.view.Display { *; }
+-keepclassmembers class android.view.Display {
+    void getMetrics(...);
+    void getRealMetrics(...);
+    int getDisplayId();
+}
+
+-keep class android.util.DisplayMetrics { *; }
+-keepclassmembers class android.util.DisplayMetrics {
+    int widthPixels;
+    int heightPixels;
+    float density;
+    int densityDpi;
+}
+
+# Keep ImageReader - Used in VirtualDisplayManager for touch event capture
+-keep class android.media.ImageReader { *; }
+-keepclassmembers class android.media.ImageReader {
+    static *** newInstance(...);
+    android.view.Surface getSurface();
+    android.media.Image acquireLatestImage();
+    void close();
+}
+
+# Keep ImageFormat - Used in VirtualDisplayManager
+-keep class android.graphics.ImageFormat { *; }
+-keepclassmembers class android.graphics.ImageFormat {
+    static int RGB_565;
+    static int RGBA_8888;
+}
+
+# Keep MotionEvent - Used for touch event handling in Three-Process UI
+-keep class android.view.MotionEvent { *; }
+-keepclassmembers class android.view.MotionEvent {
+    static *** obtain(...);
+    static int ACTION_DOWN;
+    static int ACTION_UP;
+    static int ACTION_MOVE;
+    static int ACTION_CANCEL;
+    int getAction();
+    int getActionMasked();
+    float getX();
+    float getY();
+    long getEventTime();
+    long getDownTime();
+    float getPressure();
+    float getSize();
+    int getMetaState();
+    int getButtonState();
+    int getDeviceId();
+    int getEdgeFlags();
+    int getSource();
+    int getFlags();
+    void recycle();
+}
+
+# Keep InputDevice - Used for touch event source
+-keep class android.view.InputDevice { *; }
+-keepclassmembers class android.view.InputDevice {
+    static int SOURCE_TOUCHSCREEN;
+    static int SOURCE_MOUSE;
+    static int SOURCE_STYLUS;
 }
 
 # Keep ServiceConnection for UI Process binding
@@ -1498,4 +1595,192 @@
 -keepclassmembers interface android.content.ServiceConnection {
     void onServiceConnected(...);
     void onServiceDisconnected(...);
+}
+
+# ------------------------------------------------------------------------------
+# ViewTree Reflection Classes - CRITICAL for PluginComposePresentation
+# ------------------------------------------------------------------------------
+# These classes are accessed via reflection and must not be obfuscated or removed
+
+# Keep ViewTreeLifecycleOwner - Used via reflection in PluginComposePresentation
+-keep class androidx.lifecycle.ViewTreeLifecycleOwner { *; }
+-keepclassmembers class androidx.lifecycle.ViewTreeLifecycleOwner {
+    static *** set(...);
+    static *** get(...);
+}
+
+# Keep ViewTreeSavedStateRegistryOwner - Used via reflection (CRITICAL FIX)
+-keep class androidx.savedstate.ViewTreeSavedStateRegistryOwner { *; }
+-keepclassmembers class androidx.savedstate.ViewTreeSavedStateRegistryOwner {
+    static *** set(...);
+    static *** get(...);
+}
+
+# Keep ViewTreeViewModelStoreOwner - Used via reflection
+-keep class androidx.lifecycle.ViewTreeViewModelStoreOwner { *; }
+-keepclassmembers class androidx.lifecycle.ViewTreeViewModelStoreOwner {
+    static *** set(...);
+    static *** get(...);
+}
+
+# Keep SavedStateRegistryOwner interface - Required for ViewTreeSavedStateRegistryOwner
+-keep interface androidx.savedstate.SavedStateRegistryOwner { *; }
+-keep class androidx.savedstate.SavedStateRegistryOwner { *; }
+
+# Keep SavedStateRegistry - Required for SavedStateRegistryOwner
+-keep class androidx.savedstate.SavedStateRegistry { *; }
+-keepclassmembers class androidx.savedstate.SavedStateRegistry {
+    *;
+}
+
+# Keep SavedStateRegistryController - Used in PluginComposePresentation
+-keep class androidx.savedstate.SavedStateRegistryController { *; }
+-keepclassmembers class androidx.savedstate.SavedStateRegistryController {
+    static *** create(...);
+    *** performRestore(...);
+    *** performSave(...);
+}
+
+# Keep ViewModelStore - Used in PluginComposePresentation
+-keep class androidx.lifecycle.ViewModelStore { *; }
+-keepclassmembers class androidx.lifecycle.ViewModelStore {
+    <init>();
+    *** clear();
+}
+
+# Keep ViewModelStoreOwner - Used in PluginComposePresentation
+-keep interface androidx.lifecycle.ViewModelStoreOwner { *; }
+-keep class androidx.lifecycle.ViewModelStoreOwner { *; }
+
+# Keep LifecycleRegistry - Used in PluginComposePresentation
+-keep class androidx.lifecycle.LifecycleRegistry { *; }
+-keepclassmembers class androidx.lifecycle.LifecycleRegistry {
+    <init>(...);
+    *** setCurrentState(...);
+    *** addObserver(...);
+    *** removeObserver(...);
+    *** getCurrentState();
+}
+
+# Keep PluginComposePresentation - Uses reflection for ViewTree classes
+-keep class com.ble1st.connectias.core.plugin.ui.PluginComposePresentation { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginComposePresentation {
+    *** setViewTreeOwners(...);
+    <init>(...);
+}
+
+# Keep PluginPresentation - Alternative Presentation implementation
+-keep class com.ble1st.connectias.core.plugin.ui.PluginPresentation { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginPresentation {
+    <init>(...);
+}
+
+# Keep Presentation base class - Used by PluginComposePresentation and PluginPresentation
+-keep class android.app.Presentation { *; }
+-keepclassmembers class android.app.Presentation {
+    <init>(...);
+    void show();
+    void dismiss();
+    android.view.Display getDisplay();
+}
+
+# Keep Fragment reflection fields - Used in PluginComposePresentation
+-keepclassmembers class androidx.fragment.app.Fragment {
+    android.fragment.app.FragmentHostCallback mHost;
+    int mState;
+}
+
+# Keep FragmentHostCallback - Used via reflection
+-keep class androidx.fragment.app.FragmentHostCallback { *; }
+-keepclassmembers class androidx.fragment.app.FragmentHostCallback {
+    <init>(...);
+    *** onGetHost();
+    *** onGetLayoutInflater();
+}
+
+# Keep Class.getDeclaredField and getMethod for reflection
+-keepclassmembers class java.lang.Class {
+    java.lang.reflect.Field getDeclaredField(java.lang.String);
+    java.lang.reflect.Method getMethod(java.lang.String, java.lang.Class...);
+    java.lang.reflect.Method getDeclaredMethod(java.lang.String, java.lang.Class...);
+    java.lang.reflect.Constructor getConstructor(java.lang.Class...);
+    java.lang.reflect.Constructor getDeclaredConstructor(java.lang.Class...);
+}
+
+# Keep Reflection classes used throughout the app
+-keep class java.lang.reflect.Method { *; }
+-keep class java.lang.reflect.Field { *; }
+-keepclassmembers class java.lang.reflect.Method {
+    java.lang.Object invoke(...);
+    void setAccessible(boolean);
+}
+-keepclassmembers class java.lang.reflect.Field {
+    java.lang.Object get(...);
+    void set(...);
+    void setAccessible(boolean);
+}
+
+# ------------------------------------------------------------------------------
+# ActivityThread Reflection - Used in ConnectiasApplication
+# ------------------------------------------------------------------------------
+# Keep ActivityThread for reflection access (used to get current activity)
+-keep class android.app.ActivityThread { *; }
+-keepclassmembers class android.app.ActivityThread {
+    static *** currentActivityThread();
+    java.util.Map mActivities;
+}
+
+# Keep ActivityClientRecord for reflection access
+-keep class android.app.ActivityThread$ActivityClientRecord { *; }
+-keepclassmembers class android.app.ActivityThread$ActivityClientRecord {
+    android.app.Activity activity;
+}
+
+# ------------------------------------------------------------------------------
+# DexFile Reflection - Used in PluginSandboxService for DEX scanning
+# ------------------------------------------------------------------------------
+# Keep DexFile.openInMemory method (used via reflection)
+-keepclassmembers class dalvik.system.DexFile {
+    static *** openInMemory(...);
+    java.util.Enumeration entries();
+}
+
+# Keep RestrictedClassLoader dexBuffers field (accessed via reflection)
+-keepclassmembers class com.ble1st.connectias.core.plugin.security.RestrictedClassLoader {
+    java.nio.ByteBuffer[] dexBuffers;
+}
+
+# ------------------------------------------------------------------------------
+# SQLCipher Reflection - Used in DatabaseModule
+# ------------------------------------------------------------------------------
+# Keep SQLCipher SupportFactory classes (accessed via reflection)
+-keep class net.zetetic.database.sqlcipher.SupportOpenHelperFactory { *; }
+-keep class net.sqlcipher.database.SupportFactory { *; }
+-keepclassmembers class net.zetetic.database.sqlcipher.SupportOpenHelperFactory {
+    <init>(byte[]);
+}
+-keepclassmembers class net.sqlcipher.database.SupportFactory {
+    <init>(byte[]);
+}
+
+# ------------------------------------------------------------------------------
+# Bluetooth Reflection - Used in BluetoothBridge
+# ------------------------------------------------------------------------------
+# Keep BluetoothSocket for reflection access (getFileDescriptor method)
+-keep class android.bluetooth.BluetoothSocket { *; }
+-keepclassmembers class android.bluetooth.BluetoothSocket {
+    java.io.FileDescriptor getFileDescriptor();
+}
+
+# ------------------------------------------------------------------------------
+# SharedMemory Reflection - Used in CameraBridge
+# ------------------------------------------------------------------------------
+# Keep SharedMemory for reflection access (getFd method)
+-keep class android.os.SharedMemory { *; }
+-keepclassmembers class android.os.SharedMemory {
+    int getFd();
+    static *** create(...);
+    *** mapReadOnly();
+    *** mapReadWrite();
+    boolean close();
 }

@@ -129,7 +129,8 @@ class PluginComposePresentation(
     }
 
     /**
-     * Sets lifecycle owners on the view using reflection to work around missing ViewTree* APIs
+     * Sets lifecycle owners on the view using reflection to work around missing ViewTree* APIs.
+     * This propagates the owners to all child views to ensure OkHttp and other libraries can access them.
      */
     private fun setViewTreeOwners(view: View) {
         try {
@@ -148,9 +149,48 @@ class PluginComposePresentation(
             val setViewModelStoreMethod = viewModelStoreOwnerClass.getMethod("set", View::class.java, ViewModelStoreOwner::class.java)
             setViewModelStoreMethod.invoke(null, view, this)
 
+            // IMPORTANT: Also set on all child views to ensure OkHttp can access ViewTreeSavedStateRegistryOwner
+            // OkHttp's Android platform implementation accesses ViewTreeSavedStateRegistryOwner from child views
+            if (view is android.view.ViewGroup) {
+                propagateViewTreeOwnersToChildren(view, lifecycleOwnerClass, savedStateOwnerClass, viewModelStoreOwnerClass)
+            }
+
             Timber.d("[UI_PROCESS] Successfully set ViewTree owners for plugin: $pluginId")
         } catch (e: Exception) {
             Timber.e(e, "[UI_PROCESS] Failed to set ViewTree owners for plugin: $pluginId")
+        }
+    }
+
+    /**
+     * Recursively propagates ViewTree owners to all child views.
+     * This ensures that OkHttp and other libraries can access ViewTreeSavedStateRegistryOwner from any view in the hierarchy.
+     */
+    private fun propagateViewTreeOwnersToChildren(
+        viewGroup: android.view.ViewGroup,
+        lifecycleOwnerClass: Class<*>,
+        savedStateOwnerClass: Class<*>,
+        viewModelStoreOwnerClass: Class<*>
+    ) {
+        try {
+            val setLifecycleMethod = lifecycleOwnerClass.getMethod("set", View::class.java, LifecycleOwner::class.java)
+            val setSavedStateMethod = savedStateOwnerClass.getMethod("set", View::class.java, SavedStateRegistryOwner::class.java)
+            val setViewModelMethod = viewModelStoreOwnerClass.getMethod("set", View::class.java, ViewModelStoreOwner::class.java)
+
+            for (i in 0 until viewGroup.childCount) {
+                val child = viewGroup.getChildAt(i)
+                
+                // Set owners on child view
+                setLifecycleMethod.invoke(null, child, this)
+                setSavedStateMethod.invoke(null, child, this)
+                setViewModelMethod.invoke(null, child, this)
+
+                // Recursively propagate to grandchildren
+                if (child is android.view.ViewGroup) {
+                    propagateViewTreeOwnersToChildren(child, lifecycleOwnerClass, savedStateOwnerClass, viewModelStoreOwnerClass)
+                }
+            }
+        } catch (e: Exception) {
+            Timber.w(e, "[UI_PROCESS] Failed to propagate ViewTree owners to children for plugin: $pluginId")
         }
     }
 

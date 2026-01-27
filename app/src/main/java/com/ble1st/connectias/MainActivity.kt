@@ -539,19 +539,29 @@ class MainActivity : AppCompatActivity() {
      */
     private fun isPluginFragmentActive(): Boolean {
         return try {
-            // Check if there are any entries in the back stack with "plugin_" tag
+            // First check if there's a PluginFragmentWrapper currently visible and attached
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
+            val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
+            if (currentFragment is PluginFragmentWrapper && currentFragment.isAdded && currentFragment.isVisible) {
+                return true
+            }
+            
+            // Also check if there are any entries in the back stack with "plugin_" tag
+            // But only if the fragment is still actually attached
             val backStackEntryCount = supportFragmentManager.backStackEntryCount
             if (backStackEntryCount > 0) {
                 val lastEntry = supportFragmentManager.getBackStackEntryAt(backStackEntryCount - 1)
                 if (lastEntry.name?.startsWith("plugin_") == true) {
-                    return true
+                    // Verify the fragment actually exists and is attached
+                    val fragmentTag = lastEntry.name
+                    val fragment = supportFragmentManager.findFragmentByTag(fragmentTag)
+                    if (fragment != null && fragment.isAdded && fragment.isVisible) {
+                        return true
+                    }
                 }
             }
             
-            // Also check if there's a PluginFragmentWrapper currently visible
-            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main)
-            val currentFragment = navHostFragment?.childFragmentManager?.fragments?.firstOrNull()
-            currentFragment is PluginFragmentWrapper
+            false
         } catch (e: Exception) {
             Timber.w(e, "Failed to check if plugin fragment is active")
             false
