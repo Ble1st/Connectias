@@ -3,6 +3,7 @@ package com.ble1st.connectias.plugin
 import android.content.Context
 import android.content.ComponentName
 import android.content.ServiceConnection
+import android.net.Uri
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.sdk.PluginContext
@@ -428,6 +429,34 @@ open class PluginContextImpl(
         }
         
         Timber.d("[$pluginId] Registered message handler for type: $messageType")
+    }
+    
+    override suspend fun createFileViaSAF(
+        fileName: String,
+        mimeType: String,
+        content: ByteArray
+    ): Result<Uri> {
+        // SAF is only available in sandbox process via FileSystemBridge
+        // PluginContextImpl runs in main process and doesn't have direct FileBridge access
+        return Result.failure(
+            UnsupportedOperationException(
+                "createFileViaSAF() is only available in sandbox process. " +
+                        "Plugins should use SandboxPluginContext which provides FileBridge access."
+            )
+        )
+    }
+    
+    override suspend fun openFileViaSAF(
+        mimeType: String
+    ): Result<Triple<Uri, ByteArray, String>> {
+        // SAF is only available in sandbox process via FileSystemBridge
+        // PluginContextImpl runs in main process and doesn't have direct FileBridge access
+        return Result.failure(
+            UnsupportedOperationException(
+                "openFileViaSAF() is only available in sandbox process. " +
+                        "Plugins should use SandboxPluginContext which provides FileBridge access."
+            )
+        )
     }
     
     fun cleanup() {

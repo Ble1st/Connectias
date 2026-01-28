@@ -74,6 +74,8 @@ class PermissionPreChecker(
             "getFileSize" to listOf("FILE_READ"),
             "writeFile" to listOf("FILE_WRITE"),
             "readFile" to listOf("FILE_READ"),
+            "createFileViaSAF" to listOf("FILE_WRITE"),
+            "openFileViaSAF" to listOf("FILE_READ"),
 
             // Printer APIs
             "printDocument" to listOf("PRINTER"),

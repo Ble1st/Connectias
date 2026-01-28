@@ -211,6 +211,30 @@ class PluginUIContainerFragment : Fragment() {
                     Timber.d("[MAIN] Surface destroyed")
                     lastSentWidth = -1
                     lastSentHeight = -1
+                    
+                    // IMPORTANT: Do NOT release VirtualDisplay when Surface is destroyed during pause
+                    // (e.g., when SAF dialog is shown). The Surface will be recreated when Activity resumes,
+                    // and we'll set it again via setUISurface(). VirtualDisplayManager handles Surface changes
+                    // by checking if the Surface reference changed and recreating the VirtualDisplay if needed.
+                    //
+                    // Only release VirtualDisplay if the fragment is being completely destroyed.
+                    // This prevents conflicts when the Surface is temporarily destroyed (pause/resume cycle).
+                    if (isRemoving || isDetached) {
+                        val currentPluginId = pluginId
+                        val currentProxy = uiProcessProxy
+                        if (currentPluginId != null && currentProxy != null) {
+                            scope.launch {
+                                try {
+                                    Timber.d("[MAIN] Releasing VirtualDisplay due to fragment destruction for plugin: $currentPluginId")
+                                    currentProxy.destroyPluginUI(currentPluginId)
+                                } catch (e: Exception) {
+                                    Timber.e(e, "[MAIN] Failed to release VirtualDisplay on fragment destruction")
+                                }
+                            }
+                        }
+                    } else {
+                        Timber.d("[MAIN] Surface destroyed but fragment still active - VirtualDisplay will be updated when new Surface is set")
+                    }
                 }
             })
 

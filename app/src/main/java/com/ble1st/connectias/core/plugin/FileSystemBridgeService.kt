@@ -2,9 +2,11 @@ package com.ble1st.connectias.core.plugin
 
 import android.app.Service
 import android.content.Intent
+import android.os.Bundle
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.ISAFResultCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import android.system.ErrnoException
 import android.system.Os
@@ -225,6 +227,105 @@ class FileSystemBridgeService : Service() {
             } catch (e: Exception) {
                 Timber.e(e, "[FS_BRIDGE] Failed to get file size for plugin $pluginId: $path")
                 -1
+            }
+        }
+        
+        override fun createFileViaSAF(
+            pluginId: String,
+            sessionToken: Long,
+            fileName: String,
+            mimeType: String,
+            content: ByteArray,
+            callback: ISAFResultCallback
+        ) {
+            try {
+                // Validate plugin ID BEFORE starting Activity
+                if (!isValidPluginId(pluginId, sessionToken)) {
+                    Timber.e("[FS_BRIDGE] Invalid plugin ID for SAF: $pluginId")
+                    callback.onError("Invalid plugin ID")
+                    return
+                }
+                
+                // Validate content size (max 10MB)
+                val MAX_CONTENT_SIZE = 10 * 1024 * 1024
+                if (content.size > MAX_CONTENT_SIZE) {
+                    Timber.e("[FS_BRIDGE] Content too large for SAF: ${content.size} bytes (max: $MAX_CONTENT_SIZE)")
+                    callback.onError("File content too large (max ${MAX_CONTENT_SIZE / 1024 / 1024}MB)")
+                    return
+                }
+                
+                // Validate fileName
+                if (fileName.isBlank()) {
+                    Timber.e("[FS_BRIDGE] Empty file name for SAF")
+                    callback.onError("File name cannot be empty")
+                    return
+                }
+                
+                Timber.d("[FS_BRIDGE] Starting SAF file creation for plugin $pluginId: $fileName (${content.size} bytes)")
+                
+                // Start SAF Activity with Intent extras
+                // Use Bundle for IBinder (putBinder/getBinder available in API 18+)
+                val bundle = Bundle().apply {
+                    putBinder(SAFFilePickerActivity.EXTRA_CALLBACK, callback.asBinder())
+                    putString(SAFFilePickerActivity.EXTRA_FILE_NAME, fileName)
+                    putString(SAFFilePickerActivity.EXTRA_MIME_TYPE, mimeType)
+                    putByteArray(SAFFilePickerActivity.EXTRA_CONTENT, content)
+                }
+                
+                val intent = Intent(this@FileSystemBridgeService, SAFFilePickerActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    putExtras(bundle)
+                }
+                
+                startActivity(intent)
+                
+                Timber.d("[FS_BRIDGE] SAF Activity started for plugin $pluginId")
+                
+            } catch (e: Exception) {
+                Timber.e(e, "[FS_BRIDGE] Failed to start SAF for plugin $pluginId")
+                callback.onError("Failed to start SAF: ${e.message}")
+            }
+        }
+        
+        override fun openFileViaSAF(
+            pluginId: String,
+            sessionToken: Long,
+            mimeType: String,
+            callback: ISAFResultCallback
+        ) {
+            try {
+                // Validate plugin ID BEFORE starting Activity
+                if (!isValidPluginId(pluginId, sessionToken)) {
+                    Timber.e("[FS_BRIDGE] Invalid plugin ID for SAF: $pluginId")
+                    callback.onError("Invalid plugin ID")
+                    return
+                }
+                
+                // Validate mimeType
+                val mimeTypeFilter = if (mimeType.isBlank()) "*/*" else mimeType
+                
+                Timber.d("[FS_BRIDGE] Starting SAF file opening for plugin $pluginId with mimeType filter: $mimeTypeFilter")
+                
+                // Start SAF Activity with Intent extras for OPEN operation
+                // Use Bundle for IBinder (putBinder/getBinder available in API 18+)
+                val bundle = Bundle().apply {
+                    putBinder(SAFFilePickerActivity.EXTRA_CALLBACK, callback.asBinder())
+                    putString(SAFFilePickerActivity.EXTRA_OPERATION_TYPE, SAFFilePickerActivity.OPERATION_OPEN)
+                    putString(SAFFilePickerActivity.EXTRA_MIME_TYPE_FILTER, mimeTypeFilter)
+                }
+                
+                val intent = Intent(this@FileSystemBridgeService, SAFFilePickerActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    putExtras(bundle)
+                }
+                
+                startActivity(intent)
+                
+                Timber.d("[FS_BRIDGE] SAF Activity started for plugin $pluginId (OPEN operation)")
+                
+            } catch (e: Exception) {
+                Timber.e(e, "[FS_BRIDGE] Failed to start SAF for plugin $pluginId")
+                callback.onError("Failed to start SAF: ${e.message}")
             }
         }
     }

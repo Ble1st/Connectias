@@ -137,6 +137,16 @@
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:excludeFromRecents="true" />
+
+        <!-- SAF File Picker Activity - Main Process -->
+        <!-- Transparent Activity for handling Storage Access Framework file creation -->
+        <!-- Started by FileSystemBridgeService when plugins request SAF file saving -->
+        <activity
+            android:name="com.ble1st.connectias.core.plugin.SAFFilePickerActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true" />
     </application>
 
 </manifest>

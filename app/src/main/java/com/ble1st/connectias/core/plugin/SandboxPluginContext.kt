@@ -10,6 +10,7 @@ import com.ble1st.connectias.plugin.PluginPermissionManager
 import com.ble1st.connectias.plugin.SecureContextWrapper
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.ISAFResultCallback
 import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
 import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
 import com.ble1st.connectias.plugin.messaging.IPluginMessaging
@@ -568,6 +569,136 @@ class SandboxPluginContext(
             -1
         }
     }
+    
+    /**
+     * Create a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select save location
+     * 
+     * @param fileName Suggested file name (e.g., "test.txt")
+     * @param mimeType MIME type (e.g., "text/plain")
+     * @param content File content as ByteArray
+     * @return Result with Uri of created file on success, or error
+     */
+    override suspend fun createFileViaSAF(
+        fileName: String,
+        mimeType: String,
+        content: ByteArray
+    ): Result<android.net.Uri> = suspendCancellableCoroutine { continuation ->
+        try {
+            if (fileSystemBridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("File system bridge not available")))
+                return@suspendCancellableCoroutine
+            }
+            
+            val callback = object : ISAFResultCallback.Stub() {
+                override fun onSuccess(uri: android.net.Uri) {
+                    Timber.d("[SANDBOX:$pluginId] SAF file created successfully: $uri")
+                    continuation.resume(Result.success(uri))
+                }
+                
+                override fun onSuccessWithContent(uri: android.net.Uri, content: ByteArray, fileName: String) {
+                    // This is used for openFileViaSAF, not for createFileViaSAF
+                    Timber.w("[SANDBOX:$pluginId] Unexpected onSuccessWithContent callback for createFileViaSAF")
+                }
+                
+                override fun onError(errorMessage: String) {
+                    Timber.e("[SANDBOX:$pluginId] SAF file creation failed: $errorMessage")
+                    continuation.resume(Result.failure(Exception(errorMessage)))
+                }
+            }
+            
+            fileSystemBridge.createFileViaSAF(pluginId, sessionToken, fileName, mimeType, content, callback)
+            
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to create file via SAF: $fileName")
+            continuation.resume(Result.failure(e))
+        }
+    }
+    
+    /**
+     * Open a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select a file to read
+     * 
+     * @param mimeType MIME type filter (e.g., "text/plain" or "all files")
+     * @return Result with Triple<Uri, ByteArray, String> (file URI, content, and display name) on success, or error
+     */
+    override suspend fun openFileViaSAF(
+        mimeType: String
+    ): Result<Triple<android.net.Uri, ByteArray, String>> = suspendCancellableCoroutine { continuation ->
+        var callbackInvoked = false
+        
+        try {
+            if (fileSystemBridge == null) {
+                continuation.resume(Result.failure(IllegalStateException("File system bridge not available")))
+                return@suspendCancellableCoroutine
+            }
+            
+            val callback = object : ISAFResultCallback.Stub() {
+                override fun onSuccess(uri: android.net.Uri) {
+                    // This is used for createFileViaSAF, not for openFileViaSAF
+                    Timber.w("[SANDBOX:$pluginId] Unexpected onSuccess callback for openFileViaSAF")
+                }
+                
+                override fun onSuccessWithContent(uri: android.net.Uri, content: ByteArray, fileName: String) {
+                    Timber.d("[SANDBOX:$pluginId] onSuccessWithContent CALLED - uri=$uri, contentSize=${content.size} bytes, fileName=$fileName")
+                    try {
+                        Timber.d("[SANDBOX:$pluginId] SAF file selected with content: $uri (${content.size} bytes), fileName=$fileName")
+                        if (callbackInvoked) {
+                            Timber.w("[SANDBOX:$pluginId] Callback already invoked, ignoring duplicate onSuccessWithContent")
+                            return
+                        }
+                        callbackInvoked = true
+                        
+                        if (continuation.isActive) {
+                            continuation.resume(Result.success(Triple(uri, content, fileName)))
+                            Timber.d("[SANDBOX:$pluginId] Successfully resumed continuation with file content and fileName")
+                        } else {
+                            Timber.w("[SANDBOX:$pluginId] Continuation is not active, cannot resume")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "[SANDBOX:$pluginId] Exception in onSuccessWithContent: ${e.javaClass.simpleName} - ${e.message}")
+                        // If we get here, something went wrong
+                        if (!callbackInvoked && continuation.isActive) {
+                            try {
+                                callbackInvoked = true
+                                continuation.resume(Result.failure(Exception("Error in onSuccessWithContent: ${e.message}")))
+                            } catch (e2: Exception) {
+                                Timber.e(e2, "[SANDBOX:$pluginId] Failed to resume continuation after exception")
+                            }
+                        }
+                    }
+                }
+                
+                override fun onError(errorMessage: String) {
+                    Timber.e("[SANDBOX:$pluginId] SAF file opening failed: $errorMessage")
+                    if (callbackInvoked) {
+                        Timber.w("[SANDBOX:$pluginId] Callback already invoked (onSuccessWithContent), ignoring onError")
+                        return
+                    }
+                    callbackInvoked = true
+                    
+                    try {
+                        if (continuation.isActive) {
+                            continuation.resume(Result.failure(Exception(errorMessage)))
+                        } else {
+                            Timber.w("[SANDBOX:$pluginId] Continuation is not active, cannot resume with error")
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "[SANDBOX:$pluginId] Error resuming continuation in onError: ${e.javaClass.simpleName} - ${e.message}")
+                    }
+                }
+            }
+            
+            fileSystemBridge.openFileViaSAF(pluginId, sessionToken, mimeType, callback)
+            
+        } catch (e: Exception) {
+            Timber.e(e, "[SANDBOX:$pluginId] Failed to open file via SAF with mimeType: $mimeType")
+            if (!callbackInvoked && continuation.isActive) {
+                continuation.resume(Result.failure(e))
+            }
+        }
+    }
+    
     
     // ========================================
     // Plugin Messaging APIs Implementation

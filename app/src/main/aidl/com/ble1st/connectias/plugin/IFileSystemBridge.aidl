@@ -1,6 +1,7 @@
 package com.ble1st.connectias.plugin;
 
 import android.os.ParcelFileDescriptor;
+import com.ble1st.connectias.plugin.ISAFResultCallback;
 
 /**
  * AIDL interface for file system access in isolated process
@@ -62,4 +63,26 @@ interface IFileSystemBridge {
      * @return File size in bytes, or -1 if file doesn't exist
      */
     long getFileSize(String pluginId, long sessionToken, String path);
+    
+    /**
+     * Create a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select save location
+     * @param pluginId Plugin identifier for permission checking
+     * @param sessionToken Session token for identity verification (prevents pluginId spoofing)
+     * @param fileName Suggested file name (e.g., "test.txt")
+     * @param mimeType MIME type (e.g., "text/plain")
+     * @param content File content as ByteArray
+     * @param callback Callback for async result (Uri or error)
+     */
+    void createFileViaSAF(String pluginId, long sessionToken, String fileName, String mimeType, in byte[] content, ISAFResultCallback callback);
+    
+    /**
+     * Open a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select a file to read
+     * @param pluginId Plugin identifier for permission checking
+     * @param sessionToken Session token for identity verification (prevents pluginId spoofing)
+     * @param mimeType MIME type filter (e.g., "text/plain" or "all files")
+     * @param callback Callback for async result (Uri or error)
+     */
+    void openFileViaSAF(String pluginId, long sessionToken, String mimeType, ISAFResultCallback callback);
 }

@@ -59,11 +59,13 @@ class PluginComposePresentation(
 
         Timber.i("[UI_PROCESS] Creating ComposePresentation for plugin: $pluginId on VirtualDisplay")
 
+        // Get fragment class for reflection (used in multiple places)
+        val fragmentClass = androidx.fragment.app.Fragment::class.java
+
         // Attach fragment to a minimal host so requireContext() works
         // This is necessary because PluginUIFragment calls requireContext() in onCreateView()
         try {
             // Use reflection to set fragment's mHost field
-            val fragmentClass = androidx.fragment.app.Fragment::class.java
             val mHostField = fragmentClass.getDeclaredField("mHost")
             mHostField.isAccessible = true
 
@@ -91,22 +93,43 @@ class PluginComposePresentation(
             return
         }
 
-        // Now call fragment.onCreate() before onCreateView()
-        try {
-            fragment.onCreate(null)
-        } catch (e: Exception) {
-            Timber.w(e, "[UI_PROCESS] Fragment onCreate failed, continuing anyway")
-        }
-
-        // Get the fragment's view (which is a ComposeView)
+        // Check if fragment already has a view (reusing fragment after dismissWithoutDestroyingFragment)
         val fragmentView = try {
-            fragment.onCreateView(
-                android.view.LayoutInflater.from(context),
-                null,
-                null
-            )
+            val viewField = fragmentClass.getDeclaredField("mView")
+            viewField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val existingView = viewField.get(fragment) as? View
+            
+            if (existingView != null && existingView is ComposeView) {
+                Timber.d("[UI_PROCESS] Fragment already has a view - reusing for plugin: $pluginId")
+                existingView
+            } else {
+                // Fragment doesn't have a view yet, need to create it
+                // Check if fragment was already created (reusing fragment after dismissWithoutDestroyingFragment)
+                val mStateField = fragmentClass.getDeclaredField("mState")
+                mStateField.isAccessible = true
+                val currentState = mStateField.getInt(fragment)
+                
+                // Only call onCreate() if fragment is not already created (state < CREATED = 2)
+                if (currentState < 2) {
+                    try {
+                        fragment.onCreate(null)
+                    } catch (e: Exception) {
+                        Timber.w(e, "[UI_PROCESS] Fragment onCreate failed, continuing anyway")
+                    }
+                } else {
+                    Timber.d("[UI_PROCESS] Fragment already created (state: $currentState) - skipping onCreate() for plugin: $pluginId")
+                }
+
+                // Get the fragment's view (which is a ComposeView)
+                fragment.onCreateView(
+                    android.view.LayoutInflater.from(context),
+                    null,
+                    null
+                )
+            }
         } catch (e: Exception) {
-            Timber.e(e, "[UI_PROCESS] Failed to create fragment view for plugin: $pluginId")
+            Timber.e(e, "[UI_PROCESS] Failed to get/create fragment view for plugin: $pluginId")
             return
         }
 
@@ -230,8 +253,56 @@ class PluginComposePresentation(
         Timber.d("[UI_PROCESS] ComposePresentation stopped for plugin: $pluginId")
     }
 
+    /**
+     * Dismisses the presentation without destroying the fragment.
+     * This is used when recreating VirtualDisplay (e.g., when Surface changes).
+     * The fragment can be reused for the new VirtualDisplay.
+     */
+    fun dismissWithoutDestroyingFragment() {
+        // Only stop the presentation, but don't destroy the fragment
+        // Check if we're already on the main thread
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            // Already on main thread, run synchronously
+            try {
+                // Move lifecycle to CREATED (not DESTROYED)
+                if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                    lifecycleRegistry.currentState = Lifecycle.State.CREATED
+                }
+                // Call onStop but NOT onDestroy
+                if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                    fragment.onStop()
+                }
+                composeView = null
+                super.dismiss()
+                Timber.i("[UI_PROCESS] ComposePresentation dismissed (fragment preserved) for plugin: $pluginId")
+            } catch (e: Exception) {
+                Timber.w(e, "[UI_PROCESS] Error dismissing presentation without destroying fragment for plugin: $pluginId")
+                super.dismiss()
+            }
+        } else {
+            // Not on main thread, post to main thread
+            mainHandler.post {
+                try {
+                    if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                        lifecycleRegistry.currentState = Lifecycle.State.CREATED
+                    }
+                    if (lifecycleRegistry.currentState != Lifecycle.State.DESTROYED) {
+                        fragment.onStop()
+                    }
+                    composeView = null
+                    super.dismiss()
+                    Timber.i("[UI_PROCESS] ComposePresentation dismissed (fragment preserved) for plugin: $pluginId")
+                } catch (e: Exception) {
+                    Timber.w(e, "[UI_PROCESS] Error dismissing presentation without destroying fragment for plugin: $pluginId")
+                    super.dismiss()
+                }
+            }
+        }
+    }
+
     override fun dismiss() {
         // Destroy lifecycle (must be on main thread)
+        // This is called when the plugin UI is completely destroyed
         // Check if we're already on the main thread
         if (Looper.myLooper() == Looper.getMainLooper()) {
             // Already on main thread, run synchronously

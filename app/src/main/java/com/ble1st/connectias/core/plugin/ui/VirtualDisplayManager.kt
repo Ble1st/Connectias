@@ -280,29 +280,69 @@ class VirtualDisplayManager(private val context: Context) {
                 // If we already have an active VirtualDisplay that matches this request, keep it.
                 // This avoids double-rendering caused by rapid repeated setUISurface() calls.
                 virtualDisplays[pluginId]?.let { existing ->
-                    if (existing.surface == surface && existing.width == width && existing.height == height) {
+                    // Check if Surface reference matches AND Surface is still valid
+                    if (existing.surface == surface && existing.surface.isValid() && 
+                        existing.width == width && existing.height == height) {
                         Timber.d("[UI_PROCESS] VirtualDisplay already matches request for plugin: $pluginId (${width}x${height})")
                         return existing.virtualDisplay
                     }
+                    
+                    // If Surface reference changed, we need to recreate VirtualDisplay
+                    // This happens when MainActivity pauses (SAF dialog) and resumes (new Surface created)
+                    if (existing.surface != surface) {
+                        Timber.i("[UI_PROCESS] VirtualDisplay Surface reference changed for plugin: $pluginId - recreating VirtualDisplay")
+                        try {
+                            // Dismiss presentation WITHOUT destroying fragment (so it can be reused)
+                            existing.presentation?.dismissWithoutDestroyingFragment()
+                            // Wait for presentation to fully dismiss (but fragment is still alive)
+                            Thread.sleep(100)
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error dismissing old presentation")
+                        }
+                        // Release old VirtualDisplay (but keep the old Surface reference - it's owned by Main Process)
+                        try {
+                            existing.virtualDisplay.release()
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error releasing old VirtualDisplay")
+                        }
+                        virtualDisplays.remove(pluginId)
+                        // Wait longer to ensure VirtualDisplay and Surface are fully released
+                        // This prevents "BufferQueue has been abandoned" errors
+                        Thread.sleep(100)
+                    } else if (!existing.surface.isValid()) {
+                        // Surface is invalid - recreate VirtualDisplay
+                        Timber.w("[UI_PROCESS] VirtualDisplay Surface is invalid for plugin: $pluginId - recreating")
+                        try {
+                            existing.presentation?.dismissWithoutDestroyingFragment()
+                            Thread.sleep(100)
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error dismissing presentation")
+                        }
+                        try {
+                            existing.virtualDisplay.release()
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error releasing VirtualDisplay")
+                        }
+                        virtualDisplays.remove(pluginId)
+                        Thread.sleep(50)
+                    } else {
+                        // Same Surface but different dimensions - resize instead of recreate
+                        Timber.d("[UI_PROCESS] VirtualDisplay exists with same Surface but different dimensions - resizing")
+                        try {
+                            existing.presentation?.dismissWithoutDestroyingFragment()
+                            Thread.sleep(100)
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error dismissing presentation for resize")
+                        }
+                        try {
+                            existing.virtualDisplay.release()
+                        } catch (e: Exception) {
+                            Timber.w(e, "[UI_PROCESS] Error releasing VirtualDisplay for resize")
+                        }
+                        virtualDisplays.remove(pluginId)
+                        Thread.sleep(50)
+                    }
                 }
-
-            // Check if VirtualDisplay already exists and release it properly
-            virtualDisplays[pluginId]?.let { existing ->
-                Timber.w("[UI_PROCESS] VirtualDisplay already exists for plugin: $pluginId - releasing old one")
-                try {
-                    // Dismiss presentation first
-                    existing.presentation?.dismiss()
-                    // Wait a bit for presentation to fully dismiss
-                    Thread.sleep(100)
-                } catch (e: Exception) {
-                    Timber.w(e, "[UI_PROCESS] Error dismissing old presentation")
-                }
-                // Release all resources
-                existing.release()
-                virtualDisplays.remove(pluginId)
-                // Wait a bit more to ensure VirtualDisplay is fully released
-                Thread.sleep(50)
-            }
 
             // Get display metrics
             val metrics = DisplayMetrics()

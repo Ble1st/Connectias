@@ -184,6 +184,40 @@ interface PluginContext {
         messageType: String,
         handler: suspend (PluginMessage) -> MessageResponse
     )
+
+    // ========================================
+    // File System SAF APIs (v2.1)
+    // ========================================
+
+    /**
+     * Create a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select save location
+     * 
+     * Requires FILE_WRITE permission to be granted by user.
+     *
+     * @param fileName Suggested file name (e.g., "test.txt")
+     * @param mimeType MIME type (e.g., "text/plain")
+     * @param content File content as ByteArray
+     * @return Result with Uri of created file on success, or error
+     */
+    suspend fun createFileViaSAF(
+        fileName: String,
+        mimeType: String,
+        content: ByteArray
+    ): Result<android.net.Uri>
+    
+    /**
+     * Open a file via Storage Access Framework (SAF)
+     * Opens Android file picker for user to select a file to read
+     * 
+     * Requires FILE_READ permission to be granted by user.
+     *
+     * @param mimeType MIME type filter (e.g., "text/plain" or "all files")
+     * @return Result with Triple<Uri, ByteArray, String> (file URI, content, and display name) on success, or error
+     */
+    suspend fun openFileViaSAF(
+        mimeType: String = "*/*"
+    ): Result<Triple<android.net.Uri, ByteArray, String>>
 }
 
 /**

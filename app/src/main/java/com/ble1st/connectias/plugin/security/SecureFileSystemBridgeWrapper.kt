@@ -2,6 +2,7 @@ package com.ble1st.connectias.plugin.security
 
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.ISAFResultCallback
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import timber.log.Timber
 
@@ -187,5 +188,73 @@ class SecureFileSystemBridgeWrapper(
         }
 
         return actualBridge.getFileSize(verifiedPluginId, this.sessionToken, path)
+    }
+    
+    @RequiresPluginPermission("FILE_WRITE")
+    override fun createFileViaSAF(
+        pluginId: String,
+        sessionToken: Long,
+        fileName: String,
+        mimeType: String,
+        content: ByteArray,
+        callback: ISAFResultCallback
+    ) {
+        val verifiedPluginId = verifyCallerIdentity()
+
+        if (pluginId != verifiedPluginId) {
+            Timber.e("[SECURE FS BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureFileSystemBridgeWrapper.createFileViaSAF"
+            )
+            callback.onError("Identity verification failed")
+            return
+        }
+
+        // Phase 5: Permission pre-check
+        try {
+            permissionPreChecker.preCheck(verifiedPluginId, "createFileViaSAF")
+        } catch (e: SecurityException) {
+            Timber.e("[SECURE FS BRIDGE] Permission denied: ${e.message}")
+            callback.onError("Permission denied: ${e.message}")
+            return
+        }
+
+        actualBridge.createFileViaSAF(verifiedPluginId, this.sessionToken, fileName, mimeType, content, callback)
+    }
+    
+    @RequiresPluginPermission("FILE_READ")
+    override fun openFileViaSAF(
+        pluginId: String,
+        sessionToken: Long,
+        mimeType: String,
+        callback: ISAFResultCallback
+    ) {
+        val verifiedPluginId = verifyCallerIdentity()
+
+        if (pluginId != verifiedPluginId) {
+            Timber.e("[SECURE FS BRIDGE] SPOOFING BLOCKED: claimed='$pluginId' verified='$verifiedPluginId'")
+            auditManager?.logPluginSpoofingAttempt(
+                pluginId = verifiedPluginId,
+                claimedId = pluginId,
+                actualId = verifiedPluginId,
+                source = "SecureFileSystemBridgeWrapper.openFileViaSAF"
+            )
+            callback.onError("Identity verification failed")
+            return
+        }
+
+        // Phase 5: Permission pre-check
+        try {
+            permissionPreChecker.preCheck(verifiedPluginId, "openFileViaSAF")
+        } catch (e: SecurityException) {
+            Timber.e("[SECURE FS BRIDGE] Permission denied: ${e.message}")
+            callback.onError("Permission denied: ${e.message}")
+            return
+        }
+
+        actualBridge.openFileViaSAF(verifiedPluginId, this.sessionToken, mimeType, callback)
     }
 }
