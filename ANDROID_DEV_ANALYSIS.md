@@ -1,6 +1,6 @@
 # Connectias - Ausführliche Android-Entwickler-Analyse
 
-**Stand:** Dezember 2024  
+*Stand:** Dezember 2024  
 **Autor:** Technische Analyse  
 **Projekt:** Connectias - FOSS Android Security & Network Tols
 
