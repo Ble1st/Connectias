@@ -14,13 +14,15 @@ activity = "1.12.2"
 constraintlayout = "2.2.1"
 
 # Hilt Dependency Injection
-# Downgraded to 2.56.1 due to JavaPoet compatibility issue with 2.57.2
-hilt = "2.56.1"
+# Updated to 2.59 for AGP 9.0 compatibility (released Jan 21, 2026)
+# Dagger 2.59 adds full AGP 9.0 support and requires Gradle 9.1+
+hilt = "2.59"
 hiltNavigation = "1.3.0"
 hiltWork = "1.3.0" # Added for Hilt WorkManager integration
 
 # Room Database
 room = "2.8.4"
+roomGradlePlugin = "2.8.4"
 
 # Navigation Component
 navigation = "2.9.6"
@@ -34,6 +36,8 @@ coroutinesCore = "1.10.2"
 # Lifecycle
 lifecycleLivedataKtx = "2.10.0"
 lifecycleViewmodelKtx = "2.10.0"
+lifecycleRuntimeKtx = "2.10.0"
+lifecycleViewmodelCompose = "2.10.0"
 
 # Fragment
 fragment = "1.8.9"
@@ -50,6 +54,9 @@ timber = "5.0.1"
 # Phase 8: Performance & Monitoring
 leakcanary = "2.14"
 benchmarkMacro = "1.4.1"
+# Temporarily kept at 1.4.1 - Plugin disabled due to AGP 9.0 incompatibility
+# Error: Extension of type 'TestExtension' does not exist (replaced by TestExtensionImpl in AGP 9.0)
+# TODO: Update when androidx.baselineprofile plugin version with AGP 9.0 support is available
 baselineprofile = "1.4.1"
 uiautomator = "2.3.0"
 
@@ -67,11 +74,14 @@ javapoet = "1.13.0"
 javaxInject = "1"
 
 # SQLCipher (encrypted SQLite)
-sqlcipher = "4.12.0"
+sqlcipher = "4.13.0"
+
+# SQLite (for SQLCipher SupportFactory)
+sqlite = "2.6.2"
 
 # Kotlin Serialization
-# Updated to 1.7.1+ for Kotlin 2.0.21 compatibility
-kotlinxSerialization = "1.9.0"
+# Updated to 1.10.0 for Kotlin 2.3.0 compatibility
+kotlinxSerialization = "1.10.0"
 
 # KSP (Kotlin Symbol Processing)
 # Updated to match Kotlin 2.2.21
@@ -81,13 +91,13 @@ ksp = "2.3.4"
 kotlinReflect = "2.2.21"
 
 # Media3
-media3 = "1.9.0"
+media3 = "1.9.1"
 
 # CameraX
 camerax = "1.5.2"
 tesseract = "9.1.0"
-opencv = "4.12.0"
-litert = "2.1.0"
+opencv = "4.13.0"
+litert = "2.1.1"
 tflite = "2.17.0"
 
 # ML Kit
@@ -105,34 +115,49 @@ libaums = "0.10.0"
 # DataStore
 datastore = "1.2.0"
 
+# Profile Installer & Startup
+profileinstaller = "1.4.1"
+startup = "1.2.0"
+
 # Biometric
 biometric = "1.1.0"
 
 # Testing
 testRunner = "1.7.0"
 testRules = "1.7.0"
-mockk = "1.14.7"
+mockk = "1.14.9"
 coroutinesTest = "1.10.2"
-hiltTesting = "2.56.1"
-robolectric = "4.14.1"
-roborazzi = "1.34.0"
+hiltTesting = "2.59"
+robolectric = "4.16.1"
+# Updated to 1.56.0+ for AGP 9.0 compatibility (1.56.0 released Jan 9, 2026 adds AGP 9.0 support)
+roborazzi = "1.57.0"
+
+# Mockito
+mockito = "5.21.0"
+mockitoInline = "5.2.0"
+mockitoJunitJupiter = "5.21.0"
+
+# Turbine (for Flow testing)
+turbine = "1.2.1"
 
 # FOSS Feature Libraries
 zxing = "3.5.4"
 bouncycastle = "1.83"
-dnsjava = "3.6.3"
+dnsjava = "3.6.4"
 okhttp = "5.3.2"
-itext = "9.4.0"
+okhttpLoggingInterceptor = "5.3.2"
+itext = "9.5.0"
 mpandroidchart = "3.1.0"
 chicory = "1.6.1"
 sshj = "0.40.0"
 commonsNet = "3.12.0"
-commonmark = "0.27.0"
+commonmark = "0.27.1"
 
 # Jetpack Compose
-composeBom = "2025.12.01"
+composeBom = "2026.01.00"
 composeCompiler = "1.5.15"
-composeAdaptive = "1.1.1"
+composeAdaptive = "1.2.0"
+activityCompose = "1.12.2"
 
 [libraries]
 # Android Core
@@ -157,6 +182,7 @@ androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navig
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
 androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-gradle-plugin = { group = "androidx.room", name = "room-gradle-plugin", version.ref = "roomGradlePlugin" }
 
 # Navigation Component
 androidx-navigation-fragment-ktx = { group = "androidx.navigation", name = "navigation-fragment-ktx", version.ref = "navigationFragmentKtx" }
@@ -169,6 +195,8 @@ kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 # Lifecycle
 androidx-lifecycle-livedata-ktx = { group = "androidx.lifecycle", name = "lifecycle-livedata-ktx", version.ref = "lifecycleLivedataKtx" }
 androidx-lifecycle-viewmodel-ktx = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-ktx", version.ref = "lifecycleViewmodelKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 
 # Fragment
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
@@ -203,11 +231,16 @@ javax-inject = { group = "javax.inject", name = "javax.inject", version.ref = "j
 # SQLCipher (encrypted SQLite)
 sqlcipher-android = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 
+# SQLite (for SQLCipher SupportFactory)
+androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version.ref = "sqlite" }
+
 # Kotlin Serialization
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 
 # Kotlin Reflect (required by KSP)
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
+kotlin-stdlib = { group = "org.jetbrains.kotlin", name = "kotlin-stdlib", version.ref = "kotlin" }
+kotlin-parcelize-runtime = { group = "org.jetbrains.kotlin", name = "kotlin-parcelize-runtime", version.ref = "kotlin" }
 
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -223,6 +256,14 @@ roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", versi
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 
+# Mockito
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito" }
+mockito-inline = { group = "org.mockito", name = "mockito-inline", version.ref = "mockitoInline" }
+mockito-junit-jupiter = { group = "org.mockito", name = "mockito-junit-jupiter", version.ref = "mockitoJunitJupiter" }
+
+# Turbine (for Flow testing)
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+
 # FOSS Feature Libraries
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version = "4.3.0" }
@@ -230,6 +271,7 @@ bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", ver
 bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
 dnsjava = { group = "dnsjava", name = "dnsjava", version.ref = "dnsjava" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttpLoggingInterceptor" }
 itext = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
 mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
 chicory-runtime = { group = "com.dylibso.chicory", name = "runtime", version.ref = "chicory" }
@@ -240,11 +282,12 @@ commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "com
 # Jetpack Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
 androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
-androidx-compose-activity = { group = "androidx.activity", name = "activity-compose", version.ref = "activity" }
+androidx-compose-activity = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycleViewmodelKtx" }
 androidx-compose-material3-adaptive = { group = "androidx.compose.material3.adaptive", name = "adaptive", version.ref = "composeAdaptive" }
 androidx-compose-material3-adaptive-layout = { group = "androidx.compose.material3.adaptive", name = "adaptive-layout", version.ref = "composeAdaptive" }
@@ -289,6 +332,10 @@ libaums-libusbcommunication = { group = "me.jahnen.libaums", name = "libusbcommu
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 
+# Profile Installer & Startup
+androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
+androidx-startup = { group = "androidx.startup", name = "startup-runtime", version.ref = "startup" }
+
 # Biometric
 androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
 
@@ -306,9 +353,11 @@ android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
-kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+# Note: kotlin-parcelize plugin is built-in with AGP 9.0, cannot use version in version catalog
+# Use id("org.jetbrains.kotlin.plugin.parcelize") directly in build.gradle.kts files
 hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

@@ -16,8 +16,14 @@ kotlin {
 }
 
 dependencies {
-    // Use direct versions instead of version catalog in build-logic
-    compileOnly("com.android.tools.build:gradle:8.13.2")
+    // Note: build-logic is a composite build that's evaluated before the main project's version catalog
+    // Therefore, we use direct versions here, but they should match gradle/libs.versions.toml:
+    // - AGP: agp = "9.0.0" → com.android.tools.build:gradle:9.0.0
+    // - Kotlin: kotlin = "2.3.0" → org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0
+    // - KSP: ksp = "2.3.4" → com.google.devtools.ksp:symbol-processing-gradle-plugin:2.3.4
+    // - Room Plugin: roomGradlePlugin = "2.8.4" → androidx.room:room-gradle-plugin:2.8.4
+    // When updating versions in libs.versions.toml, remember to update these as well!
+    compileOnly("com.android.tools.build:gradle:9.0.0")
     compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
     compileOnly("com.google.devtools.ksp:symbol-processing-gradle-plugin:2.3.4")
     implementation("androidx.room:room-gradle-plugin:2.8.4")

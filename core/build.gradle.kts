@@ -1,10 +1,11 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
+    // Note: kotlin.android plugin removed - using built-in Kotlin support in AGP 9.0+
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.kotlin.compose)
+    // Note: kotlin-parcelize is built-in with AGP 9.0, must use id() without version
     id("org.jetbrains.kotlin.plugin.parcelize")
     id("jacoco")
 }
@@ -128,6 +129,9 @@ dependencies {
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
     api(libs.kotlin.reflect)
+    
+    // kotlin-parcelize-runtime required for @Parcelize annotation support
+    implementation(libs.kotlin.parcelize.runtime)
 
     // Fragment
     implementation(libs.androidx.fragment.ktx)

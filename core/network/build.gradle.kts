@@ -5,7 +5,7 @@ plugins {
 dependencies {
     api(projects.core.model)
     
-    implementation("com.squareup.okhttp3:okhttp:5.3.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation(libs.okhttp)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
 }
