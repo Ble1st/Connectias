@@ -49,7 +49,7 @@ import java.util.zip.ZipFile
  * operations to a separate sandbox process via IPC.
  */
 class PluginManagerSandbox @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pluginDirectory: File,
     private val sandboxProxy: PluginSandboxProxy,
     private val moduleRegistry: ModuleRegistry? = null,

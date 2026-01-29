@@ -26,7 +26,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PluginAnalyticsCollector @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val resourceLimiter: EnhancedPluginResourceLimiter,
     private val securityAuditManager: SecurityAuditManager,
     private val store: PluginAnalyticsStore

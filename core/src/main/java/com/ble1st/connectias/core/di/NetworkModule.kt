@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.ble1st.connectias.core.di
 
 import com.ble1st.connectias.core.security.ssl.SslPinningManager

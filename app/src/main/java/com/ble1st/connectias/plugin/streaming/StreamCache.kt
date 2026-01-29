@@ -17,7 +17,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class StreamCache @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) : IStreamCache {
     companion object {
         private const val MAX_CACHE_SIZE = 500L * 1024 * 1024 // 500MB

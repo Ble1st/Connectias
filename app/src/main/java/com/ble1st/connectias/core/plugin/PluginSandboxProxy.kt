@@ -613,7 +613,7 @@ class PluginSandboxProxy(
                 message = "Rate limit exceeded for method: loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
                 details = mapOf(
                     "method" to "loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
-                    "pluginId" to (pluginId ?: "unknown"),
+                    "pluginId" to pluginId,
                     "retryAfterMs" to e.retryAfterMs.toString()
                 ),
                 exception = e
@@ -808,7 +808,7 @@ class PluginSandboxProxy(
                 sandboxService?.getPluginMetadata(pluginId)
             } ?: return@withContext Result.failure(Exception("IPC timeout during getPluginMetadata"))
             
-            Result.success(metadata?.toPluginMetadata())
+            Result.success(metadata.toPluginMetadata())
             
         } catch (e: RateLimitException) {
             Timber.w(e, "Rate limit exceeded for getPluginMetadata")

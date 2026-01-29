@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PluginBehaviorAnalyzer @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val permissionMonitor: PluginPermissionMonitor,
     private val networkPolicy: PluginNetworkPolicy
 ) {

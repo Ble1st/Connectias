@@ -18,7 +18,7 @@ import timber.log.Timber
  */
 @Singleton
 class DeclarativeDeveloperTrustStore @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private val prefs = context.getSharedPreferences("declarative_truststore_v1", Context.MODE_PRIVATE)
     private val keyName = "trusted_keys_json"

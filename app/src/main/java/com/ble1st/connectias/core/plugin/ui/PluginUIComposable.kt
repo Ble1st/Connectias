@@ -457,7 +457,7 @@ private fun RenderImage(
                 component.properties.getByteArray("image")
             } catch (e: ClassCastException) {
                 null
-            } ?: null
+            }
         }
     }
 

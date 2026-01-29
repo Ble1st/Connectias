@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class EnhancedSandbox @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val resourceLimiter: PluginResourceLimiter,
     private val networkPolicy: PluginNetworkPolicy,
     private val permissionMonitor: PluginPermissionMonitor,

@@ -9,6 +9,7 @@ import javax.inject.Singleton
  * Advanced anomaly detection engine
  * Uses pattern matching and statistical analysis
  */
+@Suppress("unused")
 @Singleton
 class AnomalyDetector @Inject constructor() {
     

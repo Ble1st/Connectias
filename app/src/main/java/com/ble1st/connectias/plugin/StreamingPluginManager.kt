@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class StreamingPluginManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pluginStreamingManager: PluginStreamingManager,
     private val lazyPluginLoader: LazyPluginLoader,
     private val mappedPluginLoader: MappedPluginLoader,

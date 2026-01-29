@@ -25,7 +25,7 @@ import androidx.core.graphics.scale
  * - Elements are rendered top-down; if the remaining space is insufficient, a new page is started.
  */
 class PdfGenerator @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     @VisibleForTesting
     internal data class LayoutConfig(

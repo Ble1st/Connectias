@@ -1033,7 +1033,7 @@ fun FeatureList(
                             )
                         } else if (feature.resolvedId != null) {
                             // Regular feature - use normal navigation
-                            FeatureRow(feature, onClick = { onFeatureClick(feature.resolvedId!!) })
+                            FeatureRow(feature, onClick = { onFeatureClick(feature.resolvedId) })
                         }
                     }
                 }

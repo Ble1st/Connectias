@@ -407,8 +407,8 @@ class CameraBridge(private val context: Context) {
                 throw IllegalStateException("Failed to capture image")
             }
             
-            Timber.i("[CAMERA BRIDGE] Image captured successfully: ${capturedData!!.size} bytes")
-            return capturedData!!
+            Timber.i("[CAMERA BRIDGE] Image captured successfully: ${capturedData.size} bytes")
+            return capturedData
             
         } catch (e: Exception) {
             Timber.e(e, "[CAMERA BRIDGE] Capture failed")

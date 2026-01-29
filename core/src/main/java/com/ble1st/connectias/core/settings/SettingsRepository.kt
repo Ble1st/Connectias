@@ -46,7 +46,7 @@ import androidx.core.content.edit
 @Singleton
 @Suppress("DEPRECATION")
 class SettingsRepository(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val onRecoveryWillEraseData: (() -> Unit)? = null
 ) : com.ble1st.connectias.common.ui.theme.ThemeSettingsProvider {
     // Plain SharedPreferences for non-sensitive settings like theme

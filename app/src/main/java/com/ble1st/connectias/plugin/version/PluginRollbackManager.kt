@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PluginRollbackManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pluginManager: PluginManager,
     private val streamingManager: StreamingPluginManager,
     private val versionManager: PluginVersionManager

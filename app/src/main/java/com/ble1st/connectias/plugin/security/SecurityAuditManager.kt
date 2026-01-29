@@ -28,7 +28,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class SecurityAuditManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     
     // Check if we're running in the isolated sandbox process
