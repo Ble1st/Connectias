@@ -230,8 +230,7 @@ object NodeRegistry {
         // Type + constraints
         spec.params.forEach { p ->
             if (!params.containsKey(p.key)) return@forEach
-            val value = params[p.key]
-            if (value == null) return@forEach
+            val value = params[p.key] ?: return@forEach
 
             when (p.type) {
                 NodeSpec.ParamType.ANY -> Unit

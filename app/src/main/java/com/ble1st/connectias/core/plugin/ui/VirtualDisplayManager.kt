@@ -281,7 +281,7 @@ class VirtualDisplayManager(private val context: Context) {
                 // This avoids double-rendering caused by rapid repeated setUISurface() calls.
                 virtualDisplays[pluginId]?.let { existing ->
                     // Check if Surface reference matches AND Surface is still valid
-                    if (existing.surface == surface && existing.surface.isValid() && 
+                    if (existing.surface == surface && existing.surface.isValid &&
                         existing.width == width && existing.height == height) {
                         Timber.d("[UI_PROCESS] VirtualDisplay already matches request for plugin: $pluginId (${width}x${height})")
                         return existing.virtualDisplay
@@ -309,7 +309,7 @@ class VirtualDisplayManager(private val context: Context) {
                         // Wait longer to ensure VirtualDisplay and Surface are fully released
                         // This prevents "BufferQueue has been abandoned" errors
                         Thread.sleep(100)
-                    } else if (!existing.surface.isValid()) {
+                    } else if (!existing.surface.isValid) {
                         // Surface is invalid - recreate VirtualDisplay
                         Timber.w("[UI_PROCESS] VirtualDisplay Surface is invalid for plugin: $pluginId - recreating")
                         try {

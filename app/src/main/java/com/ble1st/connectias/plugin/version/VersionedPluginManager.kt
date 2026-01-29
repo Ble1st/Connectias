@@ -113,8 +113,7 @@ class VersionedPluginManager @Inject constructor(
         targetVersion: String?,
         reason: String
     ): Result<PluginVersion> {
-        val result = rollbackManager.rollbackPlugin(pluginId, targetVersion, reason)
-        return when (result) {
+        return when (val result = rollbackManager.rollbackPlugin(pluginId, targetVersion, reason)) {
             is RollbackResult.Success -> Result.success(result.version)
             is RollbackResult.Failure -> Result.failure(Exception(result.reason))
         }

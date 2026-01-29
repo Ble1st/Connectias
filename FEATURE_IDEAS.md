@@ -182,22 +182,22 @@
 4. Debug-Console
 
 ### Phase 2: Sicherheit
-5. Netzwerk-Firewall
-6. Plugin-Signatur
-7. Sandbox-Isolation
-8. Audit-Logs
+1. Netzwerk-Firewall
+2. Plugin-Signatur
+3. Sandbox-Isolation
+4. Audit-Logs
 
 ### Phase 3: UX
-9. Plugin-Widgets
-10. Dunkelmodus-Sync
-11. Plugin-Favoriten
-12. Accessibility
+1. Plugin-Widgets
+2. Dunkelmodus-Sync
+3. Plugin-Favoriten
+4. Accessibility
 
 ### Phase 4: Entwickler
-13. A/B Testing
-14. Remote Config
-15. CI/CD Integration
-16. Performance-Profiler
+1. A/B Testing
+2. Remote Config
+3. CI/CD Integration
+4. Performance-Profiler
 
 ---
 

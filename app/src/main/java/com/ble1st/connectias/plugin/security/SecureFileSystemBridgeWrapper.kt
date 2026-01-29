@@ -34,11 +34,8 @@ class SecureFileSystemBridgeWrapper(
      */
     private fun verifyCallerIdentity(): String {
         val verifiedPluginId = PluginIdentitySession.verifyPluginIdentity()
-        
-        if (verifiedPluginId == null) {
-            throw SecurityException("No verified plugin identity - access denied")
-        }
-        
+            ?: throw SecurityException("No verified plugin identity - access denied")
+
         if (verifiedPluginId != boundPluginId) {
             throw SecurityException(
                 "Identity mismatch: wrapper bound to '$boundPluginId' but caller verified as '$verifiedPluginId'"

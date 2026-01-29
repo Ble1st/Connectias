@@ -1150,10 +1150,9 @@ fun resolveFeatureCategories(
     val pluginModules = allModules
         .filter { moduleInfo ->
             if (!moduleInfo.isActive) return@filter false
-            
-            val pluginInfo = pluginManager.getPlugin(moduleInfo.id)
-            if (pluginInfo == null) return@filter false
-            
+
+            val pluginInfo = pluginManager.getPlugin(moduleInfo.id) ?: return@filter false
+
             // Hide plugins in ERROR state from feature list
             // They remain visible in plugin management for restart
             pluginInfo.state != PluginManagerSandbox.PluginState.ERROR

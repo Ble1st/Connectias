@@ -47,10 +47,8 @@ class HardwareBridgeService : Service() {
         override fun requestPermission(pluginId: String, permission: String): HardwareResponseParcel {
             return try {
                 val activity = permissionRequestManager.currentActivity
-                if (activity == null) {
-                    return HardwareResponseParcel.failure("No active activity for permission request")
-                }
-                
+                    ?: return HardwareResponseParcel.failure("No active activity for permission request")
+
                 Timber.i("[HARDWARE BRIDGE] Permission request: $permission for $pluginId")
                 val granted = permissionRequestManager.requestPermissionBlocking(activity, pluginId, permission)
                 

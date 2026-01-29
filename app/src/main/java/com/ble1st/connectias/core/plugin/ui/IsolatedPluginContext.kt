@@ -234,7 +234,7 @@ class RestrictedWindowManager(
     
     // Delegate WindowManager-specific methods
     override fun getDefaultDisplay(): Display {
-        return delegate.getDefaultDisplay()
+        return delegate.defaultDisplay
     }
     
     override fun removeViewImmediate(view: View) {

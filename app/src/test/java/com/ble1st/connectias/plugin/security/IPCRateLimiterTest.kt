@@ -138,7 +138,7 @@ class IPCRateLimiterTest {
         
         // Now get token count (should be burst - 1 = 2)
         val afterConsume = limiter.getTokenCount("enablePlugin", "test-plugin")
-        assertTrue("Token count should be 2 (burst=3, consumed 1)", afterConsume >= 1.5 && afterConsume <= 2.5)
+        assertTrue("Token count should be 2 (burst=3, consumed 1)", afterConsume in 1.5..2.5)
         
         // Consume another token
         limiter.checkRateLimit("enablePlugin", "test-plugin")

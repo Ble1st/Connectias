@@ -36,11 +36,8 @@ class SecureHardwareBridgeWrapper @Inject constructor(
      */
     private fun verifyCallerIdentity(): String {
         val verifiedPluginId = PluginIdentitySession.verifyPluginIdentity()
-        
-        if (verifiedPluginId == null) {
-            throw SecurityException("Unable to verify plugin identity - no active session found")
-        }
-        
+            ?: throw SecurityException("Unable to verify plugin identity - no active session found")
+
         return verifiedPluginId
     }
     

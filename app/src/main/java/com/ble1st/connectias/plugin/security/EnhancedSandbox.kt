@@ -186,9 +186,7 @@ class EnhancedSandbox @Inject constructor(
      * Verify plugin before execution
      */
     suspend fun verifyPluginExecution(pluginId: String): Boolean {
-        val result = zeroTrustVerifier.verifyOnExecution(pluginId)
-        
-        return when (result) {
+        return when (val result = zeroTrustVerifier.verifyOnExecution(pluginId)) {
             is ZeroTrustVerifier.VerificationResult.Success -> {
                 Timber.d("Plugin $pluginId verified successfully")
                 true

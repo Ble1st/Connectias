@@ -75,7 +75,7 @@ object DeclarativeFlowRunParser {
         for (t in tokens) {
             val idx = t.indexOf('=')
             if (idx <= 0 || idx >= t.length - 1) continue
-            val k = t.substring(0, idx)
+            val k = t.take(idx)
             val v = t.substring(idx + 1)
             out[k] = v
         }

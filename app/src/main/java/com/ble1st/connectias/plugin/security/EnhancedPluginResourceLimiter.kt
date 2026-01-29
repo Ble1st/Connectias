@@ -241,7 +241,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
             val tracking = cpuTracking.getOrPut(pid) { CpuTrackingData() }
             
             // Calculate delta-based CPU usage
-            val cpuPercent = if (tracking.lastCheckTime > 0 && currentTime > tracking.lastCheckTime) {
+            val cpuPercent = if (tracking.lastCheckTime in 1..<currentTime) {
                 val timeDelta = (currentTime - tracking.lastCheckTime) / 1000.0 // seconds
                 val cpuDelta = totalCpuTime - tracking.lastCpuTime
                 

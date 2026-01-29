@@ -149,9 +149,9 @@ class PluginSandboxService : Service() {
             val usagePercentage = usedMemory.toDouble() / maxMemory.toDouble()
             
             // Get PSS (Proportional Set Size) - more accurate memory usage
-            val totalPss = memoryInfo.getTotalPss() * 1024L // Convert KB to bytes
-            val totalPrivateDirty = memoryInfo.getTotalPrivateDirty() * 1024L
-            val totalSharedDirty = memoryInfo.getTotalSharedDirty() * 1024L
+            val totalPss = memoryInfo.totalPss * 1024L // Convert KB to bytes
+            val totalPrivateDirty = memoryInfo.totalPrivateDirty * 1024L
+            val totalSharedDirty = memoryInfo.totalSharedDirty * 1024L
             
             // Log detailed memory info (only if significant)
             if (usagePercentage > 0.5) { // Only log if > 50% used
@@ -201,7 +201,7 @@ class PluginSandboxService : Service() {
             }
             
             // Calculate memory growth trend if we have previous data
-            if (pluginInfo.lastMemoryCheck > 0 && currentTime > pluginInfo.lastMemoryCheck) {
+            if (pluginInfo.lastMemoryCheck in 1..<currentTime) {
                 val timeDelta = (currentTime - pluginInfo.lastMemoryCheck) / 1000.0 // seconds
                 val memoryDelta = adjustedMemory - pluginInfo.lastMemoryUsage
                 
@@ -558,7 +558,7 @@ class PluginSandboxService : Service() {
                 // Get current memory info for context
                 val memoryInfo = Debug.MemoryInfo()
                 Debug.getMemoryInfo(memoryInfo)
-                val totalPss = memoryInfo.getTotalPss() * 1024L
+                val totalPss = memoryInfo.totalPss * 1024L
                 
                 // Return the estimated memory for this plugin
                 // Note: In isolated process, we can't get precise per-plugin memory
@@ -911,7 +911,7 @@ class PluginSandboxService : Service() {
         override fun requestPermissionAsync(pluginId: String, permission: String): Boolean {
             return try {
                 // Validate plugin exists
-                if (this@PluginSandboxService.loadedPlugins.get(pluginId as String) == null) {
+                if (this@PluginSandboxService.loadedPlugins[pluginId as String] == null) {
                     Timber.e("[SANDBOX] Plugin not found: $pluginId")
                     return false
                 }
@@ -959,7 +959,7 @@ class PluginSandboxService : Service() {
         override fun requestPermissionsAsync(pluginId: String, permissions: List<String>): Boolean {
             return try {
                 // Validate plugin exists
-                if (this@PluginSandboxService.loadedPlugins.get(pluginId as String) == null) {
+                if (this@PluginSandboxService.loadedPlugins[pluginId as String] == null) {
                     Timber.e("[SANDBOX] Plugin not found: $pluginId")
                     return false
                 }
@@ -1413,7 +1413,7 @@ class PluginSandboxService : Service() {
         
         // Extract package and simple name from pluginId
         val lastDotIndex = pluginId.lastIndexOf('.')
-        val packageName = if (lastDotIndex >= 0) pluginId.substring(0, lastDotIndex) else ""
+        val packageName = if (lastDotIndex >= 0) pluginId.take(lastDotIndex) else ""
         val simpleName = if (lastDotIndex >= 0) pluginId.substring(lastDotIndex + 1) else pluginId
         
         // Capitalize first letter for class name (e.g., "test2plugin" -> "Test2Plugin")
@@ -1440,13 +1440,9 @@ class PluginSandboxService : Service() {
             try {
                 // Try to load class directly from plugin DEX (bypass parent filtering)
                 // Plugin classes should be in the DEX, not in parent classloader
-                val clazz = if (restrictedLoader != null) {
-                    // Use direct DEX loading to bypass FilteredParentClassLoader
-                    restrictedLoader.loadClassFromDex(className)
-                } else {
-                    // Fallback to normal loading
-                    classLoader.loadClass(className)
-                }
+                val clazz = restrictedLoader?.// Use direct DEX loading to bypass FilteredParentClassLoader
+                loadClassFromDex(className) ?: // Fallback to normal loading
+                classLoader.loadClass(className)
                 
                 // Check if class implements IPlugin (support both .sdk and non-.sdk versions)
                 val implementsIPlugin = checkIfImplementsIPlugin(clazz)
@@ -1583,7 +1579,7 @@ class PluginSandboxService : Service() {
             Timber.d("[SANDBOX] Scanning ${dexBuffers.size} DEX file(s) for IPlugin implementations...")
             
             var scannedCount = 0
-            var foundClasses = mutableListOf<String>()
+            val foundClasses = mutableListOf<String>()
             
             // Scan each DEX buffer
             for ((index, dexBuffer) in dexBuffers.withIndex()) {

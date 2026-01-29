@@ -163,16 +163,14 @@ object PluginThreadMonitor {
     }
     
     // Monitoring runnable
-    private val monitorRunnable = object : Runnable {
-        override fun run() {
-            try {
-                monitorThreads()
-            } catch (e: Exception) {
-                Timber.e(e, "[THREAD MONITOR] Error during thread monitoring")
-            } finally {
-                if (isMonitoring.get()) {
-                    scheduleMonitorCheck()
-                }
+    private val monitorRunnable = Runnable {
+        try {
+            monitorThreads()
+        } catch (e: Exception) {
+            Timber.e(e, "[THREAD MONITOR] Error during thread monitoring")
+        } finally {
+            if (isMonitoring.get()) {
+                scheduleMonitorCheck()
             }
         }
     }

@@ -224,12 +224,12 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 source ~/.cargo/env
 ```
 
-2. **Install Android NDK** (if not installed):
+1. **Install Android NDK** (if not installed):
 ```bash
 # In Android Studio: Tools → SDK Manager → SDK Tools → NDK (Side by side)
 ```
 
-3. **Install cargo-ndk**:
+1. **Install cargo-ndk**:
 ```bash
 cargo install cargo-ndk
 ```
@@ -301,7 +301,7 @@ dependencies {
 }
 ```
 
-2. **Implement Plugin Interface**:
+1. **Implement Plugin Interface**:
 ```kotlin
 class SecurityPlugin : IPlugin {
     override fun onLoad(context: PluginContext): Boolean {
@@ -316,7 +316,7 @@ class SecurityPlugin : IPlugin {
 }
 ```
 
-3. **Create Plugin Manifest**:
+1. **Create Plugin Manifest**:
 ```json
 {
     "pluginId": "security-scanner",

@@ -225,13 +225,10 @@ class PluginPermissionManager(
      * It will broadcast the change to sandbox processes
      */
     fun revokeUserConsent(pluginId: String, permissions: List<String>? = null) {
-        val revokedPermissions = if (permissions == null) {
-            // Get all permissions for this plugin before removing them
+        val revokedPermissions = permissions
+            ?: // Get all permissions for this plugin before removing them
             prefs.all.keys.filter { it.startsWith("$pluginId:") }
                 .map { it.substringAfter(":") }
-        } else {
-            permissions
-        }
         
         prefs.edit().apply {
             if (permissions == null) {

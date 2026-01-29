@@ -311,16 +311,14 @@ object PluginNetworkTracker {
     }
     
     // Private helper methods
-    private val monitorRunnable = object : Runnable {
-        override fun run() {
-            try {
-                monitorNetworkActivity()
-            } catch (e: Exception) {
-                Timber.e(e, "[NETWORK TRACKER] Error during network monitoring")
-            } finally {
-                if (isTracking.get()) {
-                    scheduleMonitorCheck()
-                }
+    private val monitorRunnable = Runnable {
+        try {
+            monitorNetworkActivity()
+        } catch (e: Exception) {
+            Timber.e(e, "[NETWORK TRACKER] Error during network monitoring")
+        } finally {
+            if (isTracking.get()) {
+                scheduleMonitorCheck()
             }
         }
     }

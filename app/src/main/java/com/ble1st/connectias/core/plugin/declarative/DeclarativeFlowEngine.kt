@@ -227,8 +227,7 @@ class DeclarativeFlowEngine(
                     ctx.items.add(LinkedHashMap())
                 }
                 ctx.items.forEach { item ->
-                    val resolved = resolveValue(raw, ctx, item)
-                    val value = when (resolved) {
+                    val value = when (val resolved = resolveValue(raw, ctx, item)) {
                         is String -> DeclarativeTemplate.render(resolved, state)
                         else -> resolved
                     }

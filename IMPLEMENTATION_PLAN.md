@@ -149,9 +149,9 @@ Fragment-UI im Sandbox rendern statt im Main Process
 2. `MotionEventParcel.aidl` - Touch-Events serialisieren
 
 **Neue Klassen:**
-3. `PluginSurfaceHost.kt` (Main) - SurfaceView für gerenderte UI
-4. `SandboxFragmentRenderer.kt` (Sandbox) - VirtualDisplay + Rendering
-5. `IsolatedPluginContext.kt` - Context mit Reflection-Blocker
+1. `PluginSurfaceHost.kt` (Main) - SurfaceView für gerenderte UI
+2. `SandboxFragmentRenderer.kt` (Sandbox) - VirtualDisplay + Rendering
+3. `IsolatedPluginContext.kt` - Context mit Reflection-Blocker
 
 ### Architektur
 

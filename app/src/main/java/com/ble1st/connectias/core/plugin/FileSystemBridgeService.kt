@@ -302,7 +302,7 @@ class FileSystemBridgeService : Service() {
                 }
                 
                 // Validate mimeType
-                val mimeTypeFilter = if (mimeType.isBlank()) "*/*" else mimeType
+                val mimeTypeFilter = mimeType.ifBlank { "*/*" }
                 
                 Timber.d("[FS_BRIDGE] Starting SAF file opening for plugin $pluginId with mimeType filter: $mimeTypeFilter")
                 
