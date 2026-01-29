@@ -47,7 +47,9 @@ class KeyManager @Inject constructor(
     
     /**
      * Native method to generate passphrase using Rust implementation.
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeGeneratePassphrase(length: Int): String
     
     /**

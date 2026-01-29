@@ -4,6 +4,7 @@ import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
 import org.gradle.testing.jacoco.plugins.JacocoPluginExtension
 import org.gradle.testing.jacoco.tasks.JacocoReport
+import java.util.Locale
 
 class ConnectiasJacocoPlugin : Plugin<Project> {
     override fun apply(target: Project) {
@@ -17,7 +18,7 @@ class ConnectiasJacocoPlugin : Plugin<Project> {
             val androidComponents = extensions.findByType(AndroidComponentsExtension::class.java)
             androidComponents?.onVariants { variant ->
                 val variantName = variant.name
-                val testTaskName = "test${variantName.capitalize()}UnitTest"
+                val testTaskName = "test${variantName.capitalize(Locale.ROOT)}UnitTest"
 
                 tasks.register("jacoco${variantName.capitalize()}Report", JacocoReport::class.java) {
                     dependsOn(testTaskName)

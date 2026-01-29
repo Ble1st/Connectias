@@ -3,6 +3,7 @@ package com.ble1st.connectias.plugin.security
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import java.io.File
 import android.os.Handler
 import android.os.Looper
 import timber.log.Timber
@@ -145,10 +146,21 @@ object PluginDataLeakageProtector {
     
     /**
      * Monitors file system access for sensitive patterns
+     * 
+     * @param context Context to resolve app-specific paths (optional, for better path detection)
      */
-    fun monitorFileAccess(pluginId: String, filePath: String, operation: String): Boolean {
+    fun monitorFileAccess(pluginId: String, filePath: String, operation: String, context: Context? = null): Boolean {
+        // Get app data directory path dynamically using Context.getFilesDir().getPath()
+        // filesDir path is /data/data/[package]/files, extract /data/data/ by going up two levels
+        val appDataPath = context?.let {
+            val filesDir = it.filesDir // /data/data/[package]/files
+            val packageDir = filesDir.parentFile // /data/data/[package]
+            val dataDataDir = packageDir?.parentFile // /data/data
+            dataDataDir?.path?.plus("/") ?: "/data/data/"
+        } ?: "/data/data/" // Fallback if no context provided
+        
         val suspiciousFiles = listOf(
-            "/data/data/", // App private data
+            appDataPath, // App private data (resolved dynamically)
             "/system/", // System files
             "/proc/", // Process information
             "password", "key", "token", "secret", ".pem", ".p12"

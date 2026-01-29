@@ -9,8 +9,8 @@ dependencies {
     // Testing dependencies
     api("junit:junit:4.13.2")
     api("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
-    api("io.mockk:mockk:1.13.13")
-    api("io.mockk:mockk-android:1.13.13")
+    api("io.mockk:mockk:1.14.9")
+    api("io.mockk:mockk-android:1.14.9")
     api("app.cash.turbine:turbine:1.2.0")
     
     // AndroidX Test

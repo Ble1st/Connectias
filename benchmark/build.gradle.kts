@@ -38,8 +38,8 @@ kotlin {
 // }
 
 dependencies {
-    implementation(libs.androidx.test.ext.junit)
-    implementation(libs.androidx.test.espresso.core)
+    implementation(libs.androidx.junit)
+    implementation(libs.androidx.espresso.core)
     implementation(libs.androidx.test.uiautomator)
     implementation(libs.androidx.benchmark.macro)
 }

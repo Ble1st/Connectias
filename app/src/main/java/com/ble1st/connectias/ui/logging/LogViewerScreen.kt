@@ -44,7 +44,7 @@ fun LogViewerScreen(
     
     val logs = logsResult?.logs ?: emptyList()
     // Use same regex pattern for filtering as in LogEntryCard
-    val pluginLogFilterPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)\]\s*""") }
+    val pluginLogFilterPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)]\s*""") }
     val filteredLogs = remember(logs, selectedLevel, searchQuery, showOnlyPlugins) {
         logs.filter { log ->
             val matchesLevel = selectedLevel?.let { log.level == it } ?: true
@@ -278,7 +278,7 @@ private fun LogEntryCard(log: LogEntry) {
     
     // Check if this is a plugin log (format: [pluginId] message)
     // Regex ensures we only match valid plugin IDs at the start of the message
-    val pluginLogPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)\]\s*""") }
+    val pluginLogPattern = remember { Regex("""^\[([a-zA-Z0-9_.-]+)]\s*""") }
     val pluginMatch = pluginLogPattern.find(log.message)
     val isPluginLog = pluginMatch != null
     val pluginId = pluginMatch?.groupValues?.get(1)

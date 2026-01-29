@@ -54,6 +54,7 @@ class PluginPermissionManager(
             "android.permission.READ_MEDIA_IMAGES",
             "android.permission.READ_MEDIA_VIDEO",
             "android.permission.READ_MEDIA_AUDIO",
+            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED", // Android 14+ Selected Photos Access
             "android.permission.ACCESS_MEDIA_LOCATION",
             "android.permission.ACTIVITY_RECOGNITION",
             "android.permission.BLUETOOTH_CONNECT",

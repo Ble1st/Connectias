@@ -1,6 +1,7 @@
 package com.ble1st.connectias.plugin.security
 
 import android.content.Context
+import android.os.Environment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -223,7 +224,8 @@ class PluginBehaviorAnalyzer @Inject constructor(
         val anomalies = mutableListOf<Anomaly>()
         
         // Suspicious file paths
-        val suspiciousPaths = listOf("/system", "/data/data", "/sdcard/DCIM")
+        val externalStorageDcimPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).path
+        val suspiciousPaths = listOf("/system", "/data/data", externalStorageDcimPath)
         val suspiciousAccess = current.fileAccesses.filter { path ->
             suspiciousPaths.any { path.startsWith(it) }
         }

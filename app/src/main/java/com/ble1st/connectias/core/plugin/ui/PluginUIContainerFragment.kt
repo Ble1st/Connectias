@@ -146,6 +146,8 @@ class PluginUIContainerFragment : Fragment() {
             // Set low elevation to ensure it stays below FAB overlay
             elevation = 0f
             z = 0f
+            // Mark as clickable for accessibility support
+            isClickable = true
             
             holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(holder: SurfaceHolder) {
@@ -239,8 +241,13 @@ class PluginUIContainerFragment : Fragment() {
             })
 
             // Enable touch events
-            setOnTouchListener { _, event ->
-                handleTouchEvent(event)
+            setOnTouchListener { view, event ->
+                val handled = handleTouchEvent(event)
+                // Call performClick for accessibility when a click is detected
+                if (event.action == MotionEvent.ACTION_UP && handled) {
+                    view.performClick()
+                }
+                handled
             }
         }
 

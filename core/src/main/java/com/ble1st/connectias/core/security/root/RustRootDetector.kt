@@ -1,3 +1,7 @@
+@file:Suppress("KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction", "KotlinJniMissingFunction"
+)
+
 package com.ble1st.connectias.core.security.root
 
 import android.content.Context
@@ -14,6 +18,9 @@ import timber.log.Timber
  * This class provides a JNI bridge to the Rust root detector implementation,
  * which offers better performance and security than RootBeer library.
  */
+@Suppress("KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
+    "KotlinJniMissingFunction", "KotlinJniMissingFunction"
+)
 class RustRootDetector(private val context: Context? = null) {
     
     companion object {
@@ -30,15 +37,19 @@ class RustRootDetector(private val context: Context? = null) {
 
     /**
      * Native method to detect root using Rust implementation.
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      * 
      * @param packageNames Array of installed package names to check for root apps
      * @return JSON string with RootDetectionResult
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeDetectRoot(packageNames: Array<String>?): String
 
     /**
      * Initialize Rust logging (Android-specific)
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeInit()
 
     init {
