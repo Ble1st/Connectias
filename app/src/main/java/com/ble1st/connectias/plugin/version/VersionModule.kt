@@ -1,9 +1,10 @@
+@file:Suppress("unused")
+
 package com.ble1st.connectias.plugin.version
 
 import android.content.Context
 import com.ble1st.connectias.plugin.PluginManager
 import com.ble1st.connectias.plugin.StreamingPluginManager
-import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -49,10 +50,9 @@ abstract class VersionModule {
         fun providePluginRollbackManager(
             @ApplicationContext context: Context,
             pluginManager: PluginManager,
-            streamingManager: StreamingPluginManager,
             versionManager: PluginVersionManager
         ): PluginRollbackManager {
-            return PluginRollbackManager(context, pluginManager, streamingManager, versionManager)
+            return PluginRollbackManager(context, pluginManager, versionManager)
         }
         
         @Provides
@@ -87,7 +87,7 @@ interface IVersionedPluginManager {
     suspend fun updatePlugin(
         pluginId: String,
         targetVersion: PluginVersion
-    ): Result<kotlin.Unit>
+    ): Result<Unit>
     
     suspend fun rollbackPlugin(
         pluginId: String,
@@ -96,10 +96,10 @@ interface IVersionedPluginManager {
     ): Result<PluginVersion>
     
     fun getPluginVersion(pluginId: String): PluginVersion?
-    fun getAvailableUpdates(): kotlinx.coroutines.flow.Flow<List<PluginVersionUpdate>>
+    fun getAvailableUpdates(): Flow<List<PluginVersionUpdate>>
     fun getVersionHistory(pluginId: String): List<PluginVersionHistory>
     fun canRollback(pluginId: String): Boolean
-    fun getRollbackHistory(): kotlinx.coroutines.flow.Flow<List<RollbackEntry>>
+    fun getRollbackHistory(): Flow<List<RollbackEntry>>
     fun getRollbackStats(): RollbackStats
     suspend fun cleanup()
     suspend fun exportPluginWithVersion(pluginId: String): Result<java.io.File>

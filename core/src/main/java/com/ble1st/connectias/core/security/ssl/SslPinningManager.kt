@@ -25,11 +25,6 @@ class SslPinningManager @Inject constructor(
     private var cachedOkHttpClient: OkHttpClient? = null
     private val clientLock = Any()
 
-    init {
-        // Load default pins
-        // TODO: Provide defaults from secure remote configuration if needed
-    }
-
     /**
      * Adds or updates a certificate pin.
      */
@@ -156,6 +151,4 @@ data class CertificateInfo(
     val notAfter: Long,
     val publicKeyHash: String,
     val signatureAlgorithm: String
-) {
-
-}
+)

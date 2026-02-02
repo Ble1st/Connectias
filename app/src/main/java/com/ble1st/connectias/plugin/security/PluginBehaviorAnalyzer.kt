@@ -1,6 +1,7 @@
 package com.ble1st.connectias.plugin.security
 
 import android.content.Context
+import android.os.Environment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -18,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PluginBehaviorAnalyzer @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val permissionMonitor: PluginPermissionMonitor,
     private val networkPolicy: PluginNetworkPolicy
 ) {
@@ -84,8 +85,8 @@ class PluginBehaviorAnalyzer @Inject constructor(
     suspend fun establishBaseline(pluginId: String): BehaviorBaseline = withContext(Dispatchers.Default) {
         val samples = baselineSamples[pluginId]
         val permStats = permissionMonitor.getPermissionStats(pluginId)
-        
-        val baseline = if (samples != null && samples.size >= BASELINE_SAMPLE_COUNT) {
+
+        if (samples != null && samples.size >= BASELINE_SAMPLE_COUNT) {
             // Calculate baseline from collected samples (dynamic)
             val avgMemory = samples.map { it.memoryUsageMB }.average().toInt()
             val avgCpu = samples.map { it.cpuUsagePercent.toDouble() }.average().toFloat()
@@ -94,8 +95,8 @@ class PluginBehaviorAnalyzer @Inject constructor(
                 .mapValues { (_, entries) -> entries.sumOf { it.value } / samples.size }
             val allNetworkEndpoints = samples.flatMap { it.networkConnections }.toSet()
             val allFileAccesses = samples.flatMap { it.fileAccesses }.distinct()
-            
-            BehaviorBaseline(
+
+            val baseline = BehaviorBaseline(
                 pluginId = pluginId,
                 apiCallPattern = allApiCalls,
                 fileAccessPattern = allFileAccesses,
@@ -104,9 +105,14 @@ class PluginBehaviorAnalyzer @Inject constructor(
                 averageMemoryMB = maxOf(avgMemory, 20), // Minimum 20MB baseline
                 averageCpuPercent = maxOf(avgCpu, 5f) // Minimum 5% baseline
             )
+
+            baselines[pluginId] = baseline
+            Timber.d("Baseline established for $pluginId (samples: ${samples.size})")
+
+            return@withContext baseline
         } else {
             // Initial baseline with conservative defaults
-            BehaviorBaseline(
+            val baseline = BehaviorBaseline(
                 pluginId = pluginId,
                 apiCallPattern = emptyMap(),
                 fileAccessPattern = emptyList(),
@@ -115,12 +121,12 @@ class PluginBehaviorAnalyzer @Inject constructor(
                 averageMemoryMB = 50, // Conservative default
                 averageCpuPercent = 10f
             )
+
+            baselines[pluginId] = baseline
+            Timber.d("Baseline established for $pluginId (samples: 0)")
+
+            return@withContext baseline
         }
-        
-        baselines[pluginId] = baseline
-        Timber.d("Baseline established for $pluginId (samples: ${samples?.size ?: 0})")
-        
-        return@withContext baseline
     }
     
     /**
@@ -223,7 +229,8 @@ class PluginBehaviorAnalyzer @Inject constructor(
         val anomalies = mutableListOf<Anomaly>()
         
         // Suspicious file paths
-        val suspiciousPaths = listOf("/system", "/data/data", "/sdcard/DCIM")
+        val externalStorageDcimPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DCIM).path
+        val suspiciousPaths = listOf("/system", "/data/data", externalStorageDcimPath)
         val suspiciousAccess = current.fileAccesses.filter { path ->
             suspiciousPaths.any { path.startsWith(it) }
         }

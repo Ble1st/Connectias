@@ -1,5 +1,4 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.compose)
 }
@@ -22,7 +21,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+        // kotlinCompilerExtensionVersion not needed with Kotlin 2.0+ kotlin-compose plugin
     }
 }
 

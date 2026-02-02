@@ -12,7 +12,7 @@ import java.util.zip.ZipFile
  * The tracking is for logging and debugging purposes only.
  */
 class NativeLibraryManager(
-    private val pluginDirectory: File
+    pluginDirectory: File
 ) {
     
     private val nativeLibDir = File(pluginDirectory, "native")

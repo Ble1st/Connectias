@@ -16,11 +16,11 @@ kotlin {
 }
 
 dependencies {
-    // Use direct versions instead of version catalog in build-logic
-    compileOnly("com.android.tools.build:gradle:8.13.2")
+    // Versions come from root gradle/libs.versions.toml (see build-logic/settings.gradle.kts)
+    compileOnly("com.android.tools.build:gradle:9.0.0")
     compileOnly("org.jetbrains.kotlin:kotlin-gradle-plugin:2.3.0")
     compileOnly("com.google.devtools.ksp:symbol-processing-gradle-plugin:2.3.4")
-    implementation("androidx.room:room-gradle-plugin:2.8.4")
+    implementation(libs.androidx.room.gradle.plugin)
 }
 
 gradlePlugin {

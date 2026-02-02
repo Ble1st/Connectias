@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.ble1st.connectias.core.di
 
 import android.content.Context

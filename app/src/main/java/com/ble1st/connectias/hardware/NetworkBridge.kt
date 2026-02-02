@@ -185,7 +185,7 @@ class NetworkBridge(private val context: Context) {
             }
             
             // Validate port
-            if (port < 1 || port > 65535) {
+            if (port !in 1..65535) {
                 return HardwareResponseParcel.failure("Invalid port: $port")
             }
             
@@ -229,7 +229,7 @@ class NetworkBridge(private val context: Context) {
             if (!isValidHost(host)) {
                 return HardwareResponseParcel.failure("Invalid host: $host")
             }
-            if (port < 1 || port > 65535) {
+            if (port !in 1..65535) {
                 return HardwareResponseParcel.failure("Invalid port: $port")
             }
 

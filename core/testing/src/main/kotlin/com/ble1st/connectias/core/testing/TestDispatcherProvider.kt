@@ -10,7 +10,7 @@ import kotlinx.coroutines.test.TestDispatcher
  * All dispatchers use the same TestDispatcher for deterministic testing.
  */
 class TestDispatcherProvider(
-    private val testDispatcher: TestDispatcher = StandardTestDispatcher()
+    testDispatcher: TestDispatcher = StandardTestDispatcher()
 ) : DispatcherProvider {
     override val main: CoroutineDispatcher = testDispatcher
     override val io: CoroutineDispatcher = testDispatcher

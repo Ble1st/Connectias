@@ -1,26 +1,22 @@
 package com.ble1st.connectias.plugin.version
 
-import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.ForegroundInfo
 import androidx.work.WorkerParameters
-import androidx.hilt.work.HiltWorker
 import com.ble1st.connectias.MainActivity
-import com.ble1st.connectias.R
 import com.ble1st.connectias.plugin.PluginManager
 import com.ble1st.connectias.plugin.StreamingPluginManager
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import com.ble1st.connectias.plugin.streaming.PluginLoadingState
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
-import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import java.io.File
 
@@ -145,7 +141,7 @@ class PluginUpdateWorker @AssistedInject constructor(
     private suspend fun downloadPlugin(version: PluginVersion): File {
         // Use streaming manager to download
         val pluginId = version.downloadUrl.substringAfterLast("/").removeSuffix(".apk")
-        val result = streamingManager.streamAndInstallPlugin(
+        streamingManager.streamAndInstallPlugin(
             pluginId = pluginId,
             downloadUrl = version.downloadUrl,
             version = version.version,

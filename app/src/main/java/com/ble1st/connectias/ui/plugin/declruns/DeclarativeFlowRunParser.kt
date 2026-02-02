@@ -16,7 +16,7 @@ object DeclarativeFlowRunParser {
     // Example:
     // [DECL_FLOW][demo.counter] flowId=main trigger=OnClick ok=true steps=3 durationMs=2 error=null
     private val flowRegex = Regex(
-        """\[(DECL_FLOW)]\[(?<pid>[a-zA-Z0-9_.-]+)]\s+flowId=(?<flow>[^\s]+)\s+trigger=(?<trg>[^\s]+)\s+ok=(?<ok>true|false)\s+steps=(?<steps>\d+)\s+durationMs=(?<dur>\d+)\s+error=(?<err>.*)$"""
+        """\[(DECL_FLOW)]\[(?<pid>[a-zA-Z0-9_.-]+)]\s+flowId=(?<flow>\S+)\s+trigger=(?<trg>\S+)\s+ok=(?<ok>true|false)\s+steps=(?<steps>\d+)\s+durationMs=(?<dur>\d+)\s+error=(?<err>.*)$"""
     )
 
     // Example:
@@ -75,7 +75,7 @@ object DeclarativeFlowRunParser {
         for (t in tokens) {
             val idx = t.indexOf('=')
             if (idx <= 0 || idx >= t.length - 1) continue
-            val k = t.substring(0, idx)
+            val k = t.take(idx)
             val v = t.substring(idx + 1)
             out[k] = v
         }

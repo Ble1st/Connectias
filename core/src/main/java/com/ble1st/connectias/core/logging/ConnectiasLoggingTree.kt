@@ -46,7 +46,7 @@ class ConnectiasLoggingTree @Inject constructor(
             } catch (e: Exception) {
                 // Don't log logging errors to avoid infinite loops
                 // Just print to system log as fallback
-                android.util.Log.e("ConnectiasLoggingTree", "Failed to persist log", e)
+                Log.e("ConnectiasLoggingTree", "Failed to persist log", e)
             }
         }
     }

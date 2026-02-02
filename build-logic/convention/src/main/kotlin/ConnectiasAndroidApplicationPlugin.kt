@@ -9,7 +9,7 @@ class ConnectiasAndroidApplicationPlugin : Plugin<Project> {
         with(target) {
             with(pluginManager) {
                 apply("com.android.application")
-                apply("org.jetbrains.kotlin.android")
+                // Note: kotlin.android plugin removed - using built-in Kotlin support in AGP 9.0+
             }
 
             extensions.configure<ApplicationExtension> {

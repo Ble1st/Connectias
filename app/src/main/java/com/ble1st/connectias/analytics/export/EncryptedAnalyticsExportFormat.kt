@@ -1,6 +1,5 @@
 package com.ble1st.connectias.analytics.export
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.DataOutputStream
 import java.io.OutputStream

@@ -1,6 +1,5 @@
 package com.ble1st.connectias.analytics.export
 
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

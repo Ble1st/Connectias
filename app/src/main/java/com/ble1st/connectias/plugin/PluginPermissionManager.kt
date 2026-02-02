@@ -7,6 +7,7 @@ import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import timber.log.Timber
+import androidx.core.content.edit
 
 /**
  * Manages plugin permissions with user consent and runtime enforcement
@@ -54,6 +55,7 @@ class PluginPermissionManager(
             "android.permission.READ_MEDIA_IMAGES",
             "android.permission.READ_MEDIA_VIDEO",
             "android.permission.READ_MEDIA_AUDIO",
+            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED", // Android 14+ Selected Photos Access
             "android.permission.ACCESS_MEDIA_LOCATION",
             "android.permission.ACTIVITY_RECOGNITION",
             "android.permission.BLUETOOTH_CONNECT",
@@ -224,29 +226,26 @@ class PluginPermissionManager(
      * It will broadcast the change to sandbox processes
      */
     fun revokeUserConsent(pluginId: String, permissions: List<String>? = null) {
-        val revokedPermissions = if (permissions == null) {
-            // Get all permissions for this plugin before removing them
+        val revokedPermissions = permissions
+            ?: // Get all permissions for this plugin before revoking them
             prefs.all.keys.filter { it.startsWith("$pluginId:") }
                 .map { it.substringAfter(":") }
-        } else {
-            permissions
-        }
-        
+
         prefs.edit().apply {
             if (permissions == null) {
-                // Remove all permissions for this plugin
+                // Revoke all permissions for this plugin (set to false, not remove)
                 val allKeys = prefs.all.keys.filter { it.startsWith("$pluginId:") }
-                allKeys.forEach { remove(it) }
+                allKeys.forEach { putBoolean(it, false) }
             } else {
+                // Store false instead of removing to track explicit revocation
                 permissions.forEach { permission ->
-                    remove(getPermissionKey(pluginId, permission))
+                    putBoolean(getPermissionKey(pluginId, permission), false)
                 }
             }
             apply()
         }
-        Timber.i("User consent revoked for plugin $pluginId" + 
-            if (permissions != null) ": $permissions" else " (all permissions)")
-        
+        Timber.i("null%s", if (permissions != null) ": $permissions" else " (all permissions)")
+
         // Broadcast permission changes to sandbox processes
         PluginPermissionBroadcast.sendPermissionsChanged(context, pluginId, revokedPermissions, granted = false)
     }
@@ -272,7 +271,8 @@ class PluginPermissionManager(
     fun revokePermissionForPlugin(pluginId: String, permissions: List<String>) {
         prefs.edit().apply {
             permissions.forEach { permission ->
-                remove(getPermissionKey(pluginId, permission))
+                // Store false instead of removing to track explicit revocation
+                putBoolean(getPermissionKey(pluginId, permission), false)
             }
             apply()
         }
@@ -294,6 +294,46 @@ class PluginPermissionManager(
      */
     fun hasUserConsentForPermission(pluginId: String, permission: String): Boolean {
         return prefs.getBoolean(getPermissionKey(pluginId, permission), false)
+    }
+
+    /**
+     * Checks if a permission was explicitly revoked by the user
+     * (as opposed to never being granted in the first place)
+     *
+     * @return true if the permission key exists and is set to false
+     */
+    fun wasExplicitlyRevoked(pluginId: String, permission: String): Boolean {
+        val key = getPermissionKey(pluginId, permission)
+        return prefs.contains(key) && !prefs.getBoolean(key, false)
+    }
+
+    /**
+     * Migration helper: Mark any missing dangerous permissions as explicitly revoked
+     * for plugins that have been previously granted other permissions.
+     *
+     * This is needed for migration from old code where revoked permissions were deleted
+     * instead of set to false.
+     *
+     * @param pluginId The plugin ID to migrate
+     * @param requestedPermissions All permissions the plugin requests
+     */
+    fun migrateOldRevocations(pluginId: String, requestedPermissions: List<String>) {
+        val hasAnyPermission = prefs.all.keys.any { it.startsWith("$pluginId:") }
+
+        // If plugin has ANY permission recorded, it means it was used before
+        if (hasAnyPermission) {
+            prefs.edit().apply {
+                requestedPermissions.forEach { permission ->
+                    val key = getPermissionKey(pluginId, permission)
+                    // If key doesn't exist, set it to false (explicitly revoked)
+                    if (!prefs.contains(key)) {
+                        Timber.d("[MIGRATION] Marking $permission as revoked for $pluginId (migration from old storage)")
+                        putBoolean(key, false)
+                    }
+                }
+                apply()
+            }
+        }
     }
     
     /**
@@ -361,7 +401,7 @@ class PluginPermissionManager(
      * Clears all permission consents (for testing or reset)
      */
     fun clearAllConsents() {
-        prefs.edit().clear().apply()
+        prefs.edit {clear()}
         Timber.i("All plugin permission consents cleared")
     }
     
@@ -412,7 +452,7 @@ class PluginPermissionManager(
     fun logHardwareAccess(pluginId: String, category: HardwareCategory) {
         val timestamp = System.currentTimeMillis()
         val key = "hardware_log:$pluginId:${category.name}:$timestamp"
-        prefs.edit().putBoolean(key, true).apply()
+        prefs.edit { putBoolean(key, true) }
         
         Timber.d("[HARDWARE ACCESS] Plugin $pluginId accessed ${category.name}")
         

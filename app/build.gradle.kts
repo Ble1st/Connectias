@@ -1,15 +1,19 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
+    // Note: kotlin.android plugin removed - using built-in Kotlin support in AGP 9.0+
     alias(libs.plugins.kotlin.serialization)
-    id("kotlin-parcelize")
+    // Note: kotlin-parcelize is built-in with AGP 9.0, must use id() without version
+    id("org.jetbrains.kotlin.plugin.parcelize")
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.navigation.safe.args)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.androidx.baselineprofile)
+    // Temporarily disabled - Baseline Profile Plugin 1.4.1 not compatible with AGP 9.0
+    // Error: Extension of type 'TestExtension' does not exist (replaced by TestExtensionImpl in AGP 9.0)
+    // TODO: Re-enable when androidx.baselineprofile plugin version with AGP 9.0 support is available
+    // alias(libs.plugins.androidx.baselineprofile)
     id("jacoco")
-    id("io.github.takahirom.roborazzi") version "1.34.0"
+    alias(libs.plugins.roborazzi)
 }
 
 android {
@@ -73,12 +77,11 @@ android {
             isUniversalApk = false // Do not build a universal APK
         }
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
-    composeCompiler {
-        includeSourceInformation = false
-    }
+    // NOTE: composeOptions.kotlinCompilerExtensionVersion is deprecated with Kotlin 2.0+
+    // The Compose Compiler is now integrated into the Kotlin plugin via kotlin-compose plugin
+    // composeOptions {
+    //     kotlinCompilerExtensionVersion = "1.5.15"
+    // }
     packaging {
         jniLibs {
             pickFirsts += listOf("**/libc++_shared.so")
@@ -95,6 +98,12 @@ kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
+}
+
+// Compose compiler configuration (moved from android.composeCompiler in AGP 9.0)
+// Note: With kotlin-compose plugin, composeCompiler block is configured via compilerOptions
+composeCompiler {
+    includeSourceInformation = false
 }
 
 // Hilt configuration - disable aggregating task to avoid JavaPoet compatibility issues
@@ -240,7 +249,7 @@ dependencies {
     // SQLCipher - already available transitively from core module, but need explicit for compilation
     implementation(libs.sqlcipher.android)
     // SQLCipher requires androidx.sqlite for SupportFactory
-    implementation("androidx.sqlite:sqlite:2.6.2")
+    implementation(libs.androidx.sqlite)
     
     // Android Core
     implementation(libs.androidx.core.ktx)
@@ -272,19 +281,25 @@ dependencies {
     // Hilt Navigation Compose (for hiltViewModel())
     implementation(libs.androidx.hilt.navigation.compose)
     
+    // WorkManager
+    implementation(libs.androidx.work.runtime.ktx)
+
     // Hilt WorkManager (required for @HiltWorker)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.work.compiler)
-    
+
     // OkHttp (required for SSL Pinning in core module)
     implementation(libs.okhttp)
-    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation(libs.okhttp.logging.interceptor)
     
     // Kotlinx Serialization (for JSON parsing)
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation(libs.kotlinx.serialization.json)
     
     // Kotlin Reflect (required by KSP)
     implementation(libs.kotlin.reflect)
+    
+    // kotlin-parcelize-runtime required for @Parcelize annotation support
+    implementation(libs.kotlin.parcelize.runtime)
 
     // Navigation
     implementation(libs.androidx.navigation.fragment.ktx)
@@ -303,14 +318,14 @@ dependencies {
     debugImplementation(libs.leakcanary)
     
     // Baseline Profile Support
-    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
-    implementation("androidx.startup:startup-runtime:1.2.0")
+    implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.startup)
     
     // Testing
     testImplementation(libs.junit)
-    testImplementation("org.mockito:mockito-core:5.14.2")
-    testImplementation("org.mockito:mockito-inline:5.2.0")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.14.2")
+    testImplementation(libs.mockito.core)
+    testImplementation(libs.mockito.inline)
+    testImplementation(libs.mockito.junit.jupiter)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)
     testImplementation(libs.roborazzi.compose)

@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
+    // Note: kotlin.android plugin removed - using built-in Kotlin support in AGP 9.0+
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.kotlin.compose)
@@ -25,7 +25,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+        // kotlinCompilerExtensionVersion not needed with Kotlin 2.0+ kotlin-compose plugin
     }
 }
 

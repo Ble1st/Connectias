@@ -3,12 +3,8 @@
 
 package com.ble1st.connectias.core.plugin.ui
 
-import android.app.Activity
-import android.app.Presentation
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.view.Display
 import android.view.Surface
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -68,6 +64,13 @@ class PluginUIActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // IMPORTANT: Set soft input mode BEFORE enableEdgeToEdge()
+        // This ensures the IME (software keyboard) can be shown properly
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
+        )
+
         // FULLSCREEN MODE (THREE_PROCESS_UI_PLAN.md):
         // - Enable edge-to-edge rendering for immersive plugin UI
         // - Hide system bars (status bar and navigation bar) for true fullscreen
@@ -77,14 +80,37 @@ class PluginUIActivity : FragmentActivity() {
         // Hide system bars for immersive fullscreen experience
         val windowInsetsController = ViewCompat.getWindowInsetsController(window.decorView)
         windowInsetsController?.let {
-            // Hide both system bars (status bar and navigation bar)
-            it.hide(WindowInsetsCompat.Type.systemBars())
+            // Hide status bar and navigation bar, but keep IME (keyboard) visible
+            it.hide(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
             // Configure behavior when user swipes to reveal bars
             it.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         }
 
+        // Apply window insets listener to handle IME (keyboard) visibility
+        ViewCompat.setOnApplyWindowInsetsListener(window.decorView) { view, insets ->
+            // Allow IME insets to be applied
+            val imeInsets = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+
+            // Apply padding to avoid content being hidden by keyboard
+            view.setPadding(
+                systemBarsInsets.left,
+                systemBarsInsets.top,
+                systemBarsInsets.right,
+                imeInsets.bottom
+            )
+
+            insets
+        }
+
         // Keep screen on while plugin is active
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // CRITICAL: Ensure window can show IME and is not ALT_FOCUSABLE
+        // Without this, the IME might not be able to attach to this window
+        window.clearFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM)
+        window.decorView.isFocusable = true
+        window.decorView.isFocusableInTouchMode = true
 
         pluginId = intent.getStringExtra(EXTRA_PLUGIN_ID)
         containerId = intent.getIntExtra(EXTRA_CONTAINER_ID, -1)

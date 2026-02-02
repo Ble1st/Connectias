@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Room Entity - used by Room annotation processor for database table generation
+
 package com.ble1st.connectias.core.database.entities
 
 import androidx.room.Entity

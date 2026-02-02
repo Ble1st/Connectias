@@ -6,5 +6,5 @@ plugins {
 dependencies {
     api(projects.core.model)
     
-    implementation("androidx.core:core-ktx:1.17.0")
+    implementation(libs.androidx.core.ktx)
 }

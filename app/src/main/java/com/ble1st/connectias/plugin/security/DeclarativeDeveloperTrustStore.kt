@@ -10,6 +10,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import org.json.JSONObject
 import timber.log.Timber
+import androidx.core.content.edit
 
 /**
  * Stores trusted developer public keys for declarative plugins.
@@ -18,7 +19,7 @@ import timber.log.Timber
  */
 @Singleton
 class DeclarativeDeveloperTrustStore @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     private val prefs = context.getSharedPreferences("declarative_truststore_v1", Context.MODE_PRIVATE)
     private val keyName = "trusted_keys_json"
@@ -56,7 +57,7 @@ class DeclarativeDeveloperTrustStore @Inject constructor(
         return try {
             val current = prefs.getString(keyName, null)?.let { JSONObject(it) } ?: JSONObject()
             current.put(developerId, publicKeyBase64)
-            prefs.edit().putString(keyName, current.toString()).apply()
+            prefs.edit { putString(keyName, current.toString()) }
             true
         } catch (e: Exception) {
             Timber.e(e, "Failed to update declarative truststore")

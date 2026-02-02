@@ -232,7 +232,7 @@ class PluginFragmentWrapper(
         return try {
             if (hasError) {
                 // Show error view if plugin has crashed
-                createErrorView(inflater, container)
+                createErrorView()
             } else {
                 // SECURITY: Check permissions BEFORE creating plugin UI
                 // This prevents plugins from being displayed when they don't have required permissions
@@ -246,7 +246,7 @@ class PluginFragmentWrapper(
                         "Please enable the plugin in Plugin Management to grant these permissions."
                     )
                     handleException("onCreateView", securityException)
-                    return createErrorView(inflater, container)
+                    return createErrorView()
                 }
                 
                 // All permissions granted - proceed with UI creation
@@ -276,7 +276,7 @@ class PluginFragmentWrapper(
             }
         } catch (e: Exception) {
             handleException("onCreateView", e)
-            createErrorView(inflater, container)
+            createErrorView()
         }
     }
     
@@ -340,12 +340,7 @@ class PluginFragmentWrapper(
                permission.startsWith("com.ble1st.connectias.") && 
                !permission.startsWith("android.permission.")
     }
-    
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        // Fragment lifecycle is managed by the FragmentManager
-    }
-    
+
     override fun onDestroyView() {
         super.onDestroyView()
         containerView = null
@@ -470,7 +465,7 @@ class PluginFragmentWrapper(
                         hasError = true
                         try {
                             removeAllViews()
-                            val errorView = createErrorView(layoutInflater, this)
+                            val errorView = createErrorView()
                             addView(errorView)
                             Timber.i("Plugin $pluginId: Error view displayed after recursion limit")
                         } catch (ex: Exception) {
@@ -525,7 +520,7 @@ class PluginFragmentWrapper(
                                 hasError = true
                                 try {
                                     wrapperView.removeAllViews()
-                                    val errorView = createErrorView(layoutInflater, wrapperView)
+                                    val errorView = createErrorView()
                                     wrapperView.addView(errorView)
                                     Timber.i("Plugin $pluginId: Error view displayed after timeout")
                                 } catch (ex: Exception) {
@@ -575,7 +570,7 @@ class PluginFragmentWrapper(
                         // Replace the view with error view
                         try {
                             removeAllViews()
-                            val errorView = createErrorView(layoutInflater, this)
+                            val errorView = createErrorView()
                             addView(errorView)
                         } catch (ex: Exception) {
                             Timber.e(ex, "Failed to show error view after touch event exception")
@@ -613,10 +608,7 @@ class PluginFragmentWrapper(
     /**
      * Creates an error view to display when the plugin crashes.
      */
-    private fun createErrorView(
-        inflater: LayoutInflater,
-        container: ViewGroup?
-    ): View {
+    private fun createErrorView(): View {
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {

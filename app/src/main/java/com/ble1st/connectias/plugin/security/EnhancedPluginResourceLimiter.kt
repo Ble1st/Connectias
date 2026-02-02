@@ -2,17 +2,19 @@ package com.ble1st.connectias.plugin.security
 
 import android.app.ActivityManager
 import android.content.Context
-import android.os.Debug
 import android.os.Process
-import android.os.StatFs
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
-import java.io.RandomAccessFile
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -25,7 +27,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class EnhancedPluginResourceLimiter @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     
     data class ResourceLimits(
@@ -145,7 +147,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
                 ?: return EnforcementResult.ProcessNotFound
             
             val totalMemMB = memInfo.totalPss / 1024
-            val privateMemMB = memInfo.totalPrivateDirty / 1024
+            memInfo.totalPrivateDirty / 1024
             
             when {
                 totalMemMB > limits.emergencyMemoryMB * 2 -> {
@@ -241,7 +243,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
             val tracking = cpuTracking.getOrPut(pid) { CpuTrackingData() }
             
             // Calculate delta-based CPU usage
-            val cpuPercent = if (tracking.lastCheckTime > 0 && currentTime > tracking.lastCheckTime) {
+            val cpuPercent = if (tracking.lastCheckTime in 1..<currentTime) {
                 val timeDelta = (currentTime - tracking.lastCheckTime) / 1000.0 // seconds
                 val cpuDelta = totalCpuTime - tracking.lastCpuTime
                 
@@ -468,7 +470,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
         }
     }
     
-    private suspend fun monitorAllPlugins() {
+    private fun monitorAllPlugins() {
         val currentUsage = mutableMapOf<String, ResourceUsage>()
         
         pluginLimits.keys.forEach { pluginId ->
@@ -495,7 +497,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
         _resourceUsage.value = currentUsage
     }
     
-    private suspend fun checkEmergencyConditions() {
+    private fun checkEmergencyConditions() {
         pluginLimits.keys.forEach { pluginId ->
             val limits = pluginLimits[pluginId] ?: return@forEach
             val pid = pluginPids[pluginId] ?: return@forEach
@@ -517,7 +519,7 @@ class EnhancedPluginResourceLimiter @Inject constructor(
     
     private fun gatherResourceUsage(pluginId: String): ResourceUsage? {
         val pid = pluginPids[pluginId] ?: return null
-        val limits = pluginLimits[pluginId] ?: return null
+        pluginLimits[pluginId] ?: return null
         
         return try {
             val memInfo = activityManager.getProcessMemoryInfo(intArrayOf(pid)).firstOrNull()

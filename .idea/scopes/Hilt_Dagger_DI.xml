@@ -1,0 +1,3 @@
+<component name="DependencyValidationManager">
+  <scope name="Hilt/Dagger DI" pattern="file[Connectias]:*//*&amp;&amp;(file:*.kt||file:*.java)&amp;&amp;(src:@Inject||src:@Provides||src:@Module||src:@Component||src:@Singleton||src:@HiltViewModel||src:@HiltWorker||src:@ServiceScoped||src:@ActivityScoped||src:@FragmentScoped||src:@ViewModelScoped||src:@AssistedInject||src:@AssistedFactory||src:@Binds||src:@IntoSet||src:@IntoMap||src:@Qualifier)" />
+</component>

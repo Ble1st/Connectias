@@ -1,7 +1,9 @@
 plugins {
     id("com.android.test")
-    alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.androidx.baselineprofile)
+    // Temporarily disabled - Baseline Profile Plugin 1.4.1 not compatible with AGP 9.0
+    // Error: Extension of type 'TestExtension' does not exist (replaced by TestExtensionImpl in AGP 9.0)
+    // TODO: Re-enable when androidx.baselineprofile plugin version with AGP 9.0 support is available
+    // alias(libs.plugins.androidx.baselineprofile)
 }
 
 android {
@@ -30,15 +32,16 @@ kotlin {
     }
 }
 
-baselineProfile {
-    useConnectedDevices = true
-}
+// Temporarily disabled - Baseline Profile Plugin not compatible with AGP 9.0
+// baselineProfile {
+//     useConnectedDevices = true
+// }
 
 dependencies {
-    implementation("androidx.test.ext:junit:1.2.1")
-    implementation("androidx.test.espresso:espresso-core:3.6.1")
-    implementation("androidx.test.uiautomator:uiautomator:2.3.0")
-    implementation("androidx.benchmark:benchmark-macro-junit4:1.3.3")
+    implementation(libs.androidx.junit)
+    implementation(libs.androidx.espresso.core)
+    implementation(libs.androidx.test.uiautomator)
+    implementation(libs.androidx.benchmark.macro)
 }
 
 androidComponents {

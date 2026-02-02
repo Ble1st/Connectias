@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package com.ble1st.connectias.di
 
 import com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy

@@ -3,9 +3,15 @@ package com.ble1st.connectias.hardware
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import androidx.core.content.ContextCompat
 import android.graphics.ImageFormat
-import android.hardware.camera2.*
+import android.hardware.camera2.CameraAccessException
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CameraDevice
+import android.hardware.camera2.CameraManager
+import android.hardware.camera2.CaptureFailure
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.TotalCaptureResult
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
@@ -13,10 +19,10 @@ import android.os.ParcelFileDescriptor
 import android.os.SharedMemory
 import android.system.OsConstants
 import android.view.Surface
+import androidx.core.content.ContextCompat
 import timber.log.Timber
 import java.io.File
 import java.io.FileOutputStream
-import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -407,8 +413,8 @@ class CameraBridge(private val context: Context) {
                 throw IllegalStateException("Failed to capture image")
             }
             
-            Timber.i("[CAMERA BRIDGE] Image captured successfully: ${capturedData!!.size} bytes")
-            return capturedData!!
+            Timber.i("[CAMERA BRIDGE] Image captured successfully: ${capturedData.size} bytes")
+            return capturedData
             
         } catch (e: Exception) {
             Timber.e(e, "[CAMERA BRIDGE] Capture failed")

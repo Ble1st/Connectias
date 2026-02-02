@@ -5,12 +5,11 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
-import com.ble1st.connectias.plugin.messaging.IPluginMessaging
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Proxy for communicating with PluginMessagingService via IPC
@@ -38,7 +37,7 @@ class PluginMessagingProxy(
             isConnected.set(true)
             synchronized(connectionLock) {
                 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                (connectionLock as java.lang.Object).notifyAll()
+                (connectionLock as Object).notifyAll()
             }
         }
         
@@ -80,7 +79,7 @@ class PluginMessagingProxy(
                 synchronized(connectionLock) {
                     while (!isConnected.get()) {
                         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                        (connectionLock as java.lang.Object).wait(100)
+                        (connectionLock as Object).wait(100)
                     }
                 }
                 true

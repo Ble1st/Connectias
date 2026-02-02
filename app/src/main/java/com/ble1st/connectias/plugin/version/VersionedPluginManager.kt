@@ -6,7 +6,6 @@ import com.ble1st.connectias.plugin.StreamingPluginManager
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
@@ -17,7 +16,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class VersionedPluginManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val pluginManager: PluginManager,
     private val streamingManager: StreamingPluginManager,
     private val versionManager: PluginVersionManager,
@@ -113,8 +112,7 @@ class VersionedPluginManager @Inject constructor(
         targetVersion: String?,
         reason: String
     ): Result<PluginVersion> {
-        val result = rollbackManager.rollbackPlugin(pluginId, targetVersion, reason)
-        return when (result) {
+        return when (val result = rollbackManager.rollbackPlugin(pluginId, targetVersion, reason)) {
             is RollbackResult.Success -> Result.success(result.version)
             is RollbackResult.Failure -> Result.failure(Exception(result.reason))
         }
@@ -253,7 +251,7 @@ class VersionedPluginManager @Inject constructor(
         }
     }
     
-    private suspend fun extractVersionFromPlugin(pluginFile: File): PluginVersion? {
+    private fun extractVersionFromPlugin(pluginFile: File): PluginVersion? {
         return try {
             // This would extract version from plugin manifest
             // Implementation depends on your plugin format

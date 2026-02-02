@@ -1313,6 +1313,17 @@
     *;
 }
 
+# Keep IPluginUIMainCallback - IME/Tastatur-Proxy (UI Process → Main Process)
+# Required for keyboard overlay when plugin TextField gains focus on VirtualDisplay
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIMainCallback { *; }
+-keep interface com.ble1st.connectias.plugin.ui.IPluginUIMainCallback { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIMainCallback$* { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIMainCallback$Stub { *; }
+-keep class com.ble1st.connectias.plugin.ui.IPluginUIMainCallback$Stub$Proxy { *; }
+-keepclassmembers interface com.ble1st.connectias.plugin.ui.IPluginUIMainCallback {
+    *;
+}
+
 # ------------------------------------------------------------------------------
 # AIDL Parcelables - Three-Process UI Data Transfer
 # ------------------------------------------------------------------------------
@@ -1375,6 +1386,12 @@
 # Keep PluginUIHostImpl - Implementation of IPluginUIHost in UI Process
 -keep class com.ble1st.connectias.core.plugin.ui.PluginUIHostImpl { *; }
 -keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIHostImpl {
+    *;
+}
+
+# Keep PluginUIContainerFragment - IME-Overlay (Tastatur im Main Process)
+-keep class com.ble1st.connectias.core.plugin.ui.PluginUIContainerFragment { *; }
+-keepclassmembers class com.ble1st.connectias.core.plugin.ui.PluginUIContainerFragment {
     *;
 }
 

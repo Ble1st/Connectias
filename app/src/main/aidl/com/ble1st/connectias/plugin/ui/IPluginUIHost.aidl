@@ -105,4 +105,31 @@ interface IPluginUIHost {
      * @param event Lifecycle event (onStart, onResume, onPause, onStop, onDestroy)
      */
     void notifyUILifecycle(String pluginId, String event);
+
+    /**
+     * Registers the Main Process callback for IME (keyboard) proxy.
+     * When a TextField in the UI Process gains focus, the UI Process calls
+     * IPluginUIMainCallback.requestShowIme() so the Main Process can show the keyboard.
+     *
+     * @param callback Binder for IPluginUIMainCallback (Main Process)
+     */
+    void registerMainCallback(IBinder callback);
+
+    /**
+     * Sends text from Main Process to UI Process (user typed in overlay EditText).
+     * Updates the TextField state in the plugin UI.
+     *
+     * @param pluginId Plugin identifier
+     * @param componentId UI component ID (TextField id)
+     * @param text Current text from the overlay
+     */
+    void sendImeText(String pluginId, String componentId, String text);
+
+    /**
+     * Notifies UI Process that the IME was dismissed in Main Process.
+     *
+     * @param pluginId Plugin identifier
+     * @param componentId UI component ID (TextField id)
+     */
+    void onImeDismissed(String pluginId, String componentId);
 }

@@ -3,8 +3,11 @@ package com.ble1st.connectias.plugin.messaging
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
-import com.ble1st.connectias.plugin.messaging.IPluginMessaging
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
 /**
@@ -31,8 +34,10 @@ class PluginMessagingService : Service() {
     private val messageBroker = PluginMessageBroker()
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     
+    @Suppress("unused") // Used via Binder IPC from sandbox process for inter-plugin messaging
     private val binder = object : IPluginMessaging.Stub() {
-        
+
+        @Suppress("unused") // Called via IPC from plugins for sending messages to other plugins
         override fun sendMessage(message: PluginMessage): MessageResponse {
             return try {
                 Timber.d("[MESSAGING SERVICE] Sending message from ${message.senderId} to ${message.receiverId}, type: ${message.messageType}")
@@ -50,6 +55,7 @@ class PluginMessagingService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from plugins for receiving pending messages from message broker
         override fun receiveMessages(pluginId: String): MutableList<PluginMessage> {
             return try {
                 val messages = messageBroker.receiveMessages(pluginId)
@@ -63,6 +69,7 @@ class PluginMessagingService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from plugins for sending responses to message requests
         override fun sendResponse(response: MessageResponse): Boolean {
             return try {
                 Timber.d("[MESSAGING SERVICE] Sending response for request: ${response.requestId}")
@@ -73,6 +80,7 @@ class PluginMessagingService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from plugins for registering with message broker to enable messaging
         override fun registerPlugin(pluginId: String): Boolean {
             return try {
                 Timber.i("[MESSAGING SERVICE] Registering plugin: $pluginId")
@@ -83,6 +91,7 @@ class PluginMessagingService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from plugins for unregistering from message broker on plugin cleanup
         override fun unregisterPlugin(pluginId: String) {
             try {
                 Timber.i("[MESSAGING SERVICE] Unregistering plugin: $pluginId")
@@ -98,7 +107,7 @@ class PluginMessagingService : Service() {
         Timber.i("[MESSAGING SERVICE] PluginMessagingService created")
     }
     
-    override fun onBind(intent: Intent?): IBinder? {
+    override fun onBind(intent: Intent?): IBinder {
         Timber.i("[MESSAGING SERVICE] Service bound")
         return binder
     }

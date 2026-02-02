@@ -3,19 +3,26 @@
 
 package com.ble1st.connectias.core.plugin.ui
 
+import android.content.Context
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.fragment.app.Fragment
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
+import com.ble1st.connectias.plugin.ui.IPluginUIMainCallback
 import com.ble1st.connectias.plugin.ui.MotionEventParcel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,17 +44,33 @@ import timber.log.Timber
  *
  * For now, this is a placeholder implementation. The actual UI rendering
  * happens in PluginUIFragment in the UI Process.
+ *
+ * IME proxy: When a TextField in the plugin UI (VirtualDisplay) gains focus,
+ * the IME does not "serve" that window. This fragment provides IPluginUIMainCallback
+ * and shows an overlay EditText in the Main Process so the keyboard appears;
+ * text is sent to the UI Process via sendImeText().
  */
 class PluginUIContainerFragment : Fragment() {
 
+    private val imeMainCallback = object : IPluginUIMainCallback.Stub() {
+        override fun requestShowIme(pluginId: String?, componentId: String?, initialText: String?) {
+            this@PluginUIContainerFragment.handleRequestShowIme(pluginId, componentId, initialText)
+        }
+    }
+
     private var pluginId: String? = null
     private var containerId: Int = -1
-    private var surfaceView: SurfaceView? = null
+    private var surfaceView: PluginSurfaceView? = null
     private var rootContainer: FrameLayout? = null
     private var uiProcessProxy: PluginUIProcessProxy? = null
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var lastSentWidth: Int = -1
     private var lastSentHeight: Int = -1
+
+    /** IME proxy: overlay EditText shown when plugin TextField requests keyboard */
+    private var imeOverlayContainer: FrameLayout? = null
+    private var imeOverlayEdit: EditText? = null
+    private var imeCurrentComponentId: String? = null
 
     /**
      * Touch events must be forwarded in-order. Dispatching via coroutines that hop to IO can
@@ -67,6 +90,7 @@ class PluginUIContainerFragment : Fragment() {
      */
     fun setUIProcessProxy(proxy: PluginUIProcessProxy) {
         this.uiProcessProxy = proxy
+        if (imeOverlayContainer != null) registerMainCallback()
     }
 
     companion object {
@@ -139,13 +163,15 @@ class PluginUIContainerFragment : Fragment() {
         // Create SurfaceView to display UI from UI Process
         // IMPORTANT: Set Z-order so SurfaceView appears BELOW FAB overlay
         // By default, SurfaceView renders in its own layer above other views
-        surfaceView = SurfaceView(requireContext()).apply {
+        surfaceView = PluginSurfaceView(requireContext()).apply {
             // Set Z-order to media overlay level (below normal views)
             // This ensures FAB overlay from MainActivity appears above the SurfaceView
             setZOrderMediaOverlay(false)
             // Set low elevation to ensure it stays below FAB overlay
             elevation = 0f
             z = 0f
+            // Mark as clickable for accessibility support
+            isClickable = true
             
             holder.addCallback(object : SurfaceHolder.Callback {
                 override fun surfaceCreated(holder: SurfaceHolder) {
@@ -183,10 +209,10 @@ class PluginUIContainerFragment : Fragment() {
                         view?.post {
                             val activity = activity
                             if (activity != null) {
-                                val root = activity.findViewById<android.view.ViewGroup>(android.R.id.content)
+                                val root = activity.findViewById<ViewGroup>(android.R.id.content)
                                 root?.post {
                                     // Find ComposeView by tag or by type
-                                    var composeView: android.view.View? = null
+                                    var composeView: View? = null
                                     for (i in 0 until root.childCount) {
                                         val child = root.getChildAt(i)
                                         if (child.tag == "fab_overlay" || 
@@ -239,8 +265,13 @@ class PluginUIContainerFragment : Fragment() {
             })
 
             // Enable touch events
-            setOnTouchListener { _, event ->
-                handleTouchEvent(event)
+            this.setOnTouchListener { view, event ->
+                val handled = handleTouchEvent(event)
+                // Call performClick for accessibility when a click is detected
+                if (event.action == MotionEvent.ACTION_UP && handled) {
+                    view.performClick()
+                }
+                handled
             }
         }
 
@@ -259,6 +290,110 @@ class PluginUIContainerFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         // Ensure insets dispatch happens after the view is attached.
         rootContainer?.let { ViewCompat.requestApplyInsets(it) }
+        // IME proxy: add overlay and register callback with UI Process
+        setupImeOverlay()
+        registerMainCallback()
+    }
+
+    /**
+     * IME proxy: overlay EditText so keyboard can be shown in Main Process.
+     * When plugin TextField gains focus, we show this overlay and focus it.
+     */
+    private fun setupImeOverlay() {
+        val container = rootContainer ?: return
+        val ctx = context ?: return
+
+        imeOverlayContainer = FrameLayout(ctx).apply {
+            visibility = View.GONE
+            setBackgroundColor(android.graphics.Color.TRANSPARENT)
+            setOnClickListener { hideImeOverlay() }
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+
+        imeOverlayEdit = EditText(ctx).apply {
+            setPadding(48, 48, 48, 48)
+            setBackgroundResource(android.R.drawable.edit_text)
+            hint = "Type here…"
+            imeOptions = EditorInfo.IME_ACTION_DONE
+            setSingleLine(true)
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                topMargin = 200
+                leftMargin = 48
+                rightMargin = 48
+            }
+            setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    hideImeOverlay()
+                    true
+                } else false
+            }
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: Editable?) {
+                    val pid = pluginId ?: return
+                    val cid = imeCurrentComponentId ?: return
+                    val proxy = uiProcessProxy ?: return
+                    scope.launch {
+                        proxy.sendImeText(pid, cid, s?.toString() ?: "")
+                    }
+                }
+            })
+        }
+
+        imeOverlayContainer!!.addView(imeOverlayEdit)
+        container.addView(imeOverlayContainer)
+    }
+
+    private fun registerMainCallback() {
+        val proxy = uiProcessProxy ?: return
+        scope.launch {
+            val ok = proxy.registerMainCallback(imeMainCallback)
+            if (ok) Timber.d("[MAIN] IME proxy callback registered with UI Process")
+            else Timber.w("[MAIN] Failed to register IME proxy callback")
+        }
+    }
+
+    private fun handleRequestShowIme(pluginId: String?, componentId: String?, initialText: String?) {
+        val pid = pluginId ?: return
+        val cid = componentId ?: return
+        val text = initialText ?: ""
+
+        requireActivity().runOnUiThread {
+            imeCurrentComponentId = cid
+            imeOverlayEdit?.setText(text)
+            imeOverlayEdit?.setSelection(text.length)
+            imeOverlayContainer?.visibility = View.VISIBLE
+            imeOverlayEdit?.requestFocus()
+            val imm = requireContext().getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.showSoftInput(imeOverlayEdit, InputMethodManager.SHOW_IMPLICIT)
+            Timber.d("[MAIN] IME overlay shown for plugin: $pid component: $cid")
+        }
+    }
+
+    private fun hideImeOverlay() {
+        val pid = pluginId ?: return
+        val cid = imeCurrentComponentId ?: return
+        val proxy = uiProcessProxy
+
+        imeOverlayContainer?.visibility = View.GONE
+        imeOverlayEdit?.clearFocus()
+        val imm = context?.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(imeOverlayEdit?.windowToken, 0)
+        imeCurrentComponentId = null
+
+        if (proxy != null) {
+            scope.launch {
+                proxy.onImeDismissed(pid, cid)
+            }
+        }
+        Timber.d("[MAIN] IME overlay hidden for plugin: $pid component: $cid")
     }
 
     /**
@@ -388,6 +523,9 @@ class PluginUIContainerFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         Timber.d("[MAIN] PluginUIContainerFragment onDestroyView for plugin: $pluginId")
+        hideImeOverlay()
+        imeOverlayEdit = null
+        imeOverlayContainer = null
         surfaceView = null
         rootContainer = null
         lastSentWidth = -1
@@ -454,6 +592,18 @@ class PluginUIContainerFragment : Fragment() {
         }
 
         // Return true to indicate we're handling the event
+        return true
+    }
+}
+
+/**
+ * SurfaceView subclass that overrides [performClick] for accessibility.
+ * When [setOnTouchListener] is used, Android requires the view to override performClick()
+ * so that accessibility services can trigger the same action as touch.
+ */
+private class PluginSurfaceView(context: Context) : SurfaceView(context) {
+    override fun performClick(): Boolean {
+        super.performClick()
         return true
     }
 }

@@ -7,12 +7,11 @@ import android.app.Application
 import android.os.Looper
 import com.ble1st.connectias.analytics.collector.PluginAnalyticsCollector
 import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
-import com.ble1st.connectias.performance.StrictModeConfig
 import com.ble1st.connectias.plugin.PluginManagerSandbox
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
-import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
 import timber.log.Timber
 
@@ -35,7 +34,7 @@ class ConnectiasApplication : Application() {
     private fun getCurrentProcessName(): String {
         // IMPORTANT: Use Application.getProcessName() which is reliable for multi-process apps.
         return try {
-            Application.getProcessName()
+            getProcessName()
         } catch (_: Exception) {
             // Fallback: /proc/self/cmdline (best-effort).
             try {

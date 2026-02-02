@@ -3,7 +3,6 @@ package com.ble1st.connectias.plugin.logging
 import android.util.Log
 import com.ble1st.connectias.core.domain.LogMessageUseCase
 import com.ble1st.connectias.core.model.LogLevel
-import com.ble1st.connectias.plugin.logging.IPluginLogBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

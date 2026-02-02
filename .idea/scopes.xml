@@ -3,5 +3,6 @@
   <component name="DependencyValidationManager">
     <scope name="Documentation Files" pattern="file:*.md||file:docs//*||file:**/*.md" />
     <scope name="Rust Native Classes" pattern="file:**/Rust*.kt||file:**/security/**/KeyManager.kt||file:**/core/security/KeyManager.kt" />
+    <scope name="ProGuard Files" pattern="file:**/*.pro||file:**/proguard-rules.pro||file:**/consumer-rules.pro" />
   </component>
 </project>

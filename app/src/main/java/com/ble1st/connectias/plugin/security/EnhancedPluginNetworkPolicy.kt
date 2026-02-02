@@ -1,12 +1,11 @@
 package com.ble1st.connectias.plugin.security
 
-import android.net.TrafficStats
 import timber.log.Timber
+import java.net.URI
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import java.net.URI
-import java.net.URL
 import java.util.regex.Pattern
 
 /**
@@ -114,11 +113,8 @@ class EnhancedPluginNetworkPolicy {
      */
     fun isRequestAllowed(pluginId: String, url: String, isTelemetry: Boolean = false): NetworkPolicyResult {
         val policy = pluginPolicies[pluginId]
-        
-        if (policy == null) {
-            return NetworkPolicyResult.BLOCKED("Plugin not registered: $pluginId")
-        }
-        
+            ?: return NetworkPolicyResult.BLOCKED("Plugin not registered: $pluginId")
+
         if (!policy.enabled) {
             return NetworkPolicyResult.BLOCKED("Network access disabled for plugin: $pluginId")
         }
@@ -356,7 +352,7 @@ class EnhancedPluginNetworkPolicy {
         if (idx <= 0 || idx == hostPort.length - 1) {
             throw IllegalArgumentException("Invalid endpoint (expected host:port)")
         }
-        val h = hostPort.substring(0, idx).lowercase()
+        val h = hostPort.take(idx).lowercase()
         val p = hostPort.substring(idx + 1).toIntOrNull() ?: throw IllegalArgumentException("Invalid port")
         return h to p
     }

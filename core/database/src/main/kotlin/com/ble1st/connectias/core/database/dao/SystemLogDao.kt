@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Room DAO - methods used via annotation processing at compile-time
+
 package com.ble1st.connectias.core.database.dao
 
 import androidx.room.Dao

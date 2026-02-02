@@ -3,24 +3,56 @@
 
 package com.ble1st.connectias.core.plugin.ui
 
-import android.os.Bundle
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
+import android.os.Bundle
 import android.util.Base64
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.QuestionMark
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ble1st.connectias.plugin.ui.UIComponentParcel
@@ -54,6 +86,8 @@ import java.io.File
  * @param uiState Current UI state from sandbox, or null if loading
  * @param dialogState Dialog state to display
  * @param loadingState Loading state indicator
+ * @param imeTextByComponent Text from Main Process IME overlay (componentId -> text)
+ * @param onRequestShowIme Callback when TextField gains focus (Main Process shows keyboard)
  * @param onUserAction Callback for user actions (sent to sandbox)
  * @param onDismissDialog Callback when dialog is dismissed
  */
@@ -61,8 +95,10 @@ import java.io.File
 fun PluginUIComposable(
     pluginId: String,
     uiState: UIStateParcel?,
-    dialogState: com.ble1st.connectias.core.plugin.ui.PluginUIFragment.DialogState? = null,
-    loadingState: com.ble1st.connectias.core.plugin.ui.PluginUIFragment.LoadingState? = null,
+    dialogState: PluginUIFragment.DialogState? = null,
+    loadingState: PluginUIFragment.LoadingState? = null,
+    imeTextByComponent: Map<String, String> = emptyMap(),
+    onRequestShowIme: (componentId: String, initialText: String) -> Unit = { _, _ -> },
     onUserAction: (UserActionParcel) -> Unit,
     onDismissDialog: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -126,6 +162,8 @@ fun PluginUIComposable(
                 RenderComponent(
                     pluginId = pluginId,
                     component = component,
+                    imeTextByComponent = imeTextByComponent,
+                    onRequestShowIme = onRequestShowIme,
                     onUserAction = onUserAction
                 )
             }
@@ -140,18 +178,26 @@ fun PluginUIComposable(
 private fun RenderComponent(
     pluginId: String,
     component: UIComponentParcel,
+    imeTextByComponent: Map<String, String>,
+    onRequestShowIme: (componentId: String, initialText: String) -> Unit,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (component.type) {
         "BUTTON" -> RenderButton(component, onUserAction, modifier)
-        "TEXT_FIELD" -> RenderTextField(component, onUserAction, modifier)
+        "TEXT_FIELD" -> RenderTextField(
+            component = component,
+            imeTextByComponent = imeTextByComponent,
+            onRequestShowIme = onRequestShowIme,
+            onUserAction = onUserAction,
+            modifier = modifier
+        )
         "TEXT_VIEW" -> RenderTextView(component, modifier)
         "LIST" -> RenderList(component, onUserAction, modifier)
         "IMAGE" -> RenderImage(pluginId, component, modifier)
         "CHECKBOX" -> RenderCheckbox(component, onUserAction, modifier)
-        "COLUMN" -> RenderColumn(pluginId, component, onUserAction, modifier)
-        "ROW" -> RenderRow(pluginId, component, onUserAction, modifier)
+        "COLUMN" -> RenderColumn(pluginId, component, imeTextByComponent, onRequestShowIme, onUserAction, modifier)
+        "ROW" -> RenderRow(pluginId, component, imeTextByComponent, onRequestShowIme, onUserAction, modifier)
         "SPACER" -> RenderSpacer(component, modifier)
         else -> {
             Timber.w("[UI_PROCESS] Unknown component type: ${component.type}")
@@ -241,6 +287,8 @@ private fun RenderButton(
 @Composable
 private fun RenderTextField(
     component: UIComponentParcel,
+    imeTextByComponent: Map<String, String>,
+    onRequestShowIme: (componentId: String, initialText: String) -> Unit,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -250,7 +298,16 @@ private fun RenderTextField(
     val enabled = component.properties.getBoolean("enabled", true)
     val multiline = component.properties.getBoolean("multiline", false)
 
-    var text by remember(initialValue) { mutableStateOf(initialValue) }
+    // Prefer text from Main Process IME overlay when present (user types in main process)
+    val externalText = imeTextByComponent[component.id]
+    var text by remember(component.id, initialValue, externalText) {
+        mutableStateOf(externalText ?: initialValue)
+    }
+    // Sync when overlay sends new text
+    if (externalText != null && text != externalText) {
+        text = externalText
+    }
+    var isFocused by remember { mutableStateOf(false) }
 
     OutlinedTextField(
         value = text,
@@ -269,7 +326,20 @@ private fun RenderTextField(
         enabled = enabled,
         singleLine = !multiline,
         maxLines = if (multiline) 5 else 1,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .onFocusChanged { focusState ->
+                val wasFocused = isFocused
+                isFocused = focusState.isFocused
+
+                // On VirtualDisplay the IME does not "serve" this window. Request Main Process
+                // to show the keyboard via overlay EditText (IME proxy).
+                if (!wasFocused && focusState.isFocused) {
+                    Timber.d("[UI_PROCESS] TextField '${component.id}' gained focus - requesting IME from Main")
+                    onRequestShowIme(component.id, text)
+                }
+            }
     )
 }
 
@@ -457,7 +527,7 @@ private fun RenderImage(
                 component.properties.getByteArray("image")
             } catch (e: ClassCastException) {
                 null
-            } ?: null
+            }
         }
     }
 
@@ -618,6 +688,8 @@ private fun RenderCheckbox(
 private fun RenderColumn(
     pluginId: String,
     component: UIComponentParcel,
+    imeTextByComponent: Map<String, String>,
+    onRequestShowIme: (componentId: String, initialText: String) -> Unit,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -644,6 +716,8 @@ private fun RenderColumn(
             RenderComponent(
                 pluginId = pluginId,
                 component = child,
+                imeTextByComponent = imeTextByComponent,
+                onRequestShowIme = onRequestShowIme,
                 onUserAction = onUserAction
             )
         }
@@ -654,6 +728,8 @@ private fun RenderColumn(
 private fun RenderRow(
     pluginId: String,
     component: UIComponentParcel,
+    imeTextByComponent: Map<String, String>,
+    onRequestShowIme: (componentId: String, initialText: String) -> Unit,
     onUserAction: (UserActionParcel) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -682,6 +758,8 @@ private fun RenderRow(
             RenderComponent(
                 pluginId = pluginId,
                 component = child,
+                imeTextByComponent = imeTextByComponent,
+                onRequestShowIme = onRequestShowIme,
                 onUserAction = onUserAction,
                 modifier = Modifier.weight(weight)
             )
@@ -703,15 +781,15 @@ private fun RenderSpacer(
  */
 @Composable
 private fun RenderDialog(
-    dialog: com.ble1st.connectias.core.plugin.ui.PluginUIFragment.DialogState,
+    dialog: PluginUIFragment.DialogState,
     onDismiss: () -> Unit
 ) {
     val icon = when (dialog.dialogType) {
-        0 -> androidx.compose.material.icons.Icons.Default.Info // INFO
-        1 -> androidx.compose.material.icons.Icons.Default.Warning // WARNING
-        2 -> androidx.compose.material.icons.Icons.Default.Error // ERROR
-        3 -> androidx.compose.material.icons.Icons.Default.QuestionMark // CONFIRM
-        else -> androidx.compose.material.icons.Icons.Default.Info
+        0 -> Icons.Default.Info // INFO
+        1 -> Icons.Default.Warning // WARNING
+        2 -> Icons.Default.Error // ERROR
+        3 -> Icons.Default.QuestionMark // CONFIRM
+        else -> Icons.Default.Info
     }
     
     val iconColor = when (dialog.dialogType) {

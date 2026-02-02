@@ -471,7 +471,7 @@ class PluginManager(
         }
     }
     
-    suspend fun shutdown() {
+    fun shutdown() {
         Timber.i("Shutting down plugin manager")
         
         loadedPlugins.values.forEach { pluginInfo ->

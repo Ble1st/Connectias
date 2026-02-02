@@ -1,5 +1,6 @@
 package com.ble1st.connectias.plugin.security
 
+import android.os.Environment
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -8,6 +9,7 @@ import javax.inject.Singleton
  * Advanced anomaly detection engine
  * Uses pattern matching and statistical analysis
  */
+@Suppress("unused")
 @Singleton
 class AnomalyDetector @Inject constructor() {
     
@@ -147,9 +149,10 @@ class AnomalyDetector @Inject constructor() {
         val anomalies = mutableListOf<PluginBehaviorAnalyzer.Anomaly>()
         
         // Check for unusual file access sequences
+        val externalStoragePath = Environment.getExternalStorageDirectory().path
         val suspiciousSequences = listOf(
             listOf("/system", "/data"),
-            listOf("/sdcard", "/data/data"),
+            listOf(externalStoragePath, "/data/data"),
             listOf("/proc", "/system")
         )
         

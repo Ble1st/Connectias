@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Security Layer - Wraps file system bridge with permission enforcement
+
 package com.ble1st.connectias.plugin.security
 
 import android.os.ParcelFileDescriptor
@@ -21,7 +23,7 @@ class SecureFileSystemBridgeWrapper(
     private val actualBridge: IFileSystemBridge,
     private val boundPluginId: String,
     private val sessionToken: Long,
-    private val permissionManager: PluginPermissionManager,
+    permissionManager: PluginPermissionManager,
     private val auditManager: SecurityAuditManager? = null
 ) : IFileSystemBridge.Stub() {
 
@@ -34,11 +36,8 @@ class SecureFileSystemBridgeWrapper(
      */
     private fun verifyCallerIdentity(): String {
         val verifiedPluginId = PluginIdentitySession.verifyPluginIdentity()
-        
-        if (verifiedPluginId == null) {
-            throw SecurityException("No verified plugin identity - access denied")
-        }
-        
+            ?: throw SecurityException("No verified plugin identity - access denied")
+
         if (verifiedPluginId != boundPluginId) {
             throw SecurityException(
                 "Identity mismatch: wrapper bound to '$boundPluginId' but caller verified as '$verifiedPluginId'"

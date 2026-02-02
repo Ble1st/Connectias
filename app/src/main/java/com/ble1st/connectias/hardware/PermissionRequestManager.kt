@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import timber.log.Timber
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -31,9 +32,16 @@ class PermissionRequestManager {
     // Pending permission requests with their latches
     private val pendingRequests = ConcurrentHashMap<String, PermissionRequest>()
     
-    // Current activity reference (set by MainActivity)
+    // Weak reference to current activity (set by MainActivity) to avoid static leak.
     @Volatile
-    var currentActivity: Activity? = null
+    private var currentActivityRef: WeakReference<Activity>? = null
+
+    /** Current activity for permission dialogs. Use [setCurrentActivity] / [clearCurrentActivity]. */
+    var currentActivity: Activity?
+        get() = currentActivityRef?.get()
+        set(value) {
+            currentActivityRef = value?.let { WeakReference(it) }
+        }
     
     data class PermissionRequest(
         val pluginId: String,
@@ -107,8 +115,8 @@ class PermissionRequestManager {
      */
     fun handlePermissionResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         if (permissions.isEmpty()) return
-        
-        val permission = permissions[0]
+
+        permissions[0]
         val granted = grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
         
         // Find matching request

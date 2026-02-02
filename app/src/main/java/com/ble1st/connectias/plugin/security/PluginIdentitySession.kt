@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Security Layer - Session-based identity verification, prevents pluginId spoofing
+
 package com.ble1st.connectias.plugin.security
 
 import android.os.Binder

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.core.security.tamper
 
 import android.content.Context
@@ -30,16 +32,20 @@ class RustTamperDetector(private val context: Context? = null) {
 
     /**
      * Native method to detect tampering using Rust implementation.
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      * 
      * @param packageNames Array of installed package names to check for hooking apps
      * @return JSON string with TamperDetectionResult
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeDetectTampering(packageNames: Array<String>?): String
 
     /**
      * Initialize Rust logging (Android-specific)
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      * Note: This is called lazily when needed, not in init block
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeInit()
     
     private var isInitialized = false

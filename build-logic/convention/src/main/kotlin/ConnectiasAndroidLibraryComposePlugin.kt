@@ -1,4 +1,4 @@
-import com.android.build.gradle.LibraryExtension
+import com.android.build.api.dsl.LibraryExtension
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.kotlin.dsl.configure
@@ -16,7 +16,9 @@ class ConnectiasAndroidLibraryComposePlugin : Plugin<Project> {
             }
 
             dependencies {
-                add("implementation", platform("androidx.compose:compose-bom:2025.12.01"))
+                // Note: Using direct versions in build-logic (composite build evaluated early)
+                // Version matches gradle/libs.versions.toml: composeBom = "2026.01.00" (libs.versions.composeBom)
+                add("implementation", platform("androidx.compose:compose-bom:2026.01.00"))
                 add("implementation", "androidx.compose.ui:ui")
                 add("implementation", "androidx.compose.ui:ui-graphics")
                 add("implementation", "androidx.compose.ui:ui-tooling-preview")

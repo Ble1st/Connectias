@@ -2,12 +2,11 @@ package com.ble1st.connectias.plugin.version
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
+import androidx.core.content.edit
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
@@ -21,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 class PluginVersionManager @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val json: Json
 ) {
     private val prefs: SharedPreferences = 
@@ -57,7 +56,7 @@ class PluginVersionManager @Inject constructor(
         )
         
         saveVersionHistory()
-        prefs.edit().putString("version_$pluginId", json.encodeToString(version)).apply()
+        prefs.edit { putString("version_$pluginId", json.encodeToString(version))}
         
         Timber.d("Registered version $version for plugin $pluginId")
     }
@@ -132,7 +131,7 @@ class PluginVersionManager @Inject constructor(
         }
         
         saveVersionHistory()
-        prefs.edit().putString("version_$pluginId", json.encodeToString(rollbackVersion)).apply()
+        prefs.edit { putString("version_$pluginId", json.encodeToString(rollbackVersion)) }
     }
     
     /**

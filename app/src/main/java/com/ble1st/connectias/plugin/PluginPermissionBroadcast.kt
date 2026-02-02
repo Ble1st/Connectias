@@ -1,3 +1,5 @@
+@file:Suppress("unused") // BroadcastReceiver - methods called by Android system at runtime
+
 package com.ble1st.connectias.plugin
 
 import android.content.BroadcastReceiver
@@ -85,19 +87,14 @@ object PluginPermissionBroadcast {
         val filter = IntentFilter(ACTION_PERMISSION_CHANGED)
         
         // Use RECEIVER_NOT_EXPORTED for security (Android 13+)
-        try {
-            ContextCompat.registerReceiver(
-                context,
-                receiver,
-                filter,
-                ContextCompat.RECEIVER_NOT_EXPORTED
-            )
-            Timber.i("[SANDBOX] Registered permission broadcast receiver")
-        } catch (e: Exception) {
-            // Fallback for older Android versions
-            context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            Timber.i("[SANDBOX] Registered permission broadcast receiver (legacy)")
-        }
+        // ContextCompat handles backward compatibility automatically
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        Timber.i("[SANDBOX] Registered permission broadcast receiver")
         
         return receiver
     }

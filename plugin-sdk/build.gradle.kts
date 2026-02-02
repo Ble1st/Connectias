@@ -1,7 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.android.library)
-    id("kotlin-parcelize")
+    // Note: kotlin.android plugin removed - using built-in Kotlin support in AGP 9.0+
+    // Note: kotlin-parcelize is built-in with AGP 9.0, must use id() without version
+    id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
 android {
@@ -31,5 +32,7 @@ kotlin {
 
 dependencies {
     api(libs.kotlinx.coroutines.core)
+    // kotlin-parcelize-runtime required for @Parcelize annotation support
+    implementation(libs.kotlin.parcelize.runtime)
 }
 

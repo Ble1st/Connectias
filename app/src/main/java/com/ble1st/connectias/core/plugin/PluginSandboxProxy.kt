@@ -6,25 +6,24 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
-import com.ble1st.connectias.plugin.IPluginSandbox
-import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.hardware.HardwareBridgeService
+import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
-import com.ble1st.connectias.core.plugin.FileSystemBridgeService
-import com.ble1st.connectias.plugin.security.PluginIdentitySession
+import com.ble1st.connectias.plugin.IPluginSandbox
+import com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
 import com.ble1st.connectias.plugin.messaging.IPluginMessaging
 import com.ble1st.connectias.plugin.messaging.PluginMessagingService
-import com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
-import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.security.IPCRateLimiter
+import com.ble1st.connectias.plugin.security.PluginIdentitySession
 import com.ble1st.connectias.plugin.security.RateLimitException
 import com.ble1st.connectias.plugin.security.SecurityAuditManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 /**
  * Proxy for communicating with the plugin sandbox service via IPC
@@ -61,7 +60,7 @@ class PluginSandboxProxy(
             isConnected.set(true)
             synchronized(connectionLock) {
                 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                (connectionLock as java.lang.Object).notifyAll()
+                (connectionLock as Object).notifyAll()
             }
         }
         
@@ -85,7 +84,7 @@ class PluginSandboxProxy(
             isHardwareBridgeConnected.set(true)
             synchronized(hardwareBridgeLock) {
                 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                (hardwareBridgeLock as java.lang.Object).notifyAll()
+                (hardwareBridgeLock as Object).notifyAll()
             }
         }
 
@@ -109,7 +108,7 @@ class PluginSandboxProxy(
             isMessagingBridgeConnected.set(true)
             synchronized(messagingBridgeLock) {
                 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                (messagingBridgeLock as java.lang.Object).notifyAll()
+                (messagingBridgeLock as Object).notifyAll()
             }
         }
 
@@ -151,7 +150,7 @@ class PluginSandboxProxy(
                 synchronized(connectionLock) {
                     while (!isConnected.get()) {
                         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                        (connectionLock as java.lang.Object).wait(100)
+                        (connectionLock as Object).wait(100)
                     }
                 }
                 true
@@ -234,7 +233,7 @@ class PluginSandboxProxy(
                 synchronized(hardwareBridgeLock) {
                     while (!isHardwareBridgeConnected.get()) {
                         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                        (hardwareBridgeLock as java.lang.Object).wait(100)
+                        (hardwareBridgeLock as Object).wait(100)
                     }
                 }
                 true
@@ -294,7 +293,7 @@ class PluginSandboxProxy(
                 synchronized(messagingBridgeLock) {
                     while (!isMessagingBridgeConnected.get()) {
                         @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                        (messagingBridgeLock as java.lang.Object).wait(100)
+                        (messagingBridgeLock as Object).wait(100)
                     }
                 }
                 true
@@ -613,7 +612,7 @@ class PluginSandboxProxy(
                 message = "Rate limit exceeded for method: loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
                 details = mapOf(
                     "method" to "loadPluginFromDescriptor/loadDeclarativePluginFromDescriptor",
-                    "pluginId" to (pluginId ?: "unknown"),
+                    "pluginId" to pluginId,
                     "retryAfterMs" to e.retryAfterMs.toString()
                 ),
                 exception = e
@@ -808,7 +807,7 @@ class PluginSandboxProxy(
                 sandboxService?.getPluginMetadata(pluginId)
             } ?: return@withContext Result.failure(Exception("IPC timeout during getPluginMetadata"))
             
-            Result.success(metadata?.toPluginMetadata())
+            Result.success(metadata.toPluginMetadata())
             
         } catch (e: RateLimitException) {
             Timber.w(e, "Rate limit exceeded for getPluginMetadata")

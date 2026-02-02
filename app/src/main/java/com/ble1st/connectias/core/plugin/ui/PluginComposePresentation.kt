@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.Display
 import android.view.View
+import android.view.WindowManager
 import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -138,6 +139,17 @@ class PluginComposePresentation(
 
             setContentView(fragmentView)
 
+            // Configure window for IME (soft keyboard) on VirtualDisplay.
+            // Without this, InputMethodManager ignores showSoftInput() with "view is not served".
+            window?.let { w ->
+                w.setSoftInputMode(
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                        WindowManager.LayoutParams.SOFT_INPUT_STATE_UNCHANGED
+                )
+                // Ensure window can receive focus so IME can attach (Dialog may clear focusable in some configs).
+                w.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+            }
+
             // Set lifecycle owners on the view hierarchy using reflection
             // This is needed because ComposeView looks for ViewTreeLifecycleOwner
             setViewTreeOwners(fragmentView)
@@ -223,6 +235,11 @@ class PluginComposePresentation(
         lifecycleRegistry.currentState = Lifecycle.State.STARTED
         Timber.d("[UI_PROCESS] ComposePresentation started for plugin: $pluginId")
         fragment.onStart()
+
+        // Ensure this window can receive IME: give decor view focus so InputMethodManager may serve it.
+        window?.decorView?.post {
+            window?.decorView?.requestFocus()
+        }
 
         // Move to RESUMED after the fragment starts
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED

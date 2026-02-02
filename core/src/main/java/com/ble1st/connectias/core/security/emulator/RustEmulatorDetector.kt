@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.core.security.emulator
 
 import android.annotation.SuppressLint
@@ -35,6 +37,7 @@ class RustEmulatorDetector(private val context: Context? = null) {
 
     /**
      * Native method to detect emulator using Rust implementation.
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      * 
      * @param model Build.MODEL
      * @param manufacturer Build.MANUFACTURER
@@ -45,6 +48,7 @@ class RustEmulatorDetector(private val context: Context? = null) {
      * @param fingerprint Build.FINGERPRINT
      * @return JSON string with EmulatorDetectionResult
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeDetectEmulator(
         model: String,
         manufacturer: String,
@@ -57,8 +61,10 @@ class RustEmulatorDetector(private val context: Context? = null) {
 
     /**
      * Initialize Rust logging (Android-specific)
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      * Note: This is called lazily when needed, not in init block
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeInit()
     
     private var isInitialized = false

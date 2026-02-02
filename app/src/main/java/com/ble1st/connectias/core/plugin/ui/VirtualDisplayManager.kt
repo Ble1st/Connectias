@@ -281,7 +281,7 @@ class VirtualDisplayManager(private val context: Context) {
                 // This avoids double-rendering caused by rapid repeated setUISurface() calls.
                 virtualDisplays[pluginId]?.let { existing ->
                     // Check if Surface reference matches AND Surface is still valid
-                    if (existing.surface == surface && existing.surface.isValid() && 
+                    if (existing.surface == surface && existing.surface.isValid &&
                         existing.width == width && existing.height == height) {
                         Timber.d("[UI_PROCESS] VirtualDisplay already matches request for plugin: $pluginId (${width}x${height})")
                         return existing.virtualDisplay
@@ -309,7 +309,7 @@ class VirtualDisplayManager(private val context: Context) {
                         // Wait longer to ensure VirtualDisplay and Surface are fully released
                         // This prevents "BufferQueue has been abandoned" errors
                         Thread.sleep(100)
-                    } else if (!existing.surface.isValid()) {
+                    } else if (!existing.surface.isValid) {
                         // Surface is invalid - recreate VirtualDisplay
                         Timber.w("[UI_PROCESS] VirtualDisplay Surface is invalid for plugin: $pluginId - recreating")
                         try {
@@ -374,7 +374,7 @@ class VirtualDisplayManager(private val context: Context) {
             val presentation = if (fragment != null) {
                 try {
                     var presentation: PluginComposePresentation? = null
-                    val latch = java.util.concurrent.CountDownLatch(1)
+                    val latch = CountDownLatch(1)
 
                     // Wait for display in background thread to avoid blocking main thread
                     Thread {
@@ -442,7 +442,7 @@ class VirtualDisplayManager(private val context: Context) {
                     }.start()
 
                     // Wait for presentation creation (with timeout)
-                    if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS)) {
+                    if (!latch.await(15, TimeUnit.SECONDS)) {
                         Timber.e("[UI_PROCESS] Timeout waiting for ComposePresentation creation for plugin: $pluginId")
                     }
 

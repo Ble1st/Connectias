@@ -28,7 +28,7 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("DEPRECATION")
 class KeyManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @param:ApplicationContext private val context: Context
 ) {
     companion object {
         private const val PREFS_NAME = "connectias_secure_prefs"
@@ -47,7 +47,9 @@ class KeyManager @Inject constructor(
     
     /**
      * Native method to generate passphrase using Rust implementation.
+     * Implementation is in Rust (libconnectias_root_detector.so), not C/C++.
      */
+    @Suppress("JNI_MISSING_IMPLEMENTATION")
     private external fun nativeGeneratePassphrase(length: Int): String
     
     /**

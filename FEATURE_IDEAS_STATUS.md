@@ -188,14 +188,14 @@ Nicht implementiert:       38%
 2. **Privacy Dashboard** → DSGVO-konforme Übersicht
 
 ### Mittlere Priorität (Neue Features)
-3. **Hot-Reload** → Entwickler-Erfahrung verbessern
-4. **Plugin-Widgets** → Home-Screen Integration
-5. **Daten-Export** → DSGVO-Compliance
+1. **Hot-Reload** → Entwickler-Erfahrung verbessern
+2. **Plugin-Widgets** → Home-Screen Integration
+3. **Daten-Export** → DSGVO-Compliance
 
 ### Niedrige Priorität
-8. Plugin-Bundles
-9. Plugin-Sharing (QR-Code)
-10. Benutzerdefinierte Themes
+1. Plugin-Bundles
+2. Plugin-Sharing (QR-Code)
+3. Benutzerdefinierte Themes
 
 ---
 

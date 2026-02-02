@@ -102,15 +102,15 @@ fun SecurityDashboardScreen(
         }
     ) { padding ->
         LazyColumn(
-            modifier = androidx.compose.ui.Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                Card(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-                    Column(modifier = androidx.compose.ui.Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Default.Security, contentDescription = null)
                             Text("Overview", style = MaterialTheme.typography.titleMedium)
@@ -135,9 +135,9 @@ fun SecurityDashboardScreen(
                     val summary = auditManager.getPluginSecuritySummary(pluginId)
                     Card(
                         onClick = { selectedPluginId = pluginId },
-                        modifier = androidx.compose.ui.Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = androidx.compose.ui.Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text(pluginId, style = MaterialTheme.typography.titleSmall)
                             Text("Risk: ${summary.riskLevel} • Violations: ${summary.totalViolations}")
                         }
@@ -150,8 +150,8 @@ fun SecurityDashboardScreen(
             item { Text("Recent security events", style = MaterialTheme.typography.titleMedium) }
 
             items(recentEvents.takeLast(20).reversed()) { ev ->
-                Card(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-                    Column(modifier = androidx.compose.ui.Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("${ev.severity} • ${ev.eventType}", style = MaterialTheme.typography.labelLarge)
                         Text(ev.message, style = MaterialTheme.typography.bodyMedium)
                         if (ev.pluginId != null) {
@@ -169,8 +169,8 @@ fun SecurityDashboardScreen(
                 item { Text("No anomalies detected.") }
             } else {
                 items(anomalies.takeLast(20).reversed()) { a ->
-                    Card(modifier = androidx.compose.ui.Modifier.fillMaxWidth()) {
-                        Column(modifier = androidx.compose.ui.Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Card(modifier = Modifier.fillMaxWidth()) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("${a.severity} • ${a.type}", style = MaterialTheme.typography.labelLarge)
                             Text(a.description, style = MaterialTheme.typography.bodyMedium)
                             Text("Plugin: ${a.pluginId}", style = MaterialTheme.typography.bodySmall)

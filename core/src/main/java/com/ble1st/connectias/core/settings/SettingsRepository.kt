@@ -2,6 +2,7 @@ package com.ble1st.connectias.core.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -12,17 +13,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.io.File
-import kotlin.Deprecated
-import kotlin.ReplaceWith
 import java.io.IOException
 import java.security.GeneralSecurityException
 import javax.inject.Singleton
-import androidx.core.content.edit
 
 /**
  * Repository for application settings.
@@ -46,7 +42,7 @@ import androidx.core.content.edit
 @Singleton
 @Suppress("DEPRECATION")
 class SettingsRepository(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val onRecoveryWillEraseData: (() -> Unit)? = null
 ) : com.ble1st.connectias.common.ui.theme.ThemeSettingsProvider {
     // Plain SharedPreferences for non-sensitive settings like theme

@@ -26,6 +26,8 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <!-- Android 14+ Selected Photos Access -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
     
     <!-- Network Permissions for plugins -->
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
@@ -133,10 +135,11 @@
             android:name="com.ble1st.connectias.core.plugin.ui.PluginUIActivity"
             android:process=":plugin_ui"
             android:exported="false"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
             android:launchMode="singleTask"
-            android:taskAffinity=""
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize|stateHidden"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize" />
 
         <!-- SAF File Picker Activity - Main Process -->
         <!-- Transparent Activity for handling Storage Access Framework file creation -->

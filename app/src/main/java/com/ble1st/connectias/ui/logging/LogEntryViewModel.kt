@@ -24,7 +24,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class LogEntryViewModel @Inject constructor(
-    private val getLogsUseCase: GetLogsUseCase
+    getLogsUseCase: GetLogsUseCase
 ) : ViewModel() {
     
     private var currentMinLevel: LogLevel = LogLevel.DEBUG
@@ -108,7 +108,7 @@ class LogEntryViewModel @Inject constructor(
         logs: List<com.ble1st.connectias.core.model.LogEntry>
     ) {
         val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
-        val fileDateFormat = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
+        SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.getDefault())
         
         // Write header
         outputStream.write("Connectias Log Export\n".toByteArray())

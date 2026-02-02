@@ -28,7 +28,7 @@ class PluginSandboxProxyRateLimitTest {
     
     @Test
     fun `test audit manager receives rate limit events`() {
-        val context = mock(Context::class.java)
+        mock(Context::class.java)
         val auditManager = mock(SecurityAuditManager::class.java)
         
         // Verify audit manager can be called

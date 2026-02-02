@@ -42,15 +42,15 @@ class HardwareBridgeService : Service() {
     
     private val permissionRequestManager = PermissionRequestManager.getInstance()
     
+    @Suppress("unused") // Used via Binder IPC from sandbox process
     private val binder = object : IHardwareBridge.Stub() {
-        
+
+        @Suppress("unused") // Called via IPC from SandboxPluginContext
         override fun requestPermission(pluginId: String, permission: String): HardwareResponseParcel {
             return try {
                 val activity = permissionRequestManager.currentActivity
-                if (activity == null) {
-                    return HardwareResponseParcel.failure("No active activity for permission request")
-                }
-                
+                    ?: return HardwareResponseParcel.failure("No active activity for permission request")
+
                 Timber.i("[HARDWARE BRIDGE] Permission request: $permission for $pluginId")
                 val granted = permissionRequestManager.requestPermissionBlocking(activity, pluginId, permission)
                 
@@ -89,8 +89,15 @@ class HardwareBridgeService : Service() {
         // CAMERA BRIDGE
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.captureImage()
         override fun captureImage(pluginId: String): HardwareResponseParcel {
             return try {
+                // Check if permission is explicitly revoked (don't auto-request if user revoked it)
+                if (permissionManager.wasExplicitlyRevoked(pluginId, android.Manifest.permission.CAMERA)) {
+                    Timber.w("[HARDWARE BRIDGE] Camera permission was explicitly revoked by user for $pluginId")
+                    return HardwareResponseParcel.failure("Camera permission was revoked. Please grant permission in settings.")
+                }
+
                 // Auto-request permission if not granted
                 if (!checkPermission(pluginId, android.Manifest.permission.CAMERA)) {
                     val activity = permissionRequestManager.currentActivity
@@ -108,18 +115,25 @@ class HardwareBridgeService : Service() {
                         return HardwareResponseParcel.failure("No activity available for permission request")
                     }
                 }
-                
+
                 Timber.i("[HARDWARE BRIDGE] Camera capture requested by $pluginId")
                 cameraBridge.captureImage(pluginId)
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Camera capture failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for camera preview
         override fun startCameraPreview(pluginId: String): HardwareResponseParcel {
             return try {
+                // Check if permission is explicitly revoked (don't auto-request if user revoked it)
+                if (permissionManager.wasExplicitlyRevoked(pluginId, android.Manifest.permission.CAMERA)) {
+                    Timber.w("[HARDWARE BRIDGE] Camera permission was explicitly revoked by user for $pluginId")
+                    return HardwareResponseParcel.failure("Camera permission was revoked. Please grant permission in settings.")
+                }
+
                 // Auto-request permission if not granted
                 if (!checkPermission(pluginId, android.Manifest.permission.CAMERA)) {
                     val activity = permissionRequestManager.currentActivity
@@ -137,16 +151,17 @@ class HardwareBridgeService : Service() {
                         return HardwareResponseParcel.failure("No activity available for permission request")
                     }
                 }
-                
+
                 Timber.i("[HARDWARE BRIDGE] Camera preview start by $pluginId")
                 cameraBridge.startPreview(pluginId)
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Camera preview failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for stopping camera preview
         override fun stopCameraPreview(pluginId: String) {
             try {
                 Timber.i("[HARDWARE BRIDGE] Camera preview stop by $pluginId")
@@ -160,6 +175,7 @@ class HardwareBridgeService : Service() {
         // NETWORK BRIDGE
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.httpGet() for network access
         override fun httpGet(pluginId: String, url: String): HardwareResponseParcel {
             return try {
                 if (!checkPermission(pluginId, android.Manifest.permission.INTERNET)) {
@@ -194,9 +210,10 @@ class HardwareBridgeService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.httpPost() for network access
         override fun httpPost(
-            pluginId: String, 
-            url: String, 
+            pluginId: String,
+            url: String,
             dataFd: ParcelFileDescriptor
         ): HardwareResponseParcel {
             return try {
@@ -252,6 +269,7 @@ class HardwareBridgeService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.openSocket() for TCP socket connections
         override fun openSocket(
             pluginId: String,
             host: String,
@@ -291,6 +309,7 @@ class HardwareBridgeService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.tcpPing() for network connectivity checks
         override fun tcpPing(
             pluginId: String,
             host: String,
@@ -335,6 +354,7 @@ class HardwareBridgeService : Service() {
         // PRINTER BRIDGE
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.getAvailablePrinters() for printer discovery
         override fun getAvailablePrinters(pluginId: String): List<String> {
             return try {
                 Timber.d("[HARDWARE BRIDGE] Get printers by $pluginId")
@@ -345,6 +365,7 @@ class HardwareBridgeService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.printDocument() for printing functionality
         override fun printDocument(
             pluginId: String,
             printerId: String,
@@ -353,7 +374,7 @@ class HardwareBridgeService : Service() {
             return try {
                 Timber.i("[HARDWARE BRIDGE] Print document by $pluginId to $printerId")
                 printerBridge.printDocument(printerId, documentFd)
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Print failed for $pluginId")
                 HardwareResponseParcel.failure(e)
@@ -370,22 +391,24 @@ class HardwareBridgeService : Service() {
         // BLUETOOTH BRIDGE
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.getPairedBluetoothDevices() for BT device discovery
         override fun getPairedBluetoothDevices(pluginId: String): List<String> {
             return try {
                 if (!checkPermission(pluginId, android.Manifest.permission.BLUETOOTH_CONNECT)) {
                     Timber.w("[HARDWARE BRIDGE] BT devices denied for $pluginId")
                     return emptyList()
                 }
-                
+
                 Timber.d("[HARDWARE BRIDGE] Get BT devices by $pluginId")
                 bluetoothBridge.getPairedDevices()
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Get BT devices failed for $pluginId")
                 emptyList()
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.connectBluetoothDevice() for BT connections
         override fun connectBluetoothDevice(
             pluginId: String,
             deviceAddress: String
@@ -394,16 +417,17 @@ class HardwareBridgeService : Service() {
                 if (!checkPermission(pluginId, android.Manifest.permission.BLUETOOTH_CONNECT)) {
                     return HardwareResponseParcel.failure("Permission denied: BLUETOOTH_CONNECT")
                 }
-                
+
                 Timber.i("[HARDWARE BRIDGE] BT connect $deviceAddress by $pluginId")
                 bluetoothBridge.connect(deviceAddress)
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] BT connect failed for $pluginId")
                 HardwareResponseParcel.failure(e)
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext.disconnectBluetoothDevice() for BT disconnection
         override fun disconnectBluetoothDevice(pluginId: String, deviceAddress: String) {
             try {
                 Timber.i("[HARDWARE BRIDGE] BT disconnect $deviceAddress by $pluginId")
@@ -417,6 +441,7 @@ class HardwareBridgeService : Service() {
         // FILE BRIDGE
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for secure file access within plugin directory
         override fun getPluginFile(pluginPath: String): ParcelFileDescriptor? {
             return try {
                 // Security: Validate plugin path
@@ -425,26 +450,27 @@ class HardwareBridgeService : Service() {
                     Timber.w("[HARDWARE BRIDGE] Plugin file not found: $pluginPath")
                     return null
                 }
-                
+
                 // Security: Only allow files in plugin directory
                 val pluginDir = File(applicationContext.filesDir, "plugins")
                 if (!pluginFile.canonicalPath.startsWith(pluginDir.canonicalPath)) {
                     Timber.e("[HARDWARE BRIDGE] SECURITY: Plugin path outside plugin dir: $pluginPath")
                     return null
                 }
-                
+
                 Timber.d("[HARDWARE BRIDGE] Opening plugin file: $pluginPath")
                 ParcelFileDescriptor.open(
                     pluginFile,
                     ParcelFileDescriptor.MODE_READ_ONLY
                 )
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Failed to open plugin file: $pluginPath")
                 null
             }
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for creating temporary files in plugin cache
         override fun writeTempFile(
             pluginId: String,
             dataFd: ParcelFileDescriptor
@@ -453,20 +479,20 @@ class HardwareBridgeService : Service() {
                 // Create temp directory for plugin
                 val tempDir = File(applicationContext.cacheDir, "plugin_temp/$pluginId")
                 tempDir.mkdirs()
-                
+
                 // Create temp file
                 val tempFile = File.createTempFile("data_", ".tmp", tempDir)
-                
+
                 // Copy data from FD to temp file
                 FileInputStream(dataFd.fileDescriptor).use { input ->
                     FileOutputStream(tempFile).use { output ->
                         input.copyTo(output)
                     }
                 }
-                
+
                 Timber.d("[HARDWARE BRIDGE] Temp file created for $pluginId: ${tempFile.absolutePath}")
                 tempFile.absolutePath
-                
+
             } catch (e: Exception) {
                 Timber.e(e, "[HARDWARE BRIDGE] Failed to write temp file for $pluginId")
                 null
@@ -483,6 +509,7 @@ class HardwareBridgeService : Service() {
         // UTILITY
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from sandbox process for health checks and connectivity verification
         override fun ping(): Boolean {
             return true
         }
@@ -491,10 +518,12 @@ class HardwareBridgeService : Service() {
         // NETWORK POLICY MANAGEMENT
         // ════════════════════════════════════════════════════════
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for registering plugin with network policy and tracking
         override fun registerPluginNetworking(pluginId: String, telemetryOnly: Boolean) {
             this@HardwareBridgeService.registerPluginNetworking(pluginId, telemetryOnly)
         }
         
+        @Suppress("unused") // Called via IPC from SandboxPluginContext for unregistering plugin from network policy and tracking
         override fun unregisterPluginNetworking(pluginId: String) {
             this@HardwareBridgeService.unregisterPluginNetworking(pluginId)
         }

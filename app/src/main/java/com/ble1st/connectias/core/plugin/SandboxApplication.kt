@@ -23,7 +23,7 @@ class SandboxApplication : Application() {
         super.onCreate()
         
         // Minimal Timber setup for logging
-        if (timber.log.Timber.treeCount == 0) {
+        if (Timber.treeCount == 0) {
             Timber.plant(Timber.DebugTree())
         }
         
@@ -33,7 +33,7 @@ class SandboxApplication : Application() {
     
     private fun getCurrentProcessName(): String {
         return try {
-            Application.getProcessName()
+            getProcessName()
         } catch (_: Exception) {
             "unknown"
         }

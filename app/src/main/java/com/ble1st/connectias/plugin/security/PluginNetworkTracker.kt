@@ -1,17 +1,13 @@
 package com.ble1st.connectias.plugin.security
 
-import android.net.TrafficStats
-import android.os.Process
-import timber.log.Timber
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicBoolean
 import android.os.Handler
 import android.os.Looper
-import java.net.InetAddress
-import java.net.Socket
+import android.os.Process
+import timber.log.Timber
 import java.net.URL
-import java.net.URLConnection
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Plugin Network Tracker with Process-Based Attribution
@@ -103,7 +99,7 @@ object PluginNetworkTracker {
             val totalBytes = stats.bytesReceived.get() + stats.bytesSent.get()
             val connectionCount = stats.connectionsOpened.get()
             Timber.i("[NETWORK TRACKER] Plugin unregistered: $pluginId " +
-                    "(${totalBytes} bytes, ${connectionCount} connections)")
+                    "(${totalBytes} bytes, $connectionCount connections)")
         }
     }
     
@@ -311,16 +307,14 @@ object PluginNetworkTracker {
     }
     
     // Private helper methods
-    private val monitorRunnable = object : Runnable {
-        override fun run() {
-            try {
-                monitorNetworkActivity()
-            } catch (e: Exception) {
-                Timber.e(e, "[NETWORK TRACKER] Error during network monitoring")
-            } finally {
-                if (isTracking.get()) {
-                    scheduleMonitorCheck()
-                }
+    private val monitorRunnable = Runnable {
+        try {
+            monitorNetworkActivity()
+        } catch (e: Exception) {
+            Timber.e(e, "[NETWORK TRACKER] Error during network monitoring")
+        } finally {
+            if (isTracking.get()) {
+                scheduleMonitorCheck()
             }
         }
     }
@@ -341,7 +335,7 @@ object PluginNetworkTracker {
         val totalTrackedPlugins = pluginNetworkUsage.size
         
         if (totalActiveConnections > 0 || totalTrackedPlugins > 0) {
-            Timber.v("[NETWORK TRACKER] Active: ${totalActiveConnections} connections, ${totalTrackedPlugins} plugins")
+            Timber.v("[NETWORK TRACKER] Active: $totalActiveConnections connections, $totalTrackedPlugins plugins")
         }
     }
     

@@ -66,10 +66,10 @@ class DashboardFragment : Fragment() {
                             .filter { moduleInfo ->
                                 // Only show active plugins that are not in ERROR state
                                 if (!moduleInfo.isActive) return@filter false
-                                
-                                val pluginInfo = pluginManager.getPlugin(moduleInfo.id)
-                                if (pluginInfo == null) return@filter false
-                                
+
+                                val pluginInfo =
+                                    pluginManager.getPlugin(moduleInfo.id) ?: return@filter false
+
                                 // Hide plugins in ERROR state from dashboard
                                 // They remain visible in plugin management for restart
                                 pluginInfo.state != PluginManagerSandbox.PluginState.ERROR

@@ -2,6 +2,7 @@
     "KotlinJniMissingFunction", "KotlinJniMissingFunction", "KotlinJniMissingFunction",
     "KotlinJniMissingFunction"
 )
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
 
 package com.ble1st.connectias.core.security.debug
 

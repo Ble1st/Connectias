@@ -1,10 +1,11 @@
 package com.ble1st.connectias.privacy.export
 
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.DataOutputStream
 import java.io.OutputStream
 import java.security.SecureRandom
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import javax.crypto.Cipher
 import javax.crypto.CipherOutputStream
 import javax.crypto.SecretKey
@@ -12,8 +13,6 @@ import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 
 /**
  * Stream-based export format: header + AES-GCM encrypted ZIP payload.

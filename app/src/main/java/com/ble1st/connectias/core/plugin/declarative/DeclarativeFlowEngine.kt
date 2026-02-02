@@ -1,7 +1,7 @@
 package com.ble1st.connectias.core.plugin.declarative
 
-import android.net.Uri
 import android.os.Bundle
+import androidx.core.net.toUri
 import com.ble1st.connectias.core.plugin.SandboxPluginContext
 import com.ble1st.connectias.plugin.declarative.model.DeclarativeFlowDefinition
 import com.ble1st.connectias.plugin.declarative.model.DeclarativeNode
@@ -227,8 +227,7 @@ class DeclarativeFlowEngine(
                     ctx.items.add(LinkedHashMap())
                 }
                 ctx.items.forEach { item ->
-                    val resolved = resolveValue(raw, ctx, item)
-                    val value = when (resolved) {
+                    val value = when (val resolved = resolveValue(raw, ctx, item)) {
                         is String -> DeclarativeTemplate.render(resolved, state)
                         else -> resolved
                     }
@@ -533,10 +532,8 @@ class DeclarativeFlowEngine(
         val out = LinkedHashMap<String, String>()
         out["items.count"] = items.size.toString()
         val first = items.firstOrNull()
-        if (first != null) {
-            first.keys.sorted().take(20).forEach { k ->
-                out["item0.$k"] = safeValueForLog(nodeType = "items", key = k, value = first[k])
-            }
+        first?.keys?.sorted()?.take(20)?.forEach { k ->
+            out["item0.$k"] = safeValueForLog(nodeType = "items", key = k, value = first[k])
         }
         return out
     }
@@ -585,7 +582,7 @@ class DeclarativeFlowEngine(
      */
     private fun validateHttpUrl(url: String): String? {
         val u = try {
-            Uri.parse(url)
+            url.toUri()
         } catch (_: Exception) {
             return "invalid_url"
         }

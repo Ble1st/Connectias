@@ -2,16 +2,14 @@ package com.ble1st.connectias.plugin.security
 
 import android.net.TrafficStats
 import android.os.Process
-import timber.log.Timber
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicBoolean
-import android.os.Handler
-import android.os.Looper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Network Usage Aggregator for Correct Per-Plugin Stats
@@ -55,7 +53,6 @@ object NetworkUsageAggregator {
     }
     
     data class TrafficBaseline(
-        val uid: Int,
         var rxBytes: Long = 0,
         var txBytes: Long = 0,
         var timestamp: Long = System.currentTimeMillis()
@@ -135,7 +132,7 @@ object NetworkUsageAggregator {
                 val currentTx = TrafficStats.getUidTxBytes(processUid)
                 
                 if (currentRx != TrafficStats.UNSUPPORTED.toLong()) {
-                    baselineUsage[processUid] = TrafficBaseline(processUid, currentRx, currentTx)
+                    baselineUsage[processUid] = TrafficBaseline(currentRx, currentTx)
                     Timber.d("[USAGE AGGREGATOR] Baseline set for UID $processUid: ${currentRx + currentTx} bytes")
                 }
             } catch (e: Exception) {
@@ -331,7 +328,7 @@ object NetworkUsageAggregator {
             val currentTx = TrafficStats.getUidTxBytes(appUid)
             
             if (currentRx != TrafficStats.UNSUPPORTED.toLong()) {
-                baselineUsage[appUid] = TrafficBaseline(appUid, currentRx, currentTx)
+                baselineUsage[appUid] = TrafficBaseline(currentRx, currentTx)
                 Timber.d("[USAGE AGGREGATOR] App baseline initialized: UID $appUid, ${formatBytes(currentRx + currentTx)}")
             }
         } catch (e: Exception) {
@@ -339,7 +336,7 @@ object NetworkUsageAggregator {
         }
     }
     
-    private suspend fun performAggregation() {
+    private fun performAggregation() {
         // Update estimated usage from TrafficStats
         baselineUsage.forEach { (uid, baseline) ->
             try {
@@ -390,7 +387,7 @@ object NetworkUsageAggregator {
         }
     }
     
-    private suspend fun updateBaselines() {
+    private fun updateBaselines() {
         // Refresh all baselines
         baselineUsage.keys.forEach { uid ->
             try {

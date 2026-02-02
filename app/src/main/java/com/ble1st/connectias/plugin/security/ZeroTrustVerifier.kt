@@ -20,7 +20,7 @@ import org.json.JSONObject
  */
 @Singleton
 class ZeroTrustVerifier @Inject constructor(
-    @ApplicationContext private val context: Context,
+    @param:ApplicationContext private val context: Context,
     private val gitHubStore: com.ble1st.connectias.plugin.store.GitHubPluginStore,
     private val declarativeSignatureVerifier: DeclarativePluginSignatureVerifier
 ) {
@@ -414,7 +414,7 @@ class ZeroTrustVerifier @Inject constructor(
                     ?: return null
                 
                 val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
-                val json = org.json.JSONObject(manifestJson)
+                val json = JSONObject(manifestJson)
                 
                 PluginMetadata(
                     version = json.getString("version"),
