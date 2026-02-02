@@ -56,6 +56,8 @@
 -keep interface com.ble1st.connectias.plugin.ui.IPluginUIController { *; }
 -keep interface com.ble1st.connectias.plugin.ui.IPluginUIBridge { *; }
 -keep interface com.ble1st.connectias.plugin.ui.IPluginUIHost { *; }
+# IME/Tastatur-Proxy: UI Process requests keyboard from Main Process
+-keep interface com.ble1st.connectias.plugin.ui.IPluginUIMainCallback { *; }
 
 # Keep UILifecycleEvent enum
 -keep enum com.ble1st.connectias.plugin.ui.UILifecycleEvent { *; }

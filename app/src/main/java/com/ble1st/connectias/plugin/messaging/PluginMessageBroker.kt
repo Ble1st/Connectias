@@ -1,12 +1,14 @@
 package com.ble1st.connectias.plugin.messaging
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.TimeUnit
 
 /**
  * Message broker for routing messages between plugins
@@ -209,7 +211,7 @@ class PluginMessageBroker {
             messageCounts.remove(pluginId)
             
             // Cancel any pending requests from this plugin
-            val requestsToCancel = pendingRequests.keys.filter { requestId ->
+            pendingRequests.keys.filter { requestId ->
                 // We don't have sender info in requestId, so we cancel all if needed
                 // In practice, we'd need to track sender per request
                 false // For now, don't cancel - let them timeout

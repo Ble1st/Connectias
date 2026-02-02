@@ -1,10 +1,11 @@
+@file:Suppress("unused") // Security Layer - Wraps hardware bridge with identity verification and permission checks
+
 package com.ble1st.connectias.plugin.security
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
 import com.ble1st.connectias.hardware.HardwareResponseParcel
 import com.ble1st.connectias.hardware.IHardwareBridge
-import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import com.ble1st.connectias.plugin.PluginPermissionManager
 import timber.log.Timber
 import javax.inject.Inject
@@ -23,7 +24,7 @@ import javax.inject.Inject
 class SecureHardwareBridgeWrapper @Inject constructor(
     private val actualBridge: IHardwareBridge,
     private val context: Context,
-    private val permissionManager: PluginPermissionManager,
+    permissionManager: PluginPermissionManager,
     private val auditManager: SecurityAuditManager?
 ) : IHardwareBridge.Stub() {
 

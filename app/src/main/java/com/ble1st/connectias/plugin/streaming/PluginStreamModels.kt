@@ -1,6 +1,5 @@
 package com.ble1st.connectias.plugin.streaming
 
-import kotlinx.serialization.Serializable
 import java.io.File
 
 /**
@@ -94,7 +93,7 @@ data class PluginStream(
 )
 
 data class PluginPackage(
-    val pluginFile: java.io.File,
+    val pluginFile: File,
     val metadata: com.ble1st.connectias.plugin.sdk.PluginMetadata,
     val stream: PluginStream?
 )

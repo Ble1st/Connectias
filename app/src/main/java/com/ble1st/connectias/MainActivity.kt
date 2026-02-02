@@ -415,7 +415,7 @@ class MainActivity : AppCompatActivity() {
             // Post to ensure it happens after fragment view is created
             binding.root.post {
                 // Find ComposeView by tag or by type
-                var composeView: android.view.View? = null
+                var composeView: View? = null
                 for (i in 0 until binding.root.childCount) {
                     val child = binding.root.getChildAt(i)
                     if (child.tag == "fab_overlay" || 
@@ -811,9 +811,9 @@ class MainActivity : AppCompatActivity() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FabWithBottomSheet(
-    navController: NavController?,
-    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
-    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
+    @Suppress("UNUSED_PARAMETER") navController: NavController?,
+    pluginManager: PluginManagerSandbox,
+    moduleRegistry: ModuleRegistry,
     onFeatureSelected: (Int) -> Unit,
     onPluginSelected: (String) -> Unit
 ) {
@@ -823,9 +823,6 @@ fun FabWithBottomSheet(
     val haptic = LocalHapticFeedback.current
     
     // Observe current navigation destination
-    val currentBackStackEntry by navController?.currentBackStackEntryFlow?.collectAsState(
-        initial = navController.currentBackStackEntry
-    ) ?: remember { mutableStateOf(null) }
     // FAB is always visible
     val shouldShowFab = true
 
@@ -980,12 +977,12 @@ fun FabWithBottomSheet(
 @Composable
 fun FeatureList(
     scrollState: LazyListState,
-    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
-    moduleRegistry: com.ble1st.connectias.core.module.ModuleRegistry,
+    pluginManager: PluginManagerSandbox,
+    moduleRegistry: ModuleRegistry,
     onFeatureClick: (Int) -> Unit,
     onPluginClick: (String) -> Unit
 ) {
-    val context = LocalContext.current
+    LocalContext.current
     // Observe module registry changes reactively
     val allModules by moduleRegistry.modulesFlow.collectAsState()
     // Observe plugin state changes to update FAB when plugins error/recover
@@ -1141,7 +1138,7 @@ private fun getNavIdByName(navIdName: String): Int? {
 }
 
 fun resolveFeatureCategories(
-    pluginManager: com.ble1st.connectias.plugin.PluginManagerSandbox,
+    pluginManager: PluginManagerSandbox,
     allModules: List<com.ble1st.connectias.core.module.ModuleInfo>
 ): List<ResolvedFeatureCategory> {
     val definitions = getFeatureDefinitions()
@@ -1223,7 +1220,7 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
 }
 
 // Extension function for MainActivity to handle permission results
-fun MainActivity.onRequestPermissionsResult(
+fun onRequestPermissionsResult(
     requestCode: Int,
     permissions: Array<String>,
     grantResults: IntArray
@@ -1232,7 +1229,7 @@ fun MainActivity.onRequestPermissionsResult(
     PermissionRequestManager.getInstance().handlePermissionResult(requestCode, permissions, grantResults)
 }
 
-fun MainActivity.onDestroyPermissionCleanup() {
+fun onDestroyPermissionCleanup() {
     // Unregister from permission manager
     PermissionRequestManager.getInstance().currentActivity = null
 }

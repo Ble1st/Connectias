@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Public Plugin SDK API - used by external third-party plugins
+
 package com.ble1st.connectias.plugin.sdk
 
 import android.content.Context

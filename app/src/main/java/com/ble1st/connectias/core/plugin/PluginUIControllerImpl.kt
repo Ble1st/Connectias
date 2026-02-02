@@ -195,7 +195,27 @@ class PluginUIControllerImpl : IPluginUIController.Stub() {
         val bytes: ByteArray,
         val extension: String,
         val usedKey: String
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as ExtractedImage
+
+            if (!bytes.contentEquals(other.bytes)) return false
+            if (extension != other.extension) return false
+            if (usedKey != other.usedKey) return false
+
+            return true
+        }
+
+        override fun hashCode(): Int {
+            var result = bytes.contentHashCode()
+            result = 31 * result + extension.hashCode()
+            result = 31 * result + usedKey.hashCode()
+            return result
+        }
+    }
 
     private fun extractImageBytesFromProperties(props: Bundle): ExtractedImage? {
         // 1) Prefer ByteArray to avoid Base64 overhead.

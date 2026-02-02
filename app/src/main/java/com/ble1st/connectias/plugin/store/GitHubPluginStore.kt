@@ -1,25 +1,24 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.plugin.store
 
 import android.content.Context
 import com.ble1st.connectias.plugin.PluginManagerSandbox
 import com.ble1st.connectias.plugin.sdk.PluginCategory
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
-import com.ble1st.connectias.plugin.store.GitHubPluginStore.GitHubRelease
 import com.ble1st.connectias.plugin.version.PluginVersion
-import java.text.SimpleDateFormat
-import java.util.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.logging.HttpLoggingInterceptor
 import timber.log.Timber
 import java.io.File
 import java.io.IOException
 import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /**

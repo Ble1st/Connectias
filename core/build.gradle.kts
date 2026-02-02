@@ -43,7 +43,7 @@ android {
         compose = true // Added for Compose support
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+        // kotlinCompilerExtensionVersion not needed with Kotlin 2.0+ kotlin-compose plugin
     }
     
     // NDK build configuration

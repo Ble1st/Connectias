@@ -10,7 +10,7 @@ junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 appcompat = "1.7.1"
 material = "1.13.0"
-activity = "1.12.2"
+activity = "1.12.3"
 constraintlayout = "2.2.1"
 
 # Hilt Dependency Injection
@@ -25,9 +25,9 @@ room = "2.8.4"
 roomGradlePlugin = "2.8.4"
 
 # Navigation Component
-navigation = "2.9.6"
-navigationFragmentKtx = "2.9.6"
-navigationUiKtx = "2.9.6"
+navigation = "2.9.7"
+navigationFragmentKtx = "2.9.7"
+navigationUiKtx = "2.9.7"
 
 # Coroutines
 coroutinesAndroid = "1.10.2"
@@ -40,12 +40,9 @@ lifecycleRuntimeKtx = "2.10.0"
 lifecycleViewmodelCompose = "2.10.0"
 
 # Fragment
-fragment = "1.8.9"
 fragmentKtx = "1.8.9"
 
 # UI Components
-cardview = "1.0.0"
-recyclerview = "1.4.0"
 coreSplashscreen = "1.2.0"
 
 # Logging
@@ -54,14 +51,10 @@ timber = "5.0.1"
 # Phase 8: Performance & Monitoring
 leakcanary = "2.14"
 benchmarkMacro = "1.4.1"
-# Temporarily kept at 1.4.1 - Plugin disabled due to AGP 9.0 incompatibility
-# Error: Extension of type 'TestExtension' does not exist (replaced by TestExtensionImpl in AGP 9.0)
-# TODO: Update when androidx.baselineprofile plugin version with AGP 9.0 support is available
-baselineprofile = "1.4.1"
 uiautomator = "2.3.0"
 
 # WorkManager
-workManager = "2.11.0" # Added for WorkManager
+workManager = "2.11.1" # Added for WorkManager
 
 # Security
 securityCrypto = "1.1.0"
@@ -90,28 +83,6 @@ ksp = "2.3.4"
 # Kotlin Reflect (required by KSP)
 kotlinReflect = "2.2.21"
 
-# Media3
-media3 = "1.9.1"
-
-# CameraX
-camerax = "1.5.2"
-tesseract = "9.1.0"
-opencv = "4.13.0"
-litert = "2.1.1"
-tflite = "2.17.0"
-
-# ML Kit
-mlkitBarcode = "17.3.0"
-
-# Accompanist
-accompanist = "0.37.3"
-
-# USB Mass Storage
-libaums = "0.10.0"
-
-# LibVLC - Disabled (moved to plugin system)
-# libvlc = "3.6.5"
-
 # DataStore
 datastore = "1.2.0"
 
@@ -119,12 +90,9 @@ datastore = "1.2.0"
 profileinstaller = "1.4.1"
 startup = "1.2.0"
 
-# Biometric
-biometric = "1.1.0"
-
 # Testing
-testRunner = "1.7.0"
-testRules = "1.7.0"
+androidxTestCore = "1.7.0"
+archCoreTesting = "2.2.0"
 mockk = "1.14.9"
 coroutinesTest = "1.10.2"
 hiltTesting = "2.59"
@@ -140,24 +108,14 @@ mockitoJunitJupiter = "5.21.0"
 # Turbine (for Flow testing)
 turbine = "1.2.1"
 
-# FOSS Feature Libraries
-zxing = "3.5.4"
-bouncycastle = "1.83"
-dnsjava = "3.6.4"
+# Network
 okhttp = "5.3.2"
 okhttpLoggingInterceptor = "5.3.2"
-itext = "9.5.0"
-mpandroidchart = "3.1.0"
-chicory = "1.6.1"
-sshj = "0.40.0"
-commonsNet = "3.12.0"
-commonmark = "0.27.1"
 
 # Jetpack Compose
-composeBom = "2026.01.00"
-composeCompiler = "1.5.15"
+composeBom = "2026.01.01"
 composeAdaptive = "1.2.0"
-activityCompose = "1.12.2"
+activityCompose = "1.12.3"
 
 [libraries]
 # Android Core
@@ -173,7 +131,6 @@ material = { group = "com.google.android.material", name = "material", version.r
 # Hilt Dependency Injection
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
-hilt-navigation-fragment = { group = "androidx.hilt", name = "hilt-navigation-fragment", version.ref = "hiltNavigation" }
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltWork" } # Added for Hilt WorkManager integration
 androidx-hilt-work-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltWork" } # KSP for Hilt WorkManager
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigation" } # Added
@@ -200,10 +157,6 @@ androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "l
 
 # Fragment
 androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragmentKtx" }
-
-# UI Components
-androidx-cardview = { group = "androidx.cardview", name = "cardview", version.ref = "cardview" }
-androidx-recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 
 # Logging
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
@@ -244,11 +197,11 @@ kotlin-parcelize-runtime = { group = "org.jetbrains.kotlin", name = "kotlin-parc
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
-androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "testRunner" }
-androidx-test-rules = { group = "androidx.test", name = "rules", version.ref = "testRules" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+mockk-android = { group = "io.mockk", name = "mockk-android", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
-hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testing", version.ref = "hiltTesting" }
+androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidxTestCore" }
+androidx-arch-core-testing = { group = "androidx.arch.core", name = "core-testing", version.ref = "archCoreTesting" }
 robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
 roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", version.ref = "roborazzi" }
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
@@ -262,20 +215,9 @@ mockito-junit-jupiter = { group = "org.mockito", name = "mockito-junit-jupiter",
 # Turbine (for Flow testing)
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 
-# FOSS Feature Libraries
-zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
-zxing-android-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", version = "4.3.0" }
-bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
-bouncycastle-bcpkix = { group = "org.bouncycastle", name = "bcpkix-jdk18on", version.ref = "bouncycastle" }
-dnsjava = { group = "dnsjava", name = "dnsjava", version.ref = "dnsjava" }
+# Network
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
 okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttpLoggingInterceptor" }
-itext = { group = "com.itextpdf", name = "itext7-core", version.ref = "itext" }
-mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
-chicory-runtime = { group = "com.dylibso.chicory", name = "runtime", version.ref = "chicory" }
-sshj = { group = "com.hierynomus", name = "sshj", version.ref = "sshj" }
-commons-net = { group = "commons-net", name = "commons-net", version.ref = "commonsNet" }
-commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
 
 # Jetpack Compose
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
@@ -294,38 +236,6 @@ androidx-compose-material3-adaptive-navigation = { group = "androidx.compose.mat
 # Compose UI Testing
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
-androidx-compose-ui-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
-androidx-compose-ui-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
-androidx-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
-androidx-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
-
-# Media3
-androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
-androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
-
-# CameraX
-androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
-androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", version.ref = "camerax" }
-androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
-androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
-androidx-camera-mlkit-vision = { group = "androidx.camera", name = "camera-mlkit-vision", version.ref = "camerax" }
-
-# ML Kit Barcode
-mlkit-barcode = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcode" }
-mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version = "16.0.0" }
-mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version = "19.0.1" }
-
-# Accompanist
-accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanist" }
-
-# USB Mass Storage
-libaums-core = { group = "me.jahnen.libaums", name = "core", version.ref = "libaums" }
-libaums-libusbcommunication = { group = "me.jahnen.libaums", name = "libusbcommunication", version.ref = "libaums" }
-
-# LibVLC - Disabled (moved to plugin system)
-# libvlc-all = { group = "org.videolan.android", name = "libvlc-all", version.ref = "libvlc" }
 
 # DataStore
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
@@ -333,18 +243,6 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 # Profile Installer & Startup
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-startup = { group = "androidx.startup", name = "startup-runtime", version.ref = "startup" }
-
-# Biometric
-androidx-biometric = { group = "androidx.biometric", name = "biometric", version.ref = "biometric" }
-
-# Material Theme Adapter for Compose
-compose-theme-adapter = { group = "com.google.android.material", name = "compose-theme-adapter-3", version = "1.1.1" }
-tesseract-android = { group = "com.rmtheis", name = "tess-two", version.ref = "tesseract" }
-opencv-android = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
-litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
-litert-support = { group = "com.google.ai.edge.litert", name = "litert-support", version.ref = "litert" }
-litert-metadata = { group = "com.google.ai.edge.litert", name = "litert-metadata", version.ref = "litert" }
-tflite-runtime = { group = "org.tensorflow", name = "tensorflow-lite", version.ref = "tflite" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -357,5 +255,4 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 navigation-safe-args = { id = "androidx.navigation.safeargs.kotlin", version.ref = "navigation" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
-androidx-baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }

@@ -128,9 +128,7 @@ fun PluginManagementScreen(
             context,
             pluginManager.getPlugin(plugins.firstOrNull()?.pluginId ?: "")?.pluginFile?.parentFile
                 ?: context.filesDir.resolve("plugins"),
-            pluginManager,
-            manifestParser,
-            permissionManager
+            manifestParser
         )
     }
     
@@ -363,18 +361,11 @@ fun PluginManagementScreen(
                                                         permissionLauncher.launch(permissionsToRequest.toTypedArray())
                                                     } else {
                                                         // All Android permissions already granted at the OS level.
-                                                        // IMPORTANT: We still need to store plugin-level consent for these permissions,
-                                                        // otherwise enablePlugin() will keep failing with PluginPermissionException.
-                                                        permissionManager.grantUserConsent(plugin.pluginId, androidPermissions)
-
-                                                        // Also grant custom permissions (they don't need Android runtime request)
-                                                        if (customPermissions.isNotEmpty()) {
-                                                            permissionManager.grantUserConsent(plugin.pluginId, customPermissions)
-                                                        }
-                                                        // Try enabling again
-                                                        scope.launch {
-                                                            pluginManager.enablePlugin(plugin.pluginId)
-                                                        }
+                                                        // BUT: User must still explicitly consent to the plugin using these permissions.
+                                                        // Show custom dialog for plugin-level consent.
+                                                        permissionDialogPlugin = plugin
+                                                        permissionDialogPermissions = androidPermissions + customPermissions
+                                                        showPermissionDialog = true
                                                     }
                                                 } else {
                                                     // No Android system permissions, use custom dialog

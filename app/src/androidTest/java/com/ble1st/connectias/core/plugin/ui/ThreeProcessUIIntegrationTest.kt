@@ -10,12 +10,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.ble1st.connectias.plugin.ui.UIComponentParcel
 import com.ble1st.connectias.plugin.ui.UIStateParcel
 import com.ble1st.connectias.plugin.ui.UserActionParcel
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Integration tests for Three-Process UI Architecture.

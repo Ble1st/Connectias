@@ -21,7 +21,7 @@ android {
         compose = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
+        // kotlinCompilerExtensionVersion not needed with Kotlin 2.0+ kotlin-compose plugin
     }
 }
 

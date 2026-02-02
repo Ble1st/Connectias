@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Public Plugin SDK API - implemented by external third-party plugins
+
 package com.ble1st.connectias.plugin.sdk
 
 import com.ble1st.connectias.plugin.ui.UIStateParcel

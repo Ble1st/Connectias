@@ -24,15 +24,15 @@ class SecureContextWrapper(
     companion object {
         // Mapping of system services to required permissions
         private val SERVICE_PERMISSIONS = mapOf(
-            Context.CONNECTIVITY_SERVICE to Manifest.permission.INTERNET,
-            Context.WIFI_SERVICE to Manifest.permission.ACCESS_WIFI_STATE,
-            Context.LOCATION_SERVICE to Manifest.permission.ACCESS_FINE_LOCATION,
-            Context.TELEPHONY_SERVICE to Manifest.permission.READ_PHONE_STATE,
-            Context.CAMERA_SERVICE to Manifest.permission.CAMERA,
-            Context.AUDIO_SERVICE to Manifest.permission.RECORD_AUDIO,
-            Context.SENSOR_SERVICE to Manifest.permission.BODY_SENSORS,
-            Context.BLUETOOTH_SERVICE to Manifest.permission.BLUETOOTH,
-            Context.NFC_SERVICE to Manifest.permission.NFC
+            CONNECTIVITY_SERVICE to Manifest.permission.INTERNET,
+            WIFI_SERVICE to Manifest.permission.ACCESS_WIFI_STATE,
+            LOCATION_SERVICE to Manifest.permission.ACCESS_FINE_LOCATION,
+            TELEPHONY_SERVICE to Manifest.permission.READ_PHONE_STATE,
+            CAMERA_SERVICE to Manifest.permission.CAMERA,
+            AUDIO_SERVICE to Manifest.permission.RECORD_AUDIO,
+            SENSOR_SERVICE to Manifest.permission.BODY_SENSORS,
+            BLUETOOTH_SERVICE to Manifest.permission.BLUETOOTH,
+            NFC_SERVICE to Manifest.permission.NFC
         )
     }
     

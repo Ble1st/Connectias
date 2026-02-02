@@ -414,7 +414,7 @@ class ZeroTrustVerifier @Inject constructor(
                     ?: return null
                 
                 val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }
-                val json = org.json.JSONObject(manifestJson)
+                val json = JSONObject(manifestJson)
                 
                 PluginMetadata(
                     version = json.getString("version"),

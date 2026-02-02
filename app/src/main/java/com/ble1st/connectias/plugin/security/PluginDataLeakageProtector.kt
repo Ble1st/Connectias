@@ -1,9 +1,6 @@
 package com.ble1st.connectias.plugin.security
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
-import java.io.File
 import android.os.Handler
 import android.os.Looper
 import timber.log.Timber
@@ -77,8 +74,8 @@ object PluginDataLeakageProtector {
     /**
      * Monitors clipboard access by plugin
      */
-    fun monitorClipboardAccess(pluginId: String, context: Context): Boolean {
-        val currentMinute = System.currentTimeMillis() / (60 * 1000)
+    fun monitorClipboardAccess(pluginId: String): Boolean {
+        System.currentTimeMillis() / (60 * 1000)
         val accessCount = pluginClipboardAccess[pluginId]?.incrementAndGet() ?: 0
         
         // Reset counter every minute (simple implementation)

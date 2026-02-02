@@ -6,6 +6,7 @@ package com.ble1st.connectias.core.plugin.ui
 import android.content.Context
 import android.os.Bundle
 import android.os.IBinder
+import com.ble1st.connectias.plugin.ui.IPluginUIMainCallback
 import com.ble1st.connectias.plugin.ui.IPluginUIHost
 import com.ble1st.connectias.plugin.ui.MotionEventParcel
 import timber.log.Timber
@@ -24,6 +25,7 @@ class PluginUIHostImpl(
 ) : IPluginUIHost.Stub() {
 
     private var uiCallback: IBinder? = null
+    private var mainCallback: IBinder? = null
     private val initialized = mutableSetOf<String>()
 
     override fun initializePluginUI(
@@ -74,6 +76,9 @@ class PluginUIHostImpl(
                     Timber.e(e, "[UI_PROCESS] Failed to set UI Bridge for fragment: $pluginId")
                 }
             }
+
+            // Set IME request handler so fragment can request keyboard in Main Process
+            setFragmentImeRequestHandler(fragment)
 
             // Apply any pending UI state that arrived before fragment creation
             uiController.applyPendingState(pluginId, fragment)
@@ -138,9 +143,7 @@ class PluginUIHostImpl(
     override fun setUIVisibility(pluginId: String, visible: Boolean) {
         Timber.d("[UI_PROCESS] Set UI visibility: $pluginId -> $visible")
 
-        fragmentRegistry[pluginId]?.let { fragment ->
-            fragment.setVisibility(visible)
-        } ?: run {
+        fragmentRegistry[pluginId]?.setVisibility(visible) ?: run {
             Timber.w("[UI_PROCESS] Cannot set visibility - plugin UI not found: $pluginId")
         }
     }
@@ -168,6 +171,37 @@ class PluginUIHostImpl(
                 Timber.e(e, "[UI_PROCESS] Failed to convert UI callback to IPluginUIBridge")
             }
         }
+    }
+
+    override fun registerMainCallback(callback: IBinder?) {
+        Timber.d("[UI_PROCESS] Register Main callback (IME proxy): ${callback != null}")
+        mainCallback = callback
+        fragmentRegistry.values.forEach { fragment ->
+            setFragmentImeRequestHandler(fragment)
+        }
+    }
+
+    private fun setFragmentImeRequestHandler(fragment: PluginUIFragment) {
+        val callback = mainCallback ?: return
+        fragment.setImeRequestHandler { componentId, initialText ->
+            try {
+                val pluginId = fragment.getPluginId()
+                IPluginUIMainCallback.Stub.asInterface(callback).requestShowIme(pluginId, componentId, initialText)
+                Timber.d("[UI_PROCESS] Requested IME from Main for plugin: $pluginId component: $componentId")
+            } catch (e: Exception) {
+                Timber.e(e, "[UI_PROCESS] Failed to request IME from Main")
+            }
+        }
+    }
+
+    override fun sendImeText(pluginId: String, componentId: String, text: String) {
+        Timber.v("[UI_PROCESS] sendImeText plugin: $pluginId component: $componentId")
+        fragmentRegistry[pluginId]?.updateImeText(componentId, text)
+    }
+
+    override fun onImeDismissed(pluginId: String, componentId: String) {
+        Timber.v("[UI_PROCESS] onImeDismissed plugin: $pluginId component: $componentId")
+        fragmentRegistry[pluginId]?.onImeDismissed(componentId)
     }
 
     override fun getUIController(): IBinder {

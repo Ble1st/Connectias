@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.analytics.model
 
 import kotlinx.serialization.Serializable

@@ -4,20 +4,18 @@ package com.ble1st.connectias.plugin
 
 import android.content.Context
 import com.ble1st.connectias.core.module.ModuleRegistry
-import com.ble1st.connectias.plugin.store.GitHubPluginStore
-import com.ble1st.connectias.plugin.store.StreamingGitHubPluginStore
-import com.ble1st.connectias.plugin.security.PluginThreadMonitor
-import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
-import com.ble1st.connectias.plugin.security.SecurityAuditManager
-import com.ble1st.connectias.core.plugin.PluginSandboxProxy
 import com.ble1st.connectias.core.plugin.PluginDependencyResolverV2
+import com.ble1st.connectias.core.plugin.PluginSandboxProxy
+import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
+import com.ble1st.connectias.plugin.security.PluginThreadMonitor
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
+import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import java.io.File
-import javax.inject.Qualifier
 import javax.inject.Singleton
 
 @Module
@@ -74,7 +72,6 @@ object PluginModule {
         @ApplicationContext context: Context,
         sandboxProxy: PluginSandboxProxy,
         moduleRegistry: ModuleRegistry,
-        threadMonitor: PluginThreadMonitor,
         permissionManager: PluginPermissionManager,
         resourceLimiter: EnhancedPluginResourceLimiter,
         auditManager: SecurityAuditManager,
@@ -87,7 +84,6 @@ object PluginModule {
             pluginDirectory = pluginDirectory,
             sandboxProxy = sandboxProxy,
             moduleRegistry = moduleRegistry,
-            threadMonitor = threadMonitor,
             permissionManager = permissionManager,
             resourceLimiter = resourceLimiter,
             auditManager = auditManager,

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 Connectias
 
+@file:Suppress("unused") // Security Layer - Filters parent class loading to SDK whitelist only
+
 package com.ble1st.connectias.core.plugin.security
 
 import timber.log.Timber

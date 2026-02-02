@@ -7,8 +7,6 @@ import com.ble1st.connectias.analytics.model.SecurityEventCounterSample
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
@@ -52,13 +50,13 @@ class PluginAnalyticsStore @Inject constructor(
     }
 
     suspend fun readPerformanceSince(sinceEpochMillis: Long): List<PluginPerformanceSample> =
-        withContext(Dispatchers.IO) { readJsonLines(perfFile, sinceEpochMillis) { json.decodeFromString(it) } }
+        withContext(Dispatchers.IO) { readJsonLines(perfFile) { json.decodeFromString(it) } }
 
     suspend fun readUiActionsSince(sinceEpochMillis: Long): List<PluginUiActionEvent> =
-        withContext(Dispatchers.IO) { readJsonLines(uiFile, sinceEpochMillis) { json.decodeFromString(it) } }
+        withContext(Dispatchers.IO) { readJsonLines(uiFile) { json.decodeFromString(it) } }
 
     suspend fun readSecurityEventsSince(sinceEpochMillis: Long): List<SecurityEventCounterSample> =
-        withContext(Dispatchers.IO) { readJsonLines(securityFile, sinceEpochMillis) { json.decodeFromString(it) } }
+        withContext(Dispatchers.IO) { readJsonLines(securityFile) { json.decodeFromString(it) } }
 
     suspend fun compactRetention(retentionDays: Int) = withContext(Dispatchers.IO) {
         val cutoff = System.currentTimeMillis() - retentionDays * 24L * 60 * 60 * 1000
@@ -79,7 +77,6 @@ class PluginAnalyticsStore @Inject constructor(
 
     private fun <T> readJsonLines(
         file: File,
-        sinceEpochMillis: Long,
         decode: (String) -> T
     ): List<T> {
         if (!file.exists()) return emptyList()

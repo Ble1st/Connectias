@@ -1,22 +1,30 @@
+@file:Suppress("unused") // Security Layer - Audit logging for all security events
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.plugin.security
 
 import android.content.Context
 import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.serialization.InternalSerializationApi
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.io.File
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
@@ -456,7 +464,7 @@ class SecurityAuditManager @Inject constructor(
         }
     }
     
-    private suspend fun writeEventsToFile(events: List<SecurityAuditEvent>) {
+    private fun writeEventsToFile(events: List<SecurityAuditEvent>) {
         // Skip file operations in sandbox process
         if (isIsolatedSandboxProcess) {
             Timber.d("[SECURITY AUDIT] Skipping file write in isolated sandbox process")
@@ -508,7 +516,7 @@ class SecurityAuditManager @Inject constructor(
         }
     }
     
-    private suspend fun updateSecurityStatistics() {
+    private fun updateSecurityStatistics() {
         val events = _recentEvents.value
         
         val stats = SecurityStatistics(
@@ -545,7 +553,7 @@ class SecurityAuditManager @Inject constructor(
         _securityStats.value = stats
     }
     
-    private suspend fun checkLogRotation() {
+    private fun checkLogRotation() {
         // Skip log rotation in sandbox process
         if (isIsolatedSandboxProcess) {
             return

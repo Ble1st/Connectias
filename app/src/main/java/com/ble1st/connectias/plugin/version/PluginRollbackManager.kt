@@ -3,7 +3,6 @@ package com.ble1st.connectias.plugin.version
 import android.content.Context
 import com.ble1st.connectias.plugin.PluginManager
 import com.ble1st.connectias.plugin.StreamingPluginManager
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +20,6 @@ import javax.inject.Singleton
 class PluginRollbackManager @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val pluginManager: PluginManager,
-    private val streamingManager: StreamingPluginManager,
     private val versionManager: PluginVersionManager
 ) {
     private val backupDir = File(context.filesDir, "plugin_backups")
@@ -39,7 +37,7 @@ class PluginRollbackManager @Inject constructor(
     /**
      * Create a backup before updating
      */
-    suspend fun createBackup(pluginId: String, version: PluginVersion): Boolean {
+    fun createBackup(pluginId: String, version: PluginVersion): Boolean {
         return try {
             val pluginFile = File(context.filesDir, "plugins/$pluginId.apk")
             if (!pluginFile.exists()) {

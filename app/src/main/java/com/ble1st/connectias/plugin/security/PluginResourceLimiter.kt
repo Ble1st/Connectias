@@ -66,7 +66,7 @@ class PluginResourceLimiter @Inject constructor(
     @SuppressLint("MissingPermission")
     fun enforceMemoryLimits(pluginId: String, pid: Int, limits: ResourceLimits): Boolean {
         try {
-            val memInfo = ActivityManager.RunningAppProcessInfo()
+            ActivityManager.RunningAppProcessInfo()
             activityManager.getProcessMemoryInfo(intArrayOf(pid)).firstOrNull()?.let { memInfo ->
                 val totalMemMB = memInfo.totalPss / 1024
                 

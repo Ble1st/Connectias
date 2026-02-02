@@ -2,33 +2,32 @@ package com.ble1st.connectias.plugin
 
 import android.content.Context
 import android.os.Bundle
-import android.widget.Toast
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
 import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
-import com.ble1st.connectias.plugin.PluginPermissionException
-import com.ble1st.connectias.plugin.PluginPermissionBroadcast
-import com.ble1st.connectias.plugin.security.PluginThreadMonitor
-import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
-import com.ble1st.connectias.plugin.security.SecurityAuditManager
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
-import com.ble1st.connectias.plugin.sdk.IPlugin
-import com.ble1st.connectias.plugin.IsolatedPluginContextImpl
 import com.ble1st.connectias.plugin.declarative.model.DeclarativeJson
 import com.ble1st.connectias.plugin.declarative.model.DeclarativePluginValidator
+import com.ble1st.connectias.plugin.sdk.IPlugin
+import com.ble1st.connectias.plugin.sdk.PluginMetadata
+import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
+import com.ble1st.connectias.plugin.security.PluginThreadMonitor
+import com.ble1st.connectias.plugin.security.SecurityAuditManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dalvik.system.DexClassLoader
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import javax.inject.Inject
-import javax.inject.Singleton
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import timber.log.Timber
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
+import javax.inject.Inject
 
 /**
  * PluginManager implementation that uses a separate sandbox process for plugin execution.
@@ -53,7 +52,6 @@ class PluginManagerSandbox @Inject constructor(
     private val pluginDirectory: File,
     private val sandboxProxy: PluginSandboxProxy,
     private val moduleRegistry: ModuleRegistry? = null,
-    private val threadMonitor: PluginThreadMonitor,
     private val permissionManager: PluginPermissionManager? = null,
     private val resourceLimiter: EnhancedPluginResourceLimiter,
     private val auditManager: SecurityAuditManager,
@@ -347,7 +345,7 @@ class PluginManagerSandbox @Inject constructor(
     
     private fun extractMetadata(pluginFile: File): PluginMetadata? {
         return try {
-            java.util.zip.ZipFile(pluginFile).use { zip ->
+            ZipFile(pluginFile).use { zip ->
                 // Try both locations: root (APK) and assets/ (AAR)
                 val manifestEntry = zip.getEntry("plugin-manifest.json")
                     ?: zip.getEntry("assets/plugin-manifest.json")
@@ -617,6 +615,9 @@ class PluginManagerSandbox @Inject constructor(
             
             // Validate permissions before enabling
             if (permissionManager != null) {
+                // Migrate old revocations (permissions deleted instead of set to false)
+                permissionManager.migrateOldRevocations(pluginId, pluginInfo.metadata.permissions)
+
                 val validationResult = permissionManager.validatePermissions(pluginInfo.metadata)
                 if (validationResult.isFailure) {
                     Timber.e(validationResult.exceptionOrNull(), "Permission validation failed for plugin: $pluginId")
@@ -624,7 +625,7 @@ class PluginManagerSandbox @Inject constructor(
                         validationResult.exceptionOrNull() ?: Exception("Permission validation failed")
                     )
                 }
-                
+
                 val permValidation = validationResult.getOrNull()
                 if (permValidation != null && !permValidation.isValid) {
                     if (permValidation.requiresUserConsent) {
@@ -638,14 +639,14 @@ class PluginManagerSandbox @Inject constructor(
                             )
                         )
                     }
-                    
+
                     // Other validation failure (e.g., critical permissions)
                     Timber.e("Plugin $pluginId permission validation failed: ${permValidation.reason}")
                     return@withContext Result.failure(
                         SecurityException(permValidation.reason)
                     )
                 }
-                
+
                 Timber.d("Plugin $pluginId permission validation passed")
             }
             

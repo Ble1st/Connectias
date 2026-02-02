@@ -1,3 +1,5 @@
+@file:Suppress("unused") // BroadcastReceiver - methods called by Android system at runtime
+
 package com.ble1st.connectias.plugin
 
 import android.content.BroadcastReceiver

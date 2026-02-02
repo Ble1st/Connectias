@@ -2,29 +2,35 @@ package com.ble1st.connectias.core.plugin
 
 import android.content.Context
 import android.os.ParcelFileDescriptor
-import com.ble1st.connectias.plugin.sdk.PluginContext
-import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
-import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
-import com.ble1st.connectias.plugin.NativeLibraryManager
-import com.ble1st.connectias.plugin.PluginPermissionManager
-import com.ble1st.connectias.plugin.SecureContextWrapper
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.ISAFResultCallback
-import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
-import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
+import com.ble1st.connectias.plugin.NativeLibraryManager
+import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.SecureContextWrapper
 import com.ble1st.connectias.plugin.messaging.IPluginMessaging
-import com.ble1st.connectias.plugin.messaging.PluginMessage
 import com.ble1st.connectias.plugin.messaging.MessageResponse
-import kotlinx.coroutines.*
+import com.ble1st.connectias.plugin.messaging.PluginMessage
+import com.ble1st.connectias.plugin.sdk.BluetoothDeviceInfo
+import com.ble1st.connectias.plugin.sdk.CameraPreviewInfo
+import com.ble1st.connectias.plugin.sdk.PluginContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
-import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.resume
@@ -343,13 +349,13 @@ class SandboxPluginContext(
             }
             
             // Create temp file for document data
-            val tempFile = java.io.File.createTempFile("print_", ".pdf", appContext.cacheDir)
+            val tempFile = File.createTempFile("print_", ".pdf", appContext.cacheDir)
             tempFile.writeBytes(data)
             
             // Create ParcelFileDescriptor
-            val documentFd = android.os.ParcelFileDescriptor.open(
+            val documentFd = ParcelFileDescriptor.open(
                 tempFile,
-                android.os.ParcelFileDescriptor.MODE_READ_ONLY
+                ParcelFileDescriptor.MODE_READ_ONLY
             )
             
             val printerId = printerName ?: "default"

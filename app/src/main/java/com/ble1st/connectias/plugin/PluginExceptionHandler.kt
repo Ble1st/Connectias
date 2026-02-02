@@ -136,7 +136,7 @@ object PluginExceptionHandler {
         noinline onError: ((Throwable) -> Unit)? = null,
         block: () -> Unit
     ) {
-        safePluginCall<Unit>(pluginId, operationName, onError, block)
+        safePluginCall(pluginId, operationName, onError, block)
     }
     
     /**

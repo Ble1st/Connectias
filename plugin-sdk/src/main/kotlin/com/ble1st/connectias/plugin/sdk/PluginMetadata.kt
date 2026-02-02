@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Public Plugin SDK API - used by all plugins to declare metadata
+
 package com.ble1st.connectias.plugin.sdk
 
 import kotlinx.parcelize.Parcelize

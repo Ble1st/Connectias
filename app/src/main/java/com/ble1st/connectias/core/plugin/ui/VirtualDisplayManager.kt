@@ -374,7 +374,7 @@ class VirtualDisplayManager(private val context: Context) {
             val presentation = if (fragment != null) {
                 try {
                     var presentation: PluginComposePresentation? = null
-                    val latch = java.util.concurrent.CountDownLatch(1)
+                    val latch = CountDownLatch(1)
 
                     // Wait for display in background thread to avoid blocking main thread
                     Thread {
@@ -442,7 +442,7 @@ class VirtualDisplayManager(private val context: Context) {
                     }.start()
 
                     // Wait for presentation creation (with timeout)
-                    if (!latch.await(15, java.util.concurrent.TimeUnit.SECONDS)) {
+                    if (!latch.await(15, TimeUnit.SECONDS)) {
                         Timber.e("[UI_PROCESS] Timeout waiting for ComposePresentation creation for plugin: $pluginId")
                     }
 

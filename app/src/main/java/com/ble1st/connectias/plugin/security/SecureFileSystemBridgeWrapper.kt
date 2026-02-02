@@ -1,3 +1,5 @@
+@file:Suppress("unused") // Security Layer - Wraps file system bridge with permission enforcement
+
 package com.ble1st.connectias.plugin.security
 
 import android.os.ParcelFileDescriptor
@@ -21,7 +23,7 @@ class SecureFileSystemBridgeWrapper(
     private val actualBridge: IFileSystemBridge,
     private val boundPluginId: String,
     private val sessionToken: Long,
-    private val permissionManager: PluginPermissionManager,
+    permissionManager: PluginPermissionManager,
     private val auditManager: SecurityAuditManager? = null
 ) : IFileSystemBridge.Stub() {
 

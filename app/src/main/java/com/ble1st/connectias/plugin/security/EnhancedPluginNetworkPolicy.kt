@@ -1,12 +1,11 @@
 package com.ble1st.connectias.plugin.security
 
-import android.net.TrafficStats
 import timber.log.Timber
+import java.net.URI
+import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
-import java.net.URI
-import java.net.URL
 import java.util.regex.Pattern
 
 /**

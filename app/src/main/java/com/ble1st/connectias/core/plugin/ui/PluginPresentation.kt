@@ -8,9 +8,6 @@ import android.content.Context
 import android.os.Bundle
 import android.view.Display
 import android.view.ViewGroup
-import android.widget.FrameLayout
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentActivity
 import androidx.fragment.app.FragmentContainerView
 import androidx.fragment.app.FragmentManager
 import timber.log.Timber

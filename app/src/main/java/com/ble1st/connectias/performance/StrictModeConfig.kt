@@ -1,6 +1,5 @@
 package com.ble1st.connectias.performance
 
-import android.os.Build
 import android.os.StrictMode
 import timber.log.Timber
 

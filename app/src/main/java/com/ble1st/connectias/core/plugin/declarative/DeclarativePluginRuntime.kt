@@ -88,7 +88,7 @@ class DeclarativePluginRuntime(
 
         pkg.flowsById.values.forEach { flow ->
             flow.triggers.forEach { trigger ->
-                if (matchesTrigger(trigger, action, currentScreenId)) {
+                if (matchesTrigger(trigger, action)) {
                     engine.runFlow(flow, trigger, triggerCtx)
                 }
             }
@@ -117,7 +117,7 @@ class DeclarativePluginRuntime(
             ?: pkg.manifest.entrypoints.startScreenId
     }
 
-    private fun matchesTrigger(trigger: DeclarativeTrigger, action: UserActionParcel, currentScreenId: String): Boolean {
+    private fun matchesTrigger(trigger: DeclarativeTrigger, action: UserActionParcel): Boolean {
         return when (trigger.type) {
             "OnClick" -> action.actionType == "click" && trigger.targetId == action.targetId
             "OnTextChanged" -> action.actionType == "text_changed" && trigger.targetId == action.targetId

@@ -1,10 +1,9 @@
-@file:Suppress("unused")
+@file:Suppress("unused") // Security Layer - Rate limiting for IPC calls, prevents DoS attacks from plugins
 
 package com.ble1st.connectias.plugin.security
 
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.min
 
 /**

@@ -77,9 +77,11 @@ android {
             isUniversalApk = false // Do not build a universal APK
         }
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
+    // NOTE: composeOptions.kotlinCompilerExtensionVersion is deprecated with Kotlin 2.0+
+    // The Compose Compiler is now integrated into the Kotlin plugin via kotlin-compose plugin
+    // composeOptions {
+    //     kotlinCompilerExtensionVersion = "1.5.15"
+    // }
     packaging {
         jniLibs {
             pickFirsts += listOf("**/libc++_shared.so")

@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.core.security.tamper
 
 import android.content.Context

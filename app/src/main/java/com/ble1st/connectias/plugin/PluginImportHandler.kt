@@ -21,9 +21,7 @@ import java.util.zip.ZipFile
 class PluginImportHandler(
     private val context: Context,
     private val pluginDirectory: File,
-    private val pluginManager: PluginManagerSandbox,
-    private val manifestParser: PluginManifestParser,
-    private val permissionManager: PluginPermissionManager
+    private val manifestParser: PluginManifestParser
 ) {
 
     init {
@@ -123,7 +121,7 @@ class PluginImportHandler(
                 if (ext == "cplug") {
                     val manifestEntry = zip.getEntry("plugin-manifest.json")
                         ?: return Result.failure(Exception("Invalid declarative plugin: Missing plugin-manifest.json"))
-                    val signatureEntry = zip.getEntry("signature.json")
+                    zip.getEntry("signature.json")
                         ?: return Result.failure(Exception("Invalid declarative plugin: Missing signature.json"))
 
                     val manifestJson = zip.getInputStream(manifestEntry).bufferedReader().use { it.readText() }

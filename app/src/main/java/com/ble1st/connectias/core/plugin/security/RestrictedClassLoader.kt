@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 Connectias
 
+@file:Suppress("unused") // Security Layer - ClassLoader that blocks reflection attacks and dangerous classes
+
 package com.ble1st.connectias.core.plugin.security
 
 import dalvik.system.InMemoryDexClassLoader

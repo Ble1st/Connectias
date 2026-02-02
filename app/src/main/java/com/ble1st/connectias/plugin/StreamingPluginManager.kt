@@ -393,14 +393,12 @@ class StreamingPluginManager @Inject constructor(
             
             // Disable current version first
             disablePlugin(pluginId)
-            
-            val installResult = downloadResult
-            
-            if (installResult.isSuccess) {
+
+            if (downloadResult.isSuccess) {
                 Timber.d("Successfully updated $pluginId to ${targetVersion.version}")
                 Result.success(Unit)
             } else {
-                Result.failure(installResult.exceptionOrNull() ?: Exception("Install failed"))
+                Result.failure(downloadResult.exceptionOrNull() ?: Exception("Install failed"))
             }
         } catch (e: Exception) {
             Timber.e(e, "Failed to update plugin $pluginId")
@@ -411,7 +409,7 @@ class StreamingPluginManager @Inject constructor(
     /**
      * Shutdown the manager
      */
-    suspend fun shutdown() {
+    fun shutdown() {
         Timber.i("Shutting down streaming plugin manager")
         
         loadedPlugins.values.forEach { pluginInfo ->

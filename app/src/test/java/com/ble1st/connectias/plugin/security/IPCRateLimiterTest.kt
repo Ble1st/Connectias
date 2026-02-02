@@ -1,11 +1,9 @@
 package com.ble1st.connectias.plugin.security
 
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
 import org.junit.Test
-import org.junit.Assert.*
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.delay
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
  * Unit tests for IPCRateLimiter

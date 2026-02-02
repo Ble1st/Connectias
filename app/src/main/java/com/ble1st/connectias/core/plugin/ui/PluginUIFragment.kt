@@ -11,11 +11,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.unit.dp
 import androidx.fragment.app.Fragment
 import com.ble1st.connectias.analytics.ui.PluginUiActionLogger
 import com.ble1st.connectias.plugin.ui.IPluginUIBridge
@@ -59,6 +65,10 @@ class PluginUIFragment : Fragment() {
     
     // UI Event handler
     private var uiEventHandler: ((UIEventParcel) -> Unit)? = null
+
+    // IME proxy: text from Main Process overlay (componentId -> text)
+    private val imeTextByComponent = mutableStateMapOf<String, String>()
+    private var imeRequestHandler: ((componentId: String, initialText: String) -> Unit)? = null
     
     /**
      * Dialog state data class
@@ -143,6 +153,10 @@ class PluginUIFragment : Fragment() {
         }
 
         return ComposeView(requireContext()).apply {
+            // CRITICAL: Make ComposeView focusable so it can receive IME focus
+            isFocusable = true
+            isFocusableInTouchMode = true
+
             setContent {
                 val snackbarHostState = remember { SnackbarHostState() }
                 val scope = rememberCoroutineScope()
@@ -173,6 +187,10 @@ class PluginUIFragment : Fragment() {
                             uiState = uiState,
                             dialogState = dialogState,
                             loadingState = loadingState,
+                            imeTextByComponent = imeTextByComponent,
+                            onRequestShowIme = { componentId, initialText ->
+                                imeRequestHandler?.invoke(componentId, initialText)
+                            },
                             onUserAction = { action ->
                                 handleUserAction(action)
                             },
@@ -303,7 +321,7 @@ class PluginUIFragment : Fragment() {
         // Finish the hosting Activity if it exists
         try {
             val activity = activity
-            if (activity != null && activity is com.ble1st.connectias.core.plugin.ui.PluginUIActivity) {
+            if (activity != null && activity is PluginUIActivity) {
                 if (!activity.isFinishing && !activity.isDestroyed) {
                     Timber.d("[UI_PROCESS] Finishing PluginUIActivity for plugin: $pluginId")
                     activity.finish()
@@ -396,5 +414,55 @@ class PluginUIFragment : Fragment() {
      */
     fun setUIEventHandler(handler: (UIEventParcel) -> Unit) {
         uiEventHandler = handler
+    }
+
+    /**
+     * Sets handler for IME (keyboard) requests. When a TextField gains focus,
+     * this is called so the host can request the Main Process to show the keyboard.
+     */
+    fun setImeRequestHandler(handler: (componentId: String, initialText: String) -> Unit) {
+        imeRequestHandler = handler
+    }
+
+    /**
+     * Updates text for a component (from Main Process overlay).
+     * Also forwards a text_changed action to the sandbox so the plugin receives the new value.
+     */
+    fun updateImeText(componentId: String, text: String) {
+        val bridge = uiBridge
+        val pid = pluginId
+        // Update UI state (must run on main thread for Compose)
+        view?.post {
+            imeTextByComponent[componentId] = text
+        } ?: run { imeTextByComponent[componentId] = text }
+        // Notify sandbox so the plugin works with the new value (same as typing in the field)
+        try {
+            val action = UserActionParcel().apply {
+                actionType = "text_changed"
+                targetId = componentId
+                data = Bundle().apply { putString("value", text) }
+                timestamp = System.currentTimeMillis()
+            }
+            bridge?.onUserAction(pid, action)
+            view?.post {
+                try {
+                    PluginUiActionLogger.record(
+                        context = requireContext(),
+                        pluginId = pid,
+                        actionType = "text_changed",
+                        targetId = componentId
+                    )
+                } catch (_: Exception) { }
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[UI_PROCESS] Failed to forward IME text to sandbox for component: $componentId")
+        }
+    }
+
+    /**
+     * Called when IME was dismissed in Main Process.
+     */
+    fun onImeDismissed(componentId: String) {
+        // Optional: clear focus state; text is already in imeTextByComponent
     }
 }

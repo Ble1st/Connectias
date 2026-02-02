@@ -5,15 +5,14 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import android.system.ErrnoException
+import android.system.Os
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.ISAFResultCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
-import android.system.ErrnoException
-import android.system.Os
 import timber.log.Timber
 import java.io.File
 import java.io.FileNotFoundException
-import java.io.IOException
 
 /**
  * File System Bridge Service

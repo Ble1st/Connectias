@@ -89,9 +89,7 @@ class DeclarativePluginBuilderFragment : Fragment() {
                                 val importHandler = PluginImportHandler(
                                     requireContext(),
                                     pluginDir,
-                                    pluginManager,
-                                    manifestParser,
-                                    permissionManager
+                                    manifestParser
                                 )
 
                                 val importResult = importHandler.importPluginFromPath(exportPath)

@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.IBinder
 import com.ble1st.connectias.core.plugin.ui.PluginUIService
 import com.ble1st.connectias.plugin.ui.IPluginUIBridge
+import com.ble1st.connectias.plugin.ui.IPluginUIMainCallback
 import com.ble1st.connectias.plugin.ui.IPluginUIHost
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -60,7 +61,7 @@ class PluginUIProcessProxy(
             isConnected.set(true)
             synchronized(connectionLock) {
                 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                (connectionLock as java.lang.Object).notifyAll()
+                (connectionLock as Object).notifyAll()
             }
         }
 
@@ -116,7 +117,7 @@ class PluginUIProcessProxy(
                         return@withContext Result.failure(error)
                     }
                     @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
-                    (connectionLock as java.lang.Object).wait(BIND_TIMEOUT_MS - elapsedTime)
+                    (connectionLock as Object).wait(BIND_TIMEOUT_MS - elapsedTime)
                 }
             }
 
@@ -374,6 +375,68 @@ class PluginUIProcessProxy(
             }
         } catch (e: Exception) {
             Timber.e(e, "[MAIN] Error notifying UI lifecycle for plugin: $pluginId")
+        }
+    }
+
+    /**
+     * Registers the Main Process callback for IME (keyboard) proxy.
+     * When a TextField in the UI Process gains focus, the UI Process will call
+     * requestShowIme() on this callback so the Main Process can show the keyboard.
+     *
+     * @param callback IPluginUIMainCallback implemented by Main Process (e.g. PluginUIContainerFragment)
+     * @return True if registered successfully
+     */
+    suspend fun registerMainCallback(callback: IPluginUIMainCallback): Boolean = withContext(Dispatchers.IO) {
+        try {
+            if (!isConnected.get()) {
+                Timber.w("[MAIN] Cannot register Main callback - not connected to UI Process")
+                return@withContext false
+            }
+            Timber.d("[MAIN] Registering Main callback (IME proxy) with UI Process")
+            withTimeout(IPC_TIMEOUT_MS) {
+                uiHostService?.registerMainCallback(callback.asBinder())
+                Timber.i("[MAIN] Main callback registered with UI Process")
+                true
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[MAIN] Error registering Main callback")
+            false
+        }
+    }
+
+    /**
+     * Sends text from Main Process to UI Process (user typed in overlay EditText).
+     * Updates the TextField state in the plugin UI.
+     *
+     * @param pluginId Plugin identifier
+     * @param componentId UI component ID (TextField id)
+     * @param text Current text from the overlay
+     */
+    suspend fun sendImeText(pluginId: String, componentId: String, text: String): Unit = withContext(Dispatchers.IO) {
+        try {
+            if (!isConnected.get()) return@withContext
+            withTimeout(IPC_TIMEOUT_MS) {
+                uiHostService?.sendImeText(pluginId, componentId, text)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[MAIN] Error sending IME text for plugin: $pluginId component: $componentId")
+        }
+    }
+
+    /**
+     * Notifies UI Process that the IME was dismissed in Main Process.
+     *
+     * @param pluginId Plugin identifier
+     * @param componentId UI component ID (TextField id)
+     */
+    suspend fun onImeDismissed(pluginId: String, componentId: String): Unit = withContext(Dispatchers.IO) {
+        try {
+            if (!isConnected.get()) return@withContext
+            withTimeout(IPC_TIMEOUT_MS) {
+                uiHostService?.onImeDismissed(pluginId, componentId)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "[MAIN] Error notifying IME dismissed for plugin: $pluginId component: $componentId")
         }
     }
 

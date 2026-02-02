@@ -6,42 +6,44 @@ package com.ble1st.connectias.core.plugin
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Intent
-import android.os.IBinder
+import android.os.Binder
+import android.os.Debug
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
-import com.ble1st.connectias.plugin.IPluginSandbox
-import com.ble1st.connectias.plugin.PluginMetadataParcel
-import com.ble1st.connectias.plugin.PluginResultParcel
-import com.ble1st.connectias.plugin.PluginPermissionManager
-import com.ble1st.connectias.plugin.PluginPermissionBroadcast
-import com.ble1st.connectias.hardware.IHardwareBridge
-import com.ble1st.connectias.plugin.IFileSystemBridge
-import com.ble1st.connectias.plugin.IPermissionCallback
-import com.ble1st.connectias.plugin.security.PluginIdentitySession
-import com.ble1st.connectias.plugin.security.SecureHardwareBridgeWrapper
-import com.ble1st.connectias.plugin.security.SecureFileSystemBridgeWrapper
-import com.ble1st.connectias.core.plugin.security.FilteredParentClassLoader
-import com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
+import android.os.ParcelFileDescriptor
+import android.os.Process
 import com.ble1st.connectias.core.plugin.logging.PluginDebugLoggingTree
 import com.ble1st.connectias.core.plugin.logging.PluginExecutionContext
 import com.ble1st.connectias.core.plugin.logging.PluginLogBridgeHolder
-import com.ble1st.connectias.plugin.messaging.PluginMessagingProxy
-import android.os.ParcelFileDescriptor
-import android.os.Binder
-import dalvik.system.DexClassLoader
-import dalvik.system.DexFile
-import dalvik.system.InMemoryDexClassLoader
-import timber.log.Timber
+import com.ble1st.connectias.core.plugin.security.FilteredParentClassLoader
+import com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
+import com.ble1st.connectias.hardware.IHardwareBridge
+import com.ble1st.connectias.plugin.IFileSystemBridge
+import com.ble1st.connectias.plugin.IPermissionCallback
+import com.ble1st.connectias.plugin.IPluginSandbox
+import com.ble1st.connectias.plugin.PluginMetadataParcel
+import com.ble1st.connectias.plugin.PluginPermissionBroadcast
+import com.ble1st.connectias.plugin.PluginPermissionManager
+import com.ble1st.connectias.plugin.PluginResultParcel
 import com.ble1st.connectias.plugin.logging.IPluginLogBridge
-import java.io.File
-import java.util.concurrent.ConcurrentHashMap
 import com.ble1st.connectias.plugin.sdk.IPlugin
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
+import com.ble1st.connectias.plugin.security.PluginIdentitySession
+import dalvik.system.DexClassLoader
+import dalvik.system.DexFile
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import android.os.Debug
-import android.os.Process
+import timber.log.Timber
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 import java.util.zip.ZipFile
-import kotlinx.coroutines.*
 
 /**
  * Isolated service that runs plugins in a separate process
@@ -389,8 +391,10 @@ class PluginSandboxService : Service() {
         }
     }
     
+    @Suppress("unused") // Used via Binder IPC from main process
     private val binder: IBinder = object : IPluginSandbox.Stub() {
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun loadPlugin(pluginPath: String): PluginResultParcel {
             return try {
                 Timber.d("[SANDBOX] Loading plugin from: $pluginPath")
@@ -422,7 +426,7 @@ class PluginSandboxService : Service() {
                     ?: findPluginClass(classLoader, metadata.pluginId)
                 
                 // Load plugin class directly from DEX (bypass parent filtering for plugin's own classes)
-                val pluginClass = if (classLoader is com.ble1st.connectias.core.plugin.security.RestrictedClassLoader) {
+                val pluginClass = if (classLoader is RestrictedClassLoader) {
                     classLoader.loadClassFromDex(pluginClassName)
                 } else {
                     classLoader.loadClass(pluginClassName)
@@ -483,6 +487,7 @@ class PluginSandboxService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun enablePlugin(pluginId: String): PluginResultParcel {
             return try {
                 val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
@@ -511,31 +516,38 @@ class PluginSandboxService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun disablePlugin(pluginId: String): PluginResultParcel {
             return this@PluginSandboxService.performDisable(pluginId)
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun unloadPlugin(pluginId: String): PluginResultParcel {
             return this@PluginSandboxService.performUnload(pluginId)
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun getLoadedPlugins(): List<String> {
             return this@PluginSandboxService.loadedPlugins.keys.toList()
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun getPluginMetadata(pluginId: String): PluginMetadataParcel? {
             val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId] ?: return null
             return PluginMetadataParcel.fromPluginMetadata(pluginInfo.metadata)
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for connection verification
         override fun ping(): Boolean {
             return true
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for resource limiting
         override fun getSandboxPid(): Int {
-            return android.os.Process.myPid()
+            return Process.myPid()
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for memory monitoring
         override fun getSandboxMemoryUsage(): Long {
             val runtime = Runtime.getRuntime()
             val totalMemory = runtime.totalMemory()
@@ -543,10 +555,12 @@ class PluginSandboxService : Service() {
             return totalMemory - freeMemory
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for memory monitoring
         override fun getSandboxMaxMemory(): Long {
             return Runtime.getRuntime().maxMemory()
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for per-plugin memory tracking
         override fun getPluginMemoryUsage(pluginId: String): Long {
             return try {
                 val pluginInfo = this@PluginSandboxService.loadedPlugins[pluginId]
@@ -570,6 +584,7 @@ class PluginSandboxService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy, primary plugin loading method
         override fun loadPluginFromDescriptor(
             pluginFd: ParcelFileDescriptor,
             pluginId: String,
@@ -609,7 +624,7 @@ class PluginSandboxService : Service() {
                 Timber.d("[SANDBOX] Attempting to load class: $pluginClassName")
                 
                 // Load plugin class directly from DEX (bypass parent filtering for plugin's own classes)
-                val pluginClass = if (classLoader is com.ble1st.connectias.core.plugin.security.RestrictedClassLoader) {
+                val pluginClass = if (classLoader is RestrictedClassLoader) {
                     classLoader.loadClassFromDex(pluginClassName)
                 } else {
                     classLoader.loadClass(pluginClassName)
@@ -620,7 +635,7 @@ class PluginSandboxService : Service() {
                 // Step 6: Register sandbox-local identity (debug/audit only).
                 // NOTE: The per-plugin sessionToken used for IPC must be created in the main process
                 // and passed into this method (parameter `sessionToken`) so main-process bridges can validate it.
-                val callerUid = Binder.getCallingUid()
+                val callerUid = getCallingUid()
                 val sandboxIdentityToken = PluginIdentitySession.registerPluginSession(pluginId, callerUid)
                 Timber.i(
                     "[SANDBOX] Plugin identity registered (sandbox-local): $pluginId -> UID:$callerUid, Token:$sandboxIdentityToken"
@@ -678,23 +693,14 @@ class PluginSandboxService : Service() {
                     Timber.e(e, "[SANDBOX] Plugin onLoad failed")
                     false
                 }
-                
+
                 if (!loadSuccess) {
                     return PluginResultParcel.failure("Plugin onLoad() returned false or threw exception")
                 }
-                
-                // Step 10: Enable plugin
-                val enableSuccess = try {
-                    PluginExecutionContext.withPlugin(pluginId) {
-                        pluginInstance.onEnable()
-                    }
-                } catch (e: Exception) {
-                    Timber.e(e, "[SANDBOX] Plugin onEnable failed")
-                    false
-                }
-                
-                // Step 11: Store plugin info with correct state based on enable result
-                val pluginState = if (enableSuccess) PluginState.ENABLED else PluginState.LOADED
+
+                // Step 10: Store plugin info with LOADED state (NOT ENABLED)
+                // Enable must be called explicitly via enablePlugin() after permission checks
+                val pluginState = PluginState.LOADED
                 val pluginInfo = SandboxPluginInfo(
                     pluginId = pluginId,
                     metadata = metadata,
@@ -731,6 +737,7 @@ class PluginSandboxService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for declarative plugins
         override fun loadDeclarativePluginFromDescriptor(
             packageFd: ParcelFileDescriptor,
             pluginId: String,
@@ -747,6 +754,7 @@ class PluginSandboxService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy during initialization
         override fun setHardwareBridge(hardwareBridge: IBinder) {
             try {
                 this@PluginSandboxService.hardwareBridge = IHardwareBridge.Stub.asInterface(hardwareBridge)
@@ -755,7 +763,8 @@ class PluginSandboxService : Service() {
                 Timber.e(e, "[SANDBOX] Failed to set hardware bridge")
             }
         }
-        
+
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy during initialization
         override fun setFileSystemBridge(fileSystemBridge: IBinder) {
             try {
                 this@PluginSandboxService.fileSystemBridge = IFileSystemBridge.Stub.asInterface(fileSystemBridge)
@@ -768,6 +777,7 @@ class PluginSandboxService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy during initialization
         override fun setLoggingBridge(loggingBridge: IBinder) {
             try {
                 val bridge = IPluginLogBridge.Stub.asInterface(loggingBridge)
@@ -785,6 +795,7 @@ class PluginSandboxService : Service() {
             }
         }
         
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy during initialization
         override fun setPermissionCallback(callback: IBinder) {
             try {
                 this@PluginSandboxService.permissionCallback = IPermissionCallback.Stub.asInterface(callback)
@@ -794,6 +805,7 @@ class PluginSandboxService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy during initialization
         override fun setMessagingBridge(messagingBridge: IBinder) {
             try {
                 this@PluginSandboxService.messagingBridge = com.ble1st.connectias.plugin.messaging.IPluginMessaging.Stub.asInterface(messagingBridge)
@@ -803,11 +815,13 @@ class PluginSandboxService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC (deprecated, kept for backward compatibility)
         override fun setUIBridge(uiBridge: IBinder) {
             // DEPRECATED: Old VirtualDisplay system
             Timber.w("[SANDBOX] setUIBridge called - this is deprecated, use setUIController instead")
         }
 
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy for Three-Process UI
         override fun setUIController(uiController: IBinder) {
             try {
                 val controller = com.ble1st.connectias.plugin.ui.IPluginUIController.Stub.asInterface(uiController)
@@ -818,11 +832,13 @@ class PluginSandboxService : Service() {
             }
         }
 
+        @Suppress("unused") // Called via IPC from PluginSandboxProxy
         override fun getUIBridge(): IBinder {
             Timber.d("[SANDBOX] Get UI Bridge")
             return this@PluginSandboxService.uiBridge.asBinder()
         }
 
+        @Suppress("unused") // Called via IPC for UI rendering
         override fun requestPluginUIRender(
             pluginId: String,
             width: Int,
@@ -1041,7 +1057,7 @@ class PluginSandboxService : Service() {
     
     override fun onCreate() {
         super.onCreate()
-        Timber.i("[SANDBOX] Service created in process: ${android.os.Process.myPid()}")
+        Timber.i("[SANDBOX] Service created in process: ${Process.myPid()}")
 
         // Initialize permission manager for sandbox process
         permissionManager = PluginPermissionManager(applicationContext)
@@ -1240,7 +1256,7 @@ class PluginSandboxService : Service() {
             // Register main-process session token for UI/FileSystem IPC from sandbox.
             uiController.registerPluginSession(pluginId, sessionToken)
 
-            val metadata = com.ble1st.connectias.plugin.sdk.PluginMetadata(
+            val metadata = PluginMetadata(
                 pluginId = manifest.pluginId,
                 pluginName = manifest.pluginName,
                 version = manifest.versionName,
@@ -1290,16 +1306,9 @@ class PluginSandboxService : Service() {
                 return PluginResultParcel.failure("Declarative plugin onLoad() returned false")
             }
 
-            val enableSuccess = try {
-                PluginExecutionContext.withPlugin(pluginId) {
-                    pluginInstance.onEnable()
-                }
-            } catch (e: Exception) {
-                Timber.e(e, "[SANDBOX] Declarative plugin onEnable failed: $pluginId")
-                false
-            }
-
-            val pluginState = if (enableSuccess) PluginState.ENABLED else PluginState.LOADED
+            // Store plugin with LOADED state (NOT ENABLED)
+            // Enable must be called explicitly via enablePlugin() after permission checks
+            val pluginState = PluginState.LOADED
             val pluginInfo = SandboxPluginInfo(
                 pluginId = pluginId,
                 metadata = metadata,
@@ -1390,7 +1399,7 @@ class PluginSandboxService : Service() {
         
         // Check for app version (plugin.sdk.IPlugin) using isAssignableFrom
         try {
-            val sdkIPlugin = com.ble1st.connectias.plugin.sdk.IPlugin::class.java
+            val sdkIPlugin = IPlugin::class.java
             if (sdkIPlugin.isAssignableFrom(clazz)) {
                 Timber.d("[SANDBOX] Class implements plugin.sdk.IPlugin (app version)")
                 return true
@@ -1434,7 +1443,7 @@ class PluginSandboxService : Service() {
         Timber.d("[SANDBOX] Trying patterns: ${commonPatterns.joinToString(", ")}")
         
         // If classLoader is RestrictedClassLoader, use direct DEX loading to bypass parent filtering
-        val restrictedLoader = classLoader as? com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
+        val restrictedLoader = classLoader as? RestrictedClassLoader
         
         for (className in commonPatterns) {
             try {
@@ -1501,7 +1510,7 @@ class PluginSandboxService : Service() {
      * This is a fallback when common patterns fail.
      */
     private fun scanDexForPluginClass(classLoader: ClassLoader, pluginId: String): String? {
-        val restrictedLoader = classLoader as? com.ble1st.connectias.core.plugin.security.RestrictedClassLoader
+        val restrictedLoader = classLoader as? RestrictedClassLoader
             ?: return null
         
         Timber.d("[SANDBOX] Trying extended pattern matching for plugin class...")
@@ -1567,7 +1576,7 @@ class PluginSandboxService : Service() {
      * This is a fallback when pattern matching fails.
      */
     private fun scanAllDexClasses(
-        restrictedLoader: com.ble1st.connectias.core.plugin.security.RestrictedClassLoader,
+        restrictedLoader: RestrictedClassLoader,
         pluginId: String
     ): String? {
         return try {
@@ -1588,7 +1597,7 @@ class PluginSandboxService : Service() {
                     // Note: DexFile.openInMemory requires API 26+, but we can use reflection
                     val dexFileClass = Class.forName("dalvik.system.DexFile")
                     val openInMemoryMethod = dexFileClass.getMethod("openInMemory", java.nio.ByteBuffer::class.java)
-                    val dexFile = openInMemoryMethod.invoke(null, dexBuffer) as dalvik.system.DexFile
+                    val dexFile = openInMemoryMethod.invoke(null, dexBuffer) as DexFile
                     
                     // Enumerate all class names
                     val classNames = dexFile.entries()

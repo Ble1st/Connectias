@@ -64,8 +64,7 @@ sealed class PluginLoadingState {
     }
     
     data class Cancelled(
-        val reason: String,
-        val cleanupRequired: Boolean = true
+        val reason: String
     ) : PluginLoadingState() {
         override val progress: Float = 0f
         override val statusMessage: String = "Cancelled: $reason"

@@ -3,7 +3,6 @@ package com.ble1st.connectias.analytics.ui
 import android.content.Context
 import com.ble1st.connectias.analytics.di.AnalyticsStoreEntryPoint
 import com.ble1st.connectias.analytics.model.PluginUiActionEvent
-import com.ble1st.connectias.analytics.store.PluginAnalyticsStore
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

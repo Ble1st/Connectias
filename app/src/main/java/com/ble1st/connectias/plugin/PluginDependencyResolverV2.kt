@@ -1,20 +1,18 @@
 package com.ble1st.connectias.core.plugin
 
-import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import com.ble1st.connectias.plugin.PluginManagerSandbox
-import com.ble1st.connectias.plugin.dependency.DependencyResolutionResult
+import com.ble1st.connectias.plugin.dependency.CircularDependency
 import com.ble1st.connectias.plugin.dependency.DependencyGraph
 import com.ble1st.connectias.plugin.dependency.DependencyNode
-import com.ble1st.connectias.plugin.dependency.CircularDependency
+import com.ble1st.connectias.plugin.dependency.DependencyResolutionResult
 import com.ble1st.connectias.plugin.dependency.PluginDependency
-import com.ble1st.connectias.plugin.dependency.VersionConstraint
 import com.ble1st.connectias.plugin.dependency.VersionConflict
+import com.ble1st.connectias.plugin.dependency.VersionConstraint
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
-import timber.log.Timber
+import com.ble1st.connectias.plugin.store.GitHubPluginStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import timber.log.Timber
 
 /**
  * Enhanced Plugin Dependency Resolver with version constraints and graph management
@@ -29,7 +27,6 @@ class PluginDependencyResolverV2(
      */
     suspend fun resolveDependencies(
         pluginId: String,
-        version: String? = null,
         onProgress: (String) -> Unit = {}
     ): Result<DependencyResolutionResult> = withContext(Dispatchers.Default) {
         try {
@@ -62,7 +59,7 @@ class PluginDependencyResolverV2(
     }
     
     private suspend fun resolveDependenciesInternal(
-        metadata: com.ble1st.connectias.plugin.sdk.PluginMetadata,
+        metadata: PluginMetadata,
         onProgress: (String) -> Unit
     ): Result<DependencyResolutionResult> {
         val allPlugins = pluginManager.getLoadedPlugins()
@@ -123,7 +120,7 @@ class PluginDependencyResolverV2(
         }
     }
     
-    private suspend fun buildDependencyGraph(
+    private fun buildDependencyGraph(
         rootPluginId: String,
         dependencies: List<PluginDependency>,
         installedVersions: Map<String, PluginManagerSandbox.PluginInfo>
@@ -253,8 +250,8 @@ class PluginDependencyResolverV2(
     /**
      * Get dependency tree visualization
      */
-    suspend fun getDependencyTree(pluginId: String): String {
-        val plugin = pluginManager.getPlugin(pluginId) ?: return "Plugin not found: $pluginId"
+    fun getDependencyTree(pluginId: String): String {
+        pluginManager.getPlugin(pluginId) ?: return "Plugin not found: $pluginId"
         
         fun buildTree(id: String, indent: String = ""): String {
             val plugin = pluginManager.getPlugin(id) ?: return "${indent}$id (missing)\n"
@@ -274,7 +271,7 @@ class PluginDependencyResolverV2(
     /**
      * Analyze impact of uninstalling a plugin
      */
-    suspend fun analyzeUninstallImpact(pluginId: String): UninstallImpact {
+    fun analyzeUninstallImpact(pluginId: String): UninstallImpact {
         val allPlugins = pluginManager.getLoadedPlugins()
         val dependents = allPlugins.filter { plugin ->
             plugin.metadata.dependencies.contains(pluginId)

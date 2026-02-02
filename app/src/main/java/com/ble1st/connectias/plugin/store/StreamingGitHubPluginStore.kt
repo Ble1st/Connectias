@@ -1,16 +1,15 @@
+@file:OptIn(kotlinx.serialization.InternalSerializationApi::class)
+
 package com.ble1st.connectias.plugin.store
 
 import android.content.Context
 import com.ble1st.connectias.plugin.StreamingPluginManager
 import com.ble1st.connectias.plugin.sdk.PluginCategory
-import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import com.ble1st.connectias.plugin.streaming.PluginLoadingState
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient

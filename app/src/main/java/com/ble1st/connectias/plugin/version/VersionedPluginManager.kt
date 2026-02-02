@@ -6,7 +6,6 @@ import com.ble1st.connectias.plugin.StreamingPluginManager
 import com.ble1st.connectias.plugin.sdk.PluginMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
@@ -252,7 +251,7 @@ class VersionedPluginManager @Inject constructor(
         }
     }
     
-    private suspend fun extractVersionFromPlugin(pluginFile: File): PluginVersion? {
+    private fun extractVersionFromPlugin(pluginFile: File): PluginVersion? {
         return try {
             // This would extract version from plugin manifest
             // Implementation depends on your plugin format
