@@ -67,7 +67,7 @@ android {
         buildConfig = true
         viewBinding = true
         compose = true
-        aidl = true  // Enable AIDL for PluginSandboxService IPC
+        // AIDL moved to :plugin module
     }
     splits {
         abi {
@@ -230,6 +230,7 @@ dependencies {
     // Core Modules (always included)
     // Note: Still using :core alongside new submodules during migration
     implementation(project(":core"))
+    implementation(project(":plugin"))
     implementation(project(":plugin-sdk"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))

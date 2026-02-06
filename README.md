@@ -131,6 +131,43 @@ Connectias implements a comprehensive RASP system with native Rust components:
 - **Communication**: Certificate pinning with SHA-256
 - **Memory**: Zeroize for sensitive data
 
+### Threat Model
+
+See [Threat Model](#-threat-model-1) below for assets, attack surface, and mitigations.
+
+## 🛡️ Threat Model
+
+This section documents the security threat model for Connectias: what we protect, where we are exposed, who might attack, and how we defend.
+
+### Assets (What we protect)
+
+- **Plugin data and configuration** – Stored plugin state, user preferences, and metadata
+- **Hardware access** – Camera, Bluetooth, network, and printer usage delegated via the hardware bridge
+- **Inter-plugin communication** – Messages and payloads between plugins via the message broker
+- **App integrity** – Tamper detection, root/debugger/emulator checks, and RASP state
+
+### Attack surface
+
+- **Plugin sandbox** – Isolated process where untrusted plugin code runs (`isolatedProcess=true`)
+- **IPC bridges (AIDL)** – IPluginSandbox, IHardwareBridge, IPluginMessaging, IFileSystemBridge, IPluginUIBridge
+- **Hardware delegation** – Requests from sandbox to main process for camera, network, etc.
+- **Rust RASP (native code)** – Root/tamper/debugger detection and JNI boundary
+
+### Adversaries
+
+- **Malicious plugins** – Untrusted third-party code trying to escalate privileges or exfiltrate data
+- **Rooted devices** – Compromised devices with root access or Magisk/Xposed
+- **Debugger attacks** – Runtime analysis and manipulation via attached debuggers
+- **Man-in-the-middle** – Network interception; mitigated by TLS and certificate pinning
+
+### Mitigations
+
+- **Process isolation** – Plugins run in a separate process with `isolatedProcess=true`
+- **Permission pre-check** – Every privileged API call validated by PermissionPreChecker before execution
+- **Rate limiting** – IPC rate limits (e.g. 1–60 calls/sec per method) to reduce DoS and abuse
+- **Encryption** – SQLCipher for DB, EncryptedDataStore for preferences, TLS for network
+- **RASP** – Root, debugger, emulator, and tamper detection (Rust-native) with configurable response
+
 ## 🔌 Plugin System
 
 The plugin system is the core innovation of Connectias, enabling:

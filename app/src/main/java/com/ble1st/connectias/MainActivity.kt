@@ -118,6 +118,9 @@ class MainActivity : AppCompatActivity() {
     @Inject
     lateinit var pluginManager: PluginManagerSandbox
 
+    @Inject
+    lateinit var pluginNavigatorImpl: com.ble1st.connectias.navigation.PluginNavigatorImpl
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // Install Splash Screen before super.onCreate()
         val splashScreen = installSplashScreen()
@@ -671,6 +674,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupNavigation() {
         try {
+            // Set up PluginNavigator with NavController
+            val navHostFragment = supportFragmentManager.findFragmentById(R.id.nav_host_fragment_content_main) as? NavHostFragment
+            navHostFragment?.navController?.let { navController ->
+                pluginNavigatorImpl.setNavController(navController)
+                Timber.d("PluginNavigator initialized with NavController")
+            }
+
             handleNavigateIntent(intent)
             Timber.d("Navigation setup completed")
         } catch (e: Exception) {

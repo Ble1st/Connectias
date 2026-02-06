@@ -257,7 +257,26 @@ HardwareResponseParcel returned via IPC
 - `plugin/security/SecureHardwareBridgeWrapper.kt` - Security wrapper
 - `hardware/network/EnhancedPluginNetworkPolicy.kt` - Network bandwidth tracking per plugin
 
+## AI Code Generation Security Guardrails
+
+When generating or modifying code (including AI-assisted code), enforce these security rules. Do not trust AI output blindly; treat generated code as untrusted until validated.
+
+**Mandatory rules (no exceptions):**
+- **No plaintext storage of sensitive data:** Use EncryptedSharedPreferences, SQLCipher, or EncryptedDataStore; never store secrets, tokens, or PII in plain SharedPreferences or files.
+- **Always validate input:** Validate and sanitize all user and external input (length, format, type); never use untrusted input in SQL, paths, or reflection without validation.
+- **No eval/reflection on untrusted input:** Do not use reflection or dynamic code execution (eval, Class.forName with user input) for untrusted data; use whitelisted APIs only.
+- **No debug secrets in code:** No API keys, passwords, or tokens in source; use placeholders and replace locally or via secrets management.
+- **No 3rd-party libs without explicit approval:** Do not add new dependencies without security review; prefer existing project libraries and document any new dependency.
+
+**Additional requirements:**
+- **Security tests:** When adding security-sensitive code, generate or extend unit tests (e.g. input validation, auth flows) and include them in the same change.
+- **Threat context:** For new features, consider the threat model (see README Threat Model): assets, attack surface, and mitigations.
+
+**Reference:** These guardrails align with "Key Development Patterns" below and with the project's Universal Rules (security-first, input validation, encryption).
+
 ## Key Development Patterns
+
+**Security:** All generated or modified code must comply with [AI Code Generation Security Guardrails](#ai-code-generation-security-guardrails) above.
 
 ### When Modifying Plugin System
 

@@ -1,6 +1,7 @@
 # 🚀 100 Feature-Ideen für Connectias - STATUS CHECK
 
 > Analysiert am: 21.01.2026  
+> Aktualisiert am: 05.02.2026 (Hot-Reload, Plugin-Analytics, DSGVO-Export, Privacy Dashboard)  
 > Legende: ✅ Vorhanden | ⚠️ Teilweise | ❌ Nicht vorhanden
 
 ---
@@ -12,12 +13,12 @@
 | 1 | **Plugin Marketplace** | ✅ | `GitHubPluginStore.kt`, `StreamingGitHubPluginStore.kt`, `PluginStoreScreen.kt` |
 | 2 | **Plugin-Abhängigkeiten** | ✅ | `PluginDependencyResolverV2.kt`, `DependencyGraph.kt` |
 | 3 | **Plugin-Bundles** | ❌ | Nicht implementiert |
-| 4 | **Hot-Reload** | ❌ | Nicht implementiert (Neustart erforderlich) |
+| 4 | **Hot-Reload** | ✅ | `PluginManagerSandbox.reloadPlugin()`, `unloadPlugin(deletePluginFile=false)`, Reload-Button in `PluginListItem.kt` |
 | 5 | **Plugin-Versionierung** | ✅ | `PluginVersionManager.kt`, `PluginRollbackManager.kt`, `VersionedPluginManager.kt` |
 | 6 | **Plugin-Sharing** | ❌ | Nicht implementiert |
 | 7 | **Plugin-Templates** | ❌ | Nicht implementiert |
 | 8 | **Plugin-Sandkasten** | ✅ | `PluginSandboxService.kt`, `EnhancedSandbox.kt`, isolatedProcess |
-| 9 | **Plugin-Analytics** | ⚠️ | Nur Resource-Monitoring (`EnhancedPluginResourceLimiter.kt`) |
+| 9 | **Plugin-Analytics** | ✅ | `PluginAnalyticsStore` (perf, sessions, lifecycle), `PluginAnalyticsCollector`, `PluginAnalyticsDashboardScreen`, Session-Tracking (PluginUIFragment), Lifecycle-Events (PluginManagerSandbox.logLifecycleEvent), Export |
 | 10 | **Inter-Plugin-Messaging** | ✅ | `PluginMessageBroker.kt`, `PluginMessagingService.kt`, `PluginMessagingProxy.kt` |
 | 11 | **Plugin-Prioritäten** | ❌ | Nicht implementiert |
 | 12 | **Plugin-Kategorien** | ✅ | `PluginCategory.kt`, im Metadata vorhanden |
@@ -30,7 +31,7 @@
 | 19 | **Plugin-Deaktivierung** | ✅ | `PluginManagerSandbox.disablePlugin()` |
 | 20 | **Plugin-Autostart** | ❌ | Nicht implementiert |
 
-**Zusammenfassung:** 11/20 ✅ | 3/20 ⚠️ | 6/20 ❌
+**Zusammenfassung:** 13/20 ✅ | 2/20 ⚠️ | 5/20 ❌
 
 ---
 
@@ -40,8 +41,8 @@
 |---|---------|--------|-----------------|
 | 21 | **Berechtigungs-Audit** | ✅ | `PluginPermissionMonitor.kt`, `SecurityAuditDashboardScreen.kt` |
 | 22 | **Netzwerk-Firewall** | ✅ | `EnhancedPluginNetworkPolicy.kt`, `NetworkPolicyConfigurationScreen.kt` |
-| 23 | **Daten-Export** | ❌ | DSGVO-Export nicht implementiert |
-| 24 | **Privacy Dashboard** | ⚠️ | `PluginSecurityDashboard.kt` (Security, nicht Privacy) |
+| 23 | **Daten-Export** | ✅ | `PrivacyDashboardScreen` verschlüsselter Export, Art. 15 DSGVO, `EncryptedExportWriter`, `PrivacyExportBundle` |
+| 24 | **Privacy Dashboard** | ✅ | `PrivacyDashboardScreen`, `PrivacyAggregator`, Auskunft Art. 15 DSGVO, Datenkategorien-Übersicht, Art. 17 Hinweis |
 | 25 | **Plugin-Signatur** | ✅ | `ZeroTrustVerifier.kt` (SHA256 Hash-Verifikation) |
 | 26 | **Zeitbasierte Berechtigungen** | ❌ | Nicht implementiert |
 | 27 | **Incognito-Modus** | ❌ | Nicht implementiert |
@@ -59,7 +60,7 @@
 | 39 | **Audit-Logs** | ✅ | `SecurityAuditManager.kt` |
 | 40 | **Notfall-Deaktivierung** | ✅ | `EnhancedSandbox.handleAnomaly()` + Callback |
 
-**Zusammenfassung:** 12/20 ✅ | 4/20 ⚠️ | 4/20 ❌
+**Zusammenfassung:** 14/20 ✅ | 2/20 ⚠️ | 4/20 ❌
 
 ---
 
@@ -163,20 +164,20 @@
 
 | Kategorie | ✅ Vorhanden | ⚠️ Teilweise | ❌ Fehlt | Gesamt |
 |-----------|-------------|--------------|---------|--------|
-| Plugin-System Core | 11 | 3 | 6 | 20 |
-| Sicherheit | 12 | 4 | 4 | 20 |
+| Plugin-System Core | 13 | 2 | 5 | 20 |
+| Sicherheit | 14 | 2 | 4 | 20 |
 | UI/UX | 5 | 4 | 11 | 20 |
 | Performance | 7 | 5 | 3 | 15 |
 | Entwickler-Tools | 7 | 0 | 8 | 15 |
 | Plugin-Ideen | 0 | 4 | 6 | 10 |
-| **GESAMT** | **41** | **21** | **38** | **100** |
+| **GESAMT** | **45** | **19** | **36** | **100** |
 
 ## 📈 Implementierungsgrad
 
 ```
-Vollständig implementiert: 41%
-Teilweise implementiert:   21%
-Nicht implementiert:       38%
+Vollständig implementiert: 45%
+Teilweise implementiert:   19%
+Nicht implementiert:       36%
 ```
 
 ---
@@ -184,13 +185,13 @@ Nicht implementiert:       38%
 ## 🎯 Empfohlene Nächste Schritte
 
 ### Hohe Priorität (Teilweise → Vollständig)
-1. **Plugin-Analytics** → Vollständige Nutzungsstatistiken
-2. **Privacy Dashboard** → DSGVO-konforme Übersicht
+1. **Plugin-Suche** → Volltextsuche über installierte Plugins
+2. **Sicherheits-Scanner** → Malware-Erkennung ergänzen (aktuell nur Hash-Check)
 
 ### Mittlere Priorität (Neue Features)
-1. **Hot-Reload** → Entwickler-Erfahrung verbessern
-2. **Plugin-Widgets** → Home-Screen Integration
-3. **Daten-Export** → DSGVO-Compliance
+1. **Plugin-Widgets** → Home-Screen Integration
+2. **Plugin-Backup** → Vollständiges Backup (aktuell nur Version-History)
+3. **Zeitbasierte Berechtigungen** → Berechtigungen zeitlich begrenzen
 
 ### Niedrige Priorität
 1. Plugin-Bundles
@@ -201,8 +202,8 @@ Nicht implementiert:       38%
 
 ## 🏆 Stärken des aktuellen Systems
 
-1. **Sicherheit** (60% vollständig) - ZeroTrust, Sandbox, Audit-Logs, API-Rate-Limiting
-2. **Plugin-System** (55% vollständig) - Store, Versioning, Inter-Plugin-Messaging
+1. **Sicherheit** (70% vollständig) - ZeroTrust, Sandbox, Audit-Logs, API-Rate-Limiting, DSGVO-Export, Privacy Dashboard
+2. **Plugin-System** (65% vollständig) - Store, Versioning, Inter-Plugin-Messaging, Hot-Reload, Plugin-Analytics
 3. **Performance** (47% vollständig) - Lazy Loading, Memory Management
 
 ## ⚠️ Schwächen
@@ -214,4 +215,4 @@ Nicht implementiert:       38%
 ---
 
 *Generiert durch automatische Code-Analyse am 21.01.2026*  
-*Aktualisiert am: 21.01.2026 - Inter-Plugin-Messaging und API-Rate-Limiting hinzugefügt*
+*Aktualisiert am: 05.02.2026 - Hot-Reload (#4), Plugin-Analytics (#9), DSGVO-Daten-Export (#23), Privacy Dashboard/DSGVO (#24) als erledigt eingetragen*

@@ -31,8 +31,9 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 // ============================================================================
 // Core Modules (always included)
-// ============================================================================ 
+// ============================================================================
 include(":app")
+include(":plugin")
 include(":plugin-sdk")
 include(":common")
 include(":core")
