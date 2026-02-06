@@ -2,9 +2,9 @@ name: Rust Security Audit
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
 
 jobs:
   rust-audit:
@@ -18,9 +18,11 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install cargo-audit
+        if: hashFiles('**/Cargo.toml') != ''
+        run: cargo install cargo-audit
+
       - name: Rust Security Audit
         if: hashFiles('**/Cargo.toml') != ''
-        uses: rustsec/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          working-directory: core/src/main/rust
+        working-directory: core/src/main/rust
+        run: cargo audit

@@ -2,9 +2,9 @@ name: Security SAST Scan
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
 
 jobs:
   codeql-analysis:
@@ -38,9 +38,7 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: java
-
-      - name: Build for CodeQL
-        run: ./gradlew assembleDebug --no-daemon
+          build-mode: none
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

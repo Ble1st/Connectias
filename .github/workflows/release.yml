@@ -3,10 +3,11 @@ name: Android Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build:
-    if: startsWith(github.event.head_commit.message, 'releasebuild')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && startsWith(github.event.head_commit.message, 'releasebuild'))
     environment: Keystore release build
     permissions:
       contents: write
@@ -174,7 +175,7 @@ jobs:
       - name: Calculate version and APK name
         id: version
         env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_MSG: ${{ github.event_name == 'workflow_dispatch' && '' || github.event.head_commit.message }}
         run: |
           # Extract repository name (owner/repo-name -> repo-name)
           REPO_NAME=$(echo "${{ github.repository }}" | awk -F'/' '{print $NF}')
@@ -434,7 +435,7 @@ jobs:
       - name: Prepare release metadata
         id: relmeta
         env:
-          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          COMMIT_MSG: ${{ github.event_name == 'workflow_dispatch' && '' || github.event.head_commit.message }}
         run: |
           # P1: Extract release name from commit message (first line, remove 'releasebuild' prefix)
           # Use printf with %s to safely handle special characters
