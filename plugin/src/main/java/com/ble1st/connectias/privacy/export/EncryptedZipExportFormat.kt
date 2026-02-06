@@ -26,16 +26,16 @@ object EncryptedZipExportFormat {
         val fileCount: Int
     )
 
-    internal const val MAGIC: String = "CONNECTIAS_GDPR_EXPORT"
-    internal const val FORMAT_VERSION: Int = 1
+    const val MAGIC: String = "CONNECTIAS_GDPR_EXPORT"
+    const val FORMAT_VERSION: Int = 1
 
     // PBKDF2 parameters
-    internal const val PBKDF2_ALG: String = "PBKDF2WithHmacSHA256"
+    const val PBKDF2_ALG: String = "PBKDF2WithHmacSHA256"
     internal const val PBKDF2_ITERATIONS: Int = 150_000
     internal const val SALT_LENGTH_BYTES: Int = 16
 
     // AES-GCM parameters
-    internal const val CIPHER_ALG: String = "AES/GCM/NoPadding"
+    const val CIPHER_ALG: String = "AES/GCM/NoPadding"
     internal const val GCM_IV_LENGTH_BYTES: Int = 12
     internal const val GCM_TAG_LENGTH_BITS: Int = 128
 
@@ -110,7 +110,7 @@ object EncryptedZipExportFormat {
         dos.write(iv)
     }
 
-    internal fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): SecretKey {
+    fun deriveKey(passphrase: CharArray, salt: ByteArray, iterations: Int): SecretKey {
         val spec = PBEKeySpec(passphrase, salt, iterations, 256)
         val factory = SecretKeyFactory.getInstance(PBKDF2_ALG)
         val keyBytes = factory.generateSecret(spec).encoded
