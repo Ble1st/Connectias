@@ -31,7 +31,28 @@ jobs:
       
       - name: Make gradlew executable
         run: chmod +x gradlew
-      
+
+      - name: OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@v3
+        with:
+          project: 'Connectias'
+          path: '.'
+          format: 'HTML'
+          args: >-
+            --scan .
+            --fail-on-cvss 7.0
+            --out dependency-check-report.html
+        continue-on-error: true
+
+      - name: Upload OWASP Dependency Check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report.html
+          retention-days: 30
+        continue-on-error: true
+
       - name: Check for outdated dependencies
         run: |
           echo "Checking for outdated dependencies..."
