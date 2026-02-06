@@ -62,6 +62,10 @@ class PluginMessageBroker {
      * @return Response from receiver plugin, or error response
      */
     suspend fun sendMessage(message: PluginMessage): MessageResponse = withContext(Dispatchers.IO) {
+        // Register pending request BEFORE adding to queue to prevent race condition
+        // If receiver responds very quickly, we need to be ready to receive it
+        val deferred = CompletableDeferred<MessageResponse>()
+        
         mutex.withLock {
             // Validate payload size
             if (message.payload.size > maxPayloadSize) {
@@ -99,9 +103,6 @@ class PluginMessageBroker {
                 )
             }
             
-            // Register pending request BEFORE adding to queue to prevent race condition
-            // If receiver responds very quickly, we need to be ready to receive it
-            val deferred = CompletableDeferred<MessageResponse>()
             pendingRequests[message.requestId] = deferred
             
             // Add to receiver's queue

@@ -282,7 +282,7 @@ class SandboxPluginContext(
      * SECURITY:
      * - Applies a maxBytes cap before converting to String to reduce memory risk.
      */
-    fun httpGetWithInfo(url: String, maxBytes: Int): Result<HttpResult> {
+    internal fun httpGetWithInfo(url: String, maxBytes: Int): Result<HttpResult> {
         return try {
             val bridge = hardwareBridge
                 ?: return Result.failure(IllegalStateException("Hardware Bridge not available"))
