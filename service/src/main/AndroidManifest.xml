@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Service Module Manifest -->
+    <!-- Custom Permission for external apps to submit logs -->
+    
+    <!-- Signature-level permission: Only apps signed with the same key can use this -->
+    <permission
+        android:name="com.ble1st.connectias.permission.SUBMIT_EXTERNAL_LOGS"
+        android:protectionLevel="signature"
+        android:label="@string/permission_submit_external_logs_label"
+        android:description="@string/permission_submit_external_logs_description" />
+
+    <application>
+        <!-- Logging Service - Runs in SEPARATE isolated process for security -->
+        <!-- External apps can bind with SUBMIT_EXTERNAL_LOGS permission -->
+        <!-- Main process can bind without permission (same app UID) for control/viewer -->
+        <service
+            android:name="com.ble1st.connectias.service.logging.LoggingService"
+            android:process=":logging"
+            android:isolatedProcess="true"
+            android:exported="true"
+            android:permission="com.ble1st.connectias.permission.SUBMIT_EXTERNAL_LOGS"
+            android:enabled="true" />
+    </application>
+
+</manifest>
