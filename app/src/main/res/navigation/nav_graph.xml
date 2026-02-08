@@ -15,11 +15,23 @@
         android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
         android:label="@string/nav_settings" />
 
+    <!-- Services Dashboard -->
+    <fragment
+        android:id="@+id/nav_services_dashboard"
+        android:name="com.ble1st.connectias.ui.services.ServicesDashboardFragment"
+        android:label="Services" />
+
     <!-- System Tools -->
     <fragment
         android:id="@+id/nav_log_viewer"
         android:name="com.ble1st.connectias.ui.logging.LogViewerFragment"
         android:label="@string/nav_log_viewer" />
+
+    <!-- Service Log Viewer (external app logs) -->
+    <fragment
+        android:id="@+id/nav_service_log_viewer"
+        android:name="com.ble1st.connectias.ui.servicelogging.ServiceLogViewerFragment"
+        android:label="@string/nav_service_log_viewer" />
 
     <!-- Plugin Management -->
     <fragment

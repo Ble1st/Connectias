@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
+import com.ble1st.connectias.core.servicestate.ServiceIds
+import com.ble1st.connectias.core.servicestate.ServiceStateRepository
 import com.ble1st.connectias.hardware.HardwareBridgeService
 import com.ble1st.connectias.hardware.IHardwareBridge
 import com.ble1st.connectias.plugin.IFileSystemBridge
@@ -31,7 +33,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 class PluginSandboxProxy(
     private val context: Context,
     private val auditManager: SecurityAuditManager? = null,
-    private val pluginLogBridge: PluginLogBridgeImpl? = null
+    private val pluginLogBridge: PluginLogBridgeImpl? = null,
+    private val serviceStateRepository: ServiceStateRepository? = null
 ) {
     
     private var sandboxService: IPluginSandbox? = null
@@ -186,16 +189,24 @@ class PluginSandboxProxy(
                 Timber.w(e, "Failed to set logging bridge in sandbox")
             }
             
-            // Connect to Hardware Bridge Service
-            val bridgeConnected = connectHardwareBridge()
-            if (!bridgeConnected) {
-                Timber.w("Hardware bridge connection failed - plugins will have limited hardware access")
+            // Connect bridges only when enabled in Services Dashboard
+            if (serviceStateRepository == null || serviceStateRepository.isEnabled(ServiceIds.HARDWARE_BRIDGE)) {
+                val bridgeConnected = connectHardwareBridge()
+                if (!bridgeConnected) {
+                    Timber.w("Hardware bridge connection failed - plugins will have limited hardware access")
+                }
             }
-
-            // Connect to Messaging Bridge Service
-            val messagingConnected = connectMessagingBridge()
-            if (!messagingConnected) {
-                Timber.w("Messaging bridge connection failed - plugins will have limited messaging capabilities")
+            if (serviceStateRepository == null || serviceStateRepository.isEnabled(ServiceIds.PLUGIN_MESSAGING)) {
+                val messagingConnected = connectMessagingBridge()
+                if (!messagingConnected) {
+                    Timber.w("Messaging bridge connection failed - plugins will have limited messaging capabilities")
+                }
+            }
+            if (serviceStateRepository == null || serviceStateRepository.isEnabled(ServiceIds.FILE_SYSTEM_BRIDGE)) {
+                val fileSystemConnected = connectFileSystemBridge()
+                if (!fileSystemConnected) {
+                    Timber.w("File system bridge connection failed - file access will be unavailable")
+                }
             }
 
             Timber.i("Successfully connected to plugin sandbox")
@@ -503,6 +514,54 @@ class PluginSandboxProxy(
             }
         } catch (e: Exception) {
             Timber.e(e, "Error disconnecting from sandbox")
+        }
+    }
+
+    /**
+     * Disconnects only the Hardware Bridge (unbind). Sandbox and other bridges remain connected.
+     */
+    fun disconnectHardwareBridge() {
+        try {
+            if (isHardwareBridgeConnected.get()) {
+                context.unbindService(hardwareBridgeConnection)
+                hardwareBridgeService = null
+                isHardwareBridgeConnected.set(false)
+                Timber.i("Disconnected from hardware bridge")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error disconnecting hardware bridge")
+        }
+    }
+
+    /**
+     * Disconnects only the Messaging Bridge (unbind).
+     */
+    fun disconnectMessagingBridge() {
+        try {
+            if (isMessagingBridgeConnected.get()) {
+                context.unbindService(messagingBridgeConnection)
+                messagingBridgeService = null
+                isMessagingBridgeConnected.set(false)
+                Timber.i("Disconnected from messaging bridge")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error disconnecting messaging bridge")
+        }
+    }
+
+    /**
+     * Disconnects only the File System Bridge (unbind).
+     */
+    fun disconnectFileSystemBridge() {
+        try {
+            if (isFileSystemBridgeConnected.get() && fileSystemBridgeConnection != null) {
+                context.unbindService(fileSystemBridgeConnection!!)
+                fileSystemBridgeConnection = null
+                isFileSystemBridgeConnected.set(false)
+                Timber.i("Disconnected from file system bridge")
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "Error disconnecting file system bridge")
         }
     }
     

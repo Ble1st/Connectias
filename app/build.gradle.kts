@@ -232,6 +232,7 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":plugin"))
     implementation(project(":plugin-sdk"))
+    implementation(project(":service"))
     implementation(project(":core:database"))
     implementation(project(":core:data"))
     implementation(project(":core:domain"))

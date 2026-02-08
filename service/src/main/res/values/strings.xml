@@ -1,4 +1,4 @@
 <resources>
     <string name="permission_submit_external_logs_label">Submit External Logs</string>
-    <string name="permission_submit_external_logs_description">Allows apps to submit logs to Connectias Logging Service</string>
+    <string name="permission_submit_external_logs_description">Allows this app to submit logs to Connectias. You can grant or revoke this for each app in system settings.</string>
 </resources>

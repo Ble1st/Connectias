@@ -71,6 +71,13 @@ interface ExternalLogDao {
     suspend fun getLogCount(): Int
 
     /**
+     * Get the timestamp of the oldest log entry (for metrics).
+     * Returns null if the table is empty.
+     */
+    @Query("SELECT MIN(timestamp) FROM external_logs")
+    suspend fun getOldestTimestamp(): Long?
+
+    /**
      * Delete all logs (for testing or reset).
      */
     @Query("DELETE FROM external_logs")

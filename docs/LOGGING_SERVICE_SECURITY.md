@@ -42,7 +42,7 @@ The Connectias Logging Service has been hardened with **enterprise-grade securit
 └─────────────────────┬───────────────────────────────────────┘
                       │ IPC (Binder)
                       │ - UID validation
-                      │ - Signature permission check
+                      │ - Runtime permission (dangerous; user grants, Shizuku-style)
                       ▼
 ┌─────────────────────────────────────────────────────────────┐
 │           Isolated Process (:logging)                        │

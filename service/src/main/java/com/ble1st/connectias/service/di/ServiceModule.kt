@@ -4,6 +4,7 @@
 package com.ble1st.connectias.service.di
 
 import android.content.Context
+import com.ble1st.connectias.core.security.KeyManager
 import com.ble1st.connectias.service.logging.LoggingServiceProxy
 import dagger.Module
 import dagger.Provides
@@ -19,12 +20,13 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 object ServiceModule {
-    
+
     @Provides
     @Singleton
     fun provideLoggingServiceProxy(
-        @ApplicationContext context: Context
+        @ApplicationContext context: Context,
+        keyManager: KeyManager
     ): LoggingServiceProxy {
-        return LoggingServiceProxy(context)
+        return LoggingServiceProxy(context, keyManager)
     }
 }

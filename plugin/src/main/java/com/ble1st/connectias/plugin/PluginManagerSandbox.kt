@@ -5,6 +5,9 @@ import android.os.Bundle
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
 import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
+import com.ble1st.connectias.core.servicestate.ServiceIds
+import com.ble1st.connectias.core.servicestate.ServiceStateRepository
+import com.ble1st.connectias.service.logging.LoggingServiceProxy
 import com.ble1st.connectias.plugin.declarative.model.DeclarativeJson
 import com.ble1st.connectias.plugin.declarative.model.DeclarativePluginValidator
 import com.ble1st.connectias.plugin.sdk.IPlugin
@@ -55,6 +58,8 @@ class PluginManagerSandbox @Inject constructor(
     @param:ApplicationContext private val context: Context,
     private val pluginDirectory: File,
     private val sandboxProxy: PluginSandboxProxy,
+    private val serviceStateRepository: ServiceStateRepository,
+    private val loggingServiceProxy: LoggingServiceProxy,
     private val moduleRegistry: ModuleRegistry? = null,
     private val permissionManager: PluginPermissionManager? = null,
     private val resourceLimiter: EnhancedPluginResourceLimiter,
@@ -115,19 +120,13 @@ class PluginManagerSandbox @Inject constructor(
                 throw result.exceptionOrNull() ?: Exception("Sandbox connection failed")
             }
 
-            // Connect hardware bridge
-            val hardwareConnected = sandboxProxy.connectHardwareBridge()
-            if (!hardwareConnected) {
-                Timber.w("Failed to connect hardware bridge - hardware access will be unavailable")
-            }
-
-            // Connect file system bridge
-            val fileSystemConnected = sandboxProxy.connectFileSystemBridge()
-            if (!fileSystemConnected) {
-                Timber.w("Failed to connect file system bridge - file access will be unavailable")
-            }
+            // Bridges are connected inside sandboxProxy.connect() when enabled in ServiceStateRepository
 
             // ========== Connect to UI Process (Three-Process Architecture) ==========
+            val connectUiProcess = serviceStateRepository.isEnabled(ServiceIds.PLUGIN_UI)
+            if (!connectUiProcess) {
+                Timber.i("[PLUGIN MANAGER] Plugin UI service disabled - skipping UI Process connection")
+            } else {
             Timber.i("[PLUGIN MANAGER] Connecting to UI Process...")
             val uiConnectResult = uiProcessProxy.connect()
             if (uiConnectResult.isFailure) {
@@ -189,6 +188,7 @@ class PluginManagerSandbox @Inject constructor(
                     Timber.e(e, "[PLUGIN MANAGER] Failed to link Sandbox ↔ UI Process")
                 }
             }
+            }
             
             if (!pluginDirectory.exists()) {
                 pluginDirectory.mkdirs()
@@ -224,6 +224,53 @@ class PluginManagerSandbox @Inject constructor(
         } catch (e: Exception) {
             Timber.e(e, "Failed to initialize plugin manager")
             Result.failure(e)
+        }
+    }
+
+    /**
+     * Applies service enabled/disabled state from Services Dashboard: bind or unbind the
+     * corresponding bridge (or sandbox/UI process) immediately.
+     */
+    suspend fun applyServiceState(serviceId: String, enabled: Boolean) = withContext(Dispatchers.IO) {
+        when (serviceId) {
+            ServiceIds.HARDWARE_BRIDGE -> if (enabled) sandboxProxy.connectHardwareBridge()
+                else sandboxProxy.disconnectHardwareBridge()
+            ServiceIds.FILE_SYSTEM_BRIDGE -> if (enabled) sandboxProxy.connectFileSystemBridge()
+                else sandboxProxy.disconnectFileSystemBridge()
+            ServiceIds.PLUGIN_MESSAGING -> if (enabled) sandboxProxy.connectMessagingBridge()
+                else sandboxProxy.disconnectMessagingBridge()
+            ServiceIds.PLUGIN_UI -> if (enabled) {
+                val uiConnectResult = uiProcessProxy.connect()
+                if (uiConnectResult.isSuccess) {
+                    try {
+                        val uiHost = uiProcessProxy.getUIHost()
+                        if (uiHost != null) {
+                            val uiControllerBinder = uiHost.getUIController()
+                            if (uiControllerBinder != null) {
+                                val uiController = com.ble1st.connectias.plugin.ui.IPluginUIController.Stub.asInterface(uiControllerBinder)
+                                if (sandboxProxy.getSandboxService() != null && sandboxProxy.setUIController(uiController)) {
+                                    val sandboxUIBridge = sandboxProxy.getSandboxService()?.getUIBridge()
+                                    if (sandboxUIBridge != null) uiHost.registerUICallback(sandboxUIBridge)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Timber.e(e, "[PLUGIN MANAGER] Failed to link Sandbox ↔ UI Process in applyServiceState")
+                    }
+                }
+            } else {
+                uiProcessProxy.disconnect()
+            }
+            ServiceIds.PLUGIN_SANDBOX -> if (enabled) sandboxProxy.connect()
+                else sandboxProxy.disconnect()
+            ServiceIds.LOGGING_SERVICE -> if (enabled) {
+                val connectResult = loggingServiceProxy.connect()
+                if (connectResult.isSuccess) loggingServiceProxy.setEnabled(true)
+            } else {
+                loggingServiceProxy.setEnabled(false)
+                loggingServiceProxy.disconnect()
+            }
+            else -> { /* unknown service: no bind/unbind */ }
         }
     }
     

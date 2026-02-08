@@ -49,6 +49,7 @@ include(":core:domain")
 include(":core:testing")
 include(":feature-settings")
 include(":benchmark")
+include(":service")
 
 // ============================================================================ 
 // Optional Modules (included based on gradle.properties)
@@ -63,6 +64,11 @@ include(":benchmark")
 // }
 
 // All other feature modules have been removed and migrated to plugins.
+
+// ============================================================================
+// Logging Test App (Debug only – tests LoggingService with runtime permission)
+// ============================================================================
+include(":logging-test-app")
 
 // ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
