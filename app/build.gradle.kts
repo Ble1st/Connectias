@@ -260,9 +260,6 @@ dependencies {
     if (project.findProperty("feature.dnstools.enabled") == "true") {
         implementation(project(":feature-dnstools"))
     }
-    if (project.findProperty("feature.dvd.enabled") == "true") {
-        implementation(project(":feature-dvd"))
-    }
     if (project.findProperty("feature.network.enabled") == "true") {
         implementation(project(":feature-network"))
     }

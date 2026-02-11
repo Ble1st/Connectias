@@ -142,8 +142,7 @@ object StringMappings {
         "USB Device Connected" to "USB Machine Spirit Connected",
         "Available Actions:" to "Available Rites:",
         "View Device Details" to "View Machine Spirit Details",
-        "Eject DVD/CD Drive" to "Eject DVD/CD Drive",
-        
+
         // Security Dashboard
         "Security Dashboard" to "PURITY SEALS",
         "Security Check Passed" to "PURITY SEAL VERIFIED - MACHINE SPIRIT PLEASED",

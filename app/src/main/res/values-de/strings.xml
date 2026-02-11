@@ -6,14 +6,11 @@
     <string name="nav_settings">Einstellungen</string>
     <string name="nav_log_viewer">Log-Viewer</string>
     <string name="nav_dnstools">DNS-Tools</string>
-    <string name="nav_dvd">DVD-Player</string>
     <string name="nav_network">Netzwerk-Tools</string>
     <string name="nav_scanner">Dokumenten-Scanner</string>
     <string name="nav_password">Passwort-Tools</string>
 
     <!-- Allgemeine Aktionen -->
-
-    <!-- CSS-Entschlüsselung (DVD) -->
 
     <!-- Splash Screen -->
 

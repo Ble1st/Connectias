@@ -59,11 +59,6 @@ if (featureDnstoolsEnabled) {
     include(":feature-dnstools")
 }
 
-val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
-if (featureDvdEnabled) {
-    include(":feature-dvd")
-}
-
 val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
 if (featureNetworkEnabled) {
     include(":feature-network")

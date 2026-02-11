@@ -1151,7 +1151,6 @@ private fun getNavIdByName(navIdName: String): Int? {
         "nav_plugin_management" -> R.id.nav_plugin_management
         "nav_services_dashboard" -> R.id.nav_services_dashboard
         "nav_dnstools" -> R.id.nav_dnstools
-        "nav_dvd" -> R.id.nav_dvd
         "nav_network" -> R.id.nav_network
         "nav_scanner" -> R.id.nav_scanner
         "nav_password" -> R.id.nav_password
@@ -1242,7 +1241,6 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
             FeatureDef("Password Tools", Icons.Default.Password, "nav_password")
         )),
         FeatureCategoryDef("Media & Documents", listOf(
-            FeatureDef("DVD Player", Icons.Default.Movie, "nav_dvd"),
             FeatureDef("Document Scanner", Icons.Default.DocumentScanner, "nav_scanner")
         )),
         FeatureCategoryDef("Extensions", listOf(
