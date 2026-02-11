@@ -12,6 +12,7 @@ appcompat = "1.7.1"
 material = "1.13.0"
 activity = "1.12.3"
 constraintlayout = "2.2.1"
+multidex = "2.0.1"
 
 # Hilt Dependency Injection
 # Updated to 2.59 for AGP 9.0 compatibility (released Jan 21, 2026)
@@ -117,6 +118,17 @@ composeBom = "2026.01.01"
 composeAdaptive = "1.2.0"
 activityCompose = "1.12.3"
 
+# Feature Module Dependencies
+opencv = "4.10.0"
+tesseract = "9.1.0"
+media3 = "1.5.1"
+libvlc = "3.6.0-eap14"  # Newer 3.x version, checking for 16KB support
+accompanistPermissions = "0.37.0"
+mpandroidchart = "3.1.0"
+dnsjava = "3.6.2"
+commonsNet = "3.11.1"
+commonmark = "0.24.0"
+
 [libraries]
 # Android Core
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -124,6 +136,7 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
+androidx-multidex = { group = "androidx.multidex", name = "multidex", version.ref = "multidex" }
 
 # Material Design
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
@@ -243,6 +256,31 @@ androidx-datastore-preferences = { group = "androidx.datastore", name = "datasto
 # Profile Installer & Startup
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-startup = { group = "androidx.startup", name = "startup-runtime", version.ref = "startup" }
+
+# Feature Module Dependencies
+# OpenCV für Scanner
+opencv-android = { group = "org.opencv", name = "opencv", version.ref = "opencv" }
+
+# Tesseract OCR für Scanner (via JitPack)
+tesseract-android = { group = "com.github.rmtheis", name = "tess-two", version.ref = "tesseract" }
+
+# Media3 für DVD
+androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
+androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+
+# LibVLC für DVD
+libvlc-all = { group = "org.videolan.android", name = "libvlc-all", version.ref = "libvlc" }
+
+# Accompanist Permissions (für feature-calendar)
+accompanist-permissions = { group = "com.google.accompanist", name = "accompanist-permissions", version.ref = "accompanistPermissions" }
+
+# MPAndroidChart (für feature-deviceinfo)
+mpandroidchart = { group = "com.github.PhilJay", name = "MPAndroidChart", version.ref = "mpandroidchart" }
+
+# DNS Tools Dependencies
+dnsjava = { group = "dnsjava", name = "dnsjava", version.ref = "dnsjava" }
+commons-net = { group = "commons-net", name = "commons-net", version.ref = "commonsNet" }
+commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

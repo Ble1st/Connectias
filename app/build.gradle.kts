@@ -29,6 +29,9 @@ android {
         versionName = project.findProperty("versionName") as? String ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        
+        // Enable MultiDex for apps with more than 64K methods (31 DEX files)
+        multiDexEnabled = true
     }
 
     buildTypes {
@@ -84,12 +87,24 @@ android {
     // }
     packaging {
         jniLibs {
+            // Use 16KB-aligned libc++ from NDK (provided in src/main/jniLibs)
+            // instead of 4KB versions from VLC/OpenCV dependencies
+            // Note: Local jniLibs take precedence over dependencies
             pickFirsts += listOf("**/libc++_shared.so")
+            // Enable 16KB page size alignment for Android 15+ compatibility
+            // useLegacyPackaging = false is the default in AGP 9.0+, ensuring proper alignment
         }
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/NOTICE.md"
             excludes += "/META-INF/LICENSE.md"
+        }
+    }
+
+    // Ensure local jniLibs (with 16KB-aligned libc++) are processed first
+    sourceSets {
+        getByName("main") {
+            jniLibs.setSrcDirs(listOf("src/main/jniLibs"))
         }
     }
 }
@@ -241,9 +256,22 @@ dependencies {
     implementation(project(":common"))
     implementation(project(":feature-settings"))
     
-    // Optional Modules (included based on gradle.properties)
-    // Note: All optional feature modules have been removed and migrated to plugin system
-    // Features are now loaded dynamically via plugin packages
+    // Optional Feature Modules (included based on gradle.properties)
+    if (project.findProperty("feature.dnstools.enabled") == "true") {
+        implementation(project(":feature-dnstools"))
+    }
+    if (project.findProperty("feature.dvd.enabled") == "true") {
+        implementation(project(":feature-dvd"))
+    }
+    if (project.findProperty("feature.network.enabled") == "true") {
+        implementation(project(":feature-network"))
+    }
+    if (project.findProperty("feature.scanner.enabled") == "true") {
+        implementation(project(":feature-scanner"))
+    }
+    if (project.findProperty("feature.password.enabled") == "true") {
+        implementation(project(":feature-password"))
+    }
 
     // Room Database + SQLCipher (for DatabaseModule)
     implementation(libs.androidx.room.runtime)
@@ -260,6 +288,9 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
+    
+    // MultiDex support for apps with >64K methods (31 DEX files)
+    implementation(libs.androidx.multidex)
 
     // Jetpack Compose
     implementation(platform(libs.androidx.compose.bom))
