@@ -12,7 +12,6 @@ object ServiceIds {
     const val FILE_SYSTEM_BRIDGE = "file_system_bridge"
     const val PLUGIN_MESSAGING = "plugin_messaging"
     const val PLUGIN_UI = "plugin_ui"
-    const val LOGGING_SERVICE = "logging_service"
 
     /** All service IDs in display order. */
     val ALL: List<String> = listOf(
@@ -20,7 +19,6 @@ object ServiceIds {
         HARDWARE_BRIDGE,
         FILE_SYSTEM_BRIDGE,
         PLUGIN_MESSAGING,
-        PLUGIN_UI,
-        LOGGING_SERVICE
+        PLUGIN_UI
     )
 }

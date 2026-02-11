@@ -8,16 +8,11 @@ import android.os.Looper
 import com.ble1st.connectias.analytics.collector.PluginAnalyticsCollector
 import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
 import com.ble1st.connectias.plugin.PluginManagerSandbox
-import com.ble1st.connectias.service.logging.LoggingServiceProxy
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @HiltAndroidApp
@@ -103,27 +98,6 @@ class ConnectiasApplication : Application() {
         } catch (e: Exception) {
             Timber.w(e, "[ANALYTICS] Failed to start analytics collector")
         }
-
-        // Bind to LoggingService and set database key so external clients (e.g. logging-test-app)
-        // can submit logs. Key is only accepted from main process; service runs in :logging.
-        if (isMainProcess()) {
-            try {
-                val proxy = EntryPointAccessors.fromApplication(
-                    this,
-                    LoggingServiceEntryPoint::class.java
-                ).loggingServiceProxy()
-                CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-                    val result = proxy.connect()
-                    if (result.isSuccess) {
-                        Timber.d("[LOGGING_PROXY] Startup bind and key set for LoggingService")
-                    } else {
-                        Timber.w("[LOGGING_PROXY] Startup bind failed (service may not be enabled yet)")
-                    }
-                }
-            } catch (e: Exception) {
-                Timber.w(e, "[LOGGING_PROXY] Failed to bind to LoggingService at startup")
-            }
-        }
         
         Timber.d("ConnectiasApplication initialized")
     }
@@ -144,15 +118,6 @@ class ConnectiasApplication : Application() {
     @InstallIn(SingletonComponent::class)
     interface AnalyticsEntryPoint {
         fun pluginAnalyticsCollector(): PluginAnalyticsCollector
-    }
-
-    /**
-     * Hilt EntryPoint for LoggingServiceProxy (bind and set DB key at startup).
-     */
-    @EntryPoint
-    @InstallIn(SingletonComponent::class)
-    interface LoggingServiceEntryPoint {
-        fun loggingServiceProxy(): LoggingServiceProxy
     }
     
     /**

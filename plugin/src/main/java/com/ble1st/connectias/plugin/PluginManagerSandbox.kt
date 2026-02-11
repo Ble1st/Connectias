@@ -7,7 +7,6 @@ import com.ble1st.connectias.core.plugin.PluginSandboxProxy
 import com.ble1st.connectias.core.plugin.PluginUIProcessProxy
 import com.ble1st.connectias.core.servicestate.ServiceIds
 import com.ble1st.connectias.core.servicestate.ServiceStateRepository
-import com.ble1st.connectias.service.logging.LoggingServiceProxy
 import com.ble1st.connectias.plugin.declarative.model.DeclarativeJson
 import com.ble1st.connectias.plugin.declarative.model.DeclarativePluginValidator
 import com.ble1st.connectias.plugin.sdk.IPlugin
@@ -59,7 +58,6 @@ class PluginManagerSandbox @Inject constructor(
     private val pluginDirectory: File,
     private val sandboxProxy: PluginSandboxProxy,
     private val serviceStateRepository: ServiceStateRepository,
-    private val loggingServiceProxy: LoggingServiceProxy,
     private val moduleRegistry: ModuleRegistry? = null,
     private val permissionManager: PluginPermissionManager? = null,
     private val resourceLimiter: EnhancedPluginResourceLimiter,
@@ -263,13 +261,6 @@ class PluginManagerSandbox @Inject constructor(
             }
             ServiceIds.PLUGIN_SANDBOX -> if (enabled) sandboxProxy.connect()
                 else sandboxProxy.disconnect()
-            ServiceIds.LOGGING_SERVICE -> if (enabled) {
-                val connectResult = loggingServiceProxy.connect()
-                if (connectResult.isSuccess) loggingServiceProxy.setEnabled(true)
-            } else {
-                loggingServiceProxy.setEnabled(false)
-                loggingServiceProxy.disconnect()
-            }
             else -> { /* unknown service: no bind/unbind */ }
         }
     }

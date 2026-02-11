@@ -1143,7 +1143,6 @@ private fun getNavIdByName(navIdName: String): Int? {
     return when (navIdName) {
         "nav_settings" -> R.id.nav_settings
         "nav_log_viewer" -> R.id.nav_log_viewer
-        "nav_service_log_viewer" -> R.id.nav_service_log_viewer
         "nav_plugin_management" -> R.id.nav_plugin_management
         "nav_services_dashboard" -> R.id.nav_services_dashboard
         else -> null
@@ -1225,8 +1224,7 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
         FeatureCategoryDef("System & Security", listOf(
             FeatureDef("Settings", Icons.Default.Settings, "nav_settings"),
             FeatureDef("Services", Icons.Filled.Build, "nav_services_dashboard"),
-            FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer"),
-            FeatureDef("Service Logs", Icons.Default.Description, "nav_service_log_viewer")
+            FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer")
         )),
         FeatureCategoryDef("Extensions", listOf(
             FeatureDef("Plugin Management", Icons.Rounded.Apps, "nav_plugin_management")

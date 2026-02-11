@@ -46,7 +46,6 @@ fun serviceIdToLabel(serviceId: String): String = when (serviceId) {
     ServiceIds.FILE_SYSTEM_BRIDGE -> "File System Bridge"
     ServiceIds.PLUGIN_MESSAGING -> "Plugin Messaging"
     ServiceIds.PLUGIN_UI -> "Plugin UI"
-    ServiceIds.LOGGING_SERVICE -> "Logging Service"
     else -> serviceId
 }
 
@@ -56,8 +55,7 @@ val TOGGLEABLE_SERVICE_IDS: List<String> = listOf(
     ServiceIds.HARDWARE_BRIDGE,
     ServiceIds.FILE_SYSTEM_BRIDGE,
     ServiceIds.PLUGIN_MESSAGING,
-    ServiceIds.PLUGIN_UI,
-    ServiceIds.LOGGING_SERVICE
+    ServiceIds.PLUGIN_UI
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

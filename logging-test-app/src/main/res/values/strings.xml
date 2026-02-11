@@ -1,6 +1,0 @@
-<resources>
-    <string name="app_name">Logging Test</string>
-    <string name="permission_rationale">This app needs permission to send logs to Connectias. Grant it to test the Logging Service.</string>
-    <string name="permission_denied">Permission denied. You can grant it in system settings (Apps → Logging Test → Permissions).</string>
-    <string name="open_settings">Open settings</string>
-</resources>

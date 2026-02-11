@@ -66,11 +66,6 @@ include(":service")
 // All other feature modules have been removed and migrated to plugins.
 
 // ============================================================================
-// Logging Test App (Debug only – tests LoggingService with runtime permission)
-// ============================================================================
-include(":logging-test-app")
-
-// ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
 // ============================================================================
 // Note: The test plugin has been replaced by the integrated :plugin-sdk module.

@@ -31,7 +31,6 @@ object ServiceModule {
         @ApplicationContext context: Context
     ): PdfGenerator = PdfGenerator(context)
 
-    // LoggingService is provided via @Inject constructor, no explicit provider needed
     // SecurityService is provided via @Inject constructor, no explicit provider needed
 }
 
