@@ -5,6 +5,7 @@ package com.ble1st.connectias
 
 import android.app.Application
 import android.os.Looper
+import androidx.multidex.MultiDex
 import com.ble1st.connectias.analytics.collector.PluginAnalyticsCollector
 import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
 import com.ble1st.connectias.plugin.PluginManagerSandbox
@@ -52,6 +53,9 @@ class ConnectiasApplication : Application() {
     }
     
     override fun onCreate() {
+        // Enable MultiDex support for apps with >64K methods (31 DEX files)
+        MultiDex.install(this)
+        
         super.onCreate()
         
         // Skip full initialization in isolated sandbox process

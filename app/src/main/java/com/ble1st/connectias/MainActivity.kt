@@ -36,6 +36,11 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Extension
+import androidx.compose.material.icons.filled.Dns
+import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.DocumentScanner
+import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -1145,6 +1150,11 @@ private fun getNavIdByName(navIdName: String): Int? {
         "nav_log_viewer" -> R.id.nav_log_viewer
         "nav_plugin_management" -> R.id.nav_plugin_management
         "nav_services_dashboard" -> R.id.nav_services_dashboard
+        "nav_dnstools" -> R.id.nav_dnstools
+        "nav_dvd" -> R.id.nav_dvd
+        "nav_network" -> R.id.nav_network
+        "nav_scanner" -> R.id.nav_scanner
+        "nav_password" -> R.id.nav_password
         else -> null
     }
 }
@@ -1225,6 +1235,15 @@ fun getFeatureDefinitions(): List<FeatureCategoryDef> {
             FeatureDef("Settings", Icons.Default.Settings, "nav_settings"),
             FeatureDef("Services", Icons.Filled.Build, "nav_services_dashboard"),
             FeatureDef("Log Viewer", Icons.Default.Description, "nav_log_viewer")
+        )),
+        FeatureCategoryDef("Network & Security Tools", listOf(
+            FeatureDef("DNS Tools", Icons.Default.Dns, "nav_dnstools"),
+            FeatureDef("Network Tools", Icons.Default.NetworkCheck, "nav_network"),
+            FeatureDef("Password Tools", Icons.Default.Password, "nav_password")
+        )),
+        FeatureCategoryDef("Media & Documents", listOf(
+            FeatureDef("DVD Player", Icons.Default.Movie, "nav_dvd"),
+            FeatureDef("Document Scanner", Icons.Default.DocumentScanner, "nav_scanner")
         )),
         FeatureCategoryDef("Extensions", listOf(
             FeatureDef("Plugin Management", Icons.Rounded.Apps, "nav_plugin_management")
