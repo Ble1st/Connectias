@@ -2,9 +2,9 @@ name: Tests & Code Quality
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
 
 jobs:
   test:

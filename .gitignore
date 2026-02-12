@@ -146,3 +146,8 @@ rust-project.json
 
 # Rust flamegraph output
 **/flamegraph.svg
+
+# Security scan reports (mobsfscan)
+mobsfscan*.html
+mobsfscan*.json
+mobsfscan*.sarif

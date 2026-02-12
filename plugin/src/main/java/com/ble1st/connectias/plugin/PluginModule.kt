@@ -6,6 +6,7 @@ import android.content.Context
 import com.ble1st.connectias.core.module.ModuleRegistry
 import com.ble1st.connectias.core.plugin.PluginDependencyResolverV2
 import com.ble1st.connectias.core.plugin.PluginSandboxProxy
+import com.ble1st.connectias.core.servicestate.ServiceStateRepository
 import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
 import com.ble1st.connectias.plugin.security.PluginThreadMonitor
 import com.ble1st.connectias.plugin.security.SecurityAuditManager
@@ -71,6 +72,7 @@ object PluginModule {
     fun providePluginManagerSandbox(
         @ApplicationContext context: Context,
         sandboxProxy: PluginSandboxProxy,
+        serviceStateRepository: ServiceStateRepository,
         moduleRegistry: ModuleRegistry,
         permissionManager: PluginPermissionManager,
         resourceLimiter: EnhancedPluginResourceLimiter,
@@ -83,6 +85,7 @@ object PluginModule {
             context = context,
             pluginDirectory = pluginDirectory,
             sandboxProxy = sandboxProxy,
+            serviceStateRepository = serviceStateRepository,
             moduleRegistry = moduleRegistry,
             permissionManager = permissionManager,
             resourceLimiter = resourceLimiter,

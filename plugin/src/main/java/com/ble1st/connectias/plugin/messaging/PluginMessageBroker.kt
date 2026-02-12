@@ -62,6 +62,10 @@ class PluginMessageBroker {
      * @return Response from receiver plugin, or error response
      */
     suspend fun sendMessage(message: PluginMessage): MessageResponse = withContext(Dispatchers.IO) {
+        // Register pending request BEFORE adding to queue to prevent race condition
+        // If receiver responds very quickly, we need to be ready to receive it
+        val deferred = CompletableDeferred<MessageResponse>()
+        
         mutex.withLock {
             // Validate payload size
             if (message.payload.size > maxPayloadSize) {
@@ -99,6 +103,8 @@ class PluginMessageBroker {
                 )
             }
             
+            pendingRequests[message.requestId] = deferred
+            
             // Add to receiver's queue
             val queue = messageQueues.getOrPut(message.receiverId) {
                 LinkedBlockingQueue()
@@ -106,6 +112,8 @@ class PluginMessageBroker {
             
             val offered = queue.offer(message)
             if (!offered) {
+                // Cleanup pending request if queue is full
+                pendingRequests.remove(message.requestId)
                 Timber.w("Message queue full for plugin: ${message.receiverId}")
                 return@withContext MessageResponse.error(
                     message.requestId,
@@ -117,8 +125,6 @@ class PluginMessageBroker {
         }
         
         // Wait for response (with timeout)
-        val deferred = CompletableDeferred<MessageResponse>()
-        pendingRequests[message.requestId] = deferred
         
         try {
             val response = withTimeoutOrNull(defaultTimeoutMs) {

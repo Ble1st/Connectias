@@ -19,5 +19,8 @@ linker = "x86_64-linux-android-clang"
 [build]
 rustflags = [
     "-C", "link-arg=-Wl,-soname,libconnectias_root_detector.so",
+    # Android 16KB page size support (required for Android 15+)
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,-z,common-page-size=16384",
 ]
 

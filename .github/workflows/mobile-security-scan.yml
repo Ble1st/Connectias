@@ -1,0 +1,61 @@
+# Mobile Security Scan (MobSF-style)
+# Static analysis for insecure code patterns in Android source (Java, Kotlin, XML).
+# Uses MobSF rules via mobsfscan - similar to Mobile Security Framework static analysis.
+# See: https://github.com/MobSF/mobsfscan
+
+name: Mobile Security Scan
+
+on:
+  push:
+    branches: [ main, devel ]
+  pull_request:
+    branches: [ main, devel ]
+  schedule:
+    - cron: '0 3 * * 0'
+
+jobs:
+  mobsfscan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Run mobsfscan (Android source)
+        id: scan
+        run: |
+          pip install --quiet mobsfscan semgrep
+          mobsfscan app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark \
+            --type android \
+            --json --output mobsfscan-report.json \
+            --no-fail || true
+          mobsfscan app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark \
+            --type android \
+            --sarif --output mobsfscan-results.sarif \
+            --no-fail || true
+
+      - name: Upload mobsfscan JSON report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobsfscan-report
+          path: mobsfscan-report.json
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Upload SARIF to Code Scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: mobsfscan-results.sarif
+          category: mobile-security-scan
+        continue-on-error: true

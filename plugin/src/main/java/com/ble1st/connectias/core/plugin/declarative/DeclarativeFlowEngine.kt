@@ -37,7 +37,7 @@ class DeclarativeFlowEngine(
         runFlowWithResult(flow, trigger, triggerContext)
     }
 
-    internal fun runFlowWithResult(
+    fun runFlowWithResult(
         flow: DeclarativeFlowDefinition,
         trigger: DeclarativeTrigger,
         triggerContext: TriggerContext
@@ -471,7 +471,7 @@ class DeclarativeFlowEngine(
         return items.map { LinkedHashMap(it) }
     }
 
-    internal data class RunResult(
+    data class RunResult(
         val ok: Boolean,
         val flowId: String,
         val triggerType: String,

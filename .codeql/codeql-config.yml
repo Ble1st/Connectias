@@ -1,0 +1,12 @@
+name: "Connectias CodeQL Configuration"
+
+# Exclude Kotlin files from analysis
+# CodeQL currently supports Kotlin up to 2.2.30, but project uses 2.3.0
+# This configuration excludes Kotlin files to avoid version incompatibility errors
+paths-ignore:
+  - "**/*.kt"
+  - "**/*.kts"
+
+# Only analyze Java files
+paths:
+  - "**/*.java"

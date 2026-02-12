@@ -5,6 +5,7 @@ package com.ble1st.connectias
 
 import android.app.Application
 import android.os.Looper
+import androidx.multidex.MultiDex
 import com.ble1st.connectias.analytics.collector.PluginAnalyticsCollector
 import com.ble1st.connectias.core.logging.LoggingTreeEntryPoint
 import com.ble1st.connectias.plugin.PluginManagerSandbox
@@ -30,6 +31,12 @@ class ConnectiasApplication : Application() {
         val processName = getCurrentProcessName()
         return processName.contains(":plugin_sandbox")
     }
+
+    /** True if this is the default (main) process, not :logging, :plugin_ui, or :plugin_sandbox. */
+    private fun isMainProcess(): Boolean {
+        val processName = getCurrentProcessName()
+        return !processName.contains(":")
+    }
     
     private fun getCurrentProcessName(): String {
         // IMPORTANT: Use Application.getProcessName() which is reliable for multi-process apps.
@@ -46,6 +53,9 @@ class ConnectiasApplication : Application() {
     }
     
     override fun onCreate() {
+        // Enable MultiDex support for apps with >64K methods (31 DEX files)
+        MultiDex.install(this)
+        
         super.onCreate()
         
         // Skip full initialization in isolated sandbox process

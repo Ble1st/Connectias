@@ -1,6 +1,7 @@
 package com.ble1st.connectias.hardware
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.graphics.ImageFormat
@@ -428,6 +429,7 @@ class CameraBridge(private val context: Context) {
      * Production code should use proper callbacks
      */
     @Suppress("DEPRECATION")
+    @SuppressLint("MissingPermission") // Permission checked above
     private fun openCameraSync(cameraId: String): CameraDevice {
         // Check camera permission before opening camera
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {

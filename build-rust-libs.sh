@@ -84,23 +84,98 @@ for RUST_ABI in "${RUST_ABIS[@]}"; do
 done
 
 echo "========================================="
+echo "✓ Core Rust build completed successfully"
+echo "========================================="
+echo ""
+
+# Navigate back to project root
+cd ../../../..
+
+# ============================================================================
+# Feature-Network Rust Library
+# ============================================================================
+if [ -d "feature-network/src/main/rust" ]; then
+  echo "========================================="
+  echo "Building feature-network Rust library"
+  echo "========================================="
+  echo ""
+  
+  cd "feature-network/src/main/rust"
+  
+  NETWORK_JNI_LIBS_BASE="../jniLibs"
+  mkdir -p "${NETWORK_JNI_LIBS_BASE}"
+  
+  for RUST_ABI in "${RUST_ABIS[@]}"; do
+    echo "----------------------------------------"
+    echo "Building feature-network for ${RUST_ABI}..."
+    echo "----------------------------------------"
+    
+    # Build with cargo-ndk
+    cargo ndk \
+      --target "${RUST_ABI}" \
+      --platform 33 \
+      -- build --release
+    
+    # Verify build succeeded
+    TARGET_DIR="target/${RUST_ABI}/release"
+    LIB_FILE="${TARGET_DIR}/libconnectias_port_scanner.so"
+    
+    if [ ! -f "${LIB_FILE}" ]; then
+      echo "✗ Build failed for ${RUST_ABI} - library not found at ${LIB_FILE}"
+      exit 1
+    fi
+    
+    echo "✓ Built successfully for ${RUST_ABI}"
+    
+    # Get Android ABI name
+    ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+    
+    # Copy to jniLibs directory
+    NETWORK_JNI_LIBS_DIR="${NETWORK_JNI_LIBS_BASE}/${ANDROID_ABI}"
+    mkdir -p "${NETWORK_JNI_LIBS_DIR}"
+    cp "${LIB_FILE}" "${NETWORK_JNI_LIBS_DIR}/libconnectias_port_scanner.so"
+    
+    # Verify copy succeeded
+    if [ -f "${NETWORK_JNI_LIBS_DIR}/libconnectias_port_scanner.so" ]; then
+      echo "✓ Copied to ${NETWORK_JNI_LIBS_DIR}/libconnectias_port_scanner.so"
+      ls -lh "${NETWORK_JNI_LIBS_DIR}/libconnectias_port_scanner.so"
+    else
+      echo "✗ Failed to copy library to ${NETWORK_JNI_LIBS_DIR}/"
+      exit 1
+    fi
+    echo ""
+  done
+  
+  echo "✓ Feature-network Rust build completed"
+  echo ""
+  
+  # Navigate back to project root
+  cd ../../../..
+else
+  echo "⊘ Skipping feature-network Rust build (directory not found)"
+fi
+
+# ============================================================================
+# Build Summary
+# ============================================================================
+echo "========================================="
 echo "✓ All Rust builds completed successfully"
 echo "========================================="
 echo ""
 
-echo "Verifying jniLibs directory structure:"
-find "${JNI_LIBS_BASE}" -name "*.so" -type f | sort
+echo "Core module libraries:"
+find "core/src/main/jniLibs" -name "*.so" -type f 2>/dev/null | sort || echo "  (none)"
 echo ""
 
-echo "Library sizes:"
-find "${JNI_LIBS_BASE}" -name "*.so" -type f -exec ls -lh {} \;
+echo "Feature-network libraries:"
+find "feature-network/src/main/jniLibs" -name "*.so" -type f 2>/dev/null | sort || echo "  (none)"
 echo ""
 
 echo "========================================="
 echo "Build Summary:"
 echo "========================================="
 echo "✓ Libraries built for: ${RUST_ABIS[*]}"
-echo "✓ Output directory: ${JNI_LIBS_BASE}"
-echo "✓ CMake directories: target/*/release/"
+echo "✓ Core output: core/src/main/jniLibs"
+echo "✓ Feature-network output: feature-network/src/main/jniLibs"
 echo ""
 echo "Ready for Gradle build!"

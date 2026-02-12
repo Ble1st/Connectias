@@ -70,6 +70,7 @@ dependencies {
     // Core Modules
     implementation(project(":core"))
     implementation(project(":plugin-sdk"))
+    implementation(project(":service"))
     implementation(project(":common"))
     implementation(project(":core:ui"))
     implementation(project(":core:designsystem"))

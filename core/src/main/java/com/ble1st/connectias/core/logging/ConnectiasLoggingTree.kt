@@ -34,14 +34,18 @@ class ConnectiasLoggingTree @Inject constructor(
             else -> LogLevel.DEBUG
         }
         
+        // Security: Mask sensitive data in log messages
+        val sanitizedMessage = sanitizeLogMessage(message)
+        val sanitizedThrowable = t?.let { sanitizeThrowable(it) }
+        
         // Write to database asynchronously
         loggingScope.launch {
             try {
                 logMessageUseCase(
                     level = level,
                     tag = tag ?: "Unknown",
-                    message = message,
-                    throwable = t
+                    message = sanitizedMessage,
+                    throwable = sanitizedThrowable
                 )
             } catch (e: Exception) {
                 // Don't log logging errors to avoid infinite loops
@@ -49,6 +53,37 @@ class ConnectiasLoggingTree @Inject constructor(
                 Log.e("ConnectiasLoggingTree", "Failed to persist log", e)
             }
         }
+    }
+    
+    /**
+     * Sanitizes log messages by masking sensitive data patterns.
+     * Security: Prevents logging of passwords, tokens, API keys, etc.
+     */
+    private fun sanitizeLogMessage(message: String): String {
+        var sanitized = message
+        
+        // Mask password patterns (password=xxx, pwd=xxx, passwd=xxx)
+        sanitized = Regex("(?i)(password|pwd|passwd)\\s*[:=]\\s*[^\\s\"']+", RegexOption.IGNORE_CASE)
+            .replace(sanitized) { "${it.value.substringBefore("=")}=***" }
+        
+        // Mask API keys and tokens (api_key=xxx, token=xxx, secret=xxx)
+        sanitized = Regex("(?i)(api[_-]?key|token|secret|auth[_-]?token)\\s*[:=]\\s*[^\\s\"']+", RegexOption.IGNORE_CASE)
+            .replace(sanitized) { "${it.value.substringBefore("=")}=***" }
+        
+        // Mask email addresses in logs (optional, can be enabled if needed)
+        // sanitized = Regex("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}")
+        //     .replace(sanitized) { "***@***.***" }
+        
+        return sanitized
+    }
+    
+    /**
+     * Sanitizes throwable stack traces by masking sensitive data.
+     */
+    private fun sanitizeThrowable(throwable: Throwable): Throwable {
+        // For now, return as-is. Stack traces typically don't contain sensitive data.
+        // If needed, can add sanitization here.
+        return throwable
     }
     
     override fun isLoggable(tag: String?, priority: Int): Boolean {

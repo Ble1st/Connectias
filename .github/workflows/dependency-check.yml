@@ -2,9 +2,9 @@ name: Dependency Check
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   schedule:
     - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
 
@@ -99,4 +99,3 @@ jobs:
           name: app-dependencies
           path: app-dependencies.txt
           retention-days: 30
-

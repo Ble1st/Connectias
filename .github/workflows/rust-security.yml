@@ -2,9 +2,9 @@ name: Rust Security Audit
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, devel ]
 
 jobs:
   rust-audit:

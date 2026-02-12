@@ -5,6 +5,10 @@
     <string name="nav_settings">Settings</string>
     <string name="nav_log_viewer">Log Viewer</string>
     <string name="nav_plugin_management" translatable="false">Plugin Management</string>
+    <string name="nav_dnstools">DNS Tools</string>
+    <string name="nav_network">Network Tools</string>
+    <string name="nav_scanner">Document Scanner</string>
+    <string name="nav_password">Password Tools</string>
 
     <!-- Generic actions -->
 

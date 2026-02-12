@@ -6,6 +6,7 @@ import com.ble1st.connectias.plugin.security.EnhancedPluginNetworkPolicy
 import com.ble1st.connectias.plugin.security.PluginNetworkTracker
 import com.ble1st.connectias.plugin.security.NetworkUsageAggregator
 import com.ble1st.connectias.plugin.security.SecurityAuditManager
+import com.ble1st.connectias.core.servicestate.ServiceStateRepository
 import com.ble1st.connectias.plugin.security.EnhancedPluginResourceLimiter
 import dagger.Module
 import dagger.Provides
@@ -60,12 +61,14 @@ object NetworkPolicyModule {
     fun providePluginSandboxProxy(
         @dagger.hilt.android.qualifiers.ApplicationContext context: Context,
         auditManager: SecurityAuditManager,
-        pluginLogBridge: com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl
+        pluginLogBridge: com.ble1st.connectias.plugin.logging.PluginLogBridgeImpl,
+        serviceStateRepository: ServiceStateRepository
     ): com.ble1st.connectias.core.plugin.PluginSandboxProxy {
         return com.ble1st.connectias.core.plugin.PluginSandboxProxy(
             context = context,
             auditManager = auditManager,
-            pluginLogBridge = pluginLogBridge
+            pluginLogBridge = pluginLogBridge,
+            serviceStateRepository = serviceStateRepository
         )
     }
     

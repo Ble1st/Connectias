@@ -7,22 +7,38 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.system.ErrnoException
 import android.system.Os
+import com.ble1st.connectias.core.servicestate.ServiceIds
+import com.ble1st.connectias.core.servicestate.ServiceStateRepository
 import com.ble1st.connectias.plugin.IFileSystemBridge
 import com.ble1st.connectias.plugin.ISAFResultCallback
 import com.ble1st.connectias.plugin.security.PluginIdentitySession
+import dagger.hilt.android.AndroidEntryPoint
 import timber.log.Timber
 import java.io.File
 import java.io.FileNotFoundException
+import javax.inject.Inject
 
 /**
  * File System Bridge Service
- * Provides secure file system access for plugins running in isolated process
+ * Provides secure file system access for plugins running in isolated process.
+ * Rejects all operations when the File System Bridge is disabled in the Services Dashboard.
  */
+@AndroidEntryPoint
 class FileSystemBridgeService : Service() {
-    
+
+    @Inject
+    lateinit var serviceStateRepository: ServiceStateRepository
+
+    private fun isBridgeEnabled(): Boolean =
+        serviceStateRepository.isEnabled(ServiceIds.FILE_SYSTEM_BRIDGE)
+
     private val binder = object : IFileSystemBridge.Stub() {
-        
+
         override fun createFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected createFile: file system bridge is disabled")
+                return null
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -69,6 +85,10 @@ class FileSystemBridgeService : Service() {
         }
         
         override fun openFile(pluginId: String, sessionToken: Long, path: String, mode: Int): ParcelFileDescriptor? {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected openFile: file system bridge is disabled")
+                return null
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -112,6 +132,10 @@ class FileSystemBridgeService : Service() {
         }
         
         override fun deleteFile(pluginId: String, sessionToken: Long, path: String): Boolean {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected deleteFile: file system bridge is disabled")
+                return false
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -146,6 +170,10 @@ class FileSystemBridgeService : Service() {
         }
         
         override fun fileExists(pluginId: String, sessionToken: Long, path: String): Boolean {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected fileExists: file system bridge is disabled")
+                return false
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -171,6 +199,10 @@ class FileSystemBridgeService : Service() {
         }
         
         override fun listFiles(pluginId: String, sessionToken: Long, path: String): Array<String> {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected listFiles: file system bridge is disabled")
+                return emptyArray()
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -201,6 +233,10 @@ class FileSystemBridgeService : Service() {
         }
         
         override fun getFileSize(pluginId: String, sessionToken: Long, path: String): Long {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected getFileSize: file system bridge is disabled")
+                return -1L
+            }
             return try {
                 // Validate plugin ID
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -237,6 +273,11 @@ class FileSystemBridgeService : Service() {
             content: ByteArray,
             callback: ISAFResultCallback
         ) {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected createFileViaSAF: file system bridge is disabled")
+                callback.onError("File system bridge is disabled")
+                return
+            }
             try {
                 // Validate plugin ID BEFORE starting Activity
                 if (!isValidPluginId(pluginId, sessionToken)) {
@@ -292,6 +333,11 @@ class FileSystemBridgeService : Service() {
             mimeType: String,
             callback: ISAFResultCallback
         ) {
+            if (!isBridgeEnabled()) {
+                Timber.w("[FS_BRIDGE] Rejected openFileViaSAF: file system bridge is disabled")
+                callback.onError("File system bridge is disabled")
+                return
+            }
             try {
                 // Validate plugin ID BEFORE starting Activity
                 if (!isValidPluginId(pluginId, sessionToken)) {

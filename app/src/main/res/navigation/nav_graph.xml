@@ -15,6 +15,36 @@
         android:name="com.ble1st.connectias.feature.settings.ui.SettingsFragment"
         android:label="@string/nav_settings" />
 
+    <!-- DNS Tools -->
+    <fragment
+        android:id="@+id/nav_dnstools"
+        android:name="com.ble1st.connectias.feature.dnstools.ui.DnsToolsFragment"
+        android:label="@string/nav_dnstools" />
+
+    <!-- Network Tools -->
+    <fragment
+        android:id="@+id/nav_network"
+        android:name="com.ble1st.connectias.feature.network.ui.NetworkToolsFragment"
+        android:label="@string/nav_network" />
+
+    <!-- Document Scanner -->
+    <fragment
+        android:id="@+id/nav_scanner"
+        android:name="com.ble1st.connectias.feature.scanner.ui.ScannerFragment"
+        android:label="@string/nav_scanner" />
+
+    <!-- Password Tools -->
+    <fragment
+        android:id="@+id/nav_password"
+        android:name="com.ble1st.connectias.feature.password.ui.PasswordFragment"
+        android:label="@string/nav_password" />
+
+    <!-- Services Dashboard -->
+    <fragment
+        android:id="@+id/nav_services_dashboard"
+        android:name="com.ble1st.connectias.ui.services.ServicesDashboardFragment"
+        android:label="Services" />
+
     <!-- System Tools -->
     <fragment
         android:id="@+id/nav_log_viewer"

@@ -49,20 +49,30 @@ include(":core:domain")
 include(":core:testing")
 include(":feature-settings")
 include(":benchmark")
+include(":service")
 
 // ============================================================================ 
-// Optional Modules (included based on gradle.properties)
+// Optional Feature Modules (included based on gradle.properties)
 // ============================================================================ 
-// Note: All optional feature modules have been migrated to the plugin system.
-// Features are now loaded dynamically via plugin packages.
-// The following conditional includes are kept for reference but disabled:
+val featureDnstoolsEnabled = providers.gradleProperty("feature.dnstools.enabled").orNull == "true"
+if (featureDnstoolsEnabled) {
+    include(":feature-dnstools")
+}
 
-// val featureDvdEnabled = providers.gradleProperty("feature.dvd.enabled").orNull == "true"
-// if (featureDvdEnabled) {
-//     include(":feature-dvd")
-// }
+val featureNetworkEnabled = providers.gradleProperty("feature.network.enabled").orNull == "true"
+if (featureNetworkEnabled) {
+    include(":feature-network")
+}
 
-// All other feature modules have been removed and migrated to plugins.
+val featureScannerEnabled = providers.gradleProperty("feature.scanner.enabled").orNull == "true"
+if (featureScannerEnabled) {
+    include(":feature-scanner")
+}
+
+val featurePasswordEnabled = providers.gradleProperty("feature.password.enabled").orNull == "true"
+if (featurePasswordEnabled) {
+    include(":feature-password")
+}
 
 // ============================================================================
 // Test Plugin (eigenständiges APK für Plugin-System)
