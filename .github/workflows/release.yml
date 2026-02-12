@@ -125,52 +125,225 @@ jobs:
           done
           
           echo ""
-          echo "✓ All Rust builds completed successfully"
+          echo "✓ Core Rust build completed successfully"
           echo ""
-          echo "Verifying jniLibs directory structure:"
+          echo "Verifying core jniLibs directory structure:"
           find "${JNI_LIBS_BASE}" -name "*.so" -type f | sort
           echo ""
-          echo "Library sizes:"
+          echo "Core library sizes:"
           find "${JNI_LIBS_BASE}" -name "*.so" -type f -exec ls -lh {} \;
+
+      - name: Build feature-password Rust library
+        working-directory: feature-password/src/main/rust
+        continue-on-error: false
+        run: |
+          echo "Building feature-password Rust library..."
+          
+          declare -A ABI_MAP=(
+            ["aarch64-linux-android"]="arm64-v8a"
+            ["armv7-linux-androideabi"]="armeabi-v7a"
+            ["x86_64-linux-android"]="x86_64"
+            ["i686-linux-android"]="x86"
+          )
+          
+          RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          WORKSPACE="${GITHUB_WORKSPACE:-$(cd ../../.. && pwd)}"
+          JNI_LIBS_BASE="${WORKSPACE}/feature-password/src/main/jniLibs"
+          
+          mkdir -p "${JNI_LIBS_BASE}"
+          
+          for RUST_ABI in "${RUST_ABIS[@]}"; do
+            echo "Building feature-password for ${RUST_ABI}..."
+            cargo ndk --target "${RUST_ABI}" --platform 33 -- build --release
+            
+            TARGET_DIR="target/${RUST_ABI}/release"
+            LIB_FILE="${TARGET_DIR}/libconnectias_password_generator.so"
+            
+            if [ ! -f "${LIB_FILE}" ]; then
+              echo "✗ Build failed for ${RUST_ABI} - library not found"
+              exit 1
+            fi
+            
+            ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+            JNI_LIBS_DIR="${JNI_LIBS_BASE}/${ANDROID_ABI}"
+            mkdir -p "${JNI_LIBS_DIR}"
+            cp "${LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_password_generator.so"
+            
+            # Also create copy for CMake
+            CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
+            mkdir -p "${CMAKE_TARGET_DIR}"
+            cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/libconnectias_password_generator.so"
+            
+            echo "✓ Built and copied for ${ANDROID_ABI}"
+          done
+          
+          echo "✓ Feature-password Rust build completed"
+
+      - name: Build feature-dnstools Rust library
+        working-directory: feature-dnstools/src/main/rust
+        continue-on-error: false
+        run: |
+          echo "Building feature-dnstools Rust library..."
+          
+          declare -A ABI_MAP=(
+            ["aarch64-linux-android"]="arm64-v8a"
+            ["armv7-linux-androideabi"]="armeabi-v7a"
+            ["x86_64-linux-android"]="x86_64"
+            ["i686-linux-android"]="x86"
+          )
+          
+          RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          WORKSPACE="${GITHUB_WORKSPACE:-$(cd ../../.. && pwd)}"
+          JNI_LIBS_BASE="${WORKSPACE}/feature-dnstools/src/main/jniLibs"
+          
+          mkdir -p "${JNI_LIBS_BASE}"
+          
+          for RUST_ABI in "${RUST_ABIS[@]}"; do
+            echo "Building feature-dnstools for ${RUST_ABI}..."
+            cargo ndk --target "${RUST_ABI}" --platform 33 -- build --release
+            
+            TARGET_DIR="target/${RUST_ABI}/release"
+            LIB_FILE="${TARGET_DIR}/libconnectias_dns_tools.so"
+            
+            if [ ! -f "${LIB_FILE}" ]; then
+              echo "✗ Build failed for ${RUST_ABI} - library not found"
+              exit 1
+            fi
+            
+            ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+            JNI_LIBS_DIR="${JNI_LIBS_BASE}/${ANDROID_ABI}"
+            mkdir -p "${JNI_LIBS_DIR}"
+            cp "${LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_dns_tools.so"
+            
+            # Also create copy for CMake
+            CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
+            mkdir -p "${CMAKE_TARGET_DIR}"
+            cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/libconnectias_dns_tools.so"
+            
+            echo "✓ Built and copied for ${ANDROID_ABI}"
+          done
+          
+          echo "✓ Feature-dnstools Rust build completed"
+
+      - name: Build feature-network Rust library
+        working-directory: feature-network/src/main/rust
+        continue-on-error: false
+        run: |
+          echo "Building feature-network Rust library..."
+          
+          declare -A ABI_MAP=(
+            ["aarch64-linux-android"]="arm64-v8a"
+            ["armv7-linux-androideabi"]="armeabi-v7a"
+            ["x86_64-linux-android"]="x86_64"
+            ["i686-linux-android"]="x86"
+          )
+          
+          RUST_ABIS=("aarch64-linux-android" "armv7-linux-androideabi" "x86_64-linux-android" "i686-linux-android")
+          WORKSPACE="${GITHUB_WORKSPACE:-$(cd ../../.. && pwd)}"
+          JNI_LIBS_BASE="${WORKSPACE}/feature-network/src/main/jniLibs"
+          
+          mkdir -p "${JNI_LIBS_BASE}"
+          
+          for RUST_ABI in "${RUST_ABIS[@]}"; do
+            echo "Building feature-network for ${RUST_ABI}..."
+            cargo ndk --target "${RUST_ABI}" --platform 33 -- build --release
+            
+            TARGET_DIR="target/${RUST_ABI}/release"
+            LIB_FILE="${TARGET_DIR}/libconnectias_port_scanner.so"
+            
+            if [ ! -f "${LIB_FILE}" ]; then
+              echo "✗ Build failed for ${RUST_ABI} - library not found"
+              exit 1
+            fi
+            
+            ANDROID_ABI="${ABI_MAP[${RUST_ABI}]}"
+            JNI_LIBS_DIR="${JNI_LIBS_BASE}/${ANDROID_ABI}"
+            mkdir -p "${JNI_LIBS_DIR}"
+            cp "${LIB_FILE}" "${JNI_LIBS_DIR}/libconnectias_port_scanner.so"
+            
+            # Also create copy for CMake
+            CMAKE_TARGET_DIR="target/${ANDROID_ABI}/release"
+            mkdir -p "${CMAKE_TARGET_DIR}"
+            cp "${LIB_FILE}" "${CMAKE_TARGET_DIR}/libconnectias_port_scanner.so"
+            
+            echo "✓ Built and copied for ${ANDROID_ABI}"
+          done
+          
+          echo "✓ Feature-network Rust build completed"
 
       - name: Verify Rust libraries before Gradle build
         run: |
-          echo "Verifying Rust libraries are in place before Gradle build..."
+          echo "Verifying all Rust libraries are in place before Gradle build..."
           echo "Current working directory: $(pwd)"
           
-          # Use absolute path from repository root (GITHUB_WORKSPACE is set by GitHub Actions)
           WORKSPACE="${GITHUB_WORKSPACE:-$PWD}"
-          JNI_LIBS_DIR="${WORKSPACE}/core/src/main/jniLibs"
+          MISSING_LIBS=0
           
-          echo "Workspace: ${WORKSPACE}"
-          echo "Looking for libraries in: ${JNI_LIBS_DIR}"
+          # Function to verify library
+          verify_library() {
+            local LIB_PATH="$1"
+            local LIB_NAME="$2"
+            
+            if [ ! -f "${LIB_PATH}" ]; then
+              echo "✗ ERROR: Missing library: ${LIB_NAME}"
+              echo "  Expected at: ${LIB_PATH}"
+              MISSING_LIBS=$((MISSING_LIBS + 1))
+              return 1
+            else
+              echo "✓ Verified: ${LIB_NAME}"
+              ls -lh "${LIB_PATH}"
+              return 0
+            fi
+          }
           
-          # Check if directory exists
-          if [ ! -d "${JNI_LIBS_DIR}" ]; then
-            echo "✗ ERROR: jniLibs directory does not exist: ${JNI_LIBS_DIR}"
-            echo "Checking parent directory:"
-            ls -la "${WORKSPACE}/core/src/main/" 2>/dev/null || echo "core/src/main/ does not exist"
-            exit 1
-          fi
-          
-          # Check for arm64-v8a (required for release build)
-          if [ ! -f "${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so" ]; then
-            echo "✗ ERROR: Required library not found: ${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so"
-            echo "Available files in jniLibs:"
-            find "${JNI_LIBS_DIR}" -type f 2>/dev/null || echo "No files found"
-            echo ""
-            echo "Directory structure:"
-            find "${JNI_LIBS_DIR}" -type d 2>/dev/null || echo "Directory does not exist"
-            exit 1
-          fi
-          
-          echo "✓ Verified: ${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so exists"
-          ls -lh "${JNI_LIBS_DIR}/arm64-v8a/libconnectias_root_detector.so"
-          
-          # List all available libraries
           echo ""
-          echo "All available native libraries:"
-          find "${JNI_LIBS_DIR}" -name "*.so" -type f | sort
+          echo "=== Verifying Core Rust Library ==="
+          CORE_JNI_LIBS="${WORKSPACE}/core/src/main/jniLibs"
+          if [ ! -d "${CORE_JNI_LIBS}" ]; then
+            echo "✗ ERROR: Core jniLibs directory does not exist"
+            MISSING_LIBS=$((MISSING_LIBS + 1))
+          else
+            verify_library "${CORE_JNI_LIBS}/arm64-v8a/libconnectias_root_detector.so" "core/libconnectias_root_detector.so (arm64-v8a)"
+          fi
+          
+          echo ""
+          echo "=== Verifying Feature-Password Rust Library ==="
+          PASSWORD_JNI_LIBS="${WORKSPACE}/feature-password/src/main/jniLibs"
+          if [ ! -d "${PASSWORD_JNI_LIBS}" ]; then
+            echo "⚠ WARNING: Feature-password jniLibs directory does not exist (module may be optional)"
+          else
+            verify_library "${PASSWORD_JNI_LIBS}/arm64-v8a/libconnectias_password_generator.so" "feature-password/libconnectias_password_generator.so (arm64-v8a)"
+          fi
+          
+          echo ""
+          echo "=== Verifying Feature-DNSTools Rust Library ==="
+          DNSTOOLS_JNI_LIBS="${WORKSPACE}/feature-dnstools/src/main/jniLibs"
+          if [ ! -d "${DNSTOOLS_JNI_LIBS}" ]; then
+            echo "⚠ WARNING: Feature-dnstools jniLibs directory does not exist (module may be optional)"
+          else
+            verify_library "${DNSTOOLS_JNI_LIBS}/arm64-v8a/libconnectias_dns_tools.so" "feature-dnstools/libconnectias_dns_tools.so (arm64-v8a)"
+          fi
+          
+          echo ""
+          echo "=== Verifying Feature-Network Rust Library ==="
+          NETWORK_JNI_LIBS="${WORKSPACE}/feature-network/src/main/jniLibs"
+          if [ ! -d "${NETWORK_JNI_LIBS}" ]; then
+            echo "⚠ WARNING: Feature-network jniLibs directory does not exist (module may be optional)"
+          else
+            verify_library "${NETWORK_JNI_LIBS}/arm64-v8a/libconnectias_port_scanner.so" "feature-network/libconnectias_port_scanner.so (arm64-v8a)"
+          fi
+          
+          echo ""
+          echo "=== Summary ==="
+          if [ $MISSING_LIBS -eq 0 ]; then
+            echo "✓ All required Rust libraries verified successfully"
+            echo ""
+            echo "All available native libraries:"
+            find "${WORKSPACE}" -path "*/jniLibs/*/*.so" -type f | sort
+          else
+            echo "✗ ERROR: ${MISSING_LIBS} required library/libraries missing"
+            exit 1
+          fi
 
       - name: Calculate version and APK name
         id: version
