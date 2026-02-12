@@ -33,7 +33,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: OWASP Dependency Check
-        uses: dependency-check/Dependency-Check_Action@main
+        uses: dependency-check/Dependency-Check_Action@v3
         env:
           # actions/setup-java changes JAVA_HOME so it needs to be reset to match the depcheck image
           JAVA_HOME: /opt/jdk
@@ -41,9 +41,10 @@ jobs:
           project: 'Connectias'
           path: '.'
           format: 'HTML'
-          out: 'dependency-check-report.html'
           args: >-
+            --scan .
             --fail-on-cvss 7.0
+            --out dependency-check-report.html
         continue-on-error: true
 
       - name: Upload OWASP Dependency Check report

@@ -18,11 +18,9 @@ jobs:
         with:
           components: rustfmt, clippy
 
-      - name: Install cargo-audit
-        if: hashFiles('**/Cargo.toml') != ''
-        run: cargo install cargo-audit
-
       - name: Rust Security Audit
         if: hashFiles('**/Cargo.toml') != ''
-        working-directory: core/src/main/rust
-        run: cargo audit
+        uses: rustsec/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: core/src/main/rust
