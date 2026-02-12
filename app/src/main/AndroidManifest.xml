@@ -54,9 +54,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.App.Starting.Fullscreen">
+        <!-- Security: taskAffinity="" prevents StrandHogg 2.0 task hijacking -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:taskAffinity=""
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|screenLayout">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -69,7 +71,7 @@
             android:name=".SecurityBlockedActivity"
             android:exported="false"
             android:theme="@style/Theme.Connectias.Fullscreen"
-            android:launchMode="singleTask"/>
+            android:launchMode="singleTop"/>
         
         <!-- Baseline Profile Components -->
         <provider

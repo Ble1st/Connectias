@@ -15,4 +15,6 @@
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:usesPermissionFlags="neverForLocation" />
 
+    <application android:allowBackup="false" />
+
 </manifest>

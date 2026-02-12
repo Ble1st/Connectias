@@ -33,12 +33,12 @@ jobs:
       - name: Run mobsfscan (Android source)
         id: scan
         run: |
-          pip install --quiet mobsfscan
-          mobsfscan app plugin core common feature-settings plugin-sdk benchmark \
+          pip install --quiet mobsfscan semgrep
+          mobsfscan app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark \
             --type android \
             --json --output mobsfscan-report.json \
             --no-fail || true
-          mobsfscan app plugin core common feature-settings plugin-sdk benchmark \
+          mobsfscan app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark \
             --type android \
             --sarif --output mobsfscan-results.sarif \
             --no-fail || true

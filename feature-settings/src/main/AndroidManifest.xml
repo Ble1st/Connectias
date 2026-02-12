@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest>
     <!-- No special permissions required for settings feature -->
+    
+    <application android:allowBackup="false" />
 </manifest>
 

@@ -1,0 +1,110 @@
+# Extended Mobile Security Scan
+# Combines mobsfscan (MobSF rules) + Semgrep (deep pattern analysis) for comprehensive security scanning.
+# Uses multiple rule sets: Android-specific, OWASP Mobile Top 10, and security audit patterns.
+# See: https://github.com/MobSF/mobsfscan and https://semgrep.dev
+
+name: Extended Mobile Security Scan
+
+on:
+  push:
+    branches: [ main, devel ]
+  pull_request:
+    branches: [ main, devel ]
+  schedule:
+    - cron: '0 4 * * 0'  # Sunday 4 AM (after regular scan)
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  extended-security-scan:
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install security scanning tools
+        run: |
+          pip install --quiet mobsfscan semgrep
+
+      - name: Run mobsfscan (Mobile Security Framework rules)
+        id: mobsfscan
+        continue-on-error: true
+        run: |
+          echo "Running mobsfscan with all feature modules..."
+          mobsfscan app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark \
+            --type android \
+            --json --output mobsfscan-report.json \
+            --html --output mobsfscan-report.html \
+            --sarif --output mobsfscan-results.sarif \
+            --no-fail || true
+
+      - name: Run Semgrep (Android-specific rules)
+        id: semgrep_android
+        continue-on-error: true
+        run: |
+          echo "Running Semgrep with Android-specific rules..."
+          semgrep --config=p/android \
+            --json --output semgrep-android-report.json \
+            --no-git-ignore \
+            app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark || true
+
+      - name: Run Semgrep (OWASP Mobile Top 10)
+        id: semgrep_owasp
+        continue-on-error: true
+        run: |
+          echo "Running Semgrep with OWASP Mobile Top 10 rules..."
+          semgrep --config=p/owasp-mobile-top-ten \
+            --json --output semgrep-owasp-report.json \
+            --no-git-ignore \
+            app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark || true
+
+      - name: Run Semgrep (Security Audit)
+        id: semgrep_security
+        continue-on-error: true
+        run: |
+          echo "Running Semgrep with security audit rules..."
+          semgrep --config=p/security-audit \
+            --json --output semgrep-security-report.json \
+            --no-git-ignore \
+            app plugin core common feature-settings feature-dnstools feature-network feature-password feature-scanner plugin-sdk benchmark || true
+
+      - name: Upload mobsfscan reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobsfscan-reports
+          path: |
+            mobsfscan-report.json
+            mobsfscan-report.html
+            mobsfscan-results.sarif
+          retention-days: 30
+          continue-on-error: true
+
+      - name: Upload Semgrep reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-reports
+          path: |
+            semgrep-android-report.json
+            semgrep-owasp-report.json
+            semgrep-security-report.json
+          retention-days: 30
+          continue-on-error: true
+
+      - name: Upload SARIF to Code Scanning (mobsfscan)
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: mobsfscan-results.sarif
+          category: mobile-security-scan-mobsf
+        continue-on-error: true

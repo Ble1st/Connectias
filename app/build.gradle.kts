@@ -38,6 +38,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            // Security: Explicitly disable debugging and testOnly in release builds
+            isDebuggable = false
+            isTestOnly = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
