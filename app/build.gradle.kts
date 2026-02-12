@@ -38,9 +38,8 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            // Security: Explicitly disable debugging and testOnly in release builds
+            // Security: Explicitly disable debugging in release builds
             isDebuggable = false
-            isTestOnly = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -107,7 +106,7 @@ android {
     // Ensure local jniLibs (with 16KB-aligned libc++) are processed first
     sourceSets {
         getByName("main") {
-            jniLibs.setSrcDirs(listOf("src/main/jniLibs"))
+            jniLibs.srcDirs("src/main/jniLibs")
         }
     }
 }
