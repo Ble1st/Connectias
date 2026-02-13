@@ -29,9 +29,6 @@ android {
         versionName = project.findProperty("versionName") as? String ?: "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        // Enable MultiDex for apps with more than 64K methods (31 DEX files)
-        multiDexEnabled = true
     }
 
     buildTypes {
@@ -287,9 +284,6 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-    
-    // MultiDex support for apps with >64K methods (31 DEX files)
-    implementation(libs.androidx.multidex)
 
     // Jetpack Compose
     implementation(platform(libs.androidx.compose.bom))
