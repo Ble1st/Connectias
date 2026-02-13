@@ -504,11 +504,6 @@
     int remaining();
 }
 
-# Keep Multidex support classes
--keep class androidx.multidex.MultiDex { *; }
--keep class androidx.multidex.MultiDexApplication { *; }
--dontwarn androidx.multidex.**
-
 # Keep all classes that might be loaded dynamically by plugins
 # This is important for reflection-based plugin instantiation
 -keepclassmembers class * {

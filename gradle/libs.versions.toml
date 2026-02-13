@@ -12,7 +12,6 @@ appcompat = "1.7.1"
 material = "1.13.0"
 activity = "1.12.3"
 constraintlayout = "2.2.1"
-multidex = "2.0.1"
 
 # Hilt Dependency Injection
 # Updated to 2.59 for AGP 9.0 compatibility (released Jan 21, 2026)
@@ -134,7 +133,6 @@ androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version
 androidx-activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "coreSplashscreen" }
-androidx-multidex = { group = "androidx.multidex", name = "multidex", version.ref = "multidex" }
 
 # Material Design
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
