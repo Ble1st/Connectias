@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/app/app_router.dart';
+import '../../../core/app/app_router.dart';
+import '../view_model/dashboard_view_model.dart';
 
 /// Main dashboard screen with module tiles.
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(dashboardViewModelProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Connectias'),
@@ -54,6 +58,11 @@ class DashboardScreen extends StatelessWidget {
               title: 'Settings',
               icon: Icons.settings,
               route: AppRouter.settings,
+            ),
+            _DashboardTile(
+              title: 'Logs',
+              icon: Icons.article,
+              route: AppRouter.logging,
             ),
           ],
         ),

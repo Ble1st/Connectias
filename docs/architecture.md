@@ -344,3 +344,254 @@ This section describes the conceptual modules. Concrete package names and file p
 - Share core Rust crates between Android and other platforms (Linux desktop, potentially Windows) to reuse protocol and filesystem logic.
 - Add more diagnostic modules (e.g. advanced SSL/TLS analysis, traceroute).
 
+---
+
+### 8. Flutter App Architecture (MVVM + Domain Layer)
+
+This section describes the recommended architecture for the Flutter part of Connectias using an MVVM pattern plus an optional Domain layer, tailored to the current codebase and planned features.
+
+#### 8.1 Goals
+
+- Clear separation of concerns between UI, state management, business logic, and platform/data access.
+- Feature‑oriented structure (each feature owns its Views, ViewModels, Use‑Cases, and Repositories).
+- High testability (ViewModels and Use‑Cases can be unit tested without Flutter widgets or platform code).
+- Predictable data flow and easier onboarding for new contributors.
+
+#### 8.2 Layers Overview
+
+At a high level, the Flutter side is organized into three logical layers:
+
+- **UI layer (Views)**
+  - Flutter widgets responsible only for layout, styling, and routing.
+  - Examples in the current project: `ConnectiasApp`, `DashboardScreen`, `StorageMediaScreen`, `UsbDevicesDashboard`, `NetworkScreen`, `DnsScreen`, `PasswordScreen`, `ScannerScreen`, `NotesScreen`, `SettingsScreen`.
+
+- **Domain layer (Use‑Cases)**
+  - Plain Dart classes that implement feature‑specific business logic.
+  - Optionally sit between ViewModels and Repositories when logic becomes reusable, complex, or combines multiple data sources.
+
+- **Data layer (Repositories & Services)**
+  - **Repositories**: source of truth for feature data (error handling, caching, mapping from services to domain models).
+  - **Services**: thin wrappers around external APIs and platform bridges such as:
+    - `UsbBridge` (Android USB via `MethodChannel`).
+    - Future FFI services for Rust modules (filesystem, network, DNS, password tools).
+
+Flutter never talks directly to Kotlin or Rust in UI code. All external calls go through Services and Repositories.
+
+#### 8.3 Recommended Dart Structure
+
+The following structure is recommended for the Flutter part under `lib/src` (adjust as needed as the app grows):
+
+- `core/`
+  - `app/` — app shell (`connectias_app.dart`, `app_router.dart`).
+  - `theme/` — global theming (`app_theme.dart`).
+  - `di/` (optional) — dependency injection / service locator wiring.
+
+- `features/`
+  - `<feature_name>/`
+    - `ui/` — screens and widgets (Views).
+    - `view_model/` — ViewModel classes.
+    - `domain/` — Use‑Cases (optional, per feature).
+    - `data/` — Repositories and mappers.
+    - `services/` — Flutter‑side service wrappers for platform channels and FFI calls (e.g. `UsbBridge`).
+
+Example for the Storage & Media feature:
+
+- `features/storage_media/ui/storage_media_screen.dart`
+- `features/storage_media/ui/usb_devices_dashboard.dart`
+- `features/storage_media/view_model/usb_devices_view_model.dart`
+- `features/storage_media/domain/list_usb_devices_use_case.dart`
+- `features/storage_media/data/usb_devices_repository.dart`
+- `features/storage_media/services/usb_bridge.dart` (current `UsbBridge` can live here)
+
+This makes each feature vertically sliceable and largely self‑contained.
+
+#### 8.4 UI Layer: Views
+
+**Responsibilities**
+
+- Render the current UI state (usually provided by a ViewModel).
+- Forward user interactions (taps, scrolls, form submissions) to the ViewModel via callbacks.
+- Perform simple UI‑only logic:
+  - Layout adaptations (screen size/orientation).
+  - Simple `if`/`switch` for showing placeholders or error banners.
+  - Animations and navigation (`Navigator`, or later a router package).
+
+**Non‑Responsibilities**
+
+- No direct calls to platform channels (`MethodChannel`, `EventChannel`) or `dart:ffi`.
+- No business rules (e.g. how USB devices are filtered or sorted).
+- No persistence or caching logic.
+
+Each feature should have a one‑to‑one mapping between **View** and **ViewModel** where possible:
+
+- `DashboardScreen` ↔ `DashboardViewModel`
+- `StorageMediaScreen` / `UsbDevicesDashboard` ↔ `UsbDevicesViewModel`
+- `NetworkScreen` ↔ `NetworkViewModel`
+- `DnsScreen` ↔ `DnsViewModel`
+- `PasswordScreen` ↔ `PasswordViewModel`
+- `ScannerScreen` ↔ `ScannerViewModel`
+- `NotesScreen` ↔ `NotesViewModel`
+- `SettingsScreen` ↔ `SettingsViewModel`
+
+#### 8.5 UI Layer: ViewModels
+
+**Responsibilities**
+
+- Hold and expose UI state as immutable models (e.g. `UsbDevicesState`) that Views can listen to.
+- Expose commands (methods or callbacks) that the View can call in response to user actions (e.g. `refreshDevices()`, `retry()`, `selectDevice()`).
+- Interact with:
+  - Repositories directly, and/or
+  - Use‑Cases in the Domain layer for more complex flows.
+- Manage subscriptions to streams from Repositories (e.g. USB device event streams).
+
+**Non‑Responsibilities**
+
+- No direct platform or FFI calls (delegated to Services via Repositories).
+- No widget code, `BuildContext` usage, or layout logic.
+
+**Example for Storage & Media (conceptual)**
+
+- `UsbDevicesViewModel`
+  - Depends on `UsbDevicesRepository` and optionally `ListUsbDevicesUseCase`.
+  - Exposes:
+    - `UsbDevicesState state` (or a stream/notifier of it).
+    - `Future<void> refresh()` to reload devices.
+    - `void onDeviceEventsSubscribed()` to start listening to attach/detach events.
+
+#### 8.6 Data Layer: Repositories
+
+Repositories are the central source of truth for feature data.
+
+**Responsibilities**
+
+- Consume low‑level Services (platform channels, FFI bridges).
+- Map raw data (`Map<Object?, Object?>`, FFI structs) into typed domain models (`UsbDeviceInfo`, network scan results, DNS records, etc.).
+- Implement business rules related to data retrieval:
+  - Caching and in‑memory state.
+  - Retry and backoff strategies.
+  - Combining multiple services for one feature.
+- Expose **high‑level APIs** to ViewModels and Use‑Cases, such as:
+  - `Future<List<UsbDeviceInfo>> listDevices()`
+  - `Stream<List<UsbDeviceInfo>> watchDevices()`
+
+**Non‑Responsibilities**
+
+- No UI concepts (no `BuildContext`, themes, localization).
+- No widget‑driven state (they are purely data‑focused).
+
+For the USB feature, a recommended repository is:
+
+- `UsbDevicesRepository`
+  - Wraps `UsbBridge`.
+  - Normalizes and validates incoming data.
+  - Optionally caches the last known device list.
+
+#### 8.7 Data Layer: Services
+
+Services are the lowest Flutter layer before platform/FFI boundaries.
+
+**Responsibilities**
+
+- Encapsulate raw calls to:
+  - Android via `MethodChannel` / `EventChannel` (e.g. `UsbBridge`).
+  - Rust libraries via `dart:ffi` (future `FsService`, `NetworkService`, `DnsService`, `PasswordService`).
+- Provide minimal, low‑level APIs that operate on simple Dart types or FFI pointers/handles.
+- Stay stateless where possible.
+
+**Non‑Responsibilities**
+
+- No UI logic, error message mapping, or caching.
+- No feature‑level business rules (those belong in Repositories or Use‑Cases).
+
+The existing `UsbBridge` already follows this pattern and can be treated as a Service.
+
+#### 8.8 Domain Layer: Use‑Cases (Optional but Recommended)
+
+The Domain layer is a thin but powerful layer for complex or cross‑feature logic.
+
+**When to introduce a Use‑Case**
+
+- Logic is reused by multiple ViewModels (e.g. listing USB devices on dashboard and Storage & Media screens).
+- Logic is complex (multiple conditional branches, timeouts, retries).
+- Logic requires data from multiple Repositories (e.g. combining USB devices with filesystem info or settings).
+
+**Responsibilities**
+
+- Implement a single, focused business action:
+  - `ListUsbDevicesUseCase`
+  - `WatchUsbDevicesUseCase`
+  - `ScanNetworkUseCase`
+  - `ResolveDnsRecordUseCase`
+  - `GenerateSecurePasswordUseCase`
+- Accept simple input parameters and return either:
+  - Domain models, or
+  - Streams/Futures of domain models, or
+  - Result types encapsulating success and error cases.
+
+**Non‑Responsibilities**
+
+- No UI or widget code.
+- No direct platform/FFI calls (always through Repositories).
+
+For example, the Storage & Media feature could define:
+
+- `ListUsbDevicesUseCase`
+  - Depends on `UsbDevicesRepository`.
+  - Provides a method `Future<List<UsbDeviceInfo>> call()` used by `UsbDevicesViewModel`.
+
+#### 8.9 Example: USB Devices Data Flow
+
+The recommended data flow for the USB devices dashboard is:
+
+1. `UsbDevicesDashboard` (View) requests data via `UsbDevicesViewModel`.
+2. `UsbDevicesViewModel` calls `ListUsbDevicesUseCase` (Domain) or directly `UsbDevicesRepository`.
+3. `UsbDevicesRepository` uses `UsbBridge` (Service) to call into the Android USB bridge.
+4. The Android USB bridge communicates with the OS and returns raw device information.
+5. `UsbBridge` maps it into `UsbDeviceInfo` objects and returns them to `UsbDevicesRepository`.
+6. `UsbDevicesRepository` applies any feature‑specific rules (filtering, sorting, caching).
+7. `UsbDevicesViewModel` updates its immutable state, which notifies `UsbDevicesDashboard`.
+8. The View rebuilds and renders the updated list of devices or error state.
+
+A simplified diagram:
+
+```mermaid
+flowchart LR
+  subgraph UI[UI Layer]
+    UsbDevicesDashboard
+  end
+
+  subgraph Domain[Domain Layer]
+    ListUsbDevicesUseCase
+  end
+
+  subgraph Data[Data Layer]
+    UsbDevicesRepository
+    UsbBridge
+  end
+
+  UsbDevicesDashboard --> ListUsbDevicesUseCase
+  ListUsbDevicesUseCase --> UsbDevicesRepository
+  UsbDevicesRepository --> UsbBridge
+```
+
+#### 8.10 State Representation
+
+Each ViewModel should expose a dedicated immutable state type describing everything the View needs to render. For example, for USB devices:
+
+- `UsbDevicesState`
+  - `bool isLoading`
+  - `List<UsbDeviceInfo> devices`
+  - `String? errorMessage`
+
+Views observe this state and render:
+
+- Loading indicators (`isLoading == true`).
+- Error UI (`errorMessage != null`) with retry buttons calling ViewModel commands.
+- The device list when available.
+
+This matches the recommended Flutter app architecture where UI reacts to state changes while all logic and side effects are handled in the ViewModel, Domain, and Data layers.
+
+- Replace C DVD libraries with pure Rust implementations if maturity allows.
+- Share core Rust crates between Android and other platforms (Linux desktop, potentially Windows) to reuse protocol and filesystem logic.
+- Add more diagnostic modules (e.g. advanced SSL/TLS analysis, traceroute).
+

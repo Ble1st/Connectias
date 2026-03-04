@@ -2,14 +2,16 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'app_router.dart';
-import '../../features/dashboard/dashboard_screen.dart';
-import '../../features/storage_media/storage_media_screen.dart';
-import '../../features/network/network_screen.dart';
-import '../../features/dns/dns_screen.dart';
-import '../../features/password/password_screen.dart';
-import '../../features/scanner/scanner_screen.dart';
-import '../../features/notes/notes_screen.dart';
-import '../../features/settings/settings_screen.dart';
+import '../../features/dashboard/ui/dashboard_screen.dart';
+import '../../features/storage_media/ui/storage_media_screen.dart';
+import '../../features/storage_media/ui/file_explorer_screen.dart';
+import '../../features/logging/ui/logging_screen.dart';
+import '../../features/network/ui/network_screen.dart';
+import '../../features/dns/ui/dns_screen.dart';
+import '../../features/password/ui/password_screen.dart';
+import '../../features/scanner/ui/scanner_screen.dart';
+import '../../features/notes/ui/notes_screen.dart';
+import '../../features/settings/ui/settings_screen.dart';
 
 /// Root application widget.
 class ConnectiasApp extends StatelessWidget {
@@ -24,12 +26,20 @@ class ConnectiasApp extends StatelessWidget {
       routes: {
         AppRouter.dashboard: (_) => const DashboardScreen(),
         AppRouter.storageMedia: (_) => const StorageMediaScreen(),
+        AppRouter.fileExplorer: (ctx) {
+          final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+          return FileExplorerScreen(
+            deviceId: args?['deviceId'] as String? ?? '',
+            deviceName: args?['deviceName'] as String?,
+          );
+        },
         AppRouter.network: (_) => const NetworkScreen(),
         AppRouter.dns: (_) => const DnsScreen(),
         AppRouter.password: (_) => const PasswordScreen(),
         AppRouter.scanner: (_) => const ScannerScreen(),
         AppRouter.notes: (_) => const NotesScreen(),
         AppRouter.settings: (_) => const SettingsScreen(),
+        AppRouter.logging: (_) => const LoggingScreen(),
       },
     );
   }
