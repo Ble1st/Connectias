@@ -62,6 +62,15 @@ pub fn build_test_unit_ready_cdb() -> [u8; 6] {
     cdb
 }
 
+/// Build INQUIRY CDB (standard, page 0, 36 bytes).
+/// Byte 0 of response: 0x00 = block, 0x05 = CD/DVD-ROM
+pub fn build_inquiry_cdb() -> [u8; 6] {
+    let mut cdb = [0u8; 6];
+    cdb[0] = INQUIRY;
+    cdb[4] = 36; // allocation length
+    cdb
+}
+
 /// Parse CSW (Command Status Wrapper). Returns (signature_ok, tag_ok, status, residue).
 pub fn parse_csw(buf: &[u8]) -> io::Result<(bool, bool, u8, u32)> {
     if buf.len() < CSW_SIZE {

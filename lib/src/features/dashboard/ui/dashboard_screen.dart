@@ -64,6 +64,11 @@ class DashboardScreen extends ConsumerWidget {
               icon: Icons.article,
               route: AppRouter.logging,
             ),
+            _DashboardTile(
+              title: 'DVD-Player',
+              icon: Icons.disc_full,
+              route: AppRouter.dvd,
+            ),
           ],
         ),
       ),

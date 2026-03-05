@@ -30,6 +30,26 @@ impl ScsiBlockDevice {
         Ok(dev)
     }
 
+    /// Create without read_capacity (e.g. for INQUIRY on devices that may not support it).
+    pub fn new_minimal(transfer: Box<dyn TransferHandler>, session_id: u64) -> Self {
+        Self {
+            session_id,
+            transfer,
+            block_size: 512,
+            block_count: 0,
+            tag: std::sync::atomic::AtomicU32::new(1),
+        }
+    }
+
+    /// Run SCSI INQUIRY and return peripheral device type (byte 0).
+    /// 0x00 = block, 0x05 = CD/DVD-ROM
+    pub fn inquiry(&self) -> io::Result<u8> {
+        let cdb = scsi::build_inquiry_cdb();
+        let mut buf = [0u8; 36];
+        self.execute_command(&cdb, Some((buf.as_mut_ptr(), 36)), scsi::DIRECTION_IN)?;
+        Ok(buf[0])
+    }
+
     fn next_tag(&self) -> u32 {
         self.tag.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
     }

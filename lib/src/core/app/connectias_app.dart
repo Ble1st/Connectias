@@ -12,6 +12,8 @@ import '../../features/password/ui/password_screen.dart';
 import '../../features/scanner/ui/scanner_screen.dart';
 import '../../features/notes/ui/notes_screen.dart';
 import '../../features/settings/ui/settings_screen.dart';
+import '../../features/dvd/ui/dvd_player_screen.dart';
+import '../../features/dvd/ui/dvd_device_screen.dart';
 
 /// Root application widget.
 class ConnectiasApp extends StatelessWidget {
@@ -40,6 +42,14 @@ class ConnectiasApp extends StatelessWidget {
         AppRouter.notes: (_) => const NotesScreen(),
         AppRouter.settings: (_) => const SettingsScreen(),
         AppRouter.logging: (_) => const LoggingScreen(),
+        AppRouter.dvd: (_) => const DvdDeviceScreen(),
+        AppRouter.dvdPlayer: (ctx) {
+          final args = ModalRoute.of(ctx)?.settings.arguments as Map<String, dynamic>?;
+          return DvdPlayerScreen(
+            deviceId: args?['deviceId'] as String? ?? '',
+            deviceName: args?['deviceName'] as String?,
+          );
+        },
       },
     );
   }

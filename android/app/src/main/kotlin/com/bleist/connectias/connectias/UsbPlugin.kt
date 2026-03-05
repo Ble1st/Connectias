@@ -40,6 +40,7 @@ class UsbPlugin(
     private val sessions = HashMap<Long, UsbSession>()
     private val sessionIdGenerator = AtomicLong(1)
     private val volumeToSession = HashMap<Long, Long>()
+    private val dvdToSession = HashMap<Long, Long>()
 
     private val usbReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -215,6 +216,151 @@ class UsbPlugin(
                 } catch (e: Exception) {
                     result.error("USB_ERROR", e.message, null)
                 }
+            }
+            "getDeviceType" -> {
+                val deviceId = call.argument<String>("deviceId")
+                if (deviceId == null) {
+                    result.error("USB_ERROR", "deviceId required", null)
+                    return
+                }
+                try {
+                    val sessionId = openDevice(deviceId)
+                    if (sessionId == null) {
+                        result.error("USB_ERROR", "Failed to open device", null)
+                        return
+                    }
+                    val handler = object : BulkTransferHandler {
+                        override fun bulkOut(data: ByteArray): Int = bulkTransferOut(sessionId, data)
+                        override fun bulkIn(maxLength: Int): ByteArray = bulkTransferIn(sessionId, maxLength)
+                    }
+                    val type = NativeBridge.getDeviceType(sessionId, handler)
+                    closeDevice(sessionId)
+                    result.success(type ?: "block")
+                } catch (e: Exception) {
+                    result.error("USB_ERROR", e.message, null)
+                }
+            }
+            "openDvd" -> {
+                val deviceId = call.argument<String>("deviceId")
+                if (deviceId == null) {
+                    result.error("USB_ERROR", "deviceId required", null)
+                    return
+                }
+                try {
+                    val sessionId = openDevice(deviceId)
+                    if (sessionId == null) {
+                        result.error("USB_ERROR", "Failed to open device", null)
+                        return
+                    }
+                    val handler = object : BulkTransferHandler {
+                        override fun bulkOut(data: ByteArray): Int = bulkTransferOut(sessionId, data)
+                        override fun bulkIn(maxLength: Int): ByteArray = bulkTransferIn(sessionId, maxLength)
+                    }
+                    val dvdHandle = NativeBridge.openDvd(sessionId, handler)
+                    if (dvdHandle < 0) {
+                        closeDevice(sessionId)
+                        result.error("DVD_ERROR", NativeBridge.lastError() ?: "Open failed", null)
+                        return
+                    }
+                    dvdToSession[dvdHandle] = sessionId
+                    result.success(dvdHandle)
+                } catch (e: Exception) {
+                    result.error("USB_ERROR", e.message, null)
+                }
+            }
+            "closeDvd" -> {
+                val dvdHandle = call.argument<Number>("dvdHandle")?.toLong()
+                if (dvdHandle == null) {
+                    result.error("USB_ERROR", "dvdHandle required", null)
+                    return
+                }
+                NativeBridge.closeDvd(dvdHandle)
+                dvdToSession.remove(dvdHandle)?.let { closeDevice(it) }
+                result.success(null)
+            }
+            "dvdListTitles" -> {
+                val dvdHandle = call.argument<Number>("dvdHandle")?.toLong()
+                if (dvdHandle == null) {
+                    result.error("USB_ERROR", "dvdHandle required", null)
+                    return
+                }
+                try {
+                    result.success(NativeBridge.dvdListTitles(dvdHandle) ?: "[]")
+                } catch (e: Exception) {
+                    result.error("DVD_ERROR", e.message, null)
+                }
+            }
+            "dvdListChapters" -> {
+                val dvdHandle = call.argument<Number>("dvdHandle")?.toLong()
+                val titleId = call.argument<Int>("titleId") ?: 1
+                if (dvdHandle == null) {
+                    result.error("USB_ERROR", "dvdHandle required", null)
+                    return
+                }
+                try {
+                    result.success(NativeBridge.dvdListChapters(dvdHandle, titleId) ?: "[]")
+                } catch (e: Exception) {
+                    result.error("DVD_ERROR", e.message, null)
+                }
+            }
+            "dvdOpenTitleStream" -> {
+                val dvdHandle = call.argument<Number>("dvdHandle")?.toLong()
+                val titleId = call.argument<Int>("titleId") ?: 1
+                if (dvdHandle == null) {
+                    result.error("USB_ERROR", "dvdHandle required", null)
+                    return
+                }
+                try {
+                    val streamId = NativeBridge.dvdOpenTitleStream(dvdHandle, titleId)
+                    if (streamId < 0) {
+                        result.error("DVD_ERROR", NativeBridge.lastError() ?: "Open stream failed", null)
+                        return
+                    }
+                    result.success(streamId)
+                } catch (e: Exception) {
+                    result.error("DVD_ERROR", e.message, null)
+                }
+            }
+            "dvdReadStream" -> {
+                val streamId = call.argument<Number>("streamId")?.toLong()
+                val length = call.argument<Int>("length") ?: 65536
+                if (streamId == null) {
+                    result.error("USB_ERROR", "streamId required", null)
+                    return
+                }
+                try {
+                    val buf = ByteArray(length)
+                    val n = NativeBridge.dvdReadStream(streamId, buf)
+                    if (n < 0) {
+                        result.error("DVD_ERROR", NativeBridge.lastError() ?: "Read failed", null)
+                        return
+                    }
+                    result.success(buf.take(n).map { it.toInt() }.toList())
+                } catch (e: Exception) {
+                    result.error("DVD_ERROR", e.message, null)
+                }
+            }
+            "dvdSeekStream" -> {
+                val streamId = call.argument<Number>("streamId")?.toLong()
+                val offset = call.argument<Number>("offset")?.toLong() ?: 0L
+                if (streamId == null) {
+                    result.error("USB_ERROR", "streamId required", null)
+                    return
+                }
+                try {
+                    result.success(NativeBridge.dvdSeekStream(streamId, offset))
+                } catch (e: Exception) {
+                    result.error("DVD_ERROR", e.message, null)
+                }
+            }
+            "dvdCloseStream" -> {
+                val streamId = call.argument<Number>("streamId")?.toLong()
+                if (streamId == null) {
+                    result.error("USB_ERROR", "streamId required", null)
+                    return
+                }
+                NativeBridge.dvdCloseStream(streamId)
+                result.success(null)
             }
             "closeVolume" -> {
                 val volumeId = call.argument<Number>("volumeId")?.toLong()

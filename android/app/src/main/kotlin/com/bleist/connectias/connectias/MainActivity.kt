@@ -10,6 +10,7 @@ class MainActivity : FlutterActivity() {
 
     private lateinit var usbPlugin: UsbPlugin
     private lateinit var loggingPlugin: LoggingPlugin
+    private lateinit var dvdPlayerPlugin: DvdPlayerPlugin
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -20,6 +21,7 @@ class MainActivity : FlutterActivity() {
         )
         usbPlugin = UsbPlugin(this, logChannel)
         loggingPlugin = LoggingPlugin(this)
+        dvdPlayerPlugin = DvdPlayerPlugin(this)
         logChannel.setMethodCallHandler(loggingPlugin)
 
         MethodChannel(
@@ -36,6 +38,11 @@ class MainActivity : FlutterActivity() {
             flutterEngine.dartExecutor.binaryMessenger,
             "com.bleist.connectias/usb_permission_result",
         ).setStreamHandler(usbPlugin.permissionResultStreamHandler)
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "com.bleist.connectias/dvd",
+        ).setMethodCallHandler(dvdPlayerPlugin)
     }
 
     @Deprecated("Deprecated in Java")

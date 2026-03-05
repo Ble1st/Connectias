@@ -27,6 +27,23 @@ class UsbDirectoryEntry {
       if (decoded == null) return [];
       return decoded
           .map((e) => UsbDirectoryEntry.fromJson(Map<String, dynamic>.from(e as Map)))
+          .where((entry) {
+            final name = entry.name;
+            if (name.isEmpty) {
+              return false;
+            }
+            // Hide NTFS metadata files and common system folders from the UI.
+            final lower = name.toLowerCase();
+            if (name.startsWith(r'$')) {
+              return false;
+            }
+            if (lower == 'system volume information' ||
+                lower == r'$recycle.bin' ||
+                lower == 'recycler') {
+              return false;
+            }
+            return true;
+          })
           .toList();
     } catch (_) {
       return [];

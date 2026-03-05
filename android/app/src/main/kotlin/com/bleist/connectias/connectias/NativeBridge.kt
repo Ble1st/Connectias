@@ -43,4 +43,15 @@ object NativeBridge {
      * Returns last error message from Rust.
      */
     external fun lastError(): String?
+
+    // DVD operations (requires libdvdread)
+    external fun getDeviceType(sessionId: Long, handler: BulkTransferHandler): String?
+    external fun openDvd(sessionId: Long, handler: BulkTransferHandler): Long
+    external fun closeDvd(dvdHandle: Long)
+    external fun dvdListTitles(dvdHandle: Long): String?
+    external fun dvdListChapters(dvdHandle: Long, titleId: Int): String?
+    external fun dvdOpenTitleStream(dvdHandle: Long, titleId: Int): Long
+    external fun dvdReadStream(streamId: Long, buffer: ByteArray): Int
+    external fun dvdSeekStream(streamId: Long, offset: Long): Boolean
+    external fun dvdCloseStream(streamId: Long)
 }

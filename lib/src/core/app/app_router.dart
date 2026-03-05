@@ -10,4 +10,6 @@ abstract final class AppRouter {
   static const String notes = '/notes';
   static const String settings = '/settings';
   static const String logging = '/logging';
+  static const String dvd = '/dvd';
+  static const String dvdPlayer = '/dvd-player';
 }

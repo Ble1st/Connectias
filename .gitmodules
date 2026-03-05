@@ -1,0 +1,6 @@
+[submodule "third_party/libdvdread"]
+	path = third_party/libdvdread
+	url = https://code.videolan.org/videolan/libdvdread.git
+[submodule "third_party/libdvdcss"]
+	path = third_party/libdvdcss
+	url = https://code.videolan.org/videolan/libdvdcss.git
